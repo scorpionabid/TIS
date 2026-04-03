@@ -3,15 +3,16 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class RegionalAttendanceExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
+class RegionalAttendanceExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles
 {
     protected $data;
+
     protected $filters;
 
     public function __construct(array $data, array $filters)
@@ -36,7 +37,7 @@ class RegionalAttendanceExport implements FromCollection, WithHeadings, WithMapp
             'Orta Davamiyyət (%)',
             'Forma pozuntusu',
             'Məktəbli forma (%)',
-            'Status'
+            'Status',
         ];
     }
 
@@ -58,7 +59,7 @@ class RegionalAttendanceExport implements FromCollection, WithHeadings, WithMapp
             $school['average_attendance_rate'] . '%',
             $school['total_uniform_violations'] ?? 0,
             isset($school['uniform_compliance_rate']) ? ($school['uniform_compliance_rate'] . '%') : '0%',
-            $status
+            $status,
         ];
     }
 

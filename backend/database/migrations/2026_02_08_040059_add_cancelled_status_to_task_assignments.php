@@ -16,8 +16,8 @@ return new class extends Migration
             // Skip constraint modification for SQLite
             return;
         }
-        
-        DB::statement("ALTER TABLE task_assignments DROP CONSTRAINT IF EXISTS task_assignments_assignment_status_check");
+
+        DB::statement('ALTER TABLE task_assignments DROP CONSTRAINT IF EXISTS task_assignments_assignment_status_check');
         DB::statement("ALTER TABLE task_assignments ADD CONSTRAINT task_assignments_assignment_status_check CHECK (assignment_status::text = ANY (ARRAY['pending'::text, 'accepted'::text, 'in_progress'::text, 'completed'::text, 'rejected'::text, 'delegated'::text, 'cancelled'::text]))");
     }
 
@@ -31,8 +31,8 @@ return new class extends Migration
             // Skip constraint modification for SQLite
             return;
         }
-        
-        DB::statement("ALTER TABLE task_assignments DROP CONSTRAINT IF EXISTS task_assignments_assignment_status_check");
+
+        DB::statement('ALTER TABLE task_assignments DROP CONSTRAINT IF EXISTS task_assignments_assignment_status_check');
         DB::statement("ALTER TABLE task_assignments ADD CONSTRAINT task_assignments_assignment_status_check CHECK (assignment_status::text = ANY (ARRAY['pending'::text, 'accepted'::text, 'in_progress'::text, 'completed'::text, 'rejected'::text, 'delegated'::text]))");
     }
 };

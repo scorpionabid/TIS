@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Grade;
 use App\Models\Institution;
-use App\Models\Role;
 use App\Models\Student;
 use App\Models\User;
 use Exception;
@@ -117,14 +116,14 @@ class StudentImportExportService extends BaseService
 
             // Gender mapping: Azerbaijani → English DB values
             $genderMap = [
-                'kişi'   => 'male',
-                'qadin'  => 'female',
-                'qadın'  => 'female',
-                'digər'  => 'other',
-                'diger'  => 'other',
-                'male'   => 'male',
+                'kişi' => 'male',
+                'qadin' => 'female',
+                'qadın' => 'female',
+                'digər' => 'other',
+                'diger' => 'other',
+                'male' => 'male',
                 'female' => 'female',
-                'other'  => 'other',
+                'other' => 'other',
             ];
 
             foreach ($data as $index => $row) {
@@ -143,10 +142,12 @@ class StudentImportExportService extends BaseService
                 // Validate required fields
                 if (empty(trim($row[0] ?? '')) || empty(trim($row[1] ?? ''))) {
                     $results['errors'][] = "Sətir {$rowNum}: Ad və soyad tələb olunur";
+
                     continue;
                 }
                 if (empty(trim($row[2] ?? ''))) {
                     $results['errors'][] = "Sətir {$rowNum}: Şagird nömrəsi tələb olunur";
+
                     continue;
                 }
 
@@ -154,6 +155,7 @@ class StudentImportExportService extends BaseService
                 $studentNumber = trim($row[2]);
                 if (Student::where('student_number', $studentNumber)->exists()) {
                     $results['errors'][] = "Sətir {$rowNum}: Şagird nömrəsi artıq mövcuddur: {$studentNumber}";
+
                     continue;
                 }
 
@@ -175,6 +177,7 @@ class StudentImportExportService extends BaseService
                     $grade = $query->first();
                     if (! $grade) {
                         $results['errors'][] = "Sətir {$rowNum}: Bu qurumda '{$gradeRaw}' sinfi tapılmadı";
+
                         continue;
                     }
                     $gradeId = $grade->id;
@@ -184,20 +187,20 @@ class StudentImportExportService extends BaseService
                 $gender = $genderMap[$genderRaw] ?? null;
 
                 $studentData = [
-                    'first_name'      => trim($row[0]),
-                    'last_name'       => trim($row[1]),
-                    'student_number'  => $studentNumber,
-                    'date_of_birth'   => ! empty(trim($row[3] ?? '')) ? $this->parseDate(trim($row[3])) : null,
-                    'gender'          => $gender,
+                    'first_name' => trim($row[0]),
+                    'last_name' => trim($row[1]),
+                    'student_number' => $studentNumber,
+                    'date_of_birth' => ! empty(trim($row[3] ?? '')) ? $this->parseDate(trim($row[3])) : null,
+                    'gender' => $gender,
                     'enrollment_date' => ! empty(trim($row[5] ?? '')) ? $this->parseDate(trim($row[5])) : null,
-                    'grade_id'        => $gradeId,
+                    'grade_id' => $gradeId,
                 ];
 
                 try {
                     $student = $schoolStudentService->createStudent($institution, $studentData);
                     $results['success']++;
                     $results['created_students'][] = [
-                        'id'   => $student->id,
+                        'id' => $student->id,
                         'name' => $student->first_name . ' ' . $student->last_name,
                     ];
                 } catch (Exception $e) {
@@ -249,7 +252,7 @@ class StudentImportExportService extends BaseService
 
             // grade->class_level is the actual grade number (1-12)
             $gradeLevel = $student->grade->class_level ?? ($student->grade_level ?: '');
-            $gradeName  = $student->grade->name ?? ($student->class_name ?? '');
+            $gradeName = $student->grade->name ?? ($student->class_name ?? '');
 
             $sheet->setCellValueExplicit('A' . $row, $student->id, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
             $sheet->setCellValue('B' . $row, $student->first_name);

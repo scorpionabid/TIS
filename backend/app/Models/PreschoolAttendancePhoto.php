@@ -21,7 +21,7 @@ class PreschoolAttendancePhoto extends Model
     ];
 
     protected $casts = [
-        'photo_date'      => 'date',
+        'photo_date' => 'date',
         'file_size_bytes' => 'integer',
     ];
 

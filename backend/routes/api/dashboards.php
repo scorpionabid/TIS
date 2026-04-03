@@ -225,7 +225,7 @@ Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school'
     Route::get('dashboard/stats', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getDashboardStats']);
     Route::get('classes', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getTeacherClasses']);
     Route::get('gradebook', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getGradebook']);
-    
+
     // Profile endpoints
     Route::get('profile', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getProfile']);
     Route::put('profile', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'updateProfile']);

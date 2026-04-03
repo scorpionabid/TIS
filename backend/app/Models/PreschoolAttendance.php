@@ -24,19 +24,19 @@ class PreschoolAttendance extends Model
     ];
 
     protected $casts = [
-        'attendance_date'  => 'date',
-        'attendance_rate'  => 'decimal:2',
-        'is_locked'        => 'boolean',
-        'total_enrolled'   => 'integer',
-        'present_count'    => 'integer',
-        'absent_count'     => 'integer',
+        'attendance_date' => 'date',
+        'attendance_rate' => 'decimal:2',
+        'is_locked' => 'boolean',
+        'total_enrolled' => 'integer',
+        'present_count' => 'integer',
+        'absent_count' => 'integer',
     ];
 
     // --- Rate calculation ---
     public function calculateAndSaveRate(): void
     {
-        $this->absent_count     = max(0, $this->total_enrolled - $this->present_count);
-        $this->attendance_rate  = $this->total_enrolled > 0
+        $this->absent_count = max(0, $this->total_enrolled - $this->present_count);
+        $this->attendance_rate = $this->total_enrolled > 0
             ? round(($this->present_count / $this->total_enrolled) * 100, 2)
             : 0;
     }
@@ -48,15 +48,15 @@ class PreschoolAttendance extends Model
 
         return static::firstOrCreate(
             [
-                'grade_id'        => $gradeId,
+                'grade_id' => $gradeId,
                 'attendance_date' => $date,
             ],
             [
                 'institution_id' => $grade->institution_id,
-                'recorded_by'    => $recordedBy,
+                'recorded_by' => $recordedBy,
                 'total_enrolled' => (int) ($grade->student_count ?? 0),
-                'present_count'  => 0,
-                'absent_count'   => (int) ($grade->student_count ?? 0),
+                'present_count' => 0,
+                'absent_count' => (int) ($grade->student_count ?? 0),
             ]
         );
     }

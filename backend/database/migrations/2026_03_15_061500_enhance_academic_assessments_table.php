@@ -13,38 +13,38 @@ return new class extends Migration
     {
         Schema::table('academic_assessments', function (Blueprint $table) {
             // Assessor / Evaluator
-            if (!Schema::hasColumn('academic_assessments', 'assessor_id')) {
+            if (! Schema::hasColumn('academic_assessments', 'assessor_id')) {
                 $table->foreignId('assessor_id')->nullable()->after('conducted_by')->constrained('users')->onDelete('set null');
             }
 
             // BSQ specific fields
-            if (!Schema::hasColumn('academic_assessments', 'international_standard')) {
+            if (! Schema::hasColumn('academic_assessments', 'international_standard')) {
                 $table->string('international_standard', 100)->nullable()->after('assessment_standards');
             }
-            if (!Schema::hasColumn('academic_assessments', 'assessment_body')) {
+            if (! Schema::hasColumn('academic_assessments', 'assessment_body')) {
                 $table->string('assessment_body', 150)->nullable()->after('international_standard');
             }
-            if (!Schema::hasColumn('academic_assessments', 'rankings')) {
+            if (! Schema::hasColumn('academic_assessments', 'rankings')) {
                 $table->json('rankings')->nullable()->after('national_benchmarks');
             }
-            if (!Schema::hasColumn('academic_assessments', 'compliance_score')) {
+            if (! Schema::hasColumn('academic_assessments', 'compliance_score')) {
                 $table->decimal('compliance_score', 5, 2)->nullable()->after('mean_score');
             }
-            if (!Schema::hasColumn('academic_assessments', 'accreditation_status')) {
+            if (! Schema::hasColumn('academic_assessments', 'accreditation_status')) {
                 $table->string('accreditation_status', 100)->nullable()->after('status');
             }
 
             // KSQ specific fields
-            if (!Schema::hasColumn('academic_assessments', 'criteria_scores')) {
+            if (! Schema::hasColumn('academic_assessments', 'criteria_scores')) {
                 $table->json('criteria_scores')->nullable()->after('question_breakdown');
             }
-            if (!Schema::hasColumn('academic_assessments', 'strengths')) {
+            if (! Schema::hasColumn('academic_assessments', 'strengths')) {
                 $table->json('strengths')->nullable()->after('assessment_description');
             }
-            if (!Schema::hasColumn('academic_assessments', 'improvement_areas')) {
+            if (! Schema::hasColumn('academic_assessments', 'improvement_areas')) {
                 $table->json('improvement_areas')->nullable()->after('strengths');
             }
-            if (!Schema::hasColumn('academic_assessments', 'recommendations_list')) {
+            if (! Schema::hasColumn('academic_assessments', 'recommendations_list')) {
                 $table->json('recommendations_list')->nullable()->after('recommended_actions');
             }
         });
@@ -66,7 +66,7 @@ return new class extends Migration
                 'criteria_scores',
                 'strengths',
                 'improvement_areas',
-                'recommendations_list'
+                'recommendations_list',
             ]);
         });
     }

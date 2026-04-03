@@ -2,36 +2,51 @@
 
 namespace App\Services\GradeBook;
 
-use App\Models\GradeBookSession;
 use App\Helpers\DataIsolationHelper;
+use App\Models\GradeBookSession;
 use App\Models\Institution;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class GradeBookPermissionService
 {
     private function deriveSectorId($institution): ?int
     {
-        if (! $institution) return null;
+        if (! $institution) {
+            return null;
+        }
         $level = (int) ($institution->level ?? 0);
-        if ($level === 3) return (int) $institution->id;
-        if ($level === 4 && $institution->parent_id) return (int) $institution->parent_id;
+        if ($level === 3) {
+            return (int) $institution->id;
+        }
+        if ($level === 4 && $institution->parent_id) {
+            return (int) $institution->parent_id;
+        }
+
         return null;
     }
 
     private function deriveRegionId($institution): ?int
     {
-        if (! $institution) return null;
+        if (! $institution) {
+            return null;
+        }
         $level = (int) ($institution->level ?? 0);
-        if ($level === 2) return (int) $institution->id;
+        if ($level === 2) {
+            return (int) $institution->id;
+        }
         if ($institution->parent_id) {
             $parent = Institution::find($institution->parent_id);
-            if ($parent && (int) $parent->level === 2) return (int) $parent->id;
+            if ($parent && (int) $parent->level === 2) {
+                return (int) $parent->id;
+            }
             if ($parent && $parent->parent_id) {
                 $grand = Institution::find($parent->parent_id);
-                if ($grand && (int) $grand->level === 2) return (int) $grand->id;
+                if ($grand && (int) $grand->level === 2) {
+                    return (int) $grand->id;
+                }
             }
         }
+
         return null;
     }
 
@@ -52,7 +67,9 @@ class GradeBookPermissionService
     {
         $user = Auth::user();
 
-        if (!$user) return false;
+        if (! $user) {
+            return false;
+        }
 
         // Super admin can modify all
         if ($user->hasRole('superadmin')) {
@@ -77,13 +94,17 @@ class GradeBookPermissionService
         // Region/sector admins can modify within their hierarchy
         if ($user->hasRole('sektoradmin')) {
             $sectorId = $this->deriveSectorId($user->institution);
-            if (! $sectorId) return false;
+            if (! $sectorId) {
+                return false;
+            }
 
             if (! $gradeBook->relationLoaded('institution')) {
                 $gradeBook->load('institution');
             }
             $inst = $gradeBook->institution;
-            if (! $inst) return false;
+            if (! $inst) {
+                return false;
+            }
 
             return (int) $gradeBook->institution_id === $sectorId
                 || (int) $inst->parent_id === $sectorId;
@@ -91,18 +112,26 @@ class GradeBookPermissionService
 
         if ($user->hasRole('regionadmin')) {
             $regionId = $this->deriveRegionId($user->institution);
-            if (! $regionId) return false;
+            if (! $regionId) {
+                return false;
+            }
 
             if (! $gradeBook->relationLoaded('institution')) {
                 $gradeBook->load('institution');
             }
             $inst = $gradeBook->institution;
-            if (! $inst) return false;
+            if (! $inst) {
+                return false;
+            }
 
-            if ((int) $inst->parent_id === $regionId) return true;
+            if ((int) $inst->parent_id === $regionId) {
+                return true;
+            }
             if ($inst->parent_id) {
                 $parent = Institution::find($inst->parent_id);
-                if ($parent && (int) $parent->parent_id === $regionId) return true;
+                if ($parent && (int) $parent->parent_id === $regionId) {
+                    return true;
+                }
             }
 
             return false;
@@ -118,7 +147,9 @@ class GradeBookPermissionService
     {
         $user = Auth::user();
 
-        if (!$user) return false;
+        if (! $user) {
+            return false;
+        }
 
         // Super admin can view all
         if ($user->hasRole('superadmin')) {
@@ -126,10 +157,10 @@ class GradeBookPermissionService
         }
 
         // Load institution relationships if not already loaded
-        if (!$gradeBook->relationLoaded('institution')) {
+        if (! $gradeBook->relationLoaded('institution')) {
             $gradeBook->load('institution');
         }
-        if (!$user->relationLoaded('institution')) {
+        if (! $user->relationLoaded('institution')) {
             $user->load('institution');
         }
 
@@ -149,10 +180,10 @@ class GradeBookPermissionService
         // Sector admins can view schools in their sector (robust to imperfect role/institution attachment)
         if ($user->hasRole('sektoradmin')) {
             $sectorId = $this->deriveSectorId($userInstitution);
-            
+
             // Also get allowed institution IDs from DataIsolationHelper as fallback
             $allowedIds = DataIsolationHelper::getAllowedInstitutionIds($user);
-            
+
             // Check 1: Direct institution match using derived sector ID
             if ($sectorId) {
                 if ((int) $gradeBook->institution_id === $sectorId) {
@@ -162,27 +193,35 @@ class GradeBookPermissionService
                     return true;
                 }
             }
-            
+
             // Check 2: Fallback to DataIsolationHelper allowed IDs
-            if (!empty($allowedIds)) {
+            if (! empty($allowedIds)) {
                 if (in_array((int) $gradeBook->institution_id, $allowedIds, true)) {
                     return true;
                 }
             }
-            
+
             return false;
         }
 
         // Region admins can view schools in their region (direct or via sector)
         if ($user->hasRole('regionadmin')) {
             $regionId = $this->deriveRegionId($userInstitution);
-            if (! $regionId) return false;
-            if (! $gradeBookInstitution) return false;
+            if (! $regionId) {
+                return false;
+            }
+            if (! $gradeBookInstitution) {
+                return false;
+            }
 
-            if ((int) $gradeBookInstitution->parent_id === $regionId) return true;
+            if ((int) $gradeBookInstitution->parent_id === $regionId) {
+                return true;
+            }
             if ($gradeBookInstitution->parent_id) {
                 $parent = Institution::find($gradeBookInstitution->parent_id);
-                if ($parent && (int) $parent->parent_id === $regionId) return true;
+                if ($parent && (int) $parent->parent_id === $regionId) {
+                    return true;
+                }
             }
 
             return false;
@@ -204,50 +243,60 @@ class GradeBookPermissionService
      */
     public function canAccessHierarchy($user, string $level, ?int $regionId, ?int $sectorId, ?int $institutionId): bool
     {
-        if (!$user) return false;
+        if (! $user) {
+            return false;
+        }
 
         $role = $user->getRoleNames()->first();
         $institution = $user->institution;
-        
+
         if ($role === 'superadmin') {
             return true;
         }
-        
+
         if ($level === 'region') {
             if ($role === 'regionadmin') {
                 return $institution && $institution->id == ($regionId ?? $institution->id);
             }
+
             return false;
         }
-        
+
         if ($level === 'sector') {
             if ($role === 'regionadmin' && $sectorId) {
                 $sector = \App\Models\Institution::where('id', $sectorId)
                     ->where('type', 'sector_education_office')
                     ->first();
+
                 return $sector && $institution && $sector->parent_id === $institution->id;
             }
             if ($role === 'sektoradmin') {
                 return $institution && $institution->id == ($sectorId ?? $institution->id);
             }
+
             return false;
         }
-        
+
         if ($level === 'institution') {
-            if (!$institutionId) return false;
-            
+            if (! $institutionId) {
+                return false;
+            }
+
             $targetInstitution = \App\Models\Institution::find($institutionId);
-            if (!$targetInstitution) return false;
-            
+            if (! $targetInstitution) {
+                return false;
+            }
+
             if ($role === 'regionadmin') {
                 return $institution && $targetInstitution->parent_id === $institution->id;
             }
             if ($role === 'sektoradmin') {
                 return $institution && $targetInstitution->parent_id === $institution->id;
             }
+
             return $role === 'schooladmin' && $user->institution_id === $institutionId;
         }
-        
+
         return false;
     }
 }

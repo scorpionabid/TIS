@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Notification;
-use App\Models\GradeBookSession;
 use App\Models\GradeBookCell;
+use App\Models\GradeBookSession;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -16,11 +16,15 @@ class GradeBookNotificationService
     public function notifyNewExam(int $gradeBookSessionId, int $columnId): void
     {
         $gradeBook = GradeBookSession::with(['teachers.teacher', 'grade', 'subject'])->find($gradeBookSessionId);
-        
-        if (!$gradeBook) return;
+
+        if (! $gradeBook) {
+            return;
+        }
 
         $column = \App\Models\GradeBookColumn::find($columnId);
-        if (!$column) return;
+        if (! $column) {
+            return;
+        }
 
         $title = "Yeni imtahan əlavə edildi: {$gradeBook->subject->name}";
         $message = "{$gradeBook->grade->name} sinfi üçün '{$column->column_label}' imtahanı yaradıldı.";
@@ -46,11 +50,13 @@ class GradeBookNotificationService
     public function notifyGradeUpdate(int $cellId, ?float $oldScore, float $newScore, int $updatedBy): void
     {
         $cell = GradeBookCell::with(['column.session', 'student'])->find($cellId);
-        
-        if (!$cell) return;
+
+        if (! $cell) {
+            return;
+        }
 
         $gradeBook = $cell->column->session;
-        
+
         // Notify other teachers
         $otherTeachers = $gradeBook->teachers()
             ->where('teacher_id', '!=', $updatedBy)
@@ -86,8 +92,10 @@ class GradeBookNotificationService
     public function notifySuspiciousActivity(int $gradeBookSessionId, array $suspiciousData): void
     {
         $gradeBook = GradeBookSession::with(['institution', 'grade', 'subject'])->find($gradeBookSessionId);
-        
-        if (!$gradeBook) return;
+
+        if (! $gradeBook) {
+            return;
+        }
 
         // Get admins
         $admins = User::role(['superadmin', 'regionadmin', 'sectoradmin', 'schooladmin'])
@@ -99,7 +107,7 @@ class GradeBookNotificationService
             })
             ->pluck('id');
 
-        $title = "⚠️ Şübhəli fəaliyyət aşkar edildi";
+        $title = '⚠️ Şübhəli fəaliyyət aşkar edildi';
         $message = "{$gradeBook->institution->name} - {$gradeBook->grade->name} {$gradeBook->subject->name} jurnalında şübhəli dəyişikliklər aşkar edildi.";
 
         foreach ($admins as $adminId) {
@@ -124,10 +132,12 @@ class GradeBookNotificationService
     public function notifyDeadlineApproaching(int $gradeBookSessionId, int $daysRemaining): void
     {
         $gradeBook = GradeBookSession::with(['teachers.teacher', 'grade', 'subject'])->find($gradeBookSessionId);
-        
-        if (!$gradeBook) return;
 
-        $title = "⏰ Son tarix yaxınlaşır";
+        if (! $gradeBook) {
+            return;
+        }
+
+        $title = '⏰ Son tarix yaxınlaşır';
         $message = "{$gradeBook->grade->name} {$gradeBook->subject->name} - Jurnal bağlanmasına {$daysRemaining} gün qaldı.";
 
         foreach ($gradeBook->teachers as $teacherAssignment) {
@@ -152,10 +162,12 @@ class GradeBookNotificationService
     public function notifyGradeBookClosed(int $gradeBookSessionId): void
     {
         $gradeBook = GradeBookSession::with(['teachers.teacher', 'grade', 'subject', 'institution'])->find($gradeBookSessionId);
-        
-        if (!$gradeBook) return;
 
-        $title = "📋 Jurnal bağlandı";
+        if (! $gradeBook) {
+            return;
+        }
+
+        $title = '📋 Jurnal bağlandı';
         $message = "{$gradeBook->grade->name} {$gradeBook->subject->name} jurnalı bağlandı və arxivləşdirildi.";
 
         // Notify teachers
@@ -197,8 +209,10 @@ class GradeBookNotificationService
     public function sendBulkNotification(int $gradeBookSessionId, string $title, string $message): void
     {
         $gradeBook = GradeBookSession::with('teachers.teacher')->find($gradeBookSessionId);
-        
-        if (!$gradeBook) return;
+
+        if (! $gradeBook) {
+            return;
+        }
 
         foreach ($gradeBook->teachers as $teacherAssignment) {
             $this->createNotification(
@@ -257,11 +271,12 @@ class GradeBookNotificationService
             ->where('user_id', $userId)
             ->first();
 
-        if (!$notification) {
+        if (! $notification) {
             return false;
         }
 
         $notification->update(['read_at' => now()]);
+
         return true;
     }
 

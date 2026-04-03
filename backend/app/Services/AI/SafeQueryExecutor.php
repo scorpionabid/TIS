@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Log;
 
 class SafeQueryExecutor
 {
-    private const MAX_ROWS   = 5000;
+    private const MAX_ROWS = 5000;
+
     private const TIMEOUT_MS = 10000; // 10 saniyə
-    private const CACHE_TTL  = 600;   // 10 dəqiqə (eyni SQL yenidən DB-yə getməsin)
+
+    private const CACHE_TTL = 600;   // 10 dəqiqə (eyni SQL yenidən DB-yə getməsin)
 
     public function __construct(
         private QueryValidator $validator
@@ -25,6 +27,7 @@ class SafeQueryExecutor
      *
      * @return array{data: array, columns: array, row_count: int,
      *               execution_ms: int, sql_used: string, from_cache: bool}
+     *
      * @throws \InvalidArgumentException Validation xətası (422)
      * @throws \RuntimeException         İcra xətası (500)
      */
@@ -66,25 +69,26 @@ class SafeQueryExecutor
 
         if (empty($results)) {
             $result = [
-                'data'         => [],
-                'columns'      => [],
-                'row_count'    => 0,
+                'data' => [],
+                'columns' => [],
+                'row_count' => 0,
                 'execution_ms' => $executionMs,
-                'sql_used'     => $sql,
+                'sql_used' => $sql,
             ];
             Cache::put($cacheKey, $result, self::CACHE_TTL);
+
             return array_merge($result, ['from_cache' => false]);
         }
 
         $columns = array_keys((array) $results[0]);
-        $data    = array_map(fn ($row) => (array) $row, $results);
+        $data = array_map(fn ($row) => (array) $row, $results);
 
         $result = [
-            'data'         => $data,
-            'columns'      => $columns,
-            'row_count'    => count($data),
+            'data' => $data,
+            'columns' => $columns,
+            'row_count' => count($data),
             'execution_ms' => $executionMs,
-            'sql_used'     => $sql,
+            'sql_used' => $sql,
         ];
 
         Cache::put($cacheKey, $result, self::CACHE_TTL);
@@ -98,8 +102,10 @@ class SafeQueryExecutor
             if ((int) $matches[1] > self::MAX_ROWS) {
                 return preg_replace('/LIMIT\s+\d+/i', 'LIMIT ' . self::MAX_ROWS, $sql);
             }
+
             return $sql;
         }
+
         return rtrim($sql, '; ') . ' LIMIT ' . self::MAX_ROWS;
     }
 }

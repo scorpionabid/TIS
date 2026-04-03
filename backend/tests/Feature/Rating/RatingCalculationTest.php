@@ -3,16 +3,16 @@
 namespace Tests\Feature\Rating;
 
 use App\Models\AcademicYear;
-use App\Models\Institution;
-use App\Models\Rating;
-use App\Models\TaskAssignment;
-use App\Models\SurveyResponse;
 use App\Models\ClassBulkAttendance;
-use App\Models\LinkShare;
-use App\Models\LinkAccessLog;
 use App\Models\Grade;
-use App\Models\Task;
+use App\Models\Institution;
+use App\Models\LinkAccessLog;
+use App\Models\LinkShare;
+use App\Models\Rating;
 use App\Models\Survey;
+use App\Models\SurveyResponse;
+use App\Models\Task;
+use App\Models\TaskAssignment;
 use Carbon\Carbon;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
@@ -22,9 +22,13 @@ class RatingCalculationTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private Institution $region;
+
     private Institution $school;
+
     private AcademicYear $academicYear;
+
     private $schoolAdmin;
+
     private $superAdmin;
 
     protected function setUp(): void

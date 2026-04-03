@@ -7,11 +7,11 @@ interface AiProviderInterface
     /**
      * Chat completion sorğusu göndər.
      *
-     * @param array<int, array{role: string, content: string}> $messages
-     *        Mesaj siyahısı: [['role' => 'system'|'user'|'assistant', 'content' => '...']]
-     * @param array<string, mixed> $options
-     *        Əlavə seçimlər: ['max_tokens' => int, 'temperature' => float, 'model' => string]
-     * @return string AI-nin cavab mətni
+     * @param  array<int, array{role: string, content: string}> $messages
+     *                                                                    Mesaj siyahısı: [['role' => 'system'|'user'|'assistant', 'content' => '...']]
+     * @param  array<string, mixed>                             $options
+     *                                                                    Əlavə seçimlər: ['max_tokens' => int, 'temperature' => float, 'model' => string]
+     * @return string                                           AI-nin cavab mətni
      *
      * @throws \RuntimeException API xətası baş verdikdə
      */

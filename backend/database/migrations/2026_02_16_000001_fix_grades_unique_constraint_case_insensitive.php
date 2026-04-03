@@ -16,7 +16,7 @@ return new class extends Migration
     public function up(): void
     {
         // Əvvəlcə mövcud datanı normalize et
-        DB::statement("UPDATE grades SET name = UPPER(TRIM(name)) WHERE name != UPPER(TRIM(name))");
+        DB::statement('UPDATE grades SET name = UPPER(TRIM(name)) WHERE name != UPPER(TRIM(name))');
 
         // Köhnə case-sensitive constraint-i sil
         Schema::table('grades', function ($table) {

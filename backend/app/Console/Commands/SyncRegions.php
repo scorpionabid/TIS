@@ -2,10 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Institution;
 use App\Models\Region;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Console\Command;
 
 class SyncRegions extends Command
 {

@@ -21,14 +21,14 @@ class ReportTableResponseFactory extends Factory
     {
         return [
             'report_table_id' => ReportTable::factory()->published(),
-            'institution_id'  => Institution::factory()->school(),
-            'respondent_id'   => User::factory(),
-            'rows'            => [
+            'institution_id' => Institution::factory()->school(),
+            'respondent_id' => User::factory(),
+            'rows' => [
                 ['name' => $this->faker->name(), 'value' => $this->faker->numberBetween(1, 100)],
             ],
-            'status'          => 'draft',
-            'submitted_at'    => null,
-            'row_statuses'    => null,
+            'status' => 'draft',
+            'submitted_at' => null,
+            'row_statuses' => null,
         ];
     }
 
@@ -38,7 +38,7 @@ class ReportTableResponseFactory extends Factory
     public function draft(): static
     {
         return $this->state([
-            'status'       => 'draft',
+            'status' => 'draft',
             'submitted_at' => null,
         ]);
     }
@@ -49,7 +49,7 @@ class ReportTableResponseFactory extends Factory
     public function submitted(): static
     {
         return $this->state([
-            'status'       => 'submitted',
+            'status' => 'submitted',
             'submitted_at' => now(),
             'row_statuses' => [
                 ['status' => 'submitted', 'submitted_at' => now()->toISOString()],
@@ -63,9 +63,9 @@ class ReportTableResponseFactory extends Factory
     public function withSubmittedRow(int $rowIndex = 0): static
     {
         return $this->state(function (array $attrs) use ($rowIndex) {
-            $statuses              = $attrs['row_statuses'] ?? [];
-            $statuses[$rowIndex]   = [
-                'status'       => 'submitted',
+            $statuses = $attrs['row_statuses'] ?? [];
+            $statuses[$rowIndex] = [
+                'status' => 'submitted',
                 'submitted_at' => now()->toISOString(),
             ];
 

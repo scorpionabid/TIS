@@ -2,24 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GradeBookSession;
-use App\Models\GradeBookColumn;
+use App\Helpers\DataIsolationHelper;
 use App\Models\GradeBookCell;
+use App\Models\GradeBookColumn;
+use App\Models\GradeBookSession;
 use App\Models\GradeBookTeacher;
-use App\Services\GradeCalculationService;
-use App\Services\GradeBookExcelService;
-use App\Services\GradeBook\GradeBookPermissionService;
+use App\Scopes\InstitutionScope;
+use App\Services\GradeBook\GradeBookAnalysisService;
 use App\Services\GradeBook\GradeBookManagementService;
+use App\Services\GradeBook\GradeBookPermissionService;
 use App\Services\GradeBook\GradeBookScoreService;
 use App\Services\GradeBook\GradeBookSyncService;
-use App\Services\GradeBook\GradeBookAnalysisService;
-use Illuminate\Http\Request;
+use App\Services\GradeBookExcelService;
+use App\Services\GradeCalculationService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Scopes\InstitutionScope;
-use App\Helpers\DataIsolationHelper;
 
 class GradeBookController extends Controller
 {
@@ -52,7 +51,7 @@ class GradeBookController extends Controller
         $query = GradeBookSession::query()
             ->withoutGlobalScope(InstitutionScope::class)
             ->with([
-                'grade' => fn($q) => $q
+                'grade' => fn ($q) => $q
                     ->withoutGlobalScope(InstitutionScope::class)
                     ->withCount(['assignedStudents as real_student_count']),
                 'subject',
@@ -68,7 +67,7 @@ class GradeBookController extends Controller
             // Institution ID yoxdursa — istifadəçinin hierarchy-sinə görə məhdudlaşdır
             $query = DataIsolationHelper::applyRegionalScope($query, $user);
         }
-        
+
         if ($request->has('academic_year_id')) {
             $query->where('academic_year_id', $request->academic_year_id);
         }
@@ -92,7 +91,7 @@ class GradeBookController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (!Auth::user()->hasAnyRole(['superadmin', 'regionadmin', 'sectoradmin', 'schooladmin'])) {
+        if (! Auth::user()->hasAnyRole(['superadmin', 'regionadmin', 'sectoradmin', 'schooladmin'])) {
             return response()->json(['success' => false, 'message' => 'Jurnal yaratmaq üçün icazəniz yoxdur.'], 403);
         }
 
@@ -117,8 +116,8 @@ class GradeBookController extends Controller
     {
         // Load institution relationship first for proper permission checks
         $gradeBook->load('institution');
-        
-        if (!$this->canView($gradeBook)) {
+
+        if (! $this->canView($gradeBook)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -142,7 +141,9 @@ class GradeBookController extends Controller
 
     public function storeColumn(Request $request, GradeBookSession $gradeBook): JsonResponse
     {
-        if (!$this->canModify($gradeBook)) return response()->json(['error' => 'Unauthorized'], 403);
+        if (! $this->canModify($gradeBook)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
         $validated = $request->validate([
             'assessment_type_id' => 'required|exists:assessment_types,id',
@@ -160,7 +161,7 @@ class GradeBookController extends Controller
 
     public function updateCell(Request $request, GradeBookCell $cell): JsonResponse
     {
-        if (!$this->canModify($cell->column->session)) {
+        if (! $this->canModify($cell->column->session)) {
             return response()->json(['success' => false, 'message' => 'Permission denied.'], 403);
         }
 
@@ -183,7 +184,9 @@ class GradeBookController extends Controller
 
     public function bulkUpdateCells(Request $request, GradeBookSession $gradeBook): JsonResponse
     {
-        if (!$this->canModify($gradeBook)) return response()->json(['error' => 'Unauthorized'], 403);
+        if (! $this->canModify($gradeBook)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
         $validated = $request->validate([
             'cells' => 'required|array',
@@ -213,12 +216,13 @@ class GradeBookController extends Controller
     public function removeTeacher(GradeBookTeacher $teacherAssignment): JsonResponse
     {
         $teacherAssignment->delete();
+
         return response()->json(['success' => true, 'message' => 'Teacher assignment removed successfully.']);
     }
 
     public function assignStudentTeacher(Request $request, GradeBookSession $gradeBook, int $studentId): JsonResponse
     {
-        if (!$this->canModify($gradeBook)) {
+        if (! $this->canModify($gradeBook)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -238,15 +242,22 @@ class GradeBookController extends Controller
 
     public function archiveColumn(GradeBookColumn $column): JsonResponse
     {
-        if (!$this->canModify($column->session)) return response()->json(['error' => 'Unauthorized'], 403);
+        if (! $this->canModify($column->session)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
         $column->update(['is_archived' => true]);
+
         return response()->json(['success' => true, 'message' => 'Column archived successfully.']);
     }
 
     public function updateColumn(Request $request, GradeBookColumn $column): JsonResponse
     {
-        if (!$this->canModify($column->session)) return response()->json(['error' => 'Unauthorized'], 403);
-        if ($column->column_type !== 'input') return response()->json(['success' => false, 'message' => 'Cannot edit calculated column.'], 422);
+        if (! $this->canModify($column->session)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        if ($column->column_type !== 'input') {
+            return response()->json(['success' => false, 'message' => 'Cannot edit calculated column.'], 422);
+        }
 
         $validated = $request->validate([
             'semester' => 'sometimes|in:I,II',
@@ -258,18 +269,21 @@ class GradeBookController extends Controller
         ]);
 
         $column->update($validated);
+
         return response()->json(['success' => true, 'data' => $column->fresh(), 'message' => 'Column updated successfully.']);
     }
 
     public function recalculate(GradeBookSession $gradeBook): JsonResponse
     {
         $this->calculationService->recalculateSession($gradeBook->id);
+
         return response()->json(['success' => true, 'message' => 'All scores recalculated successfully.']);
     }
 
     public function getStudentsWithScores(GradeBookSession $gradeBook): JsonResponse
     {
         $studentsData = $this->managementService->getStudentsWithScores($gradeBook);
+
         return response()->json(['success' => true, 'data' => $studentsData]);
     }
 
@@ -325,8 +339,11 @@ class GradeBookController extends Controller
             $path = $request->file('file')->storeAs('temp', 'import_' . time() . '.xlsx');
             $fullPath = storage_path('app/' . $path);
             $results = $excelService->importScores($fullPath, $gradeBook->id);
-            if (file_exists($fullPath)) unlink($fullPath);
-            return response()->json(['success' => true, 'message' => "İmport tamamlandı", 'data' => $results]);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+            }
+
+            return response()->json(['success' => true, 'message' => 'İmport tamamlandı', 'data' => $results]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Xəta: ' . $e->getMessage()], 422);
         }
@@ -335,6 +352,7 @@ class GradeBookController extends Controller
     public function findOrphaned(Request $request): JsonResponse
     {
         $orphans = $this->syncService->findOrphaned($request->only(['institution_id', 'academic_year_id']));
+
         return response()->json(['success' => true, 'data' => ['orphaned_count' => $orphans->count(), 'orphaned_grade_books' => $orphans]]);
     }
 
@@ -342,20 +360,22 @@ class GradeBookController extends Controller
     {
         $orphans = $this->syncService->findOrphaned($request->only(['institution_id', 'academic_year_id']));
         $deleted = 0;
-        if (!$request->boolean('dry_run', false)) {
+        if (! $request->boolean('dry_run', false)) {
             foreach ($orphans as $gb) {
-                if ($request->boolean('force', false) || !$gb->columns()->whereHas('cells', fn($q) => $q->whereNotNull('score'))->exists()) {
+                if ($request->boolean('force', false) || ! $gb->columns()->whereHas('cells', fn ($q) => $q->whereNotNull('score'))->exists()) {
                     $gb->delete();
                     $deleted++;
                 }
             }
         }
+
         return response()->json(['success' => true, 'deleted_count' => $deleted]);
     }
 
     public function sync(Request $request): JsonResponse
     {
         $result = $this->syncService->sync($request->only(['institution_id', 'academic_year_id']));
+
         return response()->json(['success' => true, 'data' => $result]);
     }
 
@@ -363,21 +383,21 @@ class GradeBookController extends Controller
     {
         $user = auth()->user();
         $userInstitution = $user->institution;
-        
+
         $level = $request->input('level', 'region');
         $regionId = $request->input('region_id') ?? ($userInstitution?->id);
         $sectorId = $request->input('sector_id') ?? ($userInstitution?->id);
         $institutionId = $request->input('institution_id') ?? $user->institution_id;
         $academicYearId = $request->input('academic_year_id');
 
-        if (!$this->permissionService->canAccessHierarchy($user, $level, $regionId, $sectorId, $institutionId)) {
+        if (! $this->permissionService->canAccessHierarchy($user, $level, $regionId, $sectorId, $institutionId)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $data = match ($level) {
             'region' => $this->analysisService->getRegionHierarchy($regionId, $academicYearId),
             'sector' => $this->analysisService->getSectorHierarchy($sectorId, $academicYearId),
-            'institution', 'grade' => $this->analysisService->getSectorHierarchy($sectorId, $academicYearId), 
+            'institution', 'grade' => $this->analysisService->getSectorHierarchy($sectorId, $academicYearId),
             default => [],
         };
 
@@ -392,26 +412,27 @@ class GradeBookController extends Controller
             'subject' => $this->analysisService->getSubjectComparisonData(),
             default => [],
         };
+
         return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function getAnalysisOverview(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
         if (empty($academicYearIds) && $request->input('academic_year_id')) {
             $academicYearIds = [(int) $request->input('academic_year_id')];
         }
-        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $subjectIds = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
         if (empty($subjectIds) && $request->input('subject_id')) {
             $subjectIds = [(int) $request->input('subject_id')];
         }
-        $gradeIds    = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
-        $sectorIds   = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds   = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $gradeIds = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
         $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
-        $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+        $gender = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
         [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
@@ -426,11 +447,11 @@ class GradeBookController extends Controller
 
     public function getAnalysisComparison(Request $request): JsonResponse
     {
-        $institutionId  = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
         $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
-        $compareBy      = $request->input('compare_by', 'subject');
-        $gradeId        = $request->input('grade_id')   ? (int) $request->input('grade_id')   : null;
-        $subjectId      = $request->input('subject_id') ? (int) $request->input('subject_id') : null;
+        $compareBy = $request->input('compare_by', 'subject');
+        $gradeId = $request->input('grade_id') ? (int) $request->input('grade_id') : null;
+        $subjectId = $request->input('subject_id') ? (int) $request->input('subject_id') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
 
@@ -441,15 +462,15 @@ class GradeBookController extends Controller
 
     public function getAnalysisTrends(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
         if (empty($academicYearIds) && $request->input('academic_year_id')) {
             $academicYearIds = [(int) $request->input('academic_year_id')];
         }
-        $timeRange         = $request->input('time_range', 'year');
-        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
-        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $timeRange = $request->input('time_range', 'year');
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
@@ -465,18 +486,18 @@ class GradeBookController extends Controller
 
     public function getAnalysisDeepDive(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
         if (empty($academicYearIds) && $request->input('academic_year_id')) {
             $academicYearIds = [(int) $request->input('academic_year_id')];
         }
-        $gradeIds    = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
-        $subjectIds  = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
-        $sectorIds   = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds   = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $gradeIds = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $subjectIds = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
         $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
-        $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+        $gender = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
         [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
@@ -495,7 +516,7 @@ class GradeBookController extends Controller
      */
     private function resolveInstitutionIds(?int $explicitId): ?array
     {
-        $user     = auth()->user();
+        $user = auth()->user();
         $roleName = strtolower($user->roles->first()?->name ?? '');
 
         // schooladmin həmişə yalnız öz məktəbini görür — explicit param ignore edilir
@@ -508,8 +529,10 @@ class GradeBookController extends Controller
             // If non-leaf institution (ministry/region/sector), expand to all school-level children
             if ($inst && $inst->level < 4) {
                 $childIds = $inst->getAllChildrenIds();
-                return !empty($childIds) ? $childIds : [$explicitId];
+
+                return ! empty($childIds) ? $childIds : [$explicitId];
             }
+
             return [$explicitId];
         }
 
@@ -518,7 +541,7 @@ class GradeBookController extends Controller
         }
 
         $institution = $user->institution;
-        if (!$institution) {
+        if (! $institution) {
             return []; // no access
         }
 
@@ -539,21 +562,22 @@ class GradeBookController extends Controller
         if (in_array($roleName, ['schooladmin', 'teacher'])) {
             return [[], []];
         }
+
         return [$sectorIds, $schoolIds];
     }
 
     public function getPivotAnalysis(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $groupBy           = in_array($request->input('group_by'), ['class_level', 'sector', 'school', 'grade', 'subject', 'language'])
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $groupBy = in_array($request->input('group_by'), ['class_level', 'sector', 'school', 'grade', 'subject', 'language'])
                              ? $request->input('group_by') : 'class_level';
 
         // Support both single and array params for backward compatibility
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
         if (empty($academicYearIds) && $request->input('academic_year_id')) {
             $academicYearIds = [(int) $request->input('academic_year_id')];
         }
-        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $subjectIds = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
         if (empty($subjectIds) && $request->input('subject_id')) {
             $subjectIds = [(int) $request->input('subject_id')];
         }
@@ -562,11 +586,11 @@ class GradeBookController extends Controller
             $teachingLanguages = [$request->input('teaching_language')];
         }
 
-        $sectorIds   = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds   = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
         $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
-        $gradeIds    = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
-        $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+        $gradeIds = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $gender = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
         [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
@@ -581,12 +605,12 @@ class GradeBookController extends Controller
 
     public function getClassLevelSubjectAnalysis(Request $request): JsonResponse
     {
-        $institutionId    = $request->input('institution_id')    ? (int) $request->input('institution_id')    : null;
-        $academicYearId   = $request->input('academic_year_id')  ? (int) $request->input('academic_year_id')  : null;
-        $classLevel       = $request->input('class_level')       ? (int) $request->input('class_level')       : null;
-        $subjectId        = $request->input('subject_id')        ? (int) $request->input('subject_id')        : null;
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
+        $classLevel = $request->input('class_level') ? (int) $request->input('class_level') : null;
+        $subjectId = $request->input('subject_id') ? (int) $request->input('subject_id') : null;
         $assessmentTypeId = $request->input('assessment_type_id') ? (int) $request->input('assessment_type_id') : null;
-        $semester         = $request->input('semester') ?: null;
+        $semester = $request->input('semester') ?: null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
 
@@ -599,16 +623,16 @@ class GradeBookController extends Controller
 
     public function getRegionTrends(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
         if (empty($academicYearIds) && $request->input('academic_year_id')) {
             $academicYearIds = [(int) $request->input('academic_year_id')];
         }
-        $groupBy           = in_array($request->input('group_by'), ['semester', 'assessment_type'])
+        $groupBy = in_array($request->input('group_by'), ['semester', 'assessment_type'])
             ? $request->input('group_by') : 'semester';
-        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
-        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
@@ -624,7 +648,7 @@ class GradeBookController extends Controller
 
     public function getJournalCompletion(Request $request): JsonResponse
     {
-        $institutionId  = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
         $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
@@ -638,15 +662,15 @@ class GradeBookController extends Controller
 
     public function exportComprehensive(Request $request, GradeBookExcelService $excelService): StreamedResponse
     {
-        $institutionId  = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
         $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
 
-        $overviewData   = $this->analysisService->getOverviewData($institutionIds, $academicYearId, null, null);
+        $overviewData = $this->analysisService->getOverviewData($institutionIds, $academicYearId, null, null);
         $classLevelData = $this->analysisService->getClassLevelSubjectAnalysis($institutionIds, $academicYearId, null, null, null, null);
         $completionData = $this->analysisService->getJournalCompletion($institutionIds, $academicYearId);
-        $deepDiveData   = $this->analysisService->getDeepDiveData($institutionId, $academicYearId, null, null);
+        $deepDiveData = $this->analysisService->getDeepDiveData($institutionId, $academicYearId, null, null);
 
         $spreadsheet = $excelService->exportComprehensive($overviewData, $classLevelData, $completionData, $deepDiveData);
 
@@ -662,15 +686,15 @@ class GradeBookController extends Controller
 
     public function getScoreboard(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
-        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
-        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
-        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
-        $gradeIds          = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $subjectIds = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $gradeIds = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
-        $gender            = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+        $gender = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
         [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
@@ -685,10 +709,10 @@ class GradeBookController extends Controller
 
     public function getAnalysisAvailableGrades(Request $request): JsonResponse
     {
-        $institutionId   = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
         $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
-        $sectorIds       = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds       = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
         [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
@@ -700,20 +724,20 @@ class GradeBookController extends Controller
 
     public function getNestedPivotAnalysis(Request $request): JsonResponse
     {
-        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
-        $groupBys          = array_values(array_filter((array) $request->input('group_bys', ['sector', 'school'])));
+        $institutionId = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $groupBys = array_values(array_filter((array) $request->input('group_bys', ['sector', 'school'])));
 
-        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
         if (empty($academicYearIds) && $request->input('academic_year_id')) {
             $academicYearIds = [(int) $request->input('academic_year_id')];
         }
-        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $subjectIds = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
-        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
-        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
-        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
-        $gradeIds          = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
-        $gender            = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+        $sectorIds = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $gradeIds = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $gender = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
         [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);

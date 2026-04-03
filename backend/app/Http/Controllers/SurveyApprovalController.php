@@ -437,8 +437,8 @@ class SurveyApprovalController extends Controller
             $query = Survey::query()->withCount(['questions', 'responses'])
                 ->with(['questions' => function ($q) {
                     $q->where('is_active', true)
-                      ->orderBy('order_index')
-                      ->select(['id', 'survey_id', 'title', 'type', 'options', 'metadata', 'table_headers', 'order_index']);
+                        ->orderBy('order_index')
+                        ->select(['id', 'survey_id', 'title', 'type', 'options', 'metadata', 'table_headers', 'order_index']);
                 }])
                 ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions', 'current_questions_count', 'status'])
                 ->orderBy('created_at', 'desc');

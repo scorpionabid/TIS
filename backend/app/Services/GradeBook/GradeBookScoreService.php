@@ -4,14 +4,15 @@ namespace App\Services\GradeBook;
 
 use App\Models\GradeBookCell;
 use App\Models\GradeBookSession;
-use App\Services\GradeCalculationService;
 use App\Services\GradeBookAuditService;
-use Illuminate\Support\Facades\DB;
+use App\Services\GradeCalculationService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GradeBookScoreService
 {
     protected GradeCalculationService $calculationService;
+
     protected GradeBookAuditService $auditService;
 
     public function __construct(
@@ -80,11 +81,13 @@ class GradeBookScoreService
         $studentIds = [];
         $auditUpdates = [];
 
-        DB::transaction(function () use ($cellsData, &$updatedCount, &$studentIds, &$auditUpdates, $gradeBook) {
+        DB::transaction(function () use ($cellsData, &$updatedCount, &$studentIds, &$auditUpdates) {
             foreach ($cellsData as $cellData) {
                 $cell = GradeBookCell::find($cellData['cell_id']);
 
-                if (!$cell) continue;
+                if (! $cell) {
+                    continue;
+                }
 
                 $maxScore = $cell->column->max_score;
                 $score = $cellData['score'] ?? null;
@@ -127,7 +130,7 @@ class GradeBookScoreService
         });
 
         // Log bulk audit trail
-        if (!empty($auditUpdates)) {
+        if (! empty($auditUpdates)) {
             $this->auditService->logBulkUpdate(
                 $gradeBook->id,
                 $auditUpdates,

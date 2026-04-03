@@ -187,6 +187,9 @@ export interface MissingReportSchool {
   name: string;
   sector_id: number;
   sector_name: string;
+  reported_days: number;
+  missing_days: number;
+  baseline_days: number;
   last_report_date: string | null;
 }
 
@@ -214,6 +217,26 @@ export interface MissingReportsResponse {
   };
   sectors: MissingReportSector[];
   schools: MissingReportSchool[];
+}
+
+export interface SchoolGradeStat {
+  id: number;
+  name: string;
+  grades: (number | null)[];
+}
+
+export interface SchoolGradeStatsResponse {
+  schools: SchoolGradeStat[];
+  regional_averages: (number | null)[];
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+  filters: {
+    start_date: string;
+    end_date: string;
+    sector_id?: number | null;
+  };
 }
 
 const unwrap = <T>(payload: any): T => {
@@ -281,6 +304,36 @@ export class RegionalAttendanceService {
       filters
     );
     return unwrap<MissingReportsResponse>(response);
+  }
+
+  async exportMissingReports(filters: RegionalAttendanceFilters): Promise<Blob> {
+    const response = await apiClient.get<Blob>(
+      "/regional-attendance/missing-reports/export",
+      filters,
+      { responseType: "blob" }
+    );
+    return unwrap<Blob>(response);
+  }
+
+  async getSchoolGradeStats(
+    filters: RegionalAttendanceFilters & { education_program?: string }
+  ): Promise<SchoolGradeStatsResponse> {
+    const response = await apiClient.get<SchoolGradeStatsResponse>(
+      "/regional-attendance/school-grade-stats",
+      filters
+    );
+    return unwrap<SchoolGradeStatsResponse>(response);
+  }
+
+  async exportSchoolGradeStats(
+    filters: RegionalAttendanceFilters & { education_program?: string }
+  ): Promise<Blob> {
+    const response = await apiClient.get<Blob>(
+      "/regional-attendance/school-grade-stats/export",
+      filters,
+      { responseType: "blob" }
+    );
+    return unwrap<Blob>(response);
   }
 }
 

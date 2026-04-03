@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Controllers\TaskCrudController;
-use App\Http\Controllers\TaskAssignmentController;
 use App\Http\Controllers\TaskAnalyticsController;
-use App\Http\Controllers\TaskPermissionController;
-use App\Http\Controllers\TaskDelegationController;
 use App\Http\Controllers\TaskApprovalController;
+use App\Http\Controllers\TaskAssignmentController;
 use App\Http\Controllers\TaskAuditController;
+use App\Http\Controllers\TaskCrudController;
+use App\Http\Controllers\TaskDelegationController;
+use App\Http\Controllers\TaskPermissionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,7 +21,6 @@ use Illuminate\Support\Facades\Route;
 
 // Authentication middleware for all task routes
 Route::middleware(['auth:sanctum'])->group(function () {
-
     /*
     |--------------------------------------------------------------------------
     | Analytics & Statistics - TaskAnalyticsController
@@ -92,5 +91,4 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
     Route::get('/tasks/{task}/audit-history', [TaskAuditController::class, 'getAuditHistory']);
     Route::get('/tasks/{task}/approval-history', [TaskAuditController::class, 'getApprovalHistory']);
-
 });

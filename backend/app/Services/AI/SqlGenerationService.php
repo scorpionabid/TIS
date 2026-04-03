@@ -2,7 +2,6 @@
 
 namespace App\Services\AI;
 
-use App\Services\AI\AiProviderFactory;
 use Illuminate\Support\Facades\Log;
 
 class SqlGenerationService
@@ -21,12 +20,12 @@ class SqlGenerationService
      *  - max_tokens: 1500 → 800 (SQL adətən 100-400 token)
      *  - Qısaldılmış sistem promptu
      *
-     * @param string   $userPrompt      Orijinal istifadəçi promptu
-     * @param array    $clarifications  {question_id: answer} formatında cavablar
-     * @param string   $userRole        İstifadəçi rolu (superadmin | regionadmin)
-     * @param int|null $regionId        RegionAdmin üçün region ID
-     *
+     * @param  string                                                                   $userPrompt     Orijinal istifadəçi promptu
+     * @param  array                                                                    $clarifications {question_id: answer} formatında cavablar
+     * @param  string                                                                   $userRole       İstifadəçi rolu (superadmin | regionadmin)
+     * @param  int|null                                                                 $regionId       RegionAdmin üçün region ID
      * @return array{sql: string, explanation: string, suggested_visualization: string}
+     *
      * @throws \RuntimeException
      */
     public function generateSql(
@@ -35,9 +34,9 @@ class SqlGenerationService
         string $userRole = 'superadmin',
         ?int $regionId = null
     ): array {
-        $fullSchema     = $this->schemaService->getSchema();
+        $fullSchema = $this->schemaService->getSchema();
         $filteredSchema = $this->relevanceFilter->filter($userPrompt, $fullSchema);
-        $schemaText     = $this->buildSchemaText($filteredSchema);
+        $schemaText = $this->buildSchemaText($filteredSchema);
 
         $regionConstraint = '';
         if ($userRole === 'regionadmin' && $regionId) {
@@ -68,7 +67,7 @@ SYSTEM;
         try {
             $provider = AiProviderFactory::make(useSqlModel: true);
             $response = $provider->chat($messages, [
-                'max_tokens'  => 800,
+                'max_tokens' => 800,
                 'temperature' => 0.1,
             ]);
 
@@ -81,15 +80,15 @@ SYSTEM;
             $tokenUsage = $provider->getLastTokenUsage();
 
             return [
-                'sql'                    => trim($data['sql']),
-                'explanation'            => $data['explanation'] ?? 'SQL uğurla yaradıldı',
+                'sql' => trim($data['sql']),
+                'explanation' => $data['explanation'] ?? 'SQL uğurla yaradıldı',
                 'suggested_visualization' => $data['suggested_visualization'] ?? 'table',
-                'token_usage'            => $tokenUsage,
+                'token_usage' => $tokenUsage,
             ];
         } catch (\Exception $e) {
             Log::error('SqlGeneration xətası: ' . $e->getMessage(), [
                 'prompt' => $userPrompt,
-                'role'   => $userRole,
+                'role' => $userRole,
             ]);
             throw new \RuntimeException('SQL yaratma zamanı xəta: ' . $e->getMessage());
         }
@@ -109,12 +108,13 @@ SYSTEM;
             ));
 
             $sample = '';
-            if (!empty($table['sample_data'][0])) {
+            if (! empty($table['sample_data'][0])) {
                 $sample = ' ex:' . json_encode($table['sample_data'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
 
             $lines[] = "{$table['table_name']}({$table['row_count']}): {$cols}{$sample}";
         }
+
         return implode("\n", $lines);
     }
 
@@ -124,18 +124,18 @@ SYSTEM;
     private function shortType(string $type): string
     {
         return match (true) {
-            str_contains($type, 'int')       => 'int',
+            str_contains($type, 'int') => 'int',
             str_contains($type, 'char'),
-            str_contains($type, 'text')      => 'str',
-            str_contains($type, 'bool')      => 'bool',
+            str_contains($type, 'text') => 'str',
+            str_contains($type, 'bool') => 'bool',
             str_contains($type, 'timestamp') => 'ts',
-            str_contains($type, 'date')      => 'date',
+            str_contains($type, 'date') => 'date',
             str_contains($type, 'numeric'),
             str_contains($type, 'decimal'),
             str_contains($type, 'float'),
-            str_contains($type, 'real')      => 'num',
-            str_contains($type, 'json')      => 'json',
-            default                          => $type,
+            str_contains($type, 'real') => 'num',
+            str_contains($type, 'json') => 'json',
+            default => $type,
         };
     }
 
@@ -146,6 +146,7 @@ SYSTEM;
         } elseif (preg_match('/(\{[\s\S]*\})/s', $text, $m)) {
             $text = $m[1];
         }
+
         return json_decode($text, true) ?? [];
     }
 }

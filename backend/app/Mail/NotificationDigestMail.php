@@ -14,9 +14,7 @@ class NotificationDigestMail extends Mailable
     use Queueable, SerializesModels;
 
     /**
-     * @param  User  $user
-     * @param  array  $groups  ['tasks' => [...], 'surveys' => [...], 'documents' => [...], 'system' => [...]]
-     * @param  int  $totalCount
+     * @param array $groups ['tasks' => [...], 'surveys' => [...], 'documents' => [...], 'system' => [...]]
      */
     public function __construct(
         public readonly User $user,
@@ -39,12 +37,12 @@ class NotificationDigestMail extends Mailable
         return new Content(
             view: 'emails.notification-digest',
             with: [
-                'user'       => $this->user,
-                'groups'     => $this->groups,
+                'user' => $this->user,
+                'groups' => $this->groups,
                 'totalCount' => $this->totalCount,
-                'period'     => $this->period,
-                'appName'    => config('app.name'),
-                'appUrl'     => config('app.url'),
+                'period' => $this->period,
+                'appName' => config('app.name'),
+                'appUrl' => config('app.url'),
             ],
         );
     }

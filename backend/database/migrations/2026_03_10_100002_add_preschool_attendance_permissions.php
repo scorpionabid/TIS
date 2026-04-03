@@ -23,11 +23,11 @@ return new class extends Migration
         }
 
         $map = [
-            'schooladmin'    => ['preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write'],
-            'sektoradmin'    => ['preschool.attendance.read', 'preschool.attendance.reports'],
+            'schooladmin' => ['preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write'],
+            'sektoradmin' => ['preschool.attendance.read', 'preschool.attendance.reports'],
             'regionoperator' => ['preschool.attendance.read', 'preschool.attendance.reports'],
-            'regionadmin'    => ['preschool.attendance.read', 'preschool.attendance.reports', 'preschool.attendance.export'],
-            'superadmin'     => $permissions,
+            'regionadmin' => ['preschool.attendance.read', 'preschool.attendance.reports', 'preschool.attendance.export'],
+            'superadmin' => $permissions,
         ];
 
         foreach ($map as $roleName => $perms) {

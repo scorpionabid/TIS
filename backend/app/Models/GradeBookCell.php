@@ -64,9 +64,16 @@ class GradeBookCell extends Model
             return null;
         }
 
-        if ($this->score >= 80) return 5;
-        if ($this->score >= 60) return 4;
-        if ($this->score >= 30) return 3;
+        if ($this->score >= 80) {
+            return 5;
+        }
+        if ($this->score >= 60) {
+            return 4;
+        }
+        if ($this->score >= 30) {
+            return 3;
+        }
+
         return 2;
     }
 }

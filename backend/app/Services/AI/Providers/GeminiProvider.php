@@ -8,8 +8,10 @@ use Illuminate\Support\Facades\Log;
 
 class GeminiProvider implements AiProviderInterface
 {
-    private const BASE_URL   = 'https://generativelanguage.googleapis.com/v1beta';
-    private const MAX_RETRY  = 2;
+    private const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+
+    private const MAX_RETRY = 2;
+
     private const RETRY_WAIT = [0, 1, 3];
 
     /** @var array{prompt_tokens: int, completion_tokens: int, total_tokens: int} */
@@ -31,8 +33,8 @@ class GeminiProvider implements AiProviderInterface
      */
     public function chat(array $messages, array $options = []): string
     {
-        $model             = $options['model'] ?? $this->model;
-        $contents          = [];
+        $model = $options['model'] ?? $this->model;
+        $contents = [];
         $systemInstruction = null;
 
         foreach ($messages as $msg) {
@@ -46,10 +48,10 @@ class GeminiProvider implements AiProviderInterface
         }
 
         $payload = [
-            'contents'         => $contents,
+            'contents' => $contents,
             'generationConfig' => [
                 'maxOutputTokens' => $options['max_tokens'] ?? 2048,
-                'temperature'     => $options['temperature'] ?? 0.3,
+                'temperature' => $options['temperature'] ?? 0.3,
             ],
         ];
 
@@ -57,8 +59,8 @@ class GeminiProvider implements AiProviderInterface
             $payload['system_instruction'] = $systemInstruction;
         }
 
-        $url       = self::BASE_URL . "/models/{$model}:generateContent?key={$this->apiKey}";
-        $attempt   = 0;
+        $url = self::BASE_URL . "/models/{$model}:generateContent?key={$this->apiKey}";
+        $attempt = 0;
         $lastError = null;
 
         while ($attempt <= self::MAX_RETRY) {
@@ -72,29 +74,29 @@ class GeminiProvider implements AiProviderInterface
 
                 if ($response->successful()) {
                     $meta = $response->json('usageMetadata', []);
-                    $prompt     = $meta['promptTokenCount'] ?? 0;
+                    $prompt = $meta['promptTokenCount'] ?? 0;
                     $completion = $meta['candidatesTokenCount'] ?? 0;
 
                     $this->lastTokenUsage = [
-                        'prompt_tokens'     => $prompt,
+                        'prompt_tokens' => $prompt,
                         'completion_tokens' => $completion,
-                        'total_tokens'      => $meta['totalTokenCount'] ?? ($prompt + $completion),
+                        'total_tokens' => $meta['totalTokenCount'] ?? ($prompt + $completion),
                     ];
 
                     return $response->json('candidates.0.content.parts.0.text', '');
                 }
 
                 $statusCode = $response->status();
-                $errorMsg   = $response->json('error.message', 'Gemini API xətası');
+                $errorMsg = $response->json('error.message', 'Gemini API xətası');
 
                 if ($statusCode === 503 || $statusCode >= 500) {
                     $lastError = "Gemini {$statusCode}: {$errorMsg}";
                     $attempt++;
+
                     continue;
                 }
 
                 throw new \RuntimeException("Gemini {$statusCode}: {$errorMsg}");
-
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
                 $lastError = 'Şəbəkə xətası: ' . $e->getMessage();
                 $attempt++;
@@ -112,7 +114,7 @@ class GeminiProvider implements AiProviderInterface
     public function testConnection(): array
     {
         try {
-            $url      = self::BASE_URL . "/models?key={$this->apiKey}";
+            $url = self::BASE_URL . "/models?key={$this->apiKey}";
             $response = Http::timeout(10)->get($url);
 
             return $response->successful()

@@ -16,7 +16,7 @@ class UploadPreschoolPhotoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'files'   => ['required', 'array', 'min:1', 'max:10'],
+            'files' => ['required', 'array', 'min:1', 'max:10'],
             'files.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
     }
@@ -25,9 +25,9 @@ class UploadPreschoolPhotoRequest extends FormRequest
     {
         return [
             'files.required' => 'Ən azı bir şəkil yükləməlisiniz.',
-            'files.max'      => 'Eyni anda ən çox 10 şəkil yükləyə bilərsiniz.',
-            'files.*.mimes'  => 'Yalnız JPG, PNG, WEBP formatları qəbul edilir.',
-            'files.*.max'    => 'Hər şəkil ən çox 10MB ola bilər.',
+            'files.max' => 'Eyni anda ən çox 10 şəkil yükləyə bilərsiniz.',
+            'files.*.mimes' => 'Yalnız JPG, PNG, WEBP formatları qəbul edilir.',
+            'files.*.max' => 'Hər şəkil ən çox 10MB ola bilər.',
         ];
     }
 }

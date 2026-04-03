@@ -22,22 +22,27 @@ class GradeBookPermissionServiceTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private GradeBookPermissionService $service;
-    private Institution  $school;
-    private Institution  $otherSchool;
+
+    private Institution $school;
+
+    private Institution $otherSchool;
+
     private AcademicYear $activeYear;
+
     private GradeBookSession $gradeBook;
+
     private GradeBookSession $otherGradeBook;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->service    = new GradeBookPermissionService();
+        $this->service = new GradeBookPermissionService;
         $this->activeYear = AcademicYear::factory()->active()->create();
-        $this->school     = Institution::factory()->school()->create();
+        $this->school = Institution::factory()->school()->create();
         $this->otherSchool = Institution::factory()->school()->create();
 
-        $grade   = Grade::factory()->forInstitution($this->school)->create(['academic_year_id' => $this->activeYear->id]);
+        $grade = Grade::factory()->forInstitution($this->school)->create(['academic_year_id' => $this->activeYear->id]);
         $subject = Subject::factory()->create();
 
         $this->gradeBook = GradeBookSession::factory()
@@ -47,7 +52,7 @@ class GradeBookPermissionServiceTest extends TestCase
             ->forAcademicYear($this->activeYear)
             ->create();
 
-        $otherGrade   = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
+        $otherGrade = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
         $otherSubject = Subject::factory()->create();
 
         $this->otherGradeBook = GradeBookSession::factory()
@@ -101,7 +106,7 @@ class GradeBookPermissionServiceTest extends TestCase
         // Müəllimi jurnaala əlavə et
         $this->gradeBook->assignedTeachers()->attach($teacher->id, [
             'group_label' => null,
-            'is_primary'  => true,
+            'is_primary' => true,
             'assigned_by' => $teacher->id,
         ]);
 
@@ -160,7 +165,7 @@ class GradeBookPermissionServiceTest extends TestCase
 
         $this->gradeBook->assignedTeachers()->attach($teacher->id, [
             'group_label' => null,
-            'is_primary'  => true,
+            'is_primary' => true,
             'assigned_by' => $teacher->id,
         ]);
 
@@ -192,7 +197,7 @@ class GradeBookPermissionServiceTest extends TestCase
 
         $archivedBook->assignedTeachers()->attach($teacher->id, [
             'group_label' => null,
-            'is_primary'  => true,
+            'is_primary' => true,
             'assigned_by' => $teacher->id,
         ]);
 

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\TeacherProfileApproval;
-use App\Models\TeacherProfile;
 use App\Models\TeacherAchievement;
 use App\Models\TeacherCertificate;
-use Illuminate\Http\Request;
+use App\Models\TeacherProfile;
+use App\Models\TeacherProfileApproval;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -21,12 +21,12 @@ class TeacherApprovalController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             // Check if user is sectoradmin
-            if (!$user || !$user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasRole('sektoradmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
@@ -51,14 +51,13 @@ class TeacherApprovalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $approvals
+                'data' => $approvals,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get approval requests',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -70,11 +69,11 @@ class TeacherApprovalController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasRole('sektoradmin')) {
+
+            if (! $user || ! $user->hasRole('sektoradmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
@@ -89,14 +88,13 @@ class TeacherApprovalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $stats
+                'data' => $stats,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get statistics',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -108,11 +106,11 @@ class TeacherApprovalController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasRole('sektoradmin')) {
+
+            if (! $user || ! $user->hasRole('sektoradmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
@@ -121,7 +119,7 @@ class TeacherApprovalController extends Controller
             if ($approval->status !== TeacherProfileApproval::STATUS_PENDING) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Approval request is not pending'
+                    'message' => 'Approval request is not pending',
                 ], 400);
             }
 
@@ -138,19 +136,17 @@ class TeacherApprovalController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Approval request approved successfully'
+                    'message' => 'Approval request approved successfully',
                 ]);
-
             } catch (\Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to approve request',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -162,16 +158,16 @@ class TeacherApprovalController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasRole('sektoradmin')) {
+
+            if (! $user || ! $user->hasRole('sektoradmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
             $request->validate([
-                'rejection_reason' => 'required|string|max:500'
+                'rejection_reason' => 'required|string|max:500',
             ]);
 
             $approval = TeacherProfileApproval::findOrFail($id);
@@ -179,7 +175,7 @@ class TeacherApprovalController extends Controller
             if ($approval->status !== TeacherProfileApproval::STATUS_PENDING) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Approval request is not pending'
+                    'message' => 'Approval request is not pending',
                 ], 400);
             }
 
@@ -196,19 +192,17 @@ class TeacherApprovalController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Approval request rejected successfully'
+                    'message' => 'Approval request rejected successfully',
                 ]);
-
             } catch (\Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reject request',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -220,17 +214,17 @@ class TeacherApprovalController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasRole('sektoradmin')) {
+
+            if (! $user || ! $user->hasRole('sektoradmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
             $request->validate([
                 'ids' => 'required|array',
-                'ids.*' => 'integer|exists:teacher_profile_approvals,id'
+                'ids.*' => 'integer|exists:teacher_profile_approvals,id',
             ]);
 
             $ids = $request->ids;
@@ -241,7 +235,7 @@ class TeacherApprovalController extends Controller
             try {
                 foreach ($ids as $id) {
                     $approval = TeacherProfileApproval::find($id);
-                    
+
                     if ($approval && $approval->status === TeacherProfileApproval::STATUS_PENDING) {
                         $approval->approve($user->id);
                         $this->updateModelStatus($approval);
@@ -254,19 +248,17 @@ class TeacherApprovalController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => "Successfully approved {$approvedCount} requests",
-                    'approved_count' => $approvedCount
+                    'approved_count' => $approvedCount,
                 ]);
-
             } catch (\Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to bulk approve requests',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -278,11 +270,11 @@ class TeacherApprovalController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasRole('sektoradmin')) {
+
+            if (! $user || ! $user->hasRole('sektoradmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
@@ -291,14 +283,13 @@ class TeacherApprovalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $approval
+                'data' => $approval,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get approval details',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

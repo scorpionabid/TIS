@@ -53,13 +53,13 @@ class ReportTableApprovalService
                 $table = $response->reportTable;
                 $grouped[$tableId] = [
                     'table' => [
-                        'id'       => $table->id,
-                        'title'    => $table->title,
+                        'id' => $table->id,
+                        'title' => $table->title,
                         'deadline' => $table->deadline?->toISOString(),
-                        'columns'  => $table->columns ?? [],
+                        'columns' => $table->columns ?? [],
                     ],
                     'pending_count' => 0,
-                    'responses'     => [],
+                    'responses' => [],
                 ];
             }
 
@@ -73,17 +73,17 @@ class ReportTableApprovalService
 
             $institution = $response->institution;
             $grouped[$tableId]['responses'][] = [
-                'id'                  => $response->id,
-                'institution_id'      => $response->institution_id,
-                'institution'         => [
-                    'id'     => $institution->id,
-                    'name'   => $institution->name,
+                'id' => $response->id,
+                'institution_id' => $response->institution_id,
+                'institution' => [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
                     'parent' => $institution->parent
                         ? ['id' => $institution->parent->id, 'name' => $institution->parent->name]
                         : null,
                 ],
-                'rows'                => $response->rows ?? [],
-                'row_statuses'        => $response->row_statuses ?? [],
+                'rows' => $response->rows ?? [],
+                'row_statuses' => $response->row_statuses ?? [],
                 'pending_row_indices' => $pendingIndices,
             ];
         }
@@ -132,31 +132,31 @@ class ReportTableApprovalService
             if (! isset($tables[$tableId])) {
                 $tables[$tableId] = [
                     'table' => [
-                        'id'       => $table->id,
-                        'title'    => $table->title,
+                        'id' => $table->id,
+                        'title' => $table->title,
                         'deadline' => $table->deadline?->toISOString(),
-                        'columns'  => $table->columns ?? [],
+                        'columns' => $table->columns ?? [],
                     ],
                     'pending_count' => 0,
-                    'sectors'       => [],
+                    'sectors' => [],
                 ];
             }
 
             $sectorKey = $sectorId ? (string) $sectorId : '0';
             if (! isset($tables[$tableId]['sectors'][$sectorKey])) {
                 $tables[$tableId]['sectors'][$sectorKey] = [
-                    'sector'        => $sectorId ? ['id' => $sectorId, 'name' => $sectorName] : null,
+                    'sector' => $sectorId ? ['id' => $sectorId, 'name' => $sectorName] : null,
                     'pending_count' => 0,
-                    'schools'       => [],
+                    'schools' => [],
                 ];
             }
 
             $schoolKey = (string) $institution->id;
             if (! isset($tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey])) {
                 $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey] = [
-                    'school'        => ['id' => $institution->id, 'name' => $institution->name],
+                    'school' => ['id' => $institution->id, 'name' => $institution->name],
                     'pending_count' => 0,
-                    'responses'     => [],
+                    'responses' => [],
                 ];
             }
 
@@ -176,15 +176,15 @@ class ReportTableApprovalService
             $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['pending_count'] += count($pendingIndices);
 
             $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['responses'][] = [
-                'id'                  => $response->id,
-                'institution_id'      => $response->institution_id,
-                'institution'         => [
-                    'id'     => $institution->id,
-                    'name'   => $institution->name,
+                'id' => $response->id,
+                'institution_id' => $response->institution_id,
+                'institution' => [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
                     'parent' => $sector ? ['id' => $sector->id, 'name' => $sector->name] : null,
                 ],
-                'rows'                => $response->rows ?? [],
-                'row_statuses'        => $response->row_statuses ?? [],
+                'rows' => $response->rows ?? [],
+                'row_statuses' => $response->row_statuses ?? [],
                 'pending_row_indices' => $pendingIndices,
             ];
         }
@@ -240,31 +240,31 @@ class ReportTableApprovalService
             if (! isset($tables[$tableId])) {
                 $tables[$tableId] = [
                     'table' => [
-                        'id'       => $table->id,
-                        'title'    => $table->title,
+                        'id' => $table->id,
+                        'title' => $table->title,
                         'deadline' => $table->deadline?->toISOString(),
-                        'columns'  => $table->columns ?? [],
+                        'columns' => $table->columns ?? [],
                     ],
                     'approved_count' => 0,
-                    'sectors'        => [],
+                    'sectors' => [],
                 ];
             }
 
             $sectorKey = $sectorId ? (string) $sectorId : '0';
             if (! isset($tables[$tableId]['sectors'][$sectorKey])) {
                 $tables[$tableId]['sectors'][$sectorKey] = [
-                    'sector'         => $sectorId ? ['id' => $sectorId, 'name' => $sectorName] : null,
+                    'sector' => $sectorId ? ['id' => $sectorId, 'name' => $sectorName] : null,
                     'approved_count' => 0,
-                    'schools'        => [],
+                    'schools' => [],
                 ];
             }
 
             $schoolKey = (string) $institution->id;
             if (! isset($tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey])) {
                 $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey] = [
-                    'school'         => ['id' => $institution->id, 'name' => $institution->name],
+                    'school' => ['id' => $institution->id, 'name' => $institution->name],
                     'approved_count' => 0,
-                    'responses'      => [],
+                    'responses' => [],
                 ];
             }
 
@@ -284,15 +284,15 @@ class ReportTableApprovalService
             $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['approved_count'] += count($approvedIndices);
 
             $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['responses'][] = [
-                'id'                   => $response->id,
-                'institution_id'       => $response->institution_id,
-                'institution'          => [
-                    'id'     => $institution->id,
-                    'name'   => $institution->name,
+                'id' => $response->id,
+                'institution_id' => $response->institution_id,
+                'institution' => [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
                     'parent' => $sector ? ['id' => $sector->id, 'name' => $sector->name] : null,
                 ],
-                'rows'                 => $response->rows ?? [],
-                'row_statuses'         => $response->row_statuses ?? [],
+                'rows' => $response->rows ?? [],
+                'row_statuses' => $response->row_statuses ?? [],
                 'approved_row_indices' => $approvedIndices,
             ];
         }
@@ -417,8 +417,8 @@ class ReportTableApprovalService
         ?string $userAgent = null
     ): array {
         $successful = 0;
-        $errors     = [];
-        $totalRows  = 0;
+        $errors = [];
+        $totalRows = 0;
 
         foreach ($rowSpecs as $spec) {
             $totalRows += count($spec['row_indices'] ?? []);
@@ -432,6 +432,7 @@ class ReportTableApprovalService
                 $response = ReportTableResponse::find($responseId);
                 if (! $response || $response->report_table_id !== $table->id) {
                     $errors[] = ['response_id' => $responseId, 'error' => 'Cavab tapılmadı'];
+
                     continue;
                 }
 
@@ -439,11 +440,12 @@ class ReportTableApprovalService
                     $this->checkReviewerHierarchyAccess($response, $reviewer);
                 } catch (\Throwable $e) {
                     $errors[] = ['response_id' => $responseId, 'error' => $e->getMessage()];
+
                     continue;
                 }
 
                 foreach ($rowIndices as $rowIndex) {
-                    $idx    = (int) $rowIndex;
+                    $idx = (int) $rowIndex;
                     $status = $response->getRowStatus($idx)['status'] ?? null;
 
                     $allowedStatusesForReturn = ['submitted', 'approved'];
@@ -451,24 +453,26 @@ class ReportTableApprovalService
                         if (! in_array($status, $allowedStatusesForReturn, true)) {
                             $errors[] = [
                                 'response_id' => $responseId,
-                                'row_index'   => $idx,
-                                'error'       => "Sətir geri qaytarıla bilməz (status: {$status})",
+                                'row_index' => $idx,
+                                'error' => "Sətir geri qaytarıla bilməz (status: {$status})",
                             ];
+
                             continue;
                         }
                     } elseif ($status !== 'submitted') {
                         $errors[] = [
                             'response_id' => $responseId,
-                            'row_index'   => $idx,
-                            'error'       => 'Sətir submitted statusunda deyil',
+                            'row_index' => $idx,
+                            'error' => 'Sətir submitted statusunda deyil',
                         ];
+
                         continue;
                     }
 
                     match ($action) {
                         'approve' => $response->approveRow($idx, $reviewer->id),
-                        'reject'  => $response->rejectRow($idx, $reviewer->id, $reason ?? ''),
-                        'return'  => $response->returnRowToDraft($idx),
+                        'reject' => $response->rejectRow($idx, $reviewer->id, $reason ?? ''),
+                        'return' => $response->returnRowToDraft($idx),
                     };
 
                     $successful++;
@@ -477,18 +481,18 @@ class ReportTableApprovalService
         });
 
         \App\Models\ReportTableBulkActionLog::create([
-            'user_id'          => $reviewer->id,
-            'report_table_id'  => $table->id,
-            'action'           => $action,
-            'row_count'        => $totalRows,
+            'user_id' => $reviewer->id,
+            'report_table_id' => $table->id,
+            'action' => $action,
+            'row_count' => $totalRows,
             'successful_count' => $successful,
-            'failed_count'     => count($errors),
-            'details'          => [
+            'failed_count' => count($errors),
+            'details' => [
                 'reason' => $reason,
                 'errors' => array_slice($errors, 0, 10),
             ],
-            'ip_address'  => $ipAddress,
-            'user_agent'  => $userAgent,
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
         ]);
 
         return ['successful' => $successful, 'failed' => count($errors), 'errors' => $errors];
@@ -564,8 +568,8 @@ class ReportTableApprovalService
             return;
         }
 
-        $tableTitle    = $response->reportTable?->title ?? 'Hesabat cədvəli';
-        $reviewerName  = $reviewer->name ?? $reviewer->username ?? 'Admin';
+        $tableTitle = $response->reportTable?->title ?? 'Hesabat cədvəli';
+        $reviewerName = $reviewer->name ?? $reviewer->username ?? 'Admin';
 
         [$notifType, $title, $message] = match ($action) {
             'approved' => [
@@ -598,29 +602,29 @@ class ReportTableApprovalService
         foreach ($schoolAdminIds as $userId) {
             try {
                 $this->notificationService->send([
-                    'user_id'      => $userId,
-                    'title'        => $title,
-                    'message'      => $message,
-                    'type'         => $notifType,
-                    'channel'      => 'in_app',
-                    'priority'     => $action === 'rejected' ? 'high' : 'normal',
+                    'user_id' => $userId,
+                    'title' => $title,
+                    'message' => $message,
+                    'type' => $notifType,
+                    'channel' => 'in_app',
+                    'priority' => $action === 'rejected' ? 'high' : 'normal',
                     'related_type' => ReportTableResponse::class,
-                    'related_id'   => $response->id,
-                    'metadata'     => [
-                        'report_table_id'       => $response->report_table_id,
-                        'report_table_title'    => $tableTitle,
-                        'response_id'           => $response->id,
-                        'action'                => $action,
-                        'reviewer_name'         => $reviewerName,
-                        'rejection_reason'      => $reason,
-                        'action_url'            => '/report-table-entry',
+                    'related_id' => $response->id,
+                    'metadata' => [
+                        'report_table_id' => $response->report_table_id,
+                        'report_table_title' => $tableTitle,
+                        'response_id' => $response->id,
+                        'action' => $action,
+                        'reviewer_name' => $reviewerName,
+                        'rejection_reason' => $reason,
+                        'action_url' => '/report-table-entry',
                     ],
                 ]);
             } catch (\Throwable $e) {
                 \Log::warning("Failed to send report_table_{$action} notification", [
                     'response_id' => $response->id,
-                    'user_id'     => $userId,
-                    'error'       => $e->getMessage(),
+                    'user_id' => $userId,
+                    'error' => $e->getMessage(),
                 ]);
             }
         }

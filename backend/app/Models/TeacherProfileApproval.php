@@ -19,7 +19,7 @@ class TeacherProfileApproval extends Model
         'status',
         'rejection_reason',
         'approved_by',
-        'approved_at'
+        'approved_at',
     ];
 
     protected $casts = [
@@ -32,14 +32,18 @@ class TeacherProfileApproval extends Model
      * Approval statuses
      */
     const STATUS_PENDING = 'pending';
+
     const STATUS_APPROVED = 'approved';
+
     const STATUS_REJECTED = 'rejected';
 
     /**
      * Model types
      */
     const MODEL_TEACHER_PROFILE = 'TeacherProfile';
+
     const MODEL_TEACHER_ACHIEVEMENT = 'TeacherAchievement';
+
     const MODEL_TEACHER_CERTIFICATE = 'TeacherCertificate';
 
     /**
@@ -138,7 +142,7 @@ class TeacherProfileApproval extends Model
         $this->update([
             'status' => self::STATUS_APPROVED,
             'approved_by' => $approvedBy,
-            'approved_at' => now()
+            'approved_at' => now(),
         ]);
     }
 
@@ -151,7 +155,7 @@ class TeacherProfileApproval extends Model
             'status' => self::STATUS_REJECTED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'rejection_reason' => $reason
+            'rejection_reason' => $reason,
         ]);
     }
 

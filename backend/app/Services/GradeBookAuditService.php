@@ -3,9 +3,8 @@
 namespace App\Services;
 
 use App\Models\GradeBookAuditLog;
-use App\Models\GradeBookCell;
-use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Request;
 
 class GradeBookAuditService
 {
@@ -70,7 +69,7 @@ class GradeBookAuditService
             ];
         }
 
-        if (!empty($logs)) {
+        if (! empty($logs)) {
             GradeBookAuditLog::insert($logs);
         }
     }

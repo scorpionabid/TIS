@@ -381,7 +381,6 @@ class BulkAttendanceController extends BaseController
                     ];
                 }),
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Daily report error: ' . $e->getMessage());
 

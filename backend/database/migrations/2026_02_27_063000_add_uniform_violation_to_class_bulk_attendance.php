@@ -15,7 +15,7 @@ return new class extends Migration
             // Add uniform violation column - tracks students without proper uniform
             // Applies to present students (those who attended but not in uniform)
             $table->integer('uniform_violation')->default(0)->nullable()->comment('Students attending without proper uniform')->after('evening_unexcused');
-            
+
             // Add index for performance when filtering by uniform violations
             $table->index('uniform_violation');
         });

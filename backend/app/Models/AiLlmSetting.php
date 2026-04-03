@@ -53,15 +53,15 @@ class AiLlmSetting extends Model
      */
     public function getEffectiveModel(): string
     {
-        if (!empty($this->model)) {
+        if (! empty($this->model)) {
             return $this->model;
         }
 
         return match ($this->provider) {
-            'openai'    => 'gpt-4o-mini',
+            'openai' => 'gpt-4o-mini',
             'anthropic' => 'claude-3-5-haiku-20241022',
-            'gemini'    => 'gemini-2.0-flash',
-            default     => 'gpt-4o-mini',
+            'gemini' => 'gemini-2.0-flash',
+            default => 'gpt-4o-mini',
         };
     }
 
@@ -72,10 +72,10 @@ class AiLlmSetting extends Model
     public function getSqlModel(): string
     {
         return match ($this->provider) {
-            'openai'    => 'gpt-4o',
+            'openai' => 'gpt-4o',
             'anthropic' => 'claude-3-5-sonnet-20241022',
-            'gemini'    => 'gemini-1.5-pro',
-            default     => $this->getEffectiveModel(),
+            'gemini' => 'gemini-1.5-pro',
+            default => $this->getEffectiveModel(),
         };
     }
 }

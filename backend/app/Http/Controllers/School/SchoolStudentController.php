@@ -92,7 +92,7 @@ class SchoolStudentController extends Controller
             $validated['name'] = trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? ''));
         }
         // Map class_id to grade_id if provided
-        if (empty($validated['grade_id']) && !empty($validated['class_id'])) {
+        if (empty($validated['grade_id']) && ! empty($validated['class_id'])) {
             $validated['grade_id'] = $validated['class_id'];
         }
 
@@ -107,8 +107,9 @@ class SchoolStudentController extends Controller
         } catch (\Exception $e) {
             \Log::error('Student creation error: ' . $e->getMessage(), [
                 'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create student: ' . $e->getMessage(),
@@ -179,7 +180,7 @@ class SchoolStudentController extends Controller
 
         $validated = $validator->validated();
         // Map class_id to grade_id if provided
-        if (empty($validated['grade_id']) && !empty($validated['class_id'])) {
+        if (empty($validated['grade_id']) && ! empty($validated['class_id'])) {
             $validated['grade_id'] = $validated['class_id'];
         }
 

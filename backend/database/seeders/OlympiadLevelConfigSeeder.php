@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\OlympiadLevelConfig;
+use Illuminate\Database\Seeder;
 
 /**
  * PRD: Olimpiada bal cədvəlləri: səviyyə (rayon/region/ölkə/beynəlxalq),

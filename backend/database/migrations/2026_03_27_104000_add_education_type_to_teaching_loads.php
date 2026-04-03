@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('teaching_loads', function (Blueprint $table) {
             // Add education_type if it doesn't exist
-            if (!Schema::hasColumn('teaching_loads', 'education_type')) {
+            if (! Schema::hasColumn('teaching_loads', 'education_type')) {
                 $table->string('education_type', 50)->nullable()->after('subject_id');
             }
 
@@ -33,7 +33,7 @@ return new class extends Migration
     {
         Schema::table('teaching_loads', function (Blueprint $table) {
             $table->dropUnique('teaching_loads_full_unique');
-            
+
             $table->unique(['teacher_id', 'class_id', 'subject_id', 'academic_year_id']);
 
             if (Schema::hasColumn('teaching_loads', 'education_type')) {

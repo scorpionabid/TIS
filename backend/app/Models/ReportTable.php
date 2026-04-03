@@ -34,14 +34,14 @@ class ReportTable extends Model
     protected function casts(): array
     {
         return [
-            'columns'             => 'array',
-            'fixed_rows'          => 'array',
+            'columns' => 'array',
+            'fixed_rows' => 'array',
             'target_institutions' => 'array',
-            'deadline'            => 'datetime',
-            'published_at'        => 'datetime',
-            'archived_at'         => 'datetime',
-            'deleted_at'          => 'datetime',
-            'is_template'                          => 'boolean',
+            'deadline' => 'datetime',
+            'published_at' => 'datetime',
+            'archived_at' => 'datetime',
+            'deleted_at' => 'datetime',
+            'is_template' => 'boolean',
             'allow_additional_rows_after_confirmation' => 'boolean',
         ];
     }
@@ -92,21 +92,21 @@ class ReportTable extends Model
 
     public function publish(): void
     {
-        $this->status       = 'published';
+        $this->status = 'published';
         $this->published_at = now();
         $this->save();
     }
 
     public function archive(): void
     {
-        $this->status      = 'archived';
+        $this->status = 'archived';
         $this->archived_at = now();
         $this->save();
     }
 
     public function unarchive(): void
     {
-        $this->status      = 'published';
+        $this->status = 'published';
         $this->archived_at = null;
         $this->save();
     }
@@ -118,7 +118,7 @@ class ReportTable extends Model
      */
     public function cloneAsNew(string $newTitle, ?int $creatorId = null): ReportTable
     {
-        $clone = new static();
+        $clone = new static;
         $clone->title = $newTitle;
         $clone->description = $this->description;
         $clone->creator_id = $creatorId ?? $this->creator_id;

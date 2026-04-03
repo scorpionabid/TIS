@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::table('report_tables', function (Blueprint $table) {
             $table->boolean('allow_additional_rows_after_confirmation')
-                  ->default(true)
-                  ->comment('RegionAdmin tərəfindən idarə olunur - default olaraq açıqdır, bağlananda məktəblər əlavə sətir göndərə bilməz')
-                  ->change();
+                ->default(true)
+                ->comment('RegionAdmin tərəfindən idarə olunur - default olaraq açıqdır, bağlananda məktəblər əlavə sətir göndərə bilməz')
+                ->change();
         });
-        
+
         // Mövcud cədvəlləri default olaraq açıq vəziyyətə gətir (əgər null-dursa)
         \DB::table('report_tables')
             ->whereNull('allow_additional_rows_after_confirmation')
@@ -31,9 +31,9 @@ return new class extends Migration
     {
         Schema::table('report_tables', function (Blueprint $table) {
             $table->boolean('allow_additional_rows_after_confirmation')
-                  ->default(false)
-                  ->comment('RegionAdmin tərəfindən idarə olunur - məktəblər təsdiqədən sonra əlavə sətir göndərə bilsin')
-                  ->change();
+                ->default(false)
+                ->comment('RegionAdmin tərəfindən idarə olunur - məktəblər təsdiqədən sonra əlavə sətir göndərə bilsin')
+                ->change();
         });
     }
 };

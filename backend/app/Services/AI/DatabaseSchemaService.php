@@ -2,8 +2,8 @@
 
 namespace App\Services\AI;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 class DatabaseSchemaService
 {
     private const CACHE_KEY = 'ai_analysis_db_schema';
+
     private const CACHE_TTL = 6 * 3600; // 6 saat
 
     /**
@@ -66,7 +67,7 @@ class DatabaseSchemaService
         }
 
         $allColumns = $this->getAllColumnsBatch($tableNames);
-        $rowCounts  = $this->getAllRowCountsBatch($tableNames);
+        $rowCounts = $this->getAllRowCountsBatch($tableNames);
 
         // Row count-a görə sırala → ən dolğun top-30 cədvəl sample data alır
         $sortedByRows = $tableNames;
@@ -75,7 +76,7 @@ class DatabaseSchemaService
 
         $schema = [];
         foreach ($tableNames as $tableName) {
-            $columns  = $allColumns[$tableName] ?? [];
+            $columns = $allColumns[$tableName] ?? [];
             $rowCount = $rowCounts[$tableName] ?? 0;
 
             $sampleData = isset($sampleTargets[$tableName])
@@ -83,10 +84,10 @@ class DatabaseSchemaService
                 : [];
 
             $schema[] = [
-                'table_name'  => $tableName,
-                'label'       => $this->labelService->getTableLabel($tableName),
-                'row_count'   => $rowCount,
-                'columns'     => $columns,
+                'table_name' => $tableName,
+                'label' => $this->labelService->getTableLabel($tableName),
+                'row_count' => $rowCount,
+                'columns' => $columns,
                 'sample_data' => $sampleData,
             ];
         }
@@ -110,7 +111,7 @@ class DatabaseSchemaService
 
         return array_values(array_filter(
             array_map(fn ($t) => $t->table_name, $tables),
-            fn ($name) => !in_array($name, self::EXCLUDED_TABLES, true)
+            fn ($name) => ! in_array($name, self::EXCLUDED_TABLES, true)
         ));
     }
 
@@ -118,7 +119,7 @@ class DatabaseSchemaService
      * Bütün cədvəllərin sütunlarını TEK sorğuda alır.
      * Köhnə: N sorğu → Yeni: 1 sorğu
      *
-     * @param  string[] $tableNames
+     * @param  string[]             $tableNames
      * @return array<string, array> table_name => columns[]
      */
     private function getAllColumnsBatch(array $tableNames): array
@@ -146,11 +147,11 @@ class DatabaseSchemaService
         $grouped = [];
         foreach ($rows as $row) {
             $grouped[$row->table_name][] = [
-                'name'       => $row->column_name,
-                'label'      => $this->labelService->getColumnLabel($row->column_name),
-                'type'       => $row->data_type,
-                'nullable'   => $row->is_nullable === 'YES',
-                'default'    => $row->column_default,
+                'name' => $row->column_name,
+                'label' => $this->labelService->getColumnLabel($row->column_name),
+                'type' => $row->data_type,
+                'nullable' => $row->is_nullable === 'YES',
+                'default' => $row->column_default,
                 'max_length' => $row->character_maximum_length,
             ];
         }
@@ -162,7 +163,7 @@ class DatabaseSchemaService
      * Bütün cədvəllərin sətir sayını TEK pg_class sorğusunda alır.
      * Köhnə: N sorğu → Yeni: 1 sorğu
      *
-     * @param  string[] $tableNames
+     * @param  string[]           $tableNames
      * @return array<string, int> table_name => estimated_row_count
      */
     private function getAllRowCountsBatch(array $tableNames): array
@@ -197,18 +198,19 @@ class DatabaseSchemaService
     {
         try {
             $sensitiveCols = ['password', 'remember_token', 'token', 'secret', 'api_key', 'private_key'];
-            $safeCols = array_filter($columns, fn ($col) => !in_array($col['name'], $sensitiveCols, true));
+            $safeCols = array_filter($columns, fn ($col) => ! in_array($col['name'], $sensitiveCols, true));
 
             if (empty($safeCols)) {
                 return [];
             }
 
             $colNames = implode(', ', array_map(fn ($c) => '"' . $c['name'] . '"', $safeCols));
-            $rows     = DB::select("SELECT {$colNames} FROM \"{$tableName}\" LIMIT 1");
+            $rows = DB::select("SELECT {$colNames} FROM \"{$tableName}\" LIMIT 1");
 
             return array_map(fn ($row) => (array) $row, $rows);
         } catch (\Exception $e) {
             Log::warning("AI Schema: sample data xətası [{$tableName}]: " . $e->getMessage());
+
             return [];
         }
     }
@@ -219,7 +221,7 @@ class DatabaseSchemaService
     public function getCondensedSchema(): string
     {
         $schema = $this->getSchema();
-        $lines  = [];
+        $lines = [];
 
         foreach ($schema as $table) {
             $colDefs = array_map(

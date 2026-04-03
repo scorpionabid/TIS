@@ -81,7 +81,9 @@ export default function AdminCurriculumDashboard() {
     return (directRole || firstRole || '').toLowerCase();
   }, [currentUser]);
 
+  const isSuperAdmin = userRole === 'superadmin';
   const isRegionAdmin = ['regionadmin', 'superadmin', 'regionoperator'].includes(userRole);
+  const canManageSettings = userRole === 'regionadmin';
   const isSektorAdmin = userRole === 'sektoradmin';
   const userInstitutionId = (currentUser as any)?.institution_id || (currentUser as any)?.institutionId || (currentUser as any)?.institution?.id;
   const regionIdForSectors = currentUser?.region?.id || (isRegionAdmin ? userInstitutionId : undefined);
@@ -131,19 +133,21 @@ export default function AdminCurriculumDashboard() {
   const { data: rawSchoolsPayload, isLoading: loadingSchools } = useQuery({
     queryKey: ['curriculum-schools', userInstitutionId, userRole, activeYear?.id],
     queryFn: async () => {
-      if (!userInstitutionId || !activeYear?.id) return [];
-      
-      const response = await institutionService.getAll({ 
-        level: 4, 
+      if (!activeYear?.id) return [];
+      // SuperAdmin has no institution_id — fetches all schools without parent filter
+      if (!isSuperAdmin && !userInstitutionId) return [];
+
+      const response = await institutionService.getAll({
+        level: 4,
         parent_id: isSektorAdmin ? userInstitutionId : undefined,
         per_page: 1000,
         with_curriculum_stats: true,
         academic_year_id: activeYear.id
       } as any);
-      
+
       return response;
     },
-    enabled: !!userInstitutionId && !!activeYear?.id
+    enabled: (isSuperAdmin || !!userInstitutionId) && !!activeYear?.id
   });
 
   const schools = useMemo(() => {
@@ -172,8 +176,7 @@ export default function AdminCurriculumDashboard() {
     return schools.filter((school: any) => {
       // Role-based fail-safe: if SektorAdmin, only show schools belonging to their sector
       if (isSektorAdmin && userInstitutionId) {
-        // Use loose comparison here because ID might be coming as string or number
-        if (school.parent_id != userInstitutionId && school.id != userInstitutionId) {
+        if (school.parent_id != userInstitutionId) {
           return false;
         }
       }
@@ -229,7 +232,7 @@ export default function AdminCurriculumDashboard() {
               </span>
             </div>
           )}
-          {isRegionAdmin && (
+          {canManageSettings && (
             <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="h-10 px-5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-black text-[10px] uppercase tracking-widest gap-2 shadow-sm transition-all active:scale-[0.98]">

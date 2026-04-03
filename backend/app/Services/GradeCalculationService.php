@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\GradeBookCell;
 use App\Models\GradeBookColumn;
 use App\Models\GradeBookSession;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class GradeCalculationService
@@ -44,7 +43,7 @@ class GradeCalculationService
             ->whereNotNull('score')
             ->value('score');
 
-        if ($ksqScores->isEmpty() && !$bsqScore) {
+        if ($ksqScores->isEmpty() && ! $bsqScore) {
             return 0;
         }
 
@@ -52,9 +51,9 @@ class GradeCalculationService
 
         if ($bsqScore) {
             return ($ksqAverage * 0.4) + ($bsqScore * 0.6);
-        } else {
-            return $ksqAverage;
         }
+
+        return $ksqAverage;
     }
 
     /**
@@ -72,9 +71,16 @@ class GradeCalculationService
      */
     public function convertScoreToGrade(float $score): int
     {
-        if ($score >= 80) return 5;
-        if ($score >= 60) return 4;
-        if ($score >= 30) return 3;
+        if ($score >= 80) {
+            return 5;
+        }
+        if ($score >= 60) {
+            return 4;
+        }
+        if ($score >= 30) {
+            return 3;
+        }
+
         return 2;
     }
 
@@ -134,7 +140,7 @@ class GradeCalculationService
                     'display_order' => $displayOrder,
                     'column_type' => 'calculated',
                     'created_by' => auth()->id() ?? throw new \RuntimeException('Authenticated user required for grade book column creation'),
-                ])
+                ]),
             ]);
         }
 
@@ -184,7 +190,7 @@ class GradeCalculationService
     {
         $session = GradeBookSession::with(['grade.studentEnrollments.student'])->find($sessionId);
 
-        if (!$session || !$session->grade) {
+        if (! $session || ! $session->grade) {
             return;
         }
 
@@ -213,9 +219,16 @@ class GradeCalculationService
      */
     public function getScoreColor(float $score): string
     {
-        if ($score >= 80) return 'green';    // Grade 5
-        if ($score >= 60) return 'yellow';     // Grade 4
-        if ($score >= 30) return 'orange';   // Grade 3
+        if ($score >= 80) {
+            return 'green';
+        }    // Grade 5
+        if ($score >= 60) {
+            return 'yellow';
+        }     // Grade 4
+        if ($score >= 30) {
+            return 'orange';
+        }   // Grade 3
+
         return 'red';                          // Grade 2
     }
 
@@ -224,9 +237,16 @@ class GradeCalculationService
      */
     public function getScoreBackgroundClass(float $score): string
     {
-        if ($score >= 80) return 'bg-green-100';
-        if ($score >= 60) return 'bg-yellow-100';
-        if ($score >= 30) return 'bg-orange-100';
+        if ($score >= 80) {
+            return 'bg-green-100';
+        }
+        if ($score >= 60) {
+            return 'bg-yellow-100';
+        }
+        if ($score >= 30) {
+            return 'bg-orange-100';
+        }
+
         return 'bg-red-100';
     }
 }

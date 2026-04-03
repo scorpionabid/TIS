@@ -102,7 +102,7 @@ class StudentControllerRefactored extends BaseController
      */
     public function exportStudents(Request $request): BinaryFileResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request) {
+        return $this->executeWithErrorHandling(function () {
             $user = Auth::user();
 
             $query = Student::with(['institution', 'grade']);

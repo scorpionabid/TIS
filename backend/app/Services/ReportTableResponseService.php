@@ -39,10 +39,10 @@ class ReportTableResponseService
         return DB::transaction(function () use ($table, $user, $institutionId) {
             $response = ReportTableResponse::create([
                 'report_table_id' => $table->id,
-                'institution_id'  => $institutionId,
-                'respondent_id'   => $user->id,
-                'rows'            => [],
-                'status'          => 'draft',
+                'institution_id' => $institutionId,
+                'respondent_id' => $user->id,
+                'rows' => [],
+                'status' => 'draft',
             ]);
 
             return $response->load(['reportTable', 'institution', 'respondent']);
@@ -75,8 +75,8 @@ class ReportTableResponseService
         }
 
         $existingStatuses = $response->row_statuses ?? [];
-        $existingRows     = $response->rows ?? [];
-        $mergedRows       = $rows;
+        $existingRows = $response->rows ?? [];
+        $mergedRows = $rows;
 
         // Protect submitted/approved rows within the incoming payload range.
         foreach ($rows as $idx => $row) {
@@ -130,7 +130,7 @@ class ReportTableResponseService
 
         $response->loadMissing(['reportTable']);
         $table = $response->reportTable;
-        $rows  = $response->rows ?? [];
+        $rows = $response->rows ?? [];
 
         if (empty($rows)) {
             throw ValidationException::withMessages([
@@ -148,7 +148,7 @@ class ReportTableResponseService
                 $current = $statuses[$idx]['status'] ?? null;
                 if (! in_array($current, ['submitted', 'approved'], true)) {
                     $statuses[$idx] = [
-                        'status'       => 'submitted',
+                        'status' => 'submitted',
                         'submitted_by' => $user->id,
                         'submitted_at' => now()->toISOString(),
                     ];
@@ -264,7 +264,7 @@ class ReportTableResponseService
 
         if (! empty($fixedRows)) {
             $expectedCount = count($fixedRows);
-            $actualCount   = count($rows);
+            $actualCount = count($rows);
             if ($actualCount !== $expectedCount) {
                 throw ValidationException::withMessages([
                     'rows' => ["Bu cədvəldə dəqiq {$expectedCount} sətir olmalıdır (siz {$actualCount} göndərdiniz)."],
@@ -276,14 +276,14 @@ class ReportTableResponseService
             ]);
         }
 
-        $validKeys     = array_column($columns, 'key');
-        $columnTypes   = [];
-        $columnLabels  = [];
+        $validKeys = array_column($columns, 'key');
+        $columnTypes = [];
+        $columnLabels = [];
         $columnOptions = [];
 
         foreach ($columns as $col) {
-            $columnTypes[$col['key']]   = $col['type'] ?? 'text';
-            $columnLabels[$col['key']]  = $col['label'] ?? $col['key'];
+            $columnTypes[$col['key']] = $col['type'] ?? 'text';
+            $columnLabels[$col['key']] = $col['label'] ?? $col['key'];
             $columnOptions[$col['key']] = $col['options'] ?? [];
         }
 
@@ -292,6 +292,7 @@ class ReportTableResponseService
 
             if (! is_array($row)) {
                 $errors["rows.{$rowIndex}"] = ["{$pos}. sətir düzgün formatda deyil."];
+
                 continue;
             }
 
@@ -304,8 +305,8 @@ class ReportTableResponseService
                     continue;
                 }
 
-                $colType    = $columnTypes[$colKey] ?? 'text';
-                $colLabel   = $columnLabels[$colKey] ?? $colKey;
+                $colType = $columnTypes[$colKey] ?? 'text';
+                $colLabel = $columnLabels[$colKey] ?? $colKey;
                 $colOptions = $columnOptions[$colKey] ?? [];
 
                 switch ($colType) {

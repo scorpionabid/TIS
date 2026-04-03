@@ -2,17 +2,17 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use App\Models\Institution;
-use App\Models\Grade;
 use App\Models\ClassBulkAttendance;
+use App\Models\Grade;
+use App\Models\Institution;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Console\Command;
 
 class GenerateTestData extends Command
 {
     protected $signature = 'test:generate-attendance';
+
     protected $description = 'Generate bulk attendance data for testing purposes';
 
     public function handle()
@@ -21,12 +21,13 @@ class GenerateTestData extends Command
 
         $date = '2026-02-17';
         $academicYearId = 1;
-        $superAdmin = User::whereHas('roles', function($q) {
+        $superAdmin = User::whereHas('roles', function ($q) {
             $q->where('name', 'superadmin');
         })->first();
 
-        if (!$superAdmin) {
+        if (! $superAdmin) {
             $this->error('Superadmin tapılmadı.');
+
             return;
         }
 
@@ -34,6 +35,7 @@ class GenerateTestData extends Command
         $sectors = Institution::where('level', 3)->get();
         if ($sectors->isEmpty()) {
             $this->error('Sektorlar tapılmadı.');
+
             return;
         }
 
@@ -52,7 +54,7 @@ class GenerateTestData extends Command
             foreach ($schools as $school) {
                 // Məktəbə aid sinifləri tap
                 $grades = Grade::where('institution_id', $school->id)->get();
-                
+
                 // Əgər sinif yoxdursa, test üçün bir neçə dənə yarat
                 if ($grades->isEmpty()) {
                     $classCount = rand(5, 10);
@@ -77,11 +79,11 @@ class GenerateTestData extends Command
 
                 foreach ($grades as $grade) {
                     $studentCount = $grade->student_count ?? rand(20, 30);
-                    
+
                     // Təsadüfi davamiyyət (80% - 100% arası)
                     $morningPresent = rand(floor($studentCount * 0.8), $studentCount);
                     $eveningPresent = rand(floor($studentCount * 0.8), $studentCount);
-                    
+
                     $morningRate = ($studentCount > 0) ? ($morningPresent / $studentCount) * 100 : 0;
                     $eveningRate = ($studentCount > 0) ? ($eveningPresent / $studentCount) * 100 : 0;
                     $dailyRate = ($morningRate + $eveningRate) / 2;
@@ -114,7 +116,7 @@ class GenerateTestData extends Command
             }
         }
 
-        $this->info("Uğurla tamamlandı!");
+        $this->info('Uğurla tamamlandı!');
         $this->info("Ümumi məktəb: $totalSchools");
         $this->info("Ümumi sinif qeydi: $totalClasses");
     }

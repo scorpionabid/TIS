@@ -25,8 +25,8 @@ class PreschoolAttendanceControllerTest extends TestCase
     private function createPreschoolInstitution(string $type = 'kindergarten'): Institution
     {
         return Institution::factory()->create([
-            'type'      => $type,
-            'level'     => 4,
+            'type' => $type,
+            'level' => 4,
             'is_active' => true,
         ]);
     }
@@ -44,37 +44,37 @@ class PreschoolAttendanceControllerTest extends TestCase
     private function createAttendance(Institution $institution, Grade $grade, User $user, array $attrs = []): PreschoolAttendance
     {
         return PreschoolAttendance::create(array_merge([
-            'institution_id'  => $institution->id,
-            'grade_id'        => $grade->id,
+            'institution_id' => $institution->id,
+            'grade_id' => $grade->id,
             'attendance_date' => now()->format('Y-m-d'),
-            'total_enrolled'  => 10,
-            'present_count'   => 10,
-            'recorded_by'     => $user->id,
+            'total_enrolled' => 10,
+            'present_count' => 10,
+            'recorded_by' => $user->id,
         ], $attrs));
     }
 
     public function test_index_returns_attendance_data_for_groups(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $grade1 = Grade::factory()->create([
-            'name'           => 'AAA',
+            'name' => 'AAA',
             'institution_id' => $institution->id,
-            'student_count'  => 15,
-            'is_active'      => true,
+            'student_count' => 15,
+            'is_active' => true,
         ]);
 
         $grade2 = Grade::factory()->create([
-            'name'           => 'ZZZ',
+            'name' => 'ZZZ',
             'institution_id' => $institution->id,
-            'student_count'  => 20,
-            'is_active'      => true,
+            'student_count' => 20,
+            'is_active' => true,
         ]);
 
         $this->createAttendance($institution, $grade1, $user, [
             'total_enrolled' => 15,
-            'present_count'  => 12,
+            'present_count' => 12,
         ]);
 
         $response = $this->actingAs($user, 'sanctum')
@@ -97,14 +97,14 @@ class PreschoolAttendanceControllerTest extends TestCase
     public function test_store_saves_attendance_for_multiple_groups(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $grade1 = Grade::factory()->create(['institution_id' => $institution->id, 'student_count' => 10]);
         $grade2 = Grade::factory()->create(['institution_id' => $institution->id, 'student_count' => 20]);
 
         $payload = [
             'attendance_date' => now()->format('Y-m-d'),
-            'groups'          => [
+            'groups' => [
                 ['group_id' => $grade1->id, 'present_count' => 8, 'notes' => 'Bəziləri yoxdur'],
                 ['group_id' => $grade2->id, 'present_count' => 20, 'notes' => 'Hamı var'],
             ],
@@ -118,12 +118,12 @@ class PreschoolAttendanceControllerTest extends TestCase
             ->assertJsonPath('data.saved_count', 2);
 
         $this->assertDatabaseHas('preschool_attendance', [
-            'grade_id'      => $grade1->id,
+            'grade_id' => $grade1->id,
             'present_count' => 8,
         ]);
 
         $this->assertDatabaseHas('preschool_attendance', [
-            'grade_id'      => $grade2->id,
+            'grade_id' => $grade2->id,
             'present_count' => 20,
         ]);
     }
@@ -131,19 +131,19 @@ class PreschoolAttendanceControllerTest extends TestCase
     public function test_store_does_not_save_if_locked(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $grade = Grade::factory()->create(['institution_id' => $institution->id, 'student_count' => 15]);
 
         $this->createAttendance($institution, $grade, $user, [
             'total_enrolled' => 15,
-            'present_count'  => 15,
-            'is_locked'      => true,
+            'present_count' => 15,
+            'is_locked' => true,
         ]);
 
         $payload = [
             'attendance_date' => now()->format('Y-m-d'),
-            'groups'          => [
+            'groups' => [
                 ['group_id' => $grade->id, 'present_count' => 5],
             ],
         ];
@@ -158,7 +158,7 @@ class PreschoolAttendanceControllerTest extends TestCase
 
         // Still 15, not 5
         $this->assertDatabaseHas('preschool_attendance', [
-            'grade_id'      => $grade->id,
+            'grade_id' => $grade->id,
             'present_count' => 15,
         ]);
     }
@@ -168,9 +168,9 @@ class PreschoolAttendanceControllerTest extends TestCase
         Storage::fake('local');
 
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
-        $grade       = Grade::factory()->create(['institution_id' => $institution->id]);
-        $attendance  = $this->createAttendance($institution, $grade, $user);
+        $user = $this->createUserForInstitution($institution);
+        $grade = Grade::factory()->create(['institution_id' => $institution->id]);
+        $attendance = $this->createAttendance($institution, $grade, $user);
 
         $file1 = UploadedFile::fake()->image('photo1.jpg');
         $file2 = UploadedFile::fake()->image('photo2.png');
@@ -195,22 +195,22 @@ class PreschoolAttendanceControllerTest extends TestCase
         Storage::fake('local');
 
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
-        $grade       = Grade::factory()->create(['institution_id' => $institution->id]);
-        $attendance  = $this->createAttendance($institution, $grade, $user);
+        $user = $this->createUserForInstitution($institution);
+        $grade = Grade::factory()->create(['institution_id' => $institution->id]);
+        $attendance = $this->createAttendance($institution, $grade, $user);
 
         $filePath = 'preschool-photos/2026/03/' . $institution->id . '/fake_photo.jpg';
         Storage::disk('local')->put($filePath, 'fake image data');
 
         $photo = PreschoolAttendancePhoto::create([
             'preschool_attendance_id' => $attendance->id,
-            'institution_id'          => $institution->id,
-            'uploaded_by'             => $user->id,
-            'photo_date'              => now()->format('Y-m-d'),
-            'file_path'               => $filePath,
-            'original_filename'       => 'fake_photo.jpg',
-            'mime_type'               => 'image/jpeg',
-            'file_size_bytes'         => 1000,
+            'institution_id' => $institution->id,
+            'uploaded_by' => $user->id,
+            'photo_date' => now()->format('Y-m-d'),
+            'file_path' => $filePath,
+            'original_filename' => 'fake_photo.jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size_bytes' => 1000,
         ]);
 
         $response = $this->actingAs($user, 'sanctum')
@@ -228,22 +228,22 @@ class PreschoolAttendanceControllerTest extends TestCase
         Storage::fake('local');
 
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
-        $grade       = Grade::factory()->create(['institution_id' => $institution->id]);
-        $attendance  = $this->createAttendance($institution, $grade, $user);
+        $user = $this->createUserForInstitution($institution);
+        $grade = Grade::factory()->create(['institution_id' => $institution->id]);
+        $attendance = $this->createAttendance($institution, $grade, $user);
 
         $filePath = 'preschool-photos/fake_photo.jpg';
         Storage::disk('local')->put($filePath, 'fake image data');
 
         $photo = PreschoolAttendancePhoto::create([
             'preschool_attendance_id' => $attendance->id,
-            'institution_id'          => $institution->id,
-            'uploaded_by'             => $user->id,
-            'photo_date'              => now()->format('Y-m-d'),
-            'file_path'               => $filePath,
-            'original_filename'       => 'fake_photo.jpg',
-            'mime_type'               => 'image/jpeg',
-            'file_size_bytes'         => 1000,
+            'institution_id' => $institution->id,
+            'uploaded_by' => $user->id,
+            'photo_date' => now()->format('Y-m-d'),
+            'file_path' => $filePath,
+            'original_filename' => 'fake_photo.jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size_bytes' => 1000,
         ]);
 
         // 1. Same institution → access GRANTED
@@ -253,7 +253,7 @@ class PreschoolAttendanceControllerTest extends TestCase
 
         // 2. Different preschool schooladmin → access DENIED
         $otherInstitution = $this->createPreschoolInstitution();
-        $otherUser        = $this->createUserForInstitution($otherInstitution);
+        $otherUser = $this->createUserForInstitution($otherInstitution);
         $this->actingAs($otherUser, 'sanctum')
             ->get("/api/preschool/attendance/photos/{$photo->id}/serve")
             ->assertStatus(403);

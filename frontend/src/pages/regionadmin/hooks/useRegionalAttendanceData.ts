@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse } from '@/services/regionalAttendance';
+import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse, SchoolGradeStatsResponse } from '@/services/regionalAttendance';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
@@ -37,7 +37,7 @@ export function useRegionalAttendanceData() {
     key: 'name',
     direction: 'asc',
   });
-  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'gradeLevel' | 'missingReports'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'gradeLevel' | 'schoolGrade' | 'missingReports'>('overview');
   const [selectedEducationProgram, setSelectedEducationProgram] = useState<string>('all');
   const [pendingRefresh, setPendingRefresh] = useState(false);
 
@@ -137,6 +137,20 @@ export function useRegionalAttendanceData() {
     staleTime: 60 * 1000,
   });
 
+  // School + Grade Query
+  const {
+    data: schoolGradeData,
+    isLoading: schoolGradeLoading,
+    isFetching: schoolGradeFetching,
+    error: schoolGradeError,
+    refetch: refetchSchoolGrade,
+  } = useQuery<SchoolGradeStatsResponse>({
+    queryKey: ['regional-attendance', 'school-grade', filters],
+    queryFn: () => regionalAttendanceService.getSchoolGradeStats(filters),
+    enabled: hasAccess,
+    staleTime: 60 * 1000,
+  });
+
   // Sync selected school
   useEffect(() => {
     if (!schools.length) {
@@ -158,8 +172,9 @@ export function useRegionalAttendanceData() {
     if (selectedSchoolId) refetchClassBreakdown();
     refetchGradeLevel();
     refetchMissingReports();
+    refetchSchoolGrade();
     setPendingRefresh(false);
-  }, [pendingRefresh, refetchOverview, refetchClassBreakdown, refetchGradeLevel, refetchMissingReports, selectedSchoolId]);
+  }, [pendingRefresh, refetchOverview, refetchClassBreakdown, refetchGradeLevel, refetchMissingReports, refetchSchoolGrade, selectedSchoolId]);
 
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -205,6 +220,7 @@ export function useRegionalAttendanceData() {
     classBreakdown, classLoading, classFetching, classError,
     gradeLevelData, gradeLevelLoading, gradeLevelFetching, gradeLevelError,
     missingReportsData, missingReportsLoading, missingReportsFetching, missingReportsError,
+    schoolGradeData, schoolGradeLoading, schoolGradeFetching, schoolGradeError,
     handlePresetChange,
     handleSort,
     filters,

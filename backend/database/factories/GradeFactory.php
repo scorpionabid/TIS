@@ -19,15 +19,15 @@ class GradeFactory extends Factory
     public function definition(): array
     {
         return [
-            'institution_id'    => Institution::factory()->school(),
-            'academic_year_id'  => AcademicYear::factory()->active(),
-            'name'              => $this->faker->randomElement(['A', 'B', 'C', 'D']),
-            'class_level'       => $this->faker->numberBetween(1, 12),
-            'student_count'     => $this->faker->numberBetween(10, 35),
-            'male_student_count'   => 0,
+            'institution_id' => Institution::factory()->school(),
+            'academic_year_id' => AcademicYear::factory()->active(),
+            'name' => $this->faker->randomElement(['A', 'B', 'C', 'D']),
+            'class_level' => $this->faker->numberBetween(1, 12),
+            'student_count' => $this->faker->numberBetween(10, 35),
+            'male_student_count' => 0,
             'female_student_count' => 0,
-            'is_active'         => true,
-            'metadata'          => [],
+            'is_active' => true,
+            'metadata' => [],
         ];
     }
 
@@ -35,7 +35,7 @@ class GradeFactory extends Factory
     public function inactive(): static
     {
         return $this->state(fn (array $attributes) => [
-            'is_active'      => false,
+            'is_active' => false,
             'deactivated_at' => now(),
         ]);
     }

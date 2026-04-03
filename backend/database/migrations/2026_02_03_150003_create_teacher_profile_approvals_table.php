@@ -23,12 +23,12 @@ return new class extends Migration
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();
-            
+
             $table->index(['user_id', 'status']);
             $table->index(['model_type', 'model_id']);
             $table->index('status');
             $table->index('approved_at');
-            
+
             $table->unique(['model_type', 'model_id', 'status'], 'unique_approval_request');
         });
     }

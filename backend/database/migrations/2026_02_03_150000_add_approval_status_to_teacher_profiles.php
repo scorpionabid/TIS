@@ -16,7 +16,7 @@ return new class extends Migration
             $table->text('rejection_reason')->nullable()->after('status');
             $table->timestamp('approved_at')->nullable()->after('rejection_reason');
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete()->after('approved_at');
-            
+
             $table->index('status');
             $table->index('approved_at');
         });

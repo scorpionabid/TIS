@@ -11,13 +11,13 @@ return new class extends Migration
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $permission = Permission::firstOrCreate([
-            'name'       => 'report_table_responses.review',
+            'name' => 'report_table_responses.review',
             'guard_name' => 'sanctum',
         ]);
 
         foreach (['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'] as $roleName) {
             $role = Role::where('name', $roleName)->where('guard_name', 'sanctum')->first();
-            if ($role && !$role->hasPermissionTo('report_table_responses.review', 'sanctum')) {
+            if ($role && ! $role->hasPermissionTo('report_table_responses.review', 'sanctum')) {
                 $role->givePermissionTo($permission);
             }
         }

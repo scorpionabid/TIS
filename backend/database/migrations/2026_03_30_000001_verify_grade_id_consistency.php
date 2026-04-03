@@ -23,6 +23,7 @@ return new class extends Migration
 
         if ($unmatched->isEmpty()) {
             Log::info('verify_grade_id_consistency: Bütün şagirdlərin grade_id-si mövcuddur.');
+
             return;
         }
 

@@ -102,7 +102,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $counts,
+            'data' => $counts,
         ]);
     }
 
@@ -214,10 +214,10 @@ class NotificationController extends Controller
         // Base query for this user's notifications (reuse to avoid repeated scope calls)
         $baseQuery = fn () => Notification::forUser($user->id);
 
-        $total   = $baseQuery()->count();
-        $unread  = $baseQuery()->unread()->count();
-        $newToday  = $baseQuery()->whereDate('created_at', today())->count();
-        $thisWeek  = $baseQuery()->where('created_at', '>=', now()->startOfWeek())->count();
+        $total = $baseQuery()->count();
+        $unread = $baseQuery()->unread()->count();
+        $newToday = $baseQuery()->whereDate('created_at', today())->count();
+        $thisWeek = $baseQuery()->where('created_at', '>=', now()->startOfWeek())->count();
 
         // Group by type and priority using DB aggregation (single query each)
         $byType = $baseQuery()
@@ -237,26 +237,26 @@ class NotificationController extends Controller
 
         // Recent activity: last 7 days per day
         $recentActivity = $baseQuery()
-            ->selectRaw("DATE(created_at) as date, count(*) as count")
+            ->selectRaw('DATE(created_at) as date, count(*) as count')
             ->where('created_at', '>=', now()->subDays(7))
-            ->groupByRaw("DATE(created_at)")
-            ->orderByRaw("DATE(created_at)")
+            ->groupByRaw('DATE(created_at)')
+            ->orderByRaw('DATE(created_at)')
             ->get()
             ->map(fn ($row) => ['date' => $row->date, 'count' => $row->count]);
 
         return response()->json([
             'success' => true,
-            'data'    => [
+            'data' => [
                 // Frontend-compatible field names
                 'total_notifications' => $total,
                 'unread_notifications' => $unread,
-                'new_today'           => $newToday,
-                'this_week'           => $thisWeek,
-                'by_type'             => $byType,
-                'by_priority'         => $byPriority,
-                'recent_activity'     => $recentActivity,
+                'new_today' => $newToday,
+                'this_week' => $thisWeek,
+                'by_type' => $byType,
+                'by_priority' => $byPriority,
+                'recent_activity' => $recentActivity,
                 // Legacy fields (backward compat)
-                'total'  => $total,
+                'total' => $total,
                 'unread' => $unread,
             ],
         ]);

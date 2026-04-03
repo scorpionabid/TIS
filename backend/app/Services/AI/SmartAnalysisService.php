@@ -2,7 +2,6 @@
 
 namespace App\Services\AI;
 
-use App\Services\AI\AiProviderFactory;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -26,12 +25,10 @@ class SmartAnalysisService
      *  - Aydın prompt → {mode: "sql", sql, explanation, suggested_visualization}
      *  - Qeyri-müəyyən prompt → {mode: "clarify", questions: [...]}
      *
-     * @param string   $userPrompt
-     * @param string   $userRole
-     * @param int|null $regionId
      *
      * @return array{mode: "sql"|"clarify", sql?: string, explanation?: string,
      *               suggested_visualization?: string, questions?: array}
+     *
      * @throws \RuntimeException
      */
     public function analyze(
@@ -39,9 +36,9 @@ class SmartAnalysisService
         string $userRole = 'superadmin',
         ?int $regionId = null
     ): array {
-        $fullSchema     = $this->schemaService->getSchema();
+        $fullSchema = $this->schemaService->getSchema();
         $filteredSchema = $this->relevanceFilter->filter($userPrompt, $fullSchema);
-        $schemaText     = $this->buildSchemaText($filteredSchema);
+        $schemaText = $this->buildSchemaText($filteredSchema);
 
         $regionConstraint = '';
         if ($userRole === 'regionadmin' && $regionId) {
@@ -75,18 +72,17 @@ SYSTEM;
             // SQL generasiya modeli istifadə et — həm SQL həm qərar dəqiqliyi üçün
             $provider = AiProviderFactory::make(useSqlModel: true);
             $response = $provider->chat($messages, [
-                'max_tokens'  => 900,
+                'max_tokens' => 900,
                 'temperature' => 0.1,
             ]);
 
             $data = $this->decodeJson($response);
 
             return $this->validateAndNormalize($data);
-
         } catch (\Exception $e) {
             Log::error('SmartAnalysis xətası: ' . $e->getMessage(), [
                 'prompt' => $userPrompt,
-                'role'   => $userRole,
+                'role' => $userRole,
             ]);
             throw new \RuntimeException('Analiz zamanı xəta: ' . $e->getMessage());
         }
@@ -99,36 +95,36 @@ SYSTEM;
     {
         $mode = $data['mode'] ?? null;
 
-        if ($mode === 'sql' && !empty($data['sql'])) {
+        if ($mode === 'sql' && ! empty($data['sql'])) {
             return [
-                'mode'                    => 'sql',
-                'sql'                     => trim($data['sql']),
-                'explanation'             => $data['explanation'] ?? 'SQL uğurla yaradıldı',
+                'mode' => 'sql',
+                'sql' => trim($data['sql']),
+                'explanation' => $data['explanation'] ?? 'SQL uğurla yaradıldı',
                 'suggested_visualization' => $data['suggested_visualization'] ?? 'table',
             ];
         }
 
-        if ($mode === 'clarify' && !empty($data['questions'])) {
+        if ($mode === 'clarify' && ! empty($data['questions'])) {
             return [
-                'mode'      => 'clarify',
+                'mode' => 'clarify',
                 'questions' => $data['questions'],
             ];
         }
 
         // Fallback: mode yoxdursa amma sql varsa
-        if (!empty($data['sql'])) {
+        if (! empty($data['sql'])) {
             return [
-                'mode'                    => 'sql',
-                'sql'                     => trim($data['sql']),
-                'explanation'             => $data['explanation'] ?? 'SQL uğurla yaradıldı',
+                'mode' => 'sql',
+                'sql' => trim($data['sql']),
+                'explanation' => $data['explanation'] ?? 'SQL uğurla yaradıldı',
                 'suggested_visualization' => $data['suggested_visualization'] ?? 'table',
             ];
         }
 
         // Fallback: mode yoxdursa amma questions varsa
-        if (!empty($data['questions'])) {
+        if (! empty($data['questions'])) {
             return [
-                'mode'      => 'clarify',
+                'mode' => 'clarify',
                 'questions' => $data['questions'],
             ];
         }
@@ -149,30 +145,31 @@ SYSTEM;
             ));
 
             $sample = '';
-            if (!empty($table['sample_data'][0])) {
+            if (! empty($table['sample_data'][0])) {
                 $sample = ' ex:' . json_encode($table['sample_data'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
 
             $lines[] = "{$table['table_name']}({$table['row_count']}): {$cols}{$sample}";
         }
+
         return implode("\n", $lines);
     }
 
     private function shortType(string $type): string
     {
         return match (true) {
-            str_contains($type, 'int')       => 'int',
+            str_contains($type, 'int') => 'int',
             str_contains($type, 'char'),
-            str_contains($type, 'text')      => 'str',
-            str_contains($type, 'bool')      => 'bool',
+            str_contains($type, 'text') => 'str',
+            str_contains($type, 'bool') => 'bool',
             str_contains($type, 'timestamp') => 'ts',
-            str_contains($type, 'date')      => 'date',
+            str_contains($type, 'date') => 'date',
             str_contains($type, 'numeric'),
             str_contains($type, 'decimal'),
             str_contains($type, 'float'),
-            str_contains($type, 'real')      => 'num',
-            str_contains($type, 'json')      => 'json',
-            default                          => $type,
+            str_contains($type, 'real') => 'num',
+            str_contains($type, 'json') => 'json',
+            default => $type,
         };
     }
 
@@ -183,6 +180,7 @@ SYSTEM;
         } elseif (preg_match('/(\{[\s\S]*\})/s', $text, $m)) {
             $text = $m[1];
         }
+
         return json_decode($text, true) ?? [];
     }
 }

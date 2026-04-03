@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,22 +18,22 @@ class ReportTableFactory extends Factory
     public function definition(): array
     {
         return [
-            'title'               => $this->faker->sentence(3),
-            'description'         => $this->faker->optional()->sentence(),
-            'notes'               => null,
-            'creator_id'          => User::factory(),
-            'status'              => 'draft',
-            'is_template'         => false,
-            'cloned_from_id'      => null,
-            'template_category'   => null,
-            'columns'             => [
+            'title' => $this->faker->sentence(3),
+            'description' => $this->faker->optional()->sentence(),
+            'notes' => null,
+            'creator_id' => User::factory(),
+            'status' => 'draft',
+            'is_template' => false,
+            'cloned_from_id' => null,
+            'template_category' => null,
+            'columns' => [
                 ['key' => 'name', 'label' => 'Ad', 'type' => 'text', 'required' => true],
                 ['key' => 'value', 'label' => 'Dəyər', 'type' => 'number'],
             ],
-            'fixed_rows'          => null,
-            'max_rows'            => 50,
+            'fixed_rows' => null,
+            'max_rows' => 50,
             'target_institutions' => [],
-            'deadline'            => null,
+            'deadline' => null,
         ];
     }
 
@@ -52,7 +51,7 @@ class ReportTableFactory extends Factory
     public function published(): static
     {
         return $this->state([
-            'status'       => 'published',
+            'status' => 'published',
             'published_at' => now(),
         ]);
     }
@@ -63,7 +62,7 @@ class ReportTableFactory extends Factory
     public function archived(): static
     {
         return $this->state([
-            'status'      => 'archived',
+            'status' => 'archived',
             'archived_at' => now(),
         ]);
     }
@@ -74,7 +73,7 @@ class ReportTableFactory extends Factory
     public function asTemplate(?string $category = null): static
     {
         return $this->state([
-            'is_template'       => true,
+            'is_template' => true,
             'template_category' => $category,
         ]);
     }

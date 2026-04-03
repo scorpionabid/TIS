@@ -3,10 +3,10 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RegionOperatorPermissionSeeder extends Seeder
 {
@@ -18,9 +18,10 @@ class RegionOperatorPermissionSeeder extends Seeder
         try {
             // RegionOperator rolunu tap (ID: 3 - 124 permissions olan)
             $regionOperatorRole = Role::where('name', 'regionoperator')->where('id', 3)->first();
-            
-            if (!$regionOperatorRole) {
+
+            if (! $regionOperatorRole) {
                 $this->command->error('RegionOperator role not found!');
+
                 return;
             }
 
@@ -31,23 +32,23 @@ class RegionOperatorPermissionSeeder extends Seeder
                 'approvals.bulk_reject',
                 'approvals.delegate',
                 'approvals.reject',
-                
+
                 // Assessment Management (2)
                 'assessment-types.create',
                 'assessments.export',
-                
+
                 // Teacher Performance (4)
                 'create teacher_performance',
                 'edit teacher_performance',
                 'manage teacher_performance',
                 'view teacher_performance',
-                
+
                 // Events Management (4)
                 'events.manage',
                 'events.register',
                 'events.reject',
                 'events.update',
-                
+
                 // Links Management (6)
                 'links.analytics',
                 'links.bulk',
@@ -55,47 +56,47 @@ class RegionOperatorPermissionSeeder extends Seeder
                 'links.delete',
                 'links.read',
                 'links.share',
-                
+
                 // Academic Management (4)
                 'attendance.read',
                 'subjects.delete',
                 'subjects.read',
                 'subjects.update',
-                
+
                 // School Attendance (3)
                 'school_attendance.export',
                 'school_attendance.read',
                 'school_attendance.write',
-                
+
                 // Schedule Management (1)
                 'schedules.update',
-                
+
                 // Institution Types (1)
                 'institution-types.read',
-                
+
                 // Inventory Management (1)
                 'inventory.update',
-                
+
                 // Psychology Management (2)
                 'psychology.manage',
                 'psychology.read',
-                
+
                 // Reports Management (3)
                 'reports.create',
                 'reports.export',
                 'reports.read',
-                
+
                 // Rooms Management (1)
                 'rooms.manage',
-                
+
                 // Tasks Management (1)
                 'tasks.approve',
-                
+
                 // Teachers Management (4)
                 'teachers.delete',
                 'teachers.manage',
                 'teachers.read',
-                'teachers.update'
+                'teachers.update',
             ];
 
             $addedPermissions = [];
@@ -104,7 +105,7 @@ class RegionOperatorPermissionSeeder extends Seeder
 
             foreach ($permissionsToAdd as $permissionName) {
                 $permission = Permission::where('name', $permissionName)->first();
-                
+
                 if ($permission) {
                     // Permissionın artıq var olub olmadığını yoxla
                     $hasPermission = DB::table('role_has_permissions')
@@ -112,7 +113,7 @@ class RegionOperatorPermissionSeeder extends Seeder
                         ->where('permission_id', $permission->id)
                         ->exists();
 
-                    if (!$hasPermission) {
+                    if (! $hasPermission) {
                         // Yeni səlahiyyət əlavə et
                         DB::table('role_has_permissions')->insert([
                             'role_id' => $regionOperatorRole->id,
@@ -131,15 +132,15 @@ class RegionOperatorPermissionSeeder extends Seeder
 
             // Nəticə hesabatı
             $this->command->info('=== RegionOperator Permission Update Complete ===');
-            $this->command->info("Added permissions: " . count($addedPermissions));
-            $this->command->info("Already existed: " . count($existingPermissions));
-            $this->command->warn("Not found: " . count($notFoundPermissions));
+            $this->command->info('Added permissions: ' . count($addedPermissions));
+            $this->command->info('Already existed: ' . count($existingPermissions));
+            $this->command->warn('Not found: ' . count($notFoundPermissions));
 
             // Hazırki səlahiyyət sayını göstər
             $currentPermissionCount = DB::table('role_has_permissions')
                 ->where('role_id', $regionOperatorRole->id)
                 ->count();
-            
+
             $this->command->info("RegionOperator (ID: 3) now has {$currentPermissionCount} permissions");
 
             // RegionAdmin ilə müqayisə
@@ -148,23 +149,22 @@ class RegionOperatorPermissionSeeder extends Seeder
                 $regionAdminCount = DB::table('role_has_permissions')
                     ->where('role_id', $regionAdminRole->id)
                     ->count();
-                
+
                 $this->command->info("RegionAdmin has {$regionAdminCount} permissions");
-                $this->command->info("Difference: " . ($regionAdminCount - $currentPermissionCount) . " permissions");
+                $this->command->info('Difference: ' . ($regionAdminCount - $currentPermissionCount) . ' permissions');
             }
 
-            if (!empty($notFoundPermissions)) {
+            if (! empty($notFoundPermissions)) {
                 $this->command->warn('Permissions not found in database:');
                 foreach ($notFoundPermissions as $permission) {
                     $this->command->warn("  - {$permission}");
                 }
             }
-
         } catch (\Exception $e) {
             $this->command->error('Error updating RegionOperator permissions: ' . $e->getMessage());
             Log::error('RegionOperatorPermissionSeeder error', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

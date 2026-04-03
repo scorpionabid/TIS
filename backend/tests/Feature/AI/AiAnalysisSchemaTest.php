@@ -69,9 +69,9 @@ class AiAnalysisSchemaTest extends TestCase
     {
         $fakeTables = [
             [
-                'table_name'  => 'users',
-                'row_count'   => 100,
-                'columns'     => [['name' => 'id', 'type' => 'integer', 'nullable' => false, 'default' => null, 'max_length' => null]],
+                'table_name' => 'users',
+                'row_count' => 100,
+                'columns' => [['name' => 'id', 'type' => 'integer', 'nullable' => false, 'default' => null, 'max_length' => null]],
                 'sample_data' => [['id' => 1]],
             ],
         ];
@@ -142,9 +142,9 @@ class AiAnalysisSchemaTest extends TestCase
         // Mock-da da həmin qaydaya riayət edirik.
         $fakeTables = [
             [
-                'table_name'  => 'users',
-                'row_count'   => 1,
-                'columns'     => [
+                'table_name' => 'users',
+                'row_count' => 1,
+                'columns' => [
                     ['name' => 'id', 'type' => 'integer', 'nullable' => false, 'default' => null, 'max_length' => null],
                     ['name' => 'username', 'type' => 'character varying', 'nullable' => false, 'default' => null, 'max_length' => 255],
                 ],

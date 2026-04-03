@@ -18,7 +18,7 @@ class PreschoolGroupController extends BaseController
 
     public function index(): JsonResponse
     {
-        $user        = Auth::user();
+        $user = Auth::user();
         $institution = $user->institution;
 
         if (! $institution || ! in_array($institution->type, self::PRESCHOOL_TYPES)) {
@@ -36,14 +36,14 @@ class PreschoolGroupController extends BaseController
 
         return response()->json([
             'success' => true,
-            'data'    => $groups,
+            'data' => $groups,
             'message' => 'Qruplar uğurla yükləndi.',
         ]);
     }
 
     public function store(StorePreschoolGroupRequest $request): JsonResponse
     {
-        $user        = Auth::user();
+        $user = Auth::user();
         $institution = $user->institution;
 
         if (! $institution || ! in_array($institution->type, self::PRESCHOOL_TYPES)) {
@@ -51,19 +51,19 @@ class PreschoolGroupController extends BaseController
         }
 
         $group = Grade::create([
-            'name'                 => $request->name,
-            'institution_id'       => $institution->id,
-            'student_count'        => $request->student_count,
-            'male_student_count'   => $request->male_student_count,
+            'name' => $request->name,
+            'institution_id' => $institution->id,
+            'student_count' => $request->student_count,
+            'male_student_count' => $request->male_student_count,
             'female_student_count' => $request->female_student_count,
-            'description'          => $request->description,
-            'is_active'            => true,
-            'class_level'          => 0,
+            'description' => $request->description,
+            'is_active' => true,
+            'class_level' => 0,
         ]);
 
         return response()->json([
             'success' => true,
-            'data'    => $this->transformGroup($group),
+            'data' => $this->transformGroup($group),
             'message' => 'Qrup uğurla yaradıldı.',
         ], 201);
     }
@@ -83,7 +83,7 @@ class PreschoolGroupController extends BaseController
 
         return response()->json([
             'success' => true,
-            'data'    => $this->transformGroup($grade->fresh(['homeroomTeacher'])),
+            'data' => $this->transformGroup($grade->fresh(['homeroomTeacher'])),
             'message' => 'Qrup uğurla yeniləndi.',
         ]);
     }
@@ -118,15 +118,15 @@ class PreschoolGroupController extends BaseController
     private function transformGroup(Grade $grade): array
     {
         return [
-            'id'           => $grade->id,
-            'name'         => $grade->name,
+            'id' => $grade->id,
+            'name' => $grade->name,
             'student_count' => (int) ($grade->student_count ?? 0),
-            'male_count'   => (int) ($grade->male_student_count ?? 0),
+            'male_count' => (int) ($grade->male_student_count ?? 0),
             'female_count' => (int) ($grade->female_student_count ?? 0),
-            'description'  => $grade->description,
-            'is_active'    => (bool) $grade->is_active,
-            'teacher'      => $grade->homeroomTeacher ? [
-                'id'   => $grade->homeroomTeacher->id,
+            'description' => $grade->description,
+            'is_active' => (bool) $grade->is_active,
+            'teacher' => $grade->homeroomTeacher ? [
+                'id' => $grade->homeroomTeacher->id,
                 'name' => $grade->homeroomTeacher->name,
             ] : null,
         ];

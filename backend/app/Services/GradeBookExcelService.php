@@ -6,13 +6,10 @@ use App\Models\GradeBookCell;
 use App\Models\GradeBookColumn;
 use App\Models\GradeBookSession;
 use App\Models\Student;
-use Carbon\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class GradeBookExcelService
 {
@@ -34,7 +31,7 @@ class GradeBookExcelService
             'subject',
         ])->findOrFail($sessionId);
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Set metadata
@@ -150,7 +147,7 @@ class GradeBookExcelService
         ];
 
         try {
-            $reader = new XlsxReader();
+            $reader = new XlsxReader;
             $spreadsheet = $reader->load($filePath);
             $sheet = $spreadsheet->getActiveSheet();
         } catch (\Exception $e) {
@@ -158,16 +155,18 @@ class GradeBookExcelService
                 'type' => 'file_error',
                 'message' => 'Excel faylı oxunarkən xəta: ' . $e->getMessage(),
             ];
+
             return $results;
         }
 
         // Get session info for validation
         $session = GradeBookSession::with(['grade.studentEnrollments'])->find($sessionId);
-        if (!$session) {
+        if (! $session) {
             $results['errors'][] = [
                 'type' => 'session_error',
                 'message' => 'Jurnal tapılmadı (ID: ' . $sessionId . ')',
             ];
+
             return $results;
         }
 
@@ -206,6 +205,7 @@ class GradeBookExcelService
                 'type' => 'no_columns',
                 'message' => 'Cədvəldə bal sütunları tapılmadı. Zəhmət olmasa şablonu yenidən yükləyin.',
             ];
+
             return $results;
         }
 
@@ -221,14 +221,14 @@ class GradeBookExcelService
                 $studentId = $sheet->getCell("A{$row}")->getValue();
 
                 // Skip empty rows
-                if (!$studentId) {
+                if (! $studentId) {
                     continue;
                 }
 
                 $processedRows++;
 
                 // Validate student exists in this grade
-                if (!in_array($studentId, $validStudentIds)) {
+                if (! in_array($studentId, $validStudentIds)) {
                     $results['errors'][] = [
                         'type' => 'invalid_student',
                         'row' => $row,
@@ -236,6 +236,7 @@ class GradeBookExcelService
                         'message' => "Sətir {$row}: Şagird bu sinifdə tapılmadı (ID: {$studentId})",
                     ];
                     $results['validation_summary']['invalid_rows']++;
+
                     continue;
                 }
 
@@ -252,7 +253,7 @@ class GradeBookExcelService
                     }
 
                     // Validate score is numeric
-                    if (!is_numeric($scoreValue)) {
+                    if (! is_numeric($scoreValue)) {
                         $results['errors'][] = [
                             'type' => 'invalid_score_type',
                             'row' => $row,
@@ -260,6 +261,7 @@ class GradeBookExcelService
                             'value' => $scoreValue,
                             'message' => "Sətir {$row}, sütun {$cellCoordinate}: Bal rəqəm olmalıdır ({$scoreValue})",
                         ];
+
                         continue;
                     }
 
@@ -276,6 +278,7 @@ class GradeBookExcelService
                             'max_score' => $maxScore,
                             'message' => "Sətir {$row}, sütun {$cellCoordinate}: Bal aralıqdan xaricdə ({$score}, max: {$maxScore})",
                         ];
+
                         continue;
                     }
 
@@ -364,7 +367,7 @@ class GradeBookExcelService
             'academicYear',
         ])->findOrFail($sessionId);
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Metadata
@@ -457,7 +460,7 @@ class GradeBookExcelService
                 // Color code based on score
                 if ($cell && $cell->score !== null) {
                     $color = $this->calculationService->getScoreColor($cell->score);
-                    $bgColor = match($color) {
+                    $bgColor = match ($color) {
                         'green' => 'C6EFCE',
                         'yellow' => 'FFEB9C',
                         'orange' => 'FFC7CE',
@@ -624,7 +627,7 @@ class GradeBookExcelService
 
         $sessions = $query->get();
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->removeSheetByIndex(0); // Remove default sheet
 
         foreach ($sessions as $index => $session) {
@@ -696,7 +699,9 @@ class GradeBookExcelService
                 foreach ($session->columns as $column) {
                     $cell = $studentCells->get($column->id);
                     $coord = $columnCoordinates[$column->id] ?? null;
-                    if (!$coord) continue;
+                    if (! $coord) {
+                        continue;
+                    }
                     $value = $cell && $cell->score !== null ? $cell->score : '';
                     $sheet->setCellValue("{$coord}{$row}", $value);
                 }
@@ -742,7 +747,7 @@ class GradeBookExcelService
      */
     public function exportAnalysisSummary(array $overviewData, array $deepDiveData): Spreadsheet
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
 
         // === Sheet 1: Overview ===
         $sheet = $spreadsheet->getActiveSheet();
@@ -873,7 +878,7 @@ class GradeBookExcelService
      */
     public function exportComprehensive(array $overviewData, array $classLevelData, array $completionData, array $deepDiveData): Spreadsheet
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
 
         $hdrStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
@@ -999,6 +1004,7 @@ class GradeBookExcelService
         }
 
         $spreadsheet->setActiveSheetIndex(0);
+
         return $spreadsheet;
     }
 }

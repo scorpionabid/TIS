@@ -47,7 +47,7 @@ class MessageControllerTest extends TestCase
         $school = Institution::factory()->school()->create(['parent_id' => $sector->id]);
 
         $regionAdmin = $this->createUser('regionadmin', ['institution_id' => $region->id]);
-        $schoolAdmin  = $this->createUser('schooladmin',  ['institution_id' => $school->id]);
+        $schoolAdmin = $this->createUser('schooladmin', ['institution_id' => $school->id]);
 
         return compact('region', 'sector', 'school', 'regionAdmin', 'schoolAdmin');
     }
@@ -101,9 +101,9 @@ class MessageControllerTest extends TestCase
 
         $message = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Silinmiş mesaj']);
         $recipient = MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
         $recipient->delete(); // soft delete
 
@@ -165,11 +165,11 @@ class MessageControllerTest extends TestCase
 
         $msg = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Oxunmuş']);
         MessageRecipient::create([
-            'message_id'   => $msg->id,
+            'message_id' => $msg->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => true,
-            'read_at'      => now(),
-            'expires_at'   => now()->addDay(),
+            'is_read' => true,
+            'read_at' => now(),
+            'expires_at' => now()->addDay(),
         ]);
 
         $this->actingAs($schoolAdmin, 'sanctum')
@@ -219,7 +219,7 @@ class MessageControllerTest extends TestCase
 
         $this->actingAs($schoolAdmin, 'sanctum')
             ->postJson('/api/messages', [
-                'body'          => 'Salam, hesabatı göndərirəm.',
+                'body' => 'Salam, hesabatı göndərirəm.',
                 'recipient_ids' => [$regionAdmin->id],
             ])
             ->assertCreated()
@@ -227,7 +227,7 @@ class MessageControllerTest extends TestCase
             ->assertJsonPath('data.sender.id', $schoolAdmin->id);
 
         $this->assertDatabaseHas('messages', [
-            'body'      => 'Salam, hesabatı göndərirəm.',
+            'body' => 'Salam, hesabatı göndərirəm.',
             'sender_id' => $schoolAdmin->id,
         ]);
         $this->assertDatabaseHas('message_recipients', [
@@ -244,7 +244,7 @@ class MessageControllerTest extends TestCase
 
         $this->actingAs($schoolAdmin, 'sanctum')
             ->postJson('/api/messages', [
-                'body'          => 'İcazəsiz mesaj.',
+                'body' => 'İcazəsiz mesaj.',
                 'recipient_ids' => [$otherSchool->id],
             ])
             ->assertForbidden();
@@ -276,7 +276,7 @@ class MessageControllerTest extends TestCase
 
         $this->actingAs($schoolAdmin, 'sanctum')
             ->postJson('/api/messages', [
-                'body'          => 'Hamınıza salam',
+                'body' => 'Hamınıza salam',
                 'recipient_ids' => [$regionAdmin->id, $sektorAdmin->id],
             ])
             ->assertCreated();
@@ -291,16 +291,16 @@ class MessageControllerTest extends TestCase
 
         $original = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Sual var?']);
         MessageRecipient::create([
-            'message_id'   => $original->id,
+            'message_id' => $original->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         $this->actingAs($schoolAdmin, 'sanctum')
             ->postJson('/api/messages', [
-                'body'          => 'Bəli, var.',
+                'body' => 'Bəli, var.',
                 'recipient_ids' => [$regionAdmin->id],
-                'parent_id'     => $original->id,
+                'parent_id' => $original->id,
             ])
             ->assertCreated()
             ->assertJsonPath('data.parent_id', $original->id);
@@ -318,9 +318,9 @@ class MessageControllerTest extends TestCase
 
         $message = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Thread testi']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         $this->actingAs($schoolAdmin, 'sanctum')
@@ -340,9 +340,9 @@ class MessageControllerTest extends TestCase
 
         $message = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Oxu bunu']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         $this->actingAs($schoolAdmin, 'sanctum')
@@ -365,11 +365,11 @@ class MessageControllerTest extends TestCase
 
         $message = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Artıq oxunmuş']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => true,
-            'read_at'      => now(),
-            'expires_at'   => now()->addDay(),
+            'is_read' => true,
+            'read_at' => now(),
+            'expires_at' => now()->addDay(),
         ]);
 
         $this->actingAs($schoolAdmin, 'sanctum')
@@ -387,9 +387,9 @@ class MessageControllerTest extends TestCase
 
         $message = Message::create(['sender_id' => $schoolAdmin->id, 'body' => 'Silmə mesajı']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $regionAdmin->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         $this->actingAs($schoolAdmin, 'sanctum')
@@ -406,9 +406,9 @@ class MessageControllerTest extends TestCase
 
         $message = Message::create(['sender_id' => $regionAdmin->id, 'body' => 'Bu sənin deyil']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $schoolAdmin->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         // findOrFail fails — sender_id != schoolAdmin.id

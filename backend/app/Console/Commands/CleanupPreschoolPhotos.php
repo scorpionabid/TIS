@@ -19,7 +19,7 @@ class CleanupPreschoolPhotos extends Command
 
     public function handle(): int
     {
-        $days   = (int) $this->option('older-than');
+        $days = (int) $this->option('older-than');
         $dryRun = (bool) $this->option('dry-run');
 
         $photos = PreschoolAttendancePhoto::olderThan($days)->get();
@@ -40,7 +40,7 @@ class CleanupPreschoolPhotos extends Command
         }
 
         $deleted = 0;
-        $errors  = 0;
+        $errors = 0;
 
         foreach ($photos as $photo) {
             try {
@@ -50,16 +50,16 @@ class CleanupPreschoolPhotos extends Command
             } catch (\Exception $e) {
                 Log::error('Preschool photo cleanup failed', [
                     'photo_id' => $photo->id,
-                    'path'     => $photo->file_path,
-                    'error'    => $e->getMessage(),
+                    'path' => $photo->file_path,
+                    'error' => $e->getMessage(),
                 ]);
                 $errors++;
             }
         }
 
         Log::info('Preschool photo cleanup completed', [
-            'deleted_count'   => $deleted,
-            'error_count'     => $errors,
+            'deleted_count' => $deleted,
+            'error_count' => $errors,
             'older_than_days' => $days,
         ]);
 

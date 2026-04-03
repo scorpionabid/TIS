@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CreateSubDelegationsRequest;
+use App\Http\Requests\UpdateSubDelegationStatusRequest;
 use App\Models\Task;
 use App\Models\TaskSubDelegation;
 use App\Services\TaskSubDelegationService;
-use App\Http\Requests\CreateSubDelegationsRequest;
-use App\Http\Requests\UpdateSubDelegationStatusRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Foundation\Validation\ValidatesRequests;
 
 class TaskSubDelegationController
 {
@@ -49,7 +47,7 @@ class TaskSubDelegationController
         $this->authorize('update', $task);
 
         $validated = $request->validated();
-        
+
         // Find parent assignment (current user's assignment to this task)
         $parentAssignment = $task->assignments()
             ->where('assigned_user_id', Auth::id())
@@ -75,7 +73,7 @@ class TaskSubDelegationController
     public function show(Task $task, TaskSubDelegation $delegation): JsonResponse
     {
         $this->authorize('view', $task);
-        
+
         if ($delegation->task_id !== $task->id) {
             return response()->json([
                 'success' => false,
@@ -88,7 +86,7 @@ class TaskSubDelegationController
             'delegatedByUser',
             'delegatedToInstitution',
             'parentAssignment.user',
-            'task'
+            'task',
         ]);
 
         return response()->json([
@@ -116,7 +114,7 @@ class TaskSubDelegationController
         }
 
         // Only delegated user or parent assignment user can update status
-        if ($delegation->delegated_to_user_id !== Auth::id() && 
+        if ($delegation->delegated_to_user_id !== Auth::id() &&
             $delegation->parentAssignment->user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
@@ -125,7 +123,7 @@ class TaskSubDelegationController
         }
 
         $validated = $request->validated();
-        
+
         $updatedDelegation = $this->taskSubDelegationService->updateStatus(
             $delegation,
             $validated['status'],

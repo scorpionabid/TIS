@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ReportTableResponse;
 use App\Models\ReportTable;
+use App\Models\ReportTableResponse;
 use App\Services\ReportTableExportService;
 use App\Services\ReportTableResponseService;
 use App\Services\ReportTableService;
@@ -31,9 +31,9 @@ class ReportTableController extends BaseController
     public function index(Request $request): JsonResponse
     {
         $filters = $request->validate([
-            'search'    => 'nullable|string|max:255',
-            'status'    => 'nullable|string|in:draft,published,archived,deleted',
-            'per_page'  => 'nullable|integer|min:1|max:100',
+            'search' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:draft,published,archived,deleted',
+            'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
         $perPage = $filters['per_page'] ?? 15;
@@ -72,10 +72,10 @@ class ReportTableController extends BaseController
                     ->where('institution_id', $institutionId)
                     ->whereIn('report_table_id', $tables->pluck('id')->all())
                     ->get(['id', 'report_table_id', 'status', 'row_statuses']);
-                
+
                 foreach ($responses as $response) {
                     $statusesByTableId[$response->report_table_id] = $response->status;
-                    
+
                     // Calculate detailed row stats
                     $rowStatuses = $response->row_statuses ?? [];
                     $totalRows = count($rowStatuses);
@@ -83,7 +83,7 @@ class ReportTableController extends BaseController
                     $submittedRows = 0;
                     $approvedRows = 0;
                     $rejectedRows = 0;
-                    
+
                     foreach ($rowStatuses as $idx => $meta) {
                         $status = $meta['status'] ?? null;
                         if ($status === 'submitted' || $status === 'approved') {
@@ -97,9 +97,9 @@ class ReportTableController extends BaseController
                             $rejectedRows++;
                         }
                     }
-                    
+
                     $pendingRows = $submittedRows - $approvedRows - $rejectedRows;
-                    
+
                     $rowStatsByTableId[$response->report_table_id] = [
                         'total' => $totalRows,
                         'completed' => $completedRows,
@@ -145,38 +145,38 @@ class ReportTableController extends BaseController
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'title'                  => 'required|string|max:300',
-            'description'            => 'nullable|string|max:2000',
-            'notes'                  => 'nullable|string|max:5000',
-            'columns'                => 'required|array|min:1',
-            'columns.*.key'          => 'required|string|max:64',
-            'columns.*.label'        => 'required|string|max:255',
-            'columns.*.type'         => 'required|string|in:text,number,date,select,boolean,calculated,file,signature,gps',
-            'columns.*.hint'         => 'nullable|string|max:500',
-            'columns.*.required'     => 'nullable|boolean',
-            'columns.*.min'          => 'nullable|numeric',
-            'columns.*.max'          => 'nullable|numeric',
-            'columns.*.min_length'   => 'nullable|integer|min:0|max:10000',
-            'columns.*.max_length'   => 'nullable|integer|min:0|max:10000',
-            'columns.*.options'      => 'nullable|array',
-            'columns.*.options.*'    => 'string|max:255',
-            'columns.*.formula'      => 'nullable|string|max:2000',
-            'columns.*.format'       => 'nullable|string|in:number,currency,percent',
-            'columns.*.decimals'     => 'nullable|integer|min:0|max:10',
-            'columns.*.accepted_types'   => 'nullable|array',
+            'title' => 'required|string|max:300',
+            'description' => 'nullable|string|max:2000',
+            'notes' => 'nullable|string|max:5000',
+            'columns' => 'required|array|min:1',
+            'columns.*.key' => 'required|string|max:64',
+            'columns.*.label' => 'required|string|max:255',
+            'columns.*.type' => 'required|string|in:text,number,date,select,boolean,calculated,file,signature,gps',
+            'columns.*.hint' => 'nullable|string|max:500',
+            'columns.*.required' => 'nullable|boolean',
+            'columns.*.min' => 'nullable|numeric',
+            'columns.*.max' => 'nullable|numeric',
+            'columns.*.min_length' => 'nullable|integer|min:0|max:10000',
+            'columns.*.max_length' => 'nullable|integer|min:0|max:10000',
+            'columns.*.options' => 'nullable|array',
+            'columns.*.options.*' => 'string|max:255',
+            'columns.*.formula' => 'nullable|string|max:2000',
+            'columns.*.format' => 'nullable|string|in:number,currency,percent',
+            'columns.*.decimals' => 'nullable|integer|min:0|max:10',
+            'columns.*.accepted_types' => 'nullable|array',
             'columns.*.accepted_types.*' => 'string|max:100',
-            'columns.*.max_file_size'    => 'nullable|numeric|min:0|max:1000',
-            'columns.*.signature_width'  => 'nullable|integer|min:50|max:3000',
+            'columns.*.max_file_size' => 'nullable|numeric|min:0|max:1000',
+            'columns.*.signature_width' => 'nullable|integer|min:50|max:3000',
             'columns.*.signature_height' => 'nullable|integer|min:50|max:3000',
-            'columns.*.gps_precision'    => 'nullable|string|in:high,medium,low',
-            'columns.*.gps_radius'       => 'nullable|numeric|min:0|max:100000',
-            'max_rows'               => 'nullable|integer|min:1|max:500',
-            'fixed_rows'             => 'nullable|array',
-            'fixed_rows.*.id'        => 'required|string|max:64',
-            'fixed_rows.*.label'     => 'required|string|max:255',
-            'target_institutions'    => 'nullable|array',
-            'target_institutions.*'  => 'integer|exists:institutions,id',
-            'deadline'               => 'nullable|date|after:now',
+            'columns.*.gps_precision' => 'nullable|string|in:high,medium,low',
+            'columns.*.gps_radius' => 'nullable|numeric|min:0|max:100000',
+            'max_rows' => 'nullable|integer|min:1|max:500',
+            'fixed_rows' => 'nullable|array',
+            'fixed_rows.*.id' => 'required|string|max:64',
+            'fixed_rows.*.label' => 'required|string|max:255',
+            'target_institutions' => 'nullable|array',
+            'target_institutions.*' => 'integer|exists:institutions,id',
+            'deadline' => 'nullable|date|after:now',
         ]);
 
         try {
@@ -198,38 +198,38 @@ class ReportTableController extends BaseController
     public function update(Request $request, ReportTable $table): JsonResponse
     {
         $validated = $request->validate([
-            'title'                  => 'sometimes|required|string|max:300',
-            'description'            => 'nullable|string|max:2000',
-            'notes'                  => 'nullable|string|max:5000',
-            'columns'                => 'sometimes|required|array|min:1',
-            'columns.*.key'          => 'required_with:columns|string|max:64',
-            'columns.*.label'        => 'required_with:columns|string|max:255',
-            'columns.*.type'         => 'required_with:columns|string|in:text,number,date,select,boolean,calculated,file,signature,gps',
-            'columns.*.hint'         => 'nullable|string|max:500',
-            'columns.*.required'     => 'nullable|boolean',
-            'columns.*.min'          => 'nullable|numeric',
-            'columns.*.max'          => 'nullable|numeric',
-            'columns.*.min_length'   => 'nullable|integer|min:0|max:10000',
-            'columns.*.max_length'   => 'nullable|integer|min:0|max:10000',
-            'columns.*.options'      => 'nullable|array',
-            'columns.*.options.*'    => 'string|max:255',
-            'columns.*.formula'      => 'nullable|string|max:2000',
-            'columns.*.format'       => 'nullable|string|in:number,currency,percent',
-            'columns.*.decimals'     => 'nullable|integer|min:0|max:10',
-            'columns.*.accepted_types'   => 'nullable|array',
+            'title' => 'sometimes|required|string|max:300',
+            'description' => 'nullable|string|max:2000',
+            'notes' => 'nullable|string|max:5000',
+            'columns' => 'sometimes|required|array|min:1',
+            'columns.*.key' => 'required_with:columns|string|max:64',
+            'columns.*.label' => 'required_with:columns|string|max:255',
+            'columns.*.type' => 'required_with:columns|string|in:text,number,date,select,boolean,calculated,file,signature,gps',
+            'columns.*.hint' => 'nullable|string|max:500',
+            'columns.*.required' => 'nullable|boolean',
+            'columns.*.min' => 'nullable|numeric',
+            'columns.*.max' => 'nullable|numeric',
+            'columns.*.min_length' => 'nullable|integer|min:0|max:10000',
+            'columns.*.max_length' => 'nullable|integer|min:0|max:10000',
+            'columns.*.options' => 'nullable|array',
+            'columns.*.options.*' => 'string|max:255',
+            'columns.*.formula' => 'nullable|string|max:2000',
+            'columns.*.format' => 'nullable|string|in:number,currency,percent',
+            'columns.*.decimals' => 'nullable|integer|min:0|max:10',
+            'columns.*.accepted_types' => 'nullable|array',
             'columns.*.accepted_types.*' => 'string|max:100',
-            'columns.*.max_file_size'    => 'nullable|numeric|min:0|max:1000',
-            'columns.*.signature_width'  => 'nullable|integer|min:50|max:3000',
+            'columns.*.max_file_size' => 'nullable|numeric|min:0|max:1000',
+            'columns.*.signature_width' => 'nullable|integer|min:50|max:3000',
             'columns.*.signature_height' => 'nullable|integer|min:50|max:3000',
-            'columns.*.gps_precision'    => 'nullable|string|in:high,medium,low',
-            'columns.*.gps_radius'       => 'nullable|numeric|min:0|max:100000',
-            'max_rows'               => 'nullable|integer|min:1|max:500',
-            'fixed_rows'             => 'nullable|array',
-            'fixed_rows.*.id'        => 'required|string|max:64',
-            'fixed_rows.*.label'     => 'required|string|max:255',
-            'target_institutions'    => 'nullable|array',
-            'target_institutions.*'  => 'integer|exists:institutions,id',
-            'deadline'               => 'nullable|date',
+            'columns.*.gps_precision' => 'nullable|string|in:high,medium,low',
+            'columns.*.gps_radius' => 'nullable|numeric|min:0|max:100000',
+            'max_rows' => 'nullable|integer|min:1|max:500',
+            'fixed_rows' => 'nullable|array',
+            'fixed_rows.*.id' => 'required|string|max:64',
+            'fixed_rows.*.label' => 'required|string|max:255',
+            'target_institutions' => 'nullable|array',
+            'target_institutions.*' => 'integer|exists:institutions,id',
+            'deadline' => 'nullable|date',
         ]);
 
         try {
@@ -379,9 +379,9 @@ class ReportTableController extends BaseController
     public function responses(Request $request, ReportTable $table): JsonResponse
     {
         $filters = $request->validate([
-            'status'         => 'nullable|string|in:draft,submitted',
+            'status' => 'nullable|string|in:draft,submitted',
             'institution_id' => 'nullable|integer|exists:institutions,id',
-            'per_page'       => 'nullable|integer|min:1|max:200',
+            'per_page' => 'nullable|integer|min:1|max:200',
         ]);
 
         $perPage = $filters['per_page'] ?? 50;
@@ -407,14 +407,15 @@ class ReportTableController extends BaseController
         try {
             // Check if there are any responses to export
             $responses = $this->responseService->getAllResponsesForExport($table);
-            
+
             if ($responses->isEmpty()) {
                 return $this->errorResponse('Export üçün cavab tapılmadı. Məktəblər hələ cavab göndərməyib.', 404);
             }
-            
+
             return $this->exportService->export($table);
         } catch (\Exception $e) {
             \Log::error('Export error: ' . $e->getMessage());
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -429,6 +430,7 @@ class ReportTableController extends BaseController
             return $this->exportService->exportApprovedRows($table);
         } catch (\Exception $e) {
             \Log::error('Export approved rows error: ' . $e->getMessage());
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -442,23 +444,24 @@ class ReportTableController extends BaseController
         try {
             $user = Auth::user();
             $institutionId = $user->institution_id;
-            
-            if (!$institutionId) {
+
+            if (! $institutionId) {
                 return $this->errorResponse('Müəssisə tapılmadı.', 403);
             }
-            
+
             // Check if response exists
             $response = $table->responses()
                 ->where('institution_id', $institutionId)
                 ->first();
-                
-            if (!$response) {
+
+            if (! $response) {
                 return $this->errorResponse('Bu cədvəl üçün cavab tapılmadı.', 404);
             }
-            
+
             return $this->exportService->exportSingleInstitution($table, $institutionId);
         } catch (\Exception $e) {
             \Log::error('Single institution export error: ' . $e->getMessage());
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -471,7 +474,7 @@ class ReportTableController extends BaseController
     {
         try {
             $user = Auth::user();
-            
+
             // İcazə yoxlaması:
             // - Admin: report_tables.read -> full analytics
             // - School: report_table_responses.write -> only own institution analytics
@@ -491,12 +494,11 @@ class ReportTableController extends BaseController
             // Hədəf müəssisələri
             $targetInstitutionIds = $table->target_institutions ?? [];
             $targetCount = count($targetInstitutionIds);
-            
+
             // Cavabları yüklə (yalnız lazım olan sütunlar)
             $responsesQuery = $table->responses()
                 ->with(['institution:id,name,parent_id', 'institution.parent:id,name'])
-                ->select(['id', 'report_table_id', 'institution_id', 'status', 'rows', 'row_statuses', 'submitted_at'])
-                ;
+                ->select(['id', 'report_table_id', 'institution_id', 'status', 'rows', 'row_statuses', 'submitted_at']);
 
             if (! $canReadAll) {
                 // School user: only own institution response
@@ -508,50 +510,56 @@ class ReportTableController extends BaseController
             // Statistikalar hesabla
             $institutionIdsWithResponses = $responses->pluck('institution_id')->unique()->toArray();
             $institutionCount = count($institutionIdsWithResponses);
-            
+
             // Status breakdown
             $submittedCount = $responses->where('status', 'submitted')->count();
             $draftCount = $responses->where('status', 'draft')->count();
             $approvedCount = $responses->where('status', 'approved')->count();
-            
+
             // Sətir səviyyəsində statistikalar
             $totalRows = 0;
             $submittedRows = 0;
             $approvedRows = 0;
             $rejectedRows = 0;
-            
+
             foreach ($responses as $response) {
                 $rows = $response->rows ?? [];
                 $rowStatuses = $response->row_statuses ?? [];
                 $totalRows += count($rows);
-                
+
                 foreach ($rowStatuses as $status) {
                     $statusValue = is_array($status) ? ($status['status'] ?? null) : null;
-                    if ($statusValue === 'submitted') $submittedRows++;
-                    elseif ($statusValue === 'approved') $approvedRows++;
-                    elseif ($statusValue === 'rejected') $rejectedRows++;
+                    if ($statusValue === 'submitted') {
+                        $submittedRows++;
+                    } elseif ($statusValue === 'approved') {
+                        $approvedRows++;
+                    } elseif ($statusValue === 'rejected') {
+                        $rejectedRows++;
+                    }
                 }
             }
-            
+
             // İştirak faizi
             if (! $canReadAll) {
                 $targetCount = 1;
                 $participationRate = $institutionCount > 0 ? 100.0 : 0.0;
             } else {
-                $participationRate = $targetCount > 0 
-                    ? round(($institutionCount / $targetCount) * 100, 1) 
+                $participationRate = $targetCount > 0
+                    ? round(($institutionCount / $targetCount) * 100, 1)
                     : 0;
             }
-            
+
             // Sektorlar üzrə qruplaşdırma
             $sectorStats = [];
             foreach ($responses as $response) {
                 $institution = $response->institution;
-                if (! $institution) continue;
-                
+                if (! $institution) {
+                    continue;
+                }
+
                 $sectorId = $institution->parent_id ?? 0;
                 $sectorName = $institution->parent?->name ?? 'Sektorsuz';
-                
+
                 if (! isset($sectorStats[$sectorId])) {
                     $sectorStats[$sectorId] = [
                         'id' => $sectorId,
@@ -562,7 +570,7 @@ class ReportTableController extends BaseController
                         'draft' => 0,
                     ];
                 }
-                
+
                 $sectorStats[$sectorId]['responded']++;
                 if ($response->status === 'submitted') {
                     $sectorStats[$sectorId]['submitted']++;
@@ -570,14 +578,14 @@ class ReportTableController extends BaseController
                     $sectorStats[$sectorId]['draft']++;
                 }
             }
-            
+
             // Hədəf sektorlardakı bütün məktəbləri say (əgər target_institutions varsa)
             if ($canReadAll && ! empty($targetInstitutionIds)) {
                 $targetInstitutions = \App\Models\Institution::whereIn('id', $targetInstitutionIds)
                     ->with('parent:id,name')
                     ->select(['id', 'parent_id'])
                     ->get();
-                    
+
                 foreach ($targetInstitutions as $inst) {
                     $sectorId = $inst->parent_id ?? 0;
                     if (isset($sectorStats[$sectorId])) {
@@ -596,13 +604,13 @@ class ReportTableController extends BaseController
                     }
                 }
             }
-            
+
             // Doldurmayan məktəblər
             $nonFillingSchools = [];
             if ($canReadAll && ! empty($targetInstitutionIds)) {
                 $respondingIds = $responses->pluck('institution_id')->toArray();
                 $nonFillingIds = array_diff($targetInstitutionIds, $respondingIds);
-                
+
                 if (! empty($nonFillingIds)) {
                     $nonFillingSchools = \App\Models\Institution::whereIn('id', $nonFillingIds)
                         ->with('parent:id,name')
@@ -642,9 +650,9 @@ class ReportTableController extends BaseController
                 'sectors' => array_values($sectorStats),
                 'non_filling_schools' => $nonFillingSchools,
             ], 'Analytics summary');
-            
         } catch (\Exception $e) {
             \Log::error('Analytics summary error: ' . $e->getMessage());
+
             return $this->errorResponse('Analytics məlumatları əldə edilə bilmədi: ' . $e->getMessage(), 500);
         }
     }
@@ -660,7 +668,7 @@ class ReportTableController extends BaseController
         try {
             $category = request('category', null);
             $template = $this->service->saveAsTemplate($table, $category);
-            
+
             return $this->successResponse(
                 $this->formatTable($template),
                 'Cədvəl şablon kimi saxlanıldı.'
@@ -706,7 +714,7 @@ class ReportTableController extends BaseController
         try {
             $category = request('category', null);
             $user = Auth::user();
-            
+
             $templates = $this->service->getTemplates($category, $user->id);
 
             return $this->successResponse($templates, 'Şablonlar siyahısı.');
@@ -723,7 +731,7 @@ class ReportTableController extends BaseController
     {
         try {
             $table = $this->service->removeTemplateStatus($table);
-            
+
             return $this->successResponse(
                 $this->formatTable($table),
                 'Şablon statusu silindi.'
@@ -793,30 +801,30 @@ class ReportTableController extends BaseController
     private function formatTable(ReportTable $table): array
     {
         return [
-            'id'                  => $table->id,
-            'title'               => $table->title,
-            'description'         => $table->description,
-            'notes'               => $table->notes,
-            'status'              => $table->status,
-            'is_template'         => $table->is_template,
-            'cloned_from_id'      => $table->cloned_from_id,
-            'template_category'   => $table->template_category,
-            'columns'             => $table->columns,
-            'fixed_rows'          => $table->fixed_rows,
-            'max_rows'            => $table->max_rows,
+            'id' => $table->id,
+            'title' => $table->title,
+            'description' => $table->description,
+            'notes' => $table->notes,
+            'status' => $table->status,
+            'is_template' => $table->is_template,
+            'cloned_from_id' => $table->cloned_from_id,
+            'template_category' => $table->template_category,
+            'columns' => $table->columns,
+            'fixed_rows' => $table->fixed_rows,
+            'max_rows' => $table->max_rows,
             'target_institutions' => $table->target_institutions,
-            'deadline'            => $table->deadline,
-            'published_at'        => $table->published_at,
-            'archived_at'         => $table->archived_at,
-            'deleted_at'          => $table->deleted_at?->toISOString(),
-            'is_deleted'          => $table->trashed(),
+            'deadline' => $table->deadline,
+            'published_at' => $table->published_at,
+            'archived_at' => $table->archived_at,
+            'deleted_at' => $table->deleted_at?->toISOString(),
+            'is_deleted' => $table->trashed(),
             'allow_additional_rows_after_confirmation' => $table->allow_additional_rows_after_confirmation,
-            'creator'             => $table->creator ? [
-                'id'   => $table->creator->id,
+            'creator' => $table->creator ? [
+                'id' => $table->creator->id,
                 'name' => $table->creator->profile?->full_name ?? $table->creator->username,
             ] : null,
-            'created_at'          => $table->created_at,
-            'updated_at'          => $table->updated_at,
+            'created_at' => $table->created_at,
+            'updated_at' => $table->updated_at,
         ];
     }
 
@@ -834,9 +842,9 @@ class ReportTableController extends BaseController
         $responses = $responsesQuery->get();
 
         $submittedCount = 0;
-        $approvedCount  = 0;
-        $pendingCount   = 0;
-        $rejectedCount  = 0;
+        $approvedCount = 0;
+        $pendingCount = 0;
+        $rejectedCount = 0;
 
         foreach ($responses as $response) {
             if ($response->status === 'submitted') {
@@ -863,18 +871,18 @@ class ReportTableController extends BaseController
         if ($scopedIds !== null) {
             $targetInstitutions = array_values(array_intersect($targetInstitutions, $scopedIds));
         }
-        $targetCount       = count($targetInstitutions);
+        $targetCount = count($targetInstitutions);
         $notRespondedCount = max(0, $targetCount - $responses->count());
 
         return array_merge($this->formatTable($table), [
-            'responses_count'           => $responses->count(),
+            'responses_count' => $responses->count(),
             'responses_submitted_count' => $submittedCount,
-            'responses_approved_count'  => $approvedCount,
-            'responses_pending_count'   => $pendingCount,
-            'responses_rejected_count'  => $rejectedCount,
-            'not_responded_count'       => $notRespondedCount,
-            'can_edit'                  => $table->canEdit(),
-            'can_edit_columns'          => $table->canEditColumns(),
+            'responses_approved_count' => $approvedCount,
+            'responses_pending_count' => $pendingCount,
+            'responses_rejected_count' => $rejectedCount,
+            'not_responded_count' => $notRespondedCount,
+            'can_edit' => $table->canEdit(),
+            'can_edit_columns' => $table->canEditColumns(),
         ]);
     }
 
@@ -897,6 +905,7 @@ class ReportTableController extends BaseController
             $institution = \App\Models\Institution::find($institutionId);
             $ids = $institution ? $institution->getAllChildrenIds() : [];
             $ids[] = $institutionId;
+
             return array_unique($ids);
         }
 
@@ -904,6 +913,7 @@ class ReportTableController extends BaseController
             $schoolIds = \App\Models\Institution::where('parent_id', $institutionId)
                 ->pluck('id')
                 ->toArray();
+
             return array_unique(array_merge([$institutionId], $schoolIds));
         }
 

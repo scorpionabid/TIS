@@ -29,15 +29,15 @@ class MessageController extends Controller
         $userId = auth()->id();
 
         $messages = Message::whereHas('messageRecipients', function ($q) use ($userId) {
-                $q->where('recipient_id', $userId)->whereNull('deleted_at');
-            })
+            $q->where('recipient_id', $userId)->whereNull('deleted_at');
+        })
             ->whereNull('parent_id')
             ->withCount('replies')
             ->with([
                 'sender.role',
                 'sender.institution',
                 'messageRecipients' => fn ($q) => $q->where('recipient_id', $userId),
-                'replies'           => fn ($q) => $q->with('sender.role')->orderBy('created_at', 'asc'),
+                'replies' => fn ($q) => $q->with('sender.role')->orderBy('created_at', 'asc'),
             ])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
@@ -88,13 +88,12 @@ class MessageController extends Controller
      */
     public function recipients(Request $request): JsonResponse
     {
-        $user       = auth()->user();
-        $search     = strtolower(trim($request->string('search')->value()));
+        $user = auth()->user();
+        $search = strtolower(trim($request->string('search')->value()));
         $recipients = $this->getRecipientsCollectionForUser($user);
 
         if ($search !== '') {
-            $recipients = $recipients->filter(fn ($r) =>
-                str_contains(strtolower($r['name']), $search) ||
+            $recipients = $recipients->filter(fn ($r) => str_contains(strtolower($r['name']), $search) ||
                 str_contains(strtolower($r['institution_name']), $search)
             );
         }
@@ -113,11 +112,10 @@ class MessageController extends Controller
         $userId = auth()->id();
 
         $message = Message::where(function ($q) use ($userId) {
-                $q->where('sender_id', $userId)
-                  ->orWhereHas('messageRecipients', fn ($q2) =>
-                      $q2->where('recipient_id', $userId)->whereNull('deleted_at')
-                  );
-            })
+            $q->where('sender_id', $userId)
+                ->orWhereHas('messageRecipients', fn ($q2) => $q2->where('recipient_id', $userId)->whereNull('deleted_at')
+                );
+        })
             ->with([
                 'sender.role',
                 'sender.institution',
@@ -135,7 +133,7 @@ class MessageController extends Controller
      */
     public function store(SendMessageRequest $request): JsonResponse
     {
-        $user      = auth()->user();
+        $user = auth()->user();
         $validated = $request->validated();
         $recipientIds = $validated['recipient_ids'] ?? [];
 
@@ -156,7 +154,7 @@ class MessageController extends Controller
         }
 
         // Göndərənin öz rol səlahiyyəti daxilindəki alıcılara məhdudlaşdır
-        $allowedIds      = $this->getRecipientsCollectionForUser($user)
+        $allowedIds = $this->getRecipientsCollectionForUser($user)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->toArray();
@@ -172,17 +170,17 @@ class MessageController extends Controller
             $msg = Message::create([
                 'sender_id' => auth()->id(),
                 'parent_id' => $validated['parent_id'] ?? null,
-                'body'      => $validated['body'],
+                'body' => $validated['body'],
             ]);
 
             // Bulk insert: N ayrı INSERT əvəzinə bir sorğu
-            $now  = now();
+            $now = now();
             $rows = array_map(fn ($recipientId) => [
-                'message_id'   => $msg->id,
+                'message_id' => $msg->id,
                 'recipient_id' => $recipientId,
-                'is_read'      => false,
-                'created_at'   => $now,
-                'updated_at'   => $now,
+                'is_read' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
             ], $recipientIds);
 
             MessageRecipient::insert($rows);
@@ -215,8 +213,8 @@ class MessageController extends Controller
 
         if (! $recipient->is_read) {
             $recipient->update([
-                'is_read'    => true,
-                'read_at'    => now(),
+                'is_read' => true,
+                'read_at' => now(),
                 'expires_at' => now()->addDay(),
             ]);
         }
@@ -254,11 +252,11 @@ class MessageController extends Controller
         );
 
         return match ($roleName) {
-            'schooladmin'                   => $this->getRecipientsForSchoolAdmin($user),
+            'schooladmin' => $this->getRecipientsForSchoolAdmin($user),
             'regionadmin', 'regionoperator' => $this->getRecipientsForRegionAdmin($user),
-            'sektoradmin'                   => $this->getRecipientsForSektorAdmin($user),
-            'superadmin'                    => $this->getRecipientsForSuperAdmin(),
-            default                         => collect([]),
+            'sektoradmin' => $this->getRecipientsForSektorAdmin($user),
+            'superadmin' => $this->getRecipientsForSuperAdmin(),
+            default => collect([]),
         };
     }
 
@@ -269,12 +267,12 @@ class MessageController extends Controller
     private function mapUserToRecipient(User $u, ?string $fixedRole = null): array
     {
         return [
-            'type'             => 'user',
-            'id'               => $u->id,
-            'name'             => $u->name,
-            'role'             => $fixedRole ?? ($u->roles->first()?->name ?? $u->role?->name ?? ''),
+            'type' => 'user',
+            'id' => $u->id,
+            'name' => $u->name,
+            'role' => $fixedRole ?? ($u->roles->first()?->name ?? $u->role?->name ?? ''),
             'institution_name' => $u->institution?->name ?? '',
-            'institution_id'   => $u->institution_id,
+            'institution_id' => $u->institution_id,
         ];
     }
 
@@ -297,8 +295,8 @@ class MessageController extends Controller
 
         // Return all active admins in parent institutions
         return User::whereHas('roles', function ($q) {
-                $q->whereIn('name', ['regionadmin', 'regionoperator', 'sektoradmin']);
-            })
+            $q->whereIn('name', ['regionadmin', 'regionoperator', 'sektoradmin']);
+        })
             ->whereIn('institution_id', $ancestorIds)
             ->where('is_active', true)
             ->with(['roles', 'institution'])
@@ -324,10 +322,9 @@ class MessageController extends Controller
         }
 
         return User::whereHas('roles', fn ($q) => $q->whereIn('name', ['sektoradmin', 'schooladmin']))
-            ->whereHas('institution', fn ($q) =>
-                $q->whereIn('id', $allChildIds)
-                  ->whereIn('level', [3, 4])
-                  ->where('is_active', true)
+            ->whereHas('institution', fn ($q) => $q->whereIn('id', $allChildIds)
+                ->whereIn('level', [3, 4])
+                ->where('is_active', true)
             )
             ->where('is_active', true)
             ->with(['roles', 'institution'])
@@ -346,10 +343,9 @@ class MessageController extends Controller
         }
 
         return User::whereHas('roles', fn ($q) => $q->where('name', 'schooladmin'))
-            ->whereHas('institution', fn ($q) =>
-                $q->where('parent_id', $sektorInstitution->id)
-                  ->where('level', 4)
-                  ->where('is_active', true)
+            ->whereHas('institution', fn ($q) => $q->where('parent_id', $sektorInstitution->id)
+                ->where('level', 4)
+                ->where('is_active', true)
             )
             ->where('is_active', true)
             ->with(['roles', 'institution'])
@@ -385,7 +381,7 @@ class MessageController extends Controller
 
         // İstifadəçinin səlahiyyəti çatan müəssisələri müəyyən et
         $allowedInstitutionIds = $this->getAllowedInstitutionIdsForUser($user);
-        $validInstitutions     = array_intersect($targetInstitutions, $allowedInstitutionIds);
+        $validInstitutions = array_intersect($targetInstitutions, $allowedInstitutionIds);
 
         if (empty($validInstitutions)) {
             return [];

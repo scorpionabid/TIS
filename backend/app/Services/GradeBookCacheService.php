@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
 use App\Models\GradeBookSession;
-use App\Models\GradeBookCell;
+use Illuminate\Support\Facades\Cache;
 
 class GradeBookCacheService
 {
     protected const CACHE_TTL = 300; // 5 minutes
+
     protected const CACHE_PREFIX = 'gradebook:';
 
     /**
@@ -84,16 +84,17 @@ class GradeBookCacheService
     /**
      * Get cached column data
      */
-    public function getColumns(int $sessionId, string $semester = null): ?array
+    public function getColumns(int $sessionId, ?string $semester = null): ?array
     {
         $key = $semester ? "columns:{$sessionId}:{$semester}" : "columns:{$sessionId}";
+
         return Cache::get($this->getKey('columns', $key));
     }
 
     /**
      * Cache column data
      */
-    public function cacheColumns(int $sessionId, array $columns, string $semester = null): void
+    public function cacheColumns(int $sessionId, array $columns, ?string $semester = null): void
     {
         $key = $semester ? "columns:{$sessionId}:{$semester}" : "columns:{$sessionId}";
         Cache::put($this->getKey('columns', $key), $columns, self::CACHE_TTL);
@@ -105,7 +106,7 @@ class GradeBookCacheService
     public function clearAllGradeBookCache(int $sessionId): void
     {
         $this->clearGradeBookCache($sessionId);
-        
+
         // Clear column caches
         Cache::forget($this->getKey('columns', "columns:{$sessionId}"));
         Cache::forget($this->getKey('columns', "columns:{$sessionId}:I"));
@@ -115,7 +116,7 @@ class GradeBookCacheService
     /**
      * Remember callback result with caching
      */
-    public function remember(string $key, callable $callback, int $ttl = null)
+    public function remember(string $key, callable $callback, ?int $ttl = null)
     {
         return Cache::remember($this->getKey('remember', $key), $ttl ?? self::CACHE_TTL, $callback);
     }
@@ -136,7 +137,7 @@ class GradeBookCacheService
         $gradeBook = GradeBookSession::with(['grade', 'subject', 'academicYear', 'columns', 'teachers.teacher'])
             ->find($sessionId);
 
-        if (!$gradeBook) {
+        if (! $gradeBook) {
             return;
         }
 
@@ -168,7 +169,7 @@ class GradeBookCacheService
     protected function calculateStudentScores(int $studentId, int $sessionId): array
     {
         $service = app(GradeCalculationService::class);
-        
+
         return [
             'i_semester' => $service->calculateSemesterScore($studentId, 'I', $sessionId),
             'ii_semester' => $service->calculateSemesterScore($studentId, 'II', $sessionId),
@@ -198,7 +199,7 @@ class GradeBookCacheService
             // For Redis, we can use pattern matching
             // This is driver-specific optimization
         }
-        
+
         // Generic approach: clear known keys
         // In production, consider using tags if supported by cache driver
     }

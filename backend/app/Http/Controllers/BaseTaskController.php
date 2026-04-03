@@ -13,9 +13,13 @@ use Illuminate\Http\Request;
 abstract class BaseTaskController extends Controller
 {
     protected TaskPermissionService $permissionService;
+
     protected TaskAssignmentService $assignmentService;
+
     protected TaskStatisticsService $statisticsService;
+
     protected NotificationService $notificationService;
+
     protected TaskAuditService $auditService;
 
     public function __construct(

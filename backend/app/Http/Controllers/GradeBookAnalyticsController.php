@@ -119,21 +119,21 @@ class GradeBookAnalyticsController extends Controller
         ])
             ->where('academic_year_id', $validated['academic_year_id']);
 
-        if (!empty($validated['region_id'])) {
+        if (! empty($validated['region_id'])) {
             $query->whereHas('institution.sector', function ($q) use ($validated) {
                 $q->where('region_id', $validated['region_id']);
             });
         }
 
-        if (!empty($validated['institution_id'])) {
+        if (! empty($validated['institution_id'])) {
             $query->where('institution_id', $validated['institution_id']);
         }
 
-        if (!empty($validated['subject_id'])) {
+        if (! empty($validated['subject_id'])) {
             $query->where('subject_id', $validated['subject_id']);
         }
 
-        if (!empty($validated['grade_level'])) {
+        if (! empty($validated['grade_level'])) {
             $query->whereHas('grade', function ($q) use ($validated) {
                 $q->where('class_level', $validated['grade_level']);
             });
@@ -226,13 +226,13 @@ class GradeBookAnalyticsController extends Controller
             })
                 ->where('academic_year_id', $year->id);
 
-            if (!empty($validated['grade_level'])) {
+            if (! empty($validated['grade_level'])) {
                 $query->whereHas('grade', function ($q) use ($validated) {
                     $q->where('class_level', $validated['grade_level']);
                 });
             }
 
-            if (!empty($validated['subject_id'])) {
+            if (! empty($validated['subject_id'])) {
                 $query->where('subject_id', $validated['subject_id']);
             }
 

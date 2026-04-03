@@ -33,11 +33,11 @@ class NewMessageReceived implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'message_id'   => $this->message->id,
-            'sender_id'    => $this->message->sender_id,
-            'sender_name'  => $this->message->sender->name,
+            'message_id' => $this->message->id,
+            'sender_id' => $this->message->sender_id,
+            'sender_name' => $this->message->sender->name,
             'body_preview' => Str::limit($this->message->body, 80),
-            'created_at'   => $this->message->created_at->toISOString(),
+            'created_at' => $this->message->created_at->toISOString(),
         ];
     }
 }

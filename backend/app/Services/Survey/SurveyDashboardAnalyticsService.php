@@ -5,7 +5,6 @@ namespace App\Services\Survey;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class SurveyDashboardAnalyticsService
 {
@@ -15,7 +14,7 @@ class SurveyDashboardAnalyticsService
     public function getDashboardStatistics(): array
     {
         $user = Auth::user();
-        
+
         return [
             'overview' => $this->getOverviewMetrics($user),
             'recent_surveys' => $this->getRecentSurveys($user),
@@ -31,7 +30,7 @@ class SurveyDashboardAnalyticsService
     protected function getOverviewMetrics($user): array
     {
         $baseQuery = Survey::where('created_by', $user->id);
-        
+
         return [
             'total_surveys' => $baseQuery->count(),
             'active_surveys' => $baseQuery->whereIn('status', ['published', 'active'])->count(),
@@ -63,7 +62,7 @@ class SurveyDashboardAnalyticsService
                     'created_at' => $survey->created_at->format('Y-m-d'),
                     'total_responses' => $survey->responses_count,
                     'complete_responses' => $survey->responses->where('is_complete', true)->count(),
-                    'response_rate' => $survey->responses_count > 0 ? 
+                    'response_rate' => $survey->responses_count > 0 ?
                         round(($survey->responses->where('is_complete', true)->count() / $survey->responses_count) * 100, 2) : 0,
                 ];
             })
@@ -76,7 +75,7 @@ class SurveyDashboardAnalyticsService
     protected function getPerformanceMetrics($user): array
     {
         $surveys = Survey::where('created_by', $user->id)->get();
-        
+
         if ($surveys->isEmpty()) {
             return [
                 'best_performing' => null,
@@ -116,15 +115,15 @@ class SurveyDashboardAnalyticsService
             'responses_today' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
                 $query->where('created_by', $user->id);
             })->where('created_at', '>=', $today)->count(),
-            
+
             'responses_this_week' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
                 $query->where('created_by', $user->id);
             })->where('created_at', '>=', $thisWeek)->count(),
-            
+
             'responses_this_month' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
                 $query->where('created_by', $user->id);
             })->where('created_at', '>=', $thisMonth)->count(),
-            
+
             'surveys_published_this_month' => Survey::where('created_by', $user->id)
                 ->where('status', 'published')
                 ->where('published_at', '>=', $thisMonth)
@@ -139,8 +138,8 @@ class SurveyDashboardAnalyticsService
     {
         // Last 30 days response trends
         $responseTrends = SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
-            })
+            $query->where('created_by', $user->id);
+        })
             ->where('created_at', '>=', now()->subDays(30))
             ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
             ->groupBy('date')
@@ -182,7 +181,7 @@ class SurveyDashboardAnalyticsService
     protected function calculateAverageResponseRate($user): float
     {
         $surveys = Survey::where('created_by', $user->id)->get();
-        
+
         if ($surveys->isEmpty()) {
             return 0;
         }
@@ -207,7 +206,7 @@ class SurveyDashboardAnalyticsService
     protected function calculateAverageCompletionRate($user): float
     {
         $surveys = Survey::where('created_by', $user->id)->get();
-        
+
         if ($surveys->isEmpty()) {
             return 0;
         }
@@ -282,8 +281,8 @@ class SurveyDashboardAnalyticsService
     public function getResponseActivityHeatmap($user): array
     {
         return SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
-            })
+            $query->where('created_by', $user->id);
+        })
             ->where('created_at', '>=', now()->subDays(90))
             ->selectRaw('
                 EXTRACT(HOUR FROM created_at) as hour,
@@ -318,7 +317,7 @@ class SurveyDashboardAnalyticsService
                     'id' => $survey->id,
                     'title' => $survey->title,
                     'responses' => $survey->responses_count,
-                    'completion_rate' => $survey->responses_count > 0 ? 
+                    'completion_rate' => $survey->responses_count > 0 ?
                         round(($survey->responses->where('is_complete', true)->count() / $survey->responses_count) * 100, 2) : 0,
                     'engagement_score' => $this->calculateEngagementScore($survey),
                 ];

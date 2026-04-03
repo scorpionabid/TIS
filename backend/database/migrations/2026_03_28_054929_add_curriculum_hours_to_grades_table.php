@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('grades', function (Blueprint $table) {
-            if (!Schema::hasColumn('grades', 'curriculum_hours')) {
+            if (! Schema::hasColumn('grades', 'curriculum_hours')) {
                 $table->decimal('curriculum_hours', 8, 2)->nullable()->after('student_count');
             }
         });

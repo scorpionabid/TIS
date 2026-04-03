@@ -51,7 +51,7 @@ class GrowthBonusConfig extends Model
      * - 15+ bal artım = +2 bonus
      * - 25+ bal artım = +5 bonus (capped at +5)
      *
-     * @param float $growthAmount The difference between current and baseline score
+     * @param  float $growthAmount The difference between current and baseline score
      * @return float The bonus score to apply
      */
     public static function calculateBonus(float $growthAmount): float
@@ -70,7 +70,7 @@ class GrowthBonusConfig extends Model
             ->orderBy('threshold_min', 'desc')
             ->first();
 
-        if (!$config) {
+        if (! $config) {
             return 0;
         }
 

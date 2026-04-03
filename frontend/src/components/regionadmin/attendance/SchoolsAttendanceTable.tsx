@@ -22,7 +22,7 @@ interface School {
   reported_days: number;
   expected_school_days: number;
   average_attendance_rate: number;
-  uniform_compliance_rate: number;
+  uniform_compliance_rate?: number;
   warnings?: string[];
 }
 

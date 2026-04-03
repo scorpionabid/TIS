@@ -47,8 +47,8 @@ class CleanupExpiredMessages extends Command
         $this->info("Orphan (tam silinmiş) mesajlar: {$orphanMessages} hard-delete edildi.");
 
         Log::info('messages:cleanup tamamlandı', [
-            'read_expired'    => $readExpired,
-            'unread_expired'  => $unreadExpired,
+            'read_expired' => $readExpired,
+            'unread_expired' => $unreadExpired,
             'orphan_messages' => $orphanMessages,
         ]);
 

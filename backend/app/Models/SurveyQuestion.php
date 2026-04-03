@@ -685,7 +685,7 @@ class SurveyQuestion extends Model
             foreach ($this->table_headers as $index => $header) {
                 $columns[] = [
                     'key' => 'col_' . ($index + 1),
-                    'label' => is_string($header) ? $header : ($header['label'] ?? "Sütun " . ($index + 1)),
+                    'label' => is_string($header) ? $header : ($header['label'] ?? 'Sütun ' . ($index + 1)),
                     'type' => 'text',
                 ];
             }
@@ -708,7 +708,7 @@ class SurveyQuestion extends Model
         // Validate each row
         foreach ($response as $rowIndex => $row) {
             if (! is_array($row)) {
-                $errors[] = "Sətir " . ($rowIndex + 1) . " düzgün formatda deyil.";
+                $errors[] = 'Sətir ' . ($rowIndex + 1) . ' düzgün formatda deyil.';
 
                 continue;
             }
@@ -731,20 +731,20 @@ class SurveyQuestion extends Model
                     case 'number':
                         if (! is_numeric($cellValue)) {
                             $colLabel = $this->getColumnLabel($columns, $colKey);
-                            $errors[] = "Sətir " . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda rəqəm gözlənilir.";
+                            $errors[] = 'Sətir ' . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda rəqəm gözlənilir.";
                         }
                         break;
                     case 'date':
                         if (! $this->isValidDate($cellValue)) {
                             $colLabel = $this->getColumnLabel($columns, $colKey);
-                            $errors[] = "Sətir " . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda düzgün tarix formatı gözlənilir.";
+                            $errors[] = 'Sətir ' . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda düzgün tarix formatı gözlənilir.";
                         }
                         break;
                     case 'text':
                     default:
                         if (! is_string($cellValue) && ! is_numeric($cellValue)) {
                             $colLabel = $this->getColumnLabel($columns, $colKey);
-                            $errors[] = "Sətir " . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda mətn gözlənilir.";
+                            $errors[] = 'Sətir ' . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda mətn gözlənilir.";
                         }
                         break;
                 }

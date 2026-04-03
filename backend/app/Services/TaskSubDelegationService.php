@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Events\SubDelegationStatusChanged;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskSubDelegation;
 use App\Models\User;
-use App\Events\SubDelegationStatusChanged;
 use App\Notifications\TaskSubDelegationNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +79,7 @@ class TaskSubDelegationService
     ): TaskSubDelegation {
         return DB::transaction(function () use ($delegation, $status, $data, $user) {
             $oldStatus = $delegation->status;
-            
+
             // Update delegation
             $updateData = [
                 'status' => $status,
@@ -87,7 +87,7 @@ class TaskSubDelegationService
             ];
 
             // Status-specific updates
-            match($status) {
+            match ($status) {
                 'accepted' => $updateData['accepted_at'] = now(),
                 'in_progress' => $updateData['started_at'] = now(),
                 'completed' => $this->applyCompletedStatus($updateData, $data),
@@ -173,7 +173,7 @@ class TaskSubDelegationService
     {
         return DB::transaction(function () use ($delegation, $user) {
             $parentAssignment = $delegation->parentAssignment;
-            
+
             $delegation->delete();
 
             // Parent assignment-i yenilə
@@ -240,7 +240,7 @@ class TaskSubDelegationService
         );
 
         // Status-a görə xüsusi bildirişlər
-        match($newStatus) {
+        match ($newStatus) {
             'accepted' => $this->notifyDelegationAccepted($delegation),
             'completed' => $this->notifyDelegationCompleted($delegation),
             default => null

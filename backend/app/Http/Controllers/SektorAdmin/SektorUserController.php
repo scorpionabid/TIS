@@ -21,12 +21,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -136,12 +136,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -251,21 +251,16 @@ class SektorUserController extends Controller
      */
     public function createSchoolUser(Request $request): JsonResponse
     {
-
-
         $currentUser = $request->user();
 
-        if (!$currentUser->hasRole('sektoradmin')) {
+        if (! $currentUser->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $currentUser->institution;
-        if (!$sector) {
-
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
-
-
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -281,6 +276,7 @@ class SektorUserController extends Controller
 
         if ($validator->fails()) {
             \Log::error('❌ [Backend User Creation Debug] Validation failed:', $validator->errors()->toArray());
+
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
@@ -294,11 +290,12 @@ class SektorUserController extends Controller
             ->where('parent_id', $sector->id)
             ->first();
 
-        if (!$institution) {
+        if (! $institution) {
             \Log::error('❌ [Backend User Creation Debug] Institution not in sector', [
                 'requested_institution_id' => $request->institution_id,
-                'sector_id' => $sector->id
+                'sector_id' => $sector->id,
             ]);
+
             return response()->json([
                 'message' => 'Seçilən müəssisə sizin sektora aid deyil',
             ], 400);
@@ -359,7 +356,7 @@ class SektorUserController extends Controller
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -376,12 +373,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -408,12 +405,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -433,7 +430,7 @@ class SektorUserController extends Controller
                     'institution',
                     'teacherVerifications' => function ($q) {
                         $q->latest('verification_date');
-                    }
+                    },
                 ]);
 
             // Apply filters
@@ -488,6 +485,7 @@ class SektorUserController extends Controller
             // Transform data
             $transformedTeachers = $teachers->getCollection()->map(function ($teacher) {
                 $verification = $teacher->teacherVerifications->first();
+
                 return [
                     'id' => $teacher->id,
                     'name' => $teacher->name,
@@ -519,11 +517,10 @@ class SektorUserController extends Controller
                 ],
                 'statistics' => $stats,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Məlumatlar alınarkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Məlumatlar alınarkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -572,12 +569,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -600,13 +597,14 @@ class SektorUserController extends Controller
                     'institution',
                     'teacherVerifications' => function ($q) {
                         $q->latest()->limit(1);
-                    }
+                    },
                 ])
                 ->where('is_active', true)
                 ->get();
 
             $transformedTeachers = $pendingTeachers->map(function ($teacher) {
                 $verification = $teacher->teacherVerifications->first();
+
                 return [
                     'id' => $teacher->id,
                     'name' => $teacher->name,
@@ -631,13 +629,13 @@ class SektorUserController extends Controller
                     'total_pending' => $transformedTeachers->where('verification_status', 'pending')->count(),
                     'total_approved' => $transformedTeachers->where('verification_status', 'approved')->count(),
                     'total_rejected' => $transformedTeachers->where('verification_status', 'rejected')->count(),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Məlumatlar yüklənərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -649,12 +647,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -679,8 +677,9 @@ class SektorUserController extends Controller
                     })
                     ->first();
 
-                if (!$teacher) {
+                if (! $teacher) {
                     $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
+
                     continue;
                 }
 
@@ -691,6 +690,7 @@ class SektorUserController extends Controller
 
                 if ($existingVerification) {
                     $errors[] = "Müəllim {$teacher->name} artıq təsdiqlənib";
+
                     continue;
                 }
 
@@ -715,11 +715,10 @@ class SektorUserController extends Controller
                 'approved_count' => $approvedCount,
                 'errors' => $errors,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Kütləvi təsdiqləmə zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Kütləvi təsdiqləmə zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -731,12 +730,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -761,8 +760,9 @@ class SektorUserController extends Controller
                     })
                     ->first();
 
-                if (!$teacher) {
+                if (! $teacher) {
                     $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
+
                     continue;
                 }
 
@@ -773,6 +773,7 @@ class SektorUserController extends Controller
 
                 if ($existingVerification) {
                     $errors[] = "Müəllim {$teacher->name} artıq təsdiqlənib, rədd edilə bilməz";
+
                     continue;
                 }
 
@@ -797,11 +798,10 @@ class SektorUserController extends Controller
                 'rejected_count' => $rejectedCount,
                 'errors' => $errors,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Kütləvi rədd etmə zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Kütləvi rədd etmə zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -813,12 +813,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -857,7 +857,7 @@ class SektorUserController extends Controller
                         $q->whereHas('roles', function ($role) {
                             $role->where('name', 'müəllim');
                         });
-                    }
+                    },
                 ])
                 ->withCount([
                     'teacherVerifications' => function ($q) {
@@ -865,7 +865,7 @@ class SektorUserController extends Controller
                     },
                     'teacherVerifications as rejected_count' => function ($q) {
                         $q->where('verification_status', 'rejected');
-                    }
+                    },
                 ])
                 ->get()
                 ->map(function ($institution) {
@@ -900,11 +900,10 @@ class SektorUserController extends Controller
                     'average_verification_days' => round($avgVerificationTime ?? 0, 1),
                 ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Analitik məlumatlar alınarkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Analitik məlumatlar alınarkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -916,7 +915,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -938,7 +937,7 @@ class SektorUserController extends Controller
                 ->pluck('id')
                 ->toArray();
 
-            if (!in_array($teacher->institution_id, $schoolIds)) {
+            if (! in_array($teacher->institution_id, $schoolIds)) {
                 return response()->json(['message' => 'Bu müəllim sizin sektorunuzda deyil'], 403);
             }
 
@@ -957,13 +956,13 @@ class SektorUserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Müəllim məlumatları uğurla təsdiqləndi',
-                'data' => $verification
+                'data' => $verification,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Təsdiqləmə zamanı xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -975,7 +974,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -997,7 +996,7 @@ class SektorUserController extends Controller
                 ->pluck('id')
                 ->toArray();
 
-            if (!in_array($teacher->institution_id, $schoolIds)) {
+            if (! in_array($teacher->institution_id, $schoolIds)) {
                 return response()->json(['message' => 'Bu müəllim sizin sektorunuzda deyil'], 403);
             }
 
@@ -1016,13 +1015,13 @@ class SektorUserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Müəllim məlumatları rədd edildi',
-                'data' => $verification
+                'data' => $verification,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rədd etmə zamanı xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

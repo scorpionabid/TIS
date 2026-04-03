@@ -26,9 +26,9 @@ class PreschoolAttendanceReportController extends BaseController
 
     public function index(Request $request): JsonResponse
     {
-        $user      = Auth::user();
+        $user = Auth::user();
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
-        $endDate   = $request->get('end_date', now()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
 
         $institutionsQuery = Institution::whereIn('type', self::PRESCHOOL_TYPES)
             ->where('level', 4)
@@ -44,12 +44,12 @@ class PreschoolAttendanceReportController extends BaseController
             $institutionsQuery->where('id', $request->institution_id);
         }
 
-        $institutions   = $institutionsQuery->with('parent')->get();
+        $institutions = $institutionsQuery->with('parent')->get();
         $institutionIds = $institutions->pluck('id');
 
         $startCarbon = Carbon::parse($startDate);
-        $endCarbon   = Carbon::parse($endDate);
-        $totalDays   = $startCarbon->diffInDays($endCarbon) + 1;
+        $endCarbon = Carbon::parse($endDate);
+        $totalDays = $startCarbon->diffInDays($endCarbon) + 1;
 
         $attendanceStats = PreschoolAttendance::whereIn('institution_id', $institutionIds)
             ->whereBetween('attendance_date', [$startDate, $endDate])
@@ -65,40 +65,40 @@ class PreschoolAttendanceReportController extends BaseController
             ->pluck('group_count', 'institution_id');
 
         $summaryData = $institutions->map(function (Institution $inst) use ($attendanceStats, $groupCounts, $totalDays) {
-            $stats          = $attendanceStats->get($inst->id);
-            $groupCount     = (int) ($groupCounts->get($inst->id) ?? 0);
-            $reportedDays   = $stats ? (int) $stats->reported_days : 0;
+            $stats = $attendanceStats->get($inst->id);
+            $groupCount = (int) ($groupCounts->get($inst->id) ?? 0);
+            $reportedDays = $stats ? (int) $stats->reported_days : 0;
             $completionRate = $totalDays > 0 ? round(($reportedDays / $totalDays) * 100, 2) : 0;
 
             return [
-                'institution_id'    => $inst->id,
-                'institution_name'  => $inst->name,
-                'sector_name'       => $inst->parent?->name,
-                'type'              => $inst->type,
-                'group_count'       => $groupCount,
-                'total_enrolled'    => $stats ? (int) $stats->sum_enrolled : 0,
-                'total_present'     => $stats ? (int) $stats->sum_present : 0,
-                'average_rate'      => $stats ? round((float) $stats->avg_rate, 2) : 0,
+                'institution_id' => $inst->id,
+                'institution_name' => $inst->name,
+                'sector_name' => $inst->parent?->name,
+                'type' => $inst->type,
+                'group_count' => $groupCount,
+                'total_enrolled' => $stats ? (int) $stats->sum_enrolled : 0,
+                'total_present' => $stats ? (int) $stats->sum_present : 0,
+                'average_rate' => $stats ? round((float) $stats->avg_rate, 2) : 0,
                 'records_submitted' => $reportedDays,
-                'records_expected'  => $totalDays,
-                'completion_rate'   => $completionRate,
+                'records_expected' => $totalDays,
+                'completion_rate' => $completionRate,
             ];
         });
 
         $totals = [
             'institution_count' => $institutions->count(),
-            'total_enrolled'    => $summaryData->sum('total_enrolled'),
-            'total_present'     => $summaryData->sum('total_present'),
-            'average_rate'      => $summaryData->avg('average_rate') ? round((float) $summaryData->avg('average_rate'), 2) : 0,
-            'avg_completion'    => $summaryData->avg('completion_rate') ? round((float) $summaryData->avg('completion_rate'), 2) : 0,
+            'total_enrolled' => $summaryData->sum('total_enrolled'),
+            'total_present' => $summaryData->sum('total_present'),
+            'average_rate' => $summaryData->avg('average_rate') ? round((float) $summaryData->avg('average_rate'), 2) : 0,
+            'avg_completion' => $summaryData->avg('completion_rate') ? round((float) $summaryData->avg('completion_rate'), 2) : 0,
         ];
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'period'       => ['start_date' => $startDate, 'end_date' => $endDate],
+            'data' => [
+                'period' => ['start_date' => $startDate, 'end_date' => $endDate],
                 'institutions' => $summaryData->values(),
-                'totals'       => $totals,
+                'totals' => $totals,
             ],
             'message' => 'Hesabat uğurla yükləndi.',
         ]);
@@ -106,9 +106,9 @@ class PreschoolAttendanceReportController extends BaseController
 
     public function exportPhotosZip(Request $request): StreamedResponse|JsonResponse
     {
-        $user      = Auth::user();
+        $user = Auth::user();
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
-        $endDate   = $request->get('end_date', now()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
 
         $photosQuery = PreschoolAttendancePhoto::whereBetween('photo_date', [$startDate, $endDate]);
 
@@ -130,9 +130,9 @@ class PreschoolAttendanceReportController extends BaseController
         }
 
         $zipFilename = "preschool_photos_{$startDate}_{$endDate}.zip";
-        $tempPath    = sys_get_temp_dir() . '/' . $zipFilename;
+        $tempPath = sys_get_temp_dir() . '/' . $zipFilename;
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($tempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             Log::error('Failed to create ZIP archive', ['path' => $tempPath]);
 
@@ -154,7 +154,7 @@ class PreschoolAttendanceReportController extends BaseController
             readfile($tempPath);
             @unlink($tempPath);
         }, $zipFilename, [
-            'Content-Type'        => 'application/zip',
+            'Content-Type' => 'application/zip',
             'Content-Disposition' => "attachment; filename=\"{$zipFilename}\"",
         ]);
     }

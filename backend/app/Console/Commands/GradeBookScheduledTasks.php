@@ -10,6 +10,7 @@ use Illuminate\Console\Command;
 class GradeBookScheduledTasks extends Command
 {
     protected $signature = 'gradebook:scheduled-tasks';
+
     protected $description = 'Run scheduled tasks for grade book system';
 
     public function handle(): int
@@ -122,7 +123,7 @@ class GradeBookScheduledTasks extends Command
             if ($activity['total_changes'] > 0) {
                 $title = "Gündəlik icmal: {$gradeBook->subject->name}";
                 $message = sprintf(
-                    "Son 24 saatda %d dəyişiklik edildi. %d yeniləmə, %d yeni bal.",
+                    'Son 24 saatda %d dəyişiklik edildi. %d yeniləmə, %d yeni bal.',
                     $activity['total_changes'],
                     $activity['stats']['update'] ?? 0,
                     $activity['stats']['create'] ?? 0

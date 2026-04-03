@@ -393,6 +393,7 @@ class DataIsolationHelper
 
             if ($sectorId) {
                 $sector = \App\Models\Institution::find($sectorId);
+
                 return collect($sector ? $sector->getAllChildrenIds() : [$userSector->id]);
             }
 

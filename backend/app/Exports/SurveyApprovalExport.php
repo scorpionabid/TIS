@@ -146,7 +146,7 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
     public function map($response): array
     {
         // Get sector and institution names
-        $sectorName      = $this->getSectorName($response->institution);
+        $sectorName = $this->getSectorName($response->institution);
         $institutionName = $response->institution?->name ?? 'N/A';
 
         // Start with sector, then institution
@@ -161,16 +161,16 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
 
         foreach ($questions as $question) {
             $questionId = (string) $question->id;
-            $answer     = $responses[$questionId] ?? '';
+            $answer = $responses[$questionId] ?? '';
 
             // Format the answer based on question type
             if (is_array($answer)) {
                 // table_input: qısa xülasə göstər, detallar üçün ayrı vərəqə bax
                 if ($question->type === 'table_input' || (isset($answer[0]) && is_array($answer[0]))) {
-                    $filledRows    = array_filter($answer, fn ($r) => is_array($r) && !empty(array_filter(array_values($r))));
-                    $rowCount      = count($filledRows);
+                    $filledRows = array_filter($answer, fn ($r) => is_array($r) && ! empty(array_filter(array_values($r))));
+                    $rowCount = count($filledRows);
                     $questionTitle = mb_substr(strip_tags($question->title ?? 'Cədvəl'), 0, 20);
-                    $answer        = $rowCount > 0
+                    $answer = $rowCount > 0
                         ? "[{$rowCount} sətir] — '{$questionTitle}...' vərəqinə baxın"
                         : '—';
                 } else {
@@ -240,7 +240,7 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
         return [
             1 => [
                 'fill' => [
-                    'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'FF2563EB'],
                 ],
                 'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true, 'size' => 11],
@@ -256,20 +256,20 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
         ];
 
         // Suallar C sütunundan başlayır; Coordinate::stringFromColumnIndex limitsizdir
-        $questions   = $this->survey->questions;
+        $questions = $this->survey->questions;
         $columnIndex = 2; // 0-indexed: A=0, B=1, C=2
 
         foreach ($questions as $question) {
             $colLetter = Coordinate::stringFromColumnIndex($columnIndex + 1);
             $widths[$colLetter] = match ($question->type ?? 'text') {
-                'textarea'        => 40,
-                'table_input'     => 30,
+                'textarea' => 40,
+                'table_input' => 30,
                 'multiple_choice' => 25,
-                'single_choice'   => 20,
-                'number'          => 15,
-                'email'           => 25,
-                'date'            => 15,
-                default           => 20,
+                'single_choice' => 20,
+                'number' => 15,
+                'email' => 25,
+                'date' => 15,
+                default => 20,
             };
             $columnIndex++;
         }

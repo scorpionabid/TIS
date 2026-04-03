@@ -4,14 +4,14 @@ use App\Http\Controllers\DocumentCollectionController;
 use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\TaskAnalyticsController;
+use App\Http\Controllers\TaskApprovalController;
+use App\Http\Controllers\TaskAssignmentController;
+use App\Http\Controllers\TaskAuditController;
 use App\Http\Controllers\TaskChecklistController;
 use App\Http\Controllers\TaskCrudController;
-use App\Http\Controllers\TaskAssignmentController;
-use App\Http\Controllers\TaskPermissionController;
 use App\Http\Controllers\TaskDelegationController;
-use App\Http\Controllers\TaskApprovalController;
-use App\Http\Controllers\TaskAuditController;
-use App\Http\Controllers\TaskAnalyticsController;
+use App\Http\Controllers\TaskPermissionController;
 use App\Http\Controllers\TaskSubDelegationController;
 use Illuminate\Support\Facades\Route;
 
@@ -179,17 +179,17 @@ Route::middleware('permission:tasks.read')->group(function () {
 
 // All authenticated users can READ their own notifications (no special permission needed)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('notifications',                        [NotificationController::class, 'index']);
-    Route::get('notifications/statistics',             [NotificationController::class, 'statistics']);
-    Route::get('notifications/unread-count',           [NotificationController::class, 'unreadCount']);
-    Route::get('notifications/page-badge-counts',      [NotificationController::class, 'pageBadgeCounts']);
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::get('notifications/statistics', [NotificationController::class, 'statistics']);
+    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::get('notifications/page-badge-counts', [NotificationController::class, 'pageBadgeCounts']);
 
     // Wildcard routes come AFTER static routes
     Route::get('notifications/{notification}', [NotificationController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('notifications/{notification}/read',  [NotificationController::class, 'markAsRead']);
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::post('notifications/{notification}/click', [NotificationController::class, 'click']);
 
     Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
@@ -199,6 +199,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Admin-only: send test notifications
 Route::middleware(['auth:sanctum', 'role:superadmin'])->group(function () {
-    Route::post('notifications/test',   [NotificationController::class, 'sendTest']);
+    Route::post('notifications/test', [NotificationController::class, 'sendTest']);
     Route::post('notifications/{notification}/resend', [NotificationController::class, 'resend']);
 });

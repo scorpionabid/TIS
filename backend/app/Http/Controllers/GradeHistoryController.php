@@ -20,7 +20,7 @@ class GradeHistoryController extends Controller
     {
         $gradeBook = GradeBookSession::with(['institution', 'grade'])->findOrFail($gradeBookId);
 
-        if (!$this->canView($gradeBook, $studentId)) {
+        if (! $this->canView($gradeBook, $studentId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized.',
@@ -39,7 +39,7 @@ class GradeHistoryController extends Controller
     {
         $gradeBook = GradeBookSession::with(['institution', 'grade'])->findOrFail($gradeBookId);
 
-        if (!$this->canView($gradeBook, $studentId)) {
+        if (! $this->canView($gradeBook, $studentId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized.',
@@ -62,7 +62,7 @@ class GradeHistoryController extends Controller
     {
         $gradeBook = GradeBookSession::with(['institution', 'grade'])->findOrFail($gradeBookId);
 
-        if (!$this->canView($gradeBook, $studentId)) {
+        if (! $this->canView($gradeBook, $studentId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized.',

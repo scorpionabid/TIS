@@ -31,7 +31,7 @@ class GradeHistoryService
 
         // Calculate semester and annual scores
         $calculationService = app(GradeCalculationService::class);
-        
+
         $history = [
             'student_id' => $studentId,
             'grade_book_session_id' => $gradeBookSessionId,
@@ -52,7 +52,7 @@ class GradeHistoryService
     /**
      * Get score trend over time
      */
-    public function getScoreTrend(int $studentId, int $gradeBookSessionId, string $semester = null): array
+    public function getScoreTrend(int $studentId, int $gradeBookSessionId, ?string $semester = null): array
     {
         $query = GradeBookAuditLog::with('column')
             ->where('student_id', $studentId)
@@ -103,8 +103,8 @@ class GradeHistoryService
     public function getClassComparison(int $studentId, int $gradeBookSessionId): array
     {
         $gradeBook = GradeBookSession::with('grade.enrollments')->find($gradeBookSessionId);
-        
-        if (!$gradeBook) {
+
+        if (! $gradeBook) {
             return ['error' => 'Grade book not found'];
         }
 
@@ -242,7 +242,7 @@ class GradeHistoryService
     protected function calculateProgression(Collection $logs, int $studentId, int $gradeBookSessionId): array
     {
         $scoreLogs = $logs->where('action_type', 'update')->whereNotNull('new_score');
-        
+
         if ($scoreLogs->isEmpty()) {
             return [
                 'first_score' => null,
@@ -269,7 +269,7 @@ class GradeHistoryService
     protected function calculateStatistics(Collection $logs, Collection $currentScores): array
     {
         $scoreLogs = $logs->where('action_type', 'update')->whereNotNull('new_score');
-        
+
         if ($scoreLogs->isEmpty()) {
             return [
                 'total_updates' => 0,
@@ -324,6 +324,7 @@ class GradeHistoryService
         if (empty($values)) {
             return 0;
         }
+
         return round(array_sum($values) / count($values), 2);
     }
 
@@ -339,7 +340,7 @@ class GradeHistoryService
 
         sort($allValues);
         $count = count($allValues);
-        
+
         $below = 0;
         foreach ($allValues as $v) {
             if ($v < $value) {

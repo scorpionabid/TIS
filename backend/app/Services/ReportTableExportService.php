@@ -35,13 +35,12 @@ class ReportTableExportService
             );
 
             $filename = "ATIS_HesabatCedveli_{$safeTitle}_" . date('Y-m-d') . '.xlsx';
-            
+
             // Storage disk istifadə et - private/exports qovluğu avtomatik yaradılacaq
             $export = new ReportTableExport($table, $responses);
-            
+
             // Excel faylını yadda saxla və download et
             return Excel::download($export, $filename);
-            
         } catch (\Exception $e) {
             \Log::error('Export error: ' . $e->getMessage());
             throw $e;
@@ -89,7 +88,6 @@ class ReportTableExportService
             $export = new ReportTableExport($table, $responses, filterByStatus: false);
 
             return Excel::download($export, $filename);
-            
         } catch (\Exception $e) {
             \Log::error('Single institution export error: ' . $e->getMessage());
             throw $e;
@@ -106,18 +104,18 @@ class ReportTableExportService
 
             // Bütün cavabları al və yalnız təsdiqlənmiş sətirləri olanları saxla
             $allResponses = $this->responseService->getAllResponsesForExport($table);
-            
+
             $filteredResponses = $allResponses->filter(function ($response) {
                 // Response-un row_statuses-ini yoxla
                 $rowStatuses = $response->row_statuses ?? [];
-                
+
                 // Ən azı bir sətir təsdiqlənmiş olmalıdır
                 foreach ($rowStatuses as $idx => $meta) {
                     if (($meta['status'] ?? null) === 'approved') {
                         return true;
                     }
                 }
-                
+
                 return false;
             });
 
@@ -133,11 +131,10 @@ class ReportTableExportService
             );
 
             $filename = "ATIS_HazirCedvel_{$safeTitle}_" . date('Y-m-d') . '.xlsx';
-            
+
             $export = new ReportTableExport($table, $filteredResponses);
-            
+
             return Excel::download($export, $filename);
-            
         } catch (\Exception $e) {
             \Log::error('Export approved rows error: ' . $e->getMessage());
             throw $e;

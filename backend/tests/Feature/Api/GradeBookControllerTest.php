@@ -27,23 +27,32 @@ class GradeBookControllerTest extends TestCase
 {
     use SeedsDefaultRolesAndPermissions;
 
-    private Institution  $school;
-    private Institution  $otherSchool;
+    private Institution $school;
+
+    private Institution $otherSchool;
+
     private AcademicYear $activeYear;
-    private Grade        $grade;
-    private Subject      $subject;
+
+    private Grade $grade;
+
+    private Subject $subject;
+
     private AssessmentType $assessmentType;
+
     private $superAdmin;
+
     private $schoolAdmin;
+
     private $teacher;
+
     private $otherSchoolAdmin;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->activeYear  = AcademicYear::factory()->active()->create();
-        $this->school      = Institution::factory()->school()->create();
+        $this->activeYear = AcademicYear::factory()->active()->create();
+        $this->school = Institution::factory()->school()->create();
         $this->otherSchool = Institution::factory()->school()->create();
 
         $this->grade = Grade::factory()
@@ -63,14 +72,14 @@ class GradeBookControllerTest extends TestCase
 
         // AssessmentType üçün factory yoxdur — birbaşa yarat (ID=1 olacaq)
         $this->assessmentType = AssessmentType::create([
-            'name'           => 'KSQ Test',
-            'category'       => 'ksq',
-            'is_active'      => true,
-            'max_score'      => 10,
+            'name' => 'KSQ Test',
+            'category' => 'ksq',
+            'is_active' => true,
+            'max_score' => 10,
             'scoring_method' => 'points',
-            'grade_levels'   => [1, 12],
-            'criteria'       => [],
-            'created_by'     => $this->superAdmin->id,
+            'grade_levels' => [1, 12],
+            'criteria' => [],
+            'created_by' => $this->superAdmin->id,
         ]);
 
         $this->schoolAdmin = $this->createUserWithRole('schooladmin', [], [
@@ -119,7 +128,7 @@ class GradeBookControllerTest extends TestCase
         $this->makeGradeBook();
 
         // Başqa məktəbin jurnalı — fərqli sinif + subject lazımdır
-        $otherGrade   = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
+        $otherGrade = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
         $otherSubject = Subject::factory()->create();
 
         GradeBookSession::factory()
@@ -213,7 +222,7 @@ class GradeBookControllerTest extends TestCase
         $this->makeGradeBook();
 
         // Fərqli sinif üçün jurnal
-        $otherGrade   = Grade::factory()->forInstitution($this->school)->create(['academic_year_id' => $this->activeYear->id]);
+        $otherGrade = Grade::factory()->forInstitution($this->school)->create(['academic_year_id' => $this->activeYear->id]);
         $otherSubject = Subject::factory()->create();
 
         GradeBookSession::factory()
@@ -243,9 +252,9 @@ class GradeBookControllerTest extends TestCase
     public function school_admin_can_create_grade_book(): void
     {
         $payload = [
-            'institution_id'   => $this->school->id,
-            'grade_id'         => $this->grade->id,
-            'subject_id'       => $this->subject->id,
+            'institution_id' => $this->school->id,
+            'grade_id' => $this->grade->id,
+            'subject_id' => $this->subject->id,
             'academic_year_id' => $this->activeYear->id,
         ];
 
@@ -256,9 +265,9 @@ class GradeBookControllerTest extends TestCase
         $response->assertJson(['success' => true]);
 
         $this->assertDatabaseHas('grade_book_sessions', [
-            'institution_id'   => $this->school->id,
-            'grade_id'         => $this->grade->id,
-            'subject_id'       => $this->subject->id,
+            'institution_id' => $this->school->id,
+            'grade_id' => $this->grade->id,
+            'subject_id' => $this->subject->id,
             'academic_year_id' => $this->activeYear->id,
         ]);
     }
@@ -267,9 +276,9 @@ class GradeBookControllerTest extends TestCase
     public function teacher_cannot_create_grade_book(): void
     {
         $payload = [
-            'institution_id'   => $this->school->id,
-            'grade_id'         => $this->grade->id,
-            'subject_id'       => $this->subject->id,
+            'institution_id' => $this->school->id,
+            'grade_id' => $this->grade->id,
+            'subject_id' => $this->subject->id,
             'academic_year_id' => $this->activeYear->id,
         ];
 
@@ -297,9 +306,9 @@ class GradeBookControllerTest extends TestCase
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
             ->postJson('/api/grade-books', [
-                'institution_id'   => $this->school->id,
-                'grade_id'         => 99999, // mövcud deyil
-                'subject_id'       => $this->subject->id,
+                'institution_id' => $this->school->id,
+                'grade_id' => 99999, // mövcud deyil
+                'subject_id' => $this->subject->id,
                 'academic_year_id' => $this->activeYear->id,
             ]);
 
@@ -327,7 +336,7 @@ class GradeBookControllerTest extends TestCase
     /** @test */
     public function school_admin_cannot_view_other_institution_grade_book(): void
     {
-        $otherGrade   = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
+        $otherGrade = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
         $otherSubject = Subject::factory()->create();
 
         $otherGradeBook = GradeBookSession::factory()
@@ -381,10 +390,10 @@ class GradeBookControllerTest extends TestCase
 
         $payload = [
             'assessment_type_id' => $this->assessmentType->id,
-            'semester'           => 'I',
-            'column_label'       => 'KSQ 1',
-            'assessment_date'    => now()->toDateString(),
-            'max_score'          => 10,
+            'semester' => 'I',
+            'column_label' => 'KSQ 1',
+            'assessment_date' => now()->toDateString(),
+            'max_score' => 10,
         ];
 
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -395,8 +404,8 @@ class GradeBookControllerTest extends TestCase
 
         $this->assertDatabaseHas('grade_book_columns', [
             'grade_book_session_id' => $gradeBook->id,
-            'column_label'          => 'KSQ 1',
-            'semester'              => 'I',
+            'column_label' => 'KSQ 1',
+            'semester' => 'I',
         ]);
     }
 
@@ -407,8 +416,8 @@ class GradeBookControllerTest extends TestCase
 
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
             ->postJson("/api/grade-books/{$gradeBook->id}/columns", [
-                'semester'        => 'I',
-                'column_label'    => 'KSQ 1',
+                'semester' => 'I',
+                'column_label' => 'KSQ 1',
                 'assessment_date' => now()->toDateString(),
             ]);
 
@@ -424,9 +433,9 @@ class GradeBookControllerTest extends TestCase
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
             ->postJson("/api/grade-books/{$gradeBook->id}/columns", [
                 'assessment_type_id' => $this->assessmentType->id,
-                'semester'           => 'III', // yanlış dəyər
-                'column_label'       => 'KSQ 1',
-                'assessment_date'    => now()->toDateString(),
+                'semester' => 'III', // yanlış dəyər
+                'column_label' => 'KSQ 1',
+                'assessment_date' => now()->toDateString(),
             ]);
 
         $response->assertStatus(422);
@@ -453,7 +462,7 @@ class GradeBookControllerTest extends TestCase
 
         $this->assertDatabaseHas('grade_book_teachers', [
             'grade_book_session_id' => $gradeBook->id,
-            'teacher_id'            => $this->teacher->id,
+            'teacher_id' => $this->teacher->id,
         ]);
     }
 
@@ -490,7 +499,7 @@ class GradeBookControllerTest extends TestCase
     /** @test */
     public function teacher_cannot_recalculate_other_school_grade_book(): void
     {
-        $otherGrade   = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
+        $otherGrade = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
         $otherSubject = Subject::factory()->create();
 
         $otherGradeBook = GradeBookSession::factory()

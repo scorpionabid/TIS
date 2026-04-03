@@ -30,29 +30,29 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('report-tables/approval-queue', [ReportTableResponseController::class, 'approvalQueue'])
         ->middleware('permission:report_table_responses.review');
 
-     // Grouped Approval Queue — Cədvəl -> Sektor -> Məktəb qruplaması
-     Route::get('report-tables/approval-queue/grouped', [ReportTableResponseController::class, 'approvalQueueGrouped'])
-         ->middleware('permission:report_table_responses.review');
+    // Grouped Approval Queue — Cədvəl -> Sektor -> Məktəb qruplaması
+    Route::get('report-tables/approval-queue/grouped', [ReportTableResponseController::class, 'approvalQueueGrouped'])
+        ->middleware('permission:report_table_responses.review');
 
-     // Grouped Ready (Approved) — Cədvəl -> Sektor -> Məktəb qruplaması
-     Route::get('report-tables/ready/grouped', [ReportTableResponseController::class, 'readyGrouped'])
-         ->middleware('permission:report_table_responses.review');
+    // Grouped Ready (Approved) — Cədvəl -> Sektor -> Məktəb qruplaması
+    Route::get('report-tables/ready/grouped', [ReportTableResponseController::class, 'readyGrouped'])
+        ->middleware('permission:report_table_responses.review');
 
-     // School Fill Statistics — Bütün məktəblərin cədvəl doldurma statistikası
-     Route::get('report-tables/school-fill-statistics', [ReportTableResponseController::class, 'schoolFillStatistics'])
-         ->middleware('permission:report_tables.read');
+    // School Fill Statistics — Bütün məktəblərin cədvəl doldurma statistikası
+    Route::get('report-tables/school-fill-statistics', [ReportTableResponseController::class, 'schoolFillStatistics'])
+        ->middleware('permission:report_tables.read');
 
-     // Table Fill Statistics — Bir cədvəl üçün bütün məktəblərin doldurma statistikası
-     Route::get('report-tables/{table}/fill-statistics', [ReportTableResponseController::class, 'tableFillStatistics'])
-         ->middleware('permission:report_tables.read');
+    // Table Fill Statistics — Bir cədvəl üçün bütün məktəblərin doldurma statistikası
+    Route::get('report-tables/{table}/fill-statistics', [ReportTableResponseController::class, 'tableFillStatistics'])
+        ->middleware('permission:report_tables.read');
 
-     // Table Fill Statistics Export — Statistikaları Excel formatında export etmək
-     Route::get('report-tables/{table}/statistics/export', [ReportTableResponseController::class, 'exportStatistics'])
-         ->middleware('permission:report_tables.read');
+    // Table Fill Statistics Export — Statistikaları Excel formatında export etmək
+    Route::get('report-tables/{table}/statistics/export', [ReportTableResponseController::class, 'exportStatistics'])
+        ->middleware('permission:report_tables.read');
 
-     // Toplu əməliyyat tarixçəsi — MUST be before {table} dynamic routes to avoid route conflict
-     Route::get('report-tables/bulk-action-logs', [ReportTableResponseController::class, 'bulkActionLogs'])
-         ->middleware('permission:report_table_responses.review');
+    // Toplu əməliyyat tarixçəsi — MUST be before {table} dynamic routes to avoid route conflict
+    Route::get('report-tables/bulk-action-logs', [ReportTableResponseController::class, 'bulkActionLogs'])
+        ->middleware('permission:report_table_responses.review');
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
@@ -91,7 +91,6 @@ Route::middleware('permission:report_tables.write')->group(function () {
 
     // RegionAdmin: Təsdiqləndikdən sonra əlavə sətir əlavə etmə icazəsini aç/bağla
     Route::post('report-tables/{table}/toggle-additional-rows', [ReportTableController::class, 'toggleAllowAdditionalRows']);
-
 });
 
 // ─── Admin: Template siyahısı (Read) ─────────────────────────────────────────
@@ -126,12 +125,12 @@ Route::middleware('permission:report_table_responses.write')->group(function () 
 
 Route::middleware('permission:report_table_responses.review')->group(function () {
     Route::post('report-tables/{table}/responses/{response}/rows/approve', [ReportTableResponseController::class, 'approveRow']);
-    Route::post('report-tables/{table}/responses/{response}/rows/reject',  [ReportTableResponseController::class, 'rejectRow']);
-    Route::post('report-tables/{table}/responses/{response}/rows/return',  [ReportTableResponseController::class, 'returnRow']);
+    Route::post('report-tables/{table}/responses/{response}/rows/reject', [ReportTableResponseController::class, 'rejectRow']);
+    Route::post('report-tables/{table}/responses/{response}/rows/return', [ReportTableResponseController::class, 'returnRow']);
     // Sətiri tamamilə silmək (məktəbin cədvəlindən sətir silinir)
     Route::delete('report-tables/{table}/responses/{response}/rows/delete', [ReportTableResponseController::class, 'deleteRow']);
     // Toplu sətir əməliyyatı (approval queue-dən)
-    Route::post('report-tables/{table}/responses/bulk-row-action',         [ReportTableResponseController::class, 'bulkRowAction']);
+    Route::post('report-tables/{table}/responses/bulk-row-action', [ReportTableResponseController::class, 'bulkRowAction']);
 });
 
 // ─── Admin: Tək cavab baxışı ──────────────────────────────────────────────────
@@ -144,6 +143,6 @@ Route::middleware('permission:report_tables.read')->group(function () {
 
 Route::middleware('role:superadmin')->group(function () {
     // Raw int params — Route Model Binding soft-deleted cədvəlləri göstərmir
-    Route::post('report-tables/{tableId}/restore',  [ReportTableController::class, 'restore']);
-    Route::delete('report-tables/{tableId}/force',  [ReportTableController::class, 'forceDestroy']);
+    Route::post('report-tables/{tableId}/restore', [ReportTableController::class, 'restore']);
+    Route::delete('report-tables/{tableId}/force', [ReportTableController::class, 'forceDestroy']);
 });

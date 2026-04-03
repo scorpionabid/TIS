@@ -10,6 +10,10 @@ interface School {
   school_id: number;
   name: string;
   sector_name: string;
+  reported_days: number;
+  missing_days: number;
+  baseline_days: number;
+  is_six_day?: boolean;
 }
 
 interface MissingReportsTableProps {
@@ -19,7 +23,7 @@ interface MissingReportsTableProps {
   endDate: string;
   onExport: () => void;
   exportDisabled: boolean;
-  schoolDays: number;
+  baselineDays: number;
 }
 
 export function MissingReportsTable({
@@ -29,15 +33,19 @@ export function MissingReportsTable({
   endDate,
   onExport,
   exportDisabled,
-  schoolDays
+  baselineDays
 }: MissingReportsTableProps) {
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between space-y-0">
         <div>
-          <CardTitle>Hesabat göndərməyən məktəblər</CardTitle>
+          <CardTitle>Hesabatı tamamlamayan məktəblər</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Hesabat dövrü: {startDate} - {endDate}
+            {baselineDays > 0 ? (
+              <>Region üzrə standart doldurulma: <strong>{baselineDays} gün</strong></>
+            ) : (
+              "Seçilmiş dövr üzrə hesabat tapılmadı"
+            )}
           </p>
         </div>
         <Button
@@ -60,20 +68,26 @@ export function MissingReportsTable({
                 <TableRow>
                   <TableHead>Məktəb</TableHead>
                   <TableHead className="text-center">Sektor</TableHead>
-                  <TableHead className="text-center">Hesabat günləri</TableHead>
+                  <TableHead className="text-center">Doldurulub</TableHead>
                   <TableHead className="text-center">Təqdim edilməyən gün</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {schools.map((school) => {
-                  const missingDays = schoolDays; // All days are missing since no reports
                   return (
                     <TableRow key={school.school_id}>
                       <TableCell>
                         <div className="font-medium flex items-center gap-2">
                           <SchoolIcon className="h-4 w-4 text-muted-foreground" />
-                          {school.name}
+                          <div className="flex flex-col">
+                            <span>{school.name}</span>
+                            {school.is_six_day && (
+                              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-0.5 uppercase tracking-wider">
+                                6-günlük rejim
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -82,15 +96,23 @@ export function MissingReportsTable({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="text-slate-600 font-medium">{schoolDays} gün</span>
+                        <span className="text-slate-600 font-medium">
+                          {school.reported_days} / {school.baseline_days} gün
+                        </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="text-red-600 font-bold">{missingDays} gün</span>
+                        <span className="text-red-600 font-bold">{school.missing_days} gün</span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="destructive">
-                          Hesabat yoxdur
-                        </Badge>
+                        {school.reported_days === 0 ? (
+                          <Badge variant="destructive">
+                            Hesabat yoxdur
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                            Natamam
+                          </Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -109,6 +131,31 @@ export function MissingReportsTable({
             </p>
           </div>
         )}
+
+        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <h4 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-indigo-500 rounded-full" />
+            Hesablama Metodu (İzah)
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600 leading-relaxed">
+            <div className="space-y-2">
+              <p>
+                <strong>Baza Günü:</strong> Məktəbin iş rejiminə uyğun olaraq təqvim günləri əsasında hesablanır.
+              </p>
+              <p>
+                <strong>5-günlük məktəblər:</strong> Baza günləri yalnız Bazar ertəsi - Cümə günlərini əhtiva edir.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p>
+                <strong>6-günlük məktəblər:</strong> Baza günləri 5-günlük rejimə əlavə olaraq Şənbə günlərini də əhatə edir.
+              </p>
+              <p>
+                <strong>Qeyri-iş günləri:</strong> Region üzrə heç bir məktəbin hesabat vermədiyi günlər (bayramlar) avtomatik istisna edilir.
+              </p>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

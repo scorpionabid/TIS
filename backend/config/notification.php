@@ -15,6 +15,6 @@ return [
     | Cleanup Settings
     |--------------------------------------------------------------------------
     */
-    'cleanup_read_after_days'    => env('NOTIFICATION_CLEANUP_READ_DAYS', 30),
-    'cleanup_unread_after_days'  => env('NOTIFICATION_CLEANUP_UNREAD_DAYS', 90),
+    'cleanup_read_after_days' => env('NOTIFICATION_CLEANUP_READ_DAYS', 30),
+    'cleanup_unread_after_days' => env('NOTIFICATION_CLEANUP_UNREAD_DAYS', 90),
 ];

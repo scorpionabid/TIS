@@ -26,10 +26,10 @@ class AiSettingsService
 
         // Yeni aktiv qeyd yarat (api_key setter encrypt edir)
         $setting = AiLlmSetting::create([
-            'provider'   => $provider,
-            'api_key'    => $apiKey,
-            'model'      => $model,
-            'is_active'  => true,
+            'provider' => $provider,
+            'api_key' => $apiKey,
+            'model' => $model,
+            'is_active' => true,
             'updated_by' => $updatedBy,
         ]);
 
@@ -38,7 +38,7 @@ class AiSettingsService
 
         Log::info("AI provider dəyişdirildi: {$provider}", [
             'updated_by' => $updatedBy,
-            'model'      => $model ?? 'default',
+            'model' => $model ?? 'default',
         ]);
 
         return $setting;
@@ -53,19 +53,19 @@ class AiSettingsService
     {
         $setting = AiLlmSetting::where('is_active', true)->latest()->first();
 
-        if (!$setting) {
+        if (! $setting) {
             return null;
         }
 
         return [
-            'provider'        => $setting->provider,
-            'model'           => $setting->model,
+            'provider' => $setting->provider,
+            'model' => $setting->model,
             'effective_model' => $setting->getEffectiveModel(),
-            'sql_model'       => $setting->getSqlModel(),
-            'is_active'       => $setting->is_active,
-            'updated_at'      => $setting->updated_at,
+            'sql_model' => $setting->getSqlModel(),
+            'is_active' => $setting->is_active,
+            'updated_at' => $setting->updated_at,
             // API key mövcudluğunu boolean olaraq bildiririk (key özünü deyil)
-            'has_api_key'     => !empty($setting->getRawOriginal('api_key')),
+            'has_api_key' => ! empty($setting->getRawOriginal('api_key')),
         ];
     }
 
@@ -84,7 +84,7 @@ class AiSettingsService
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'model'   => '',
+                'model' => '',
             ];
         }
     }

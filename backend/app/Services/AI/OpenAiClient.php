@@ -24,6 +24,7 @@ class OpenAiClient
 {
     /**
      * @deprecated AiProviderFactory::make()->chat() istifadə edin
+     *
      * @throws \RuntimeException Həmişə xəta atır
      */
     public function chat(array $messages, array $options = []): string

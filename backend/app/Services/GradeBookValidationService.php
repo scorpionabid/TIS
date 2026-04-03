@@ -6,7 +6,6 @@ use App\Models\GradeBookCell;
 use App\Models\GradeBookColumn;
 use App\Models\Student;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 class GradeBookValidationService
 {
@@ -23,7 +22,7 @@ class GradeBookValidationService
 
         // Check range
         if ($score < 0) {
-            $errors[] = "Bal sıfırdan kiçik ola bilməz.";
+            $errors[] = 'Bal sıfırdan kiçik ola bilməz.';
         }
 
         if ($score > $column->max_score) {
@@ -32,7 +31,7 @@ class GradeBookValidationService
 
         // Check decimal precision (allow 1 decimal place)
         if (round($score, 1) !== $score) {
-            $errors[] = "Bal yalnız 1 ondalıq yerə qədər ola bilər (məsələn: 85.5).";
+            $errors[] = 'Bal yalnız 1 ondalıq yerə qədər ola bilər (məsələn: 85.5).';
         }
 
         return [
@@ -59,7 +58,7 @@ class GradeBookValidationService
                 })
                 ->find($cellData['cell_id'] ?? null);
 
-            if (!$cell) {
+            if (! $cell) {
                 $cellErrors[] = "Sətir {$index}: Hüceyrə tapılmadı və ya bu jurnala aid deyil.";
             } else {
                 $score = $cellData['score'] ?? null;
@@ -67,13 +66,13 @@ class GradeBookValidationService
                 // Validate score if provided
                 if ($score !== null) {
                     $scoreValidation = $this->validateScore($score, $cell->column);
-                    if (!$scoreValidation['valid']) {
+                    if (! $scoreValidation['valid']) {
                         $cellErrors = array_merge($cellErrors, $scoreValidation['errors']);
                     }
                 }
 
                 // Validate is_present if provided
-                if (isset($cellData['is_present']) && !is_bool($cellData['is_present'])) {
+                if (isset($cellData['is_present']) && ! is_bool($cellData['is_present'])) {
                     $cellErrors[] = "Sətir {$index}: 'is_present' boolean tipində olmalıdır.";
                 }
 
@@ -86,7 +85,7 @@ class GradeBookValidationService
                 }
             }
 
-            if (!empty($cellErrors)) {
+            if (! empty($cellErrors)) {
                 $errors = array_merge($errors, $cellErrors);
             }
         }
@@ -121,7 +120,7 @@ class GradeBookValidationService
                 $rowErrors[] = "Sətir {$rowNumber}: Şagird ID boş ola bilməz.";
             } else {
                 $studentExists = Student::where('id', $row['student_id'])->exists();
-                if (!$studentExists) {
+                if (! $studentExists) {
                     $rowErrors[] = "Sətir {$rowNumber}: Şagird ID {$row['student_id']} tapılmadı.";
                 }
             }
@@ -129,7 +128,7 @@ class GradeBookValidationService
             // Validate column_id
             if (empty($row['column_id'])) {
                 $rowErrors[] = "Sətir {$rowNumber}: Sütun ID boş ola bilməz.";
-            } elseif (!$columns->has($row['column_id'])) {
+            } elseif (! $columns->has($row['column_id'])) {
                 $rowErrors[] = "Sətir {$rowNumber}: Sütun ID {$row['column_id']} bu jurnala aid deyil.";
             }
 
@@ -141,7 +140,7 @@ class GradeBookValidationService
                     $column = $columns[$row['column_id']];
                     $scoreValidation = $this->validateScore($score, $column);
 
-                    if (!$scoreValidation['valid']) {
+                    if (! $scoreValidation['valid']) {
                         foreach ($scoreValidation['errors'] as $error) {
                             $rowErrors[] = "Sətir {$rowNumber}: {$error}";
                         }
@@ -225,7 +224,7 @@ class GradeBookValidationService
             ->where('enrollment_status', 'active')
             ->first();
 
-        if (!$enrollment) {
+        if (! $enrollment) {
             return [
                 'valid' => false,
                 'error' => 'Şagird bu sinifdə aktiv qeydiyyatda deyil.',
@@ -245,7 +244,7 @@ class GradeBookValidationService
     {
         $gradeBook = \App\Models\GradeBookSession::find($gradeBookSessionId);
 
-        if (!$gradeBook) {
+        if (! $gradeBook) {
             return [
                 'can_modify' => false,
                 'error' => 'Jurnal tapılmadı.',
@@ -272,12 +271,12 @@ class GradeBookValidationService
             ->where('teacher_id', $userId)
             ->exists();
 
-        if (!$isAssignedTeacher) {
+        if (! $isAssignedTeacher) {
             // Check if user has admin permissions
             $user = \App\Models\User::find($userId);
             $hasAdminPermission = $user && $user->hasAnyPermission(['assessments.write', 'assessments.update', 'assessments.admin']);
 
-            if (!$hasAdminPermission) {
+            if (! $hasAdminPermission) {
                 return [
                     'can_modify' => false,
                     'error' => 'Bu jurnala bal daxil etmək üçün icazəniz yoxdur.',
@@ -305,7 +304,7 @@ class GradeBookValidationService
             'ILLIK_QIYMET' => ['depends_on' => 'ILLIK_BAL'],
         ];
 
-        if (!isset($requiredColumns[$columnLabel])) {
+        if (! isset($requiredColumns[$columnLabel])) {
             return ['valid' => true]; // Not a calculated column we track
         }
 
@@ -320,7 +319,7 @@ class GradeBookValidationService
                     ->where('column_label', $dependency)
                     ->exists();
 
-                if (!$exists) {
+                if (! $exists) {
                     return [
                         'valid' => false,
                         'error' => "Hesablanmış sütun üçün tələb olunan '{$dependency}' sütunu tapılmadı.",

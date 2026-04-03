@@ -14,10 +14,11 @@ interface SummaryData {
   total_schools: number;
   total_sectors: number;
   total_students: number;
+  attending_students: number;
   reported_days: number;
   average_attendance_rate: number;
-  uniform_compliance_rate: number;
-  total_uniform_violations: number;
+  uniform_compliance_rate?: number;
+  total_uniform_violations?: number;
   schools_missing_reports: number;
   period: {
     school_days: number;
@@ -47,63 +48,122 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
       label: 'Məktəblər',
       value: summary.total_schools,
       icon: Building2,
-      description: `${summary.total_sectors} sektor`,
-      palette: { line: 'bg-[#2563eb]', icon: 'from-[#2563eb] to-[#60a5fa]', value: 'text-[#1d4ed8]' }
+      description: `${summary.total_sectors} sektor üzrə`,
+      palette: {
+        bg: 'bg-indigo-50/50',
+        border: 'border-indigo-100',
+        accent: 'bg-indigo-200/20',
+        text: 'text-indigo-600',
+        icon: 'text-indigo-500',
+        bar: 'bg-indigo-500'
+      },
+      isPercent: true,
+      raw: 100
     },
     {
-      label: 'Şagird sayı',
-      value: summary.total_students,
+      label: 'Gələn şagird',
+      value: summary.attending_students,
       icon: Users,
-      description: `${summary.reported_days} hesabat günü`,
-      palette: { line: 'bg-[#7c3aed]', icon: 'from-[#7c3aed] to-[#c084fc]', value: 'text-[#6d28d9]' }
+      description: `${numberFormatter.format(summary.total_students)} şagirddən`,
+      palette: {
+        bg: 'bg-violet-50/50',
+        border: 'border-violet-100',
+        accent: 'bg-violet-200/20',
+        text: 'text-violet-600',
+        icon: 'text-violet-500',
+        bar: 'bg-violet-500'
+      },
+      isPercent: true,
+      raw: summary.total_students > 0 ? (summary.attending_students / summary.total_students) * 100 : 0
     },
     {
       label: 'Orta davamiyyət',
       value: `${summary.average_attendance_rate.toFixed(1)}%`,
       icon: Target,
       description: 'Hesabat dövrü üzrə',
-      palette: { line: 'bg-[#10b981]', icon: 'from-[#10b981] to-[#6ee7b7]', value: 'text-[#047857]' }
+      palette: {
+        bg: 'bg-emerald-50/50',
+        border: 'border-emerald-100',
+        accent: 'bg-emerald-200/20',
+        text: 'text-emerald-600',
+        icon: 'text-emerald-500',
+        bar: 'bg-emerald-500'
+      },
+      isPercent: true,
+      raw: summary.average_attendance_rate
     },
     {
       label: 'Məktəbli forma',
       value: formatPercent(summary.uniform_compliance_rate),
       icon: Shirt,
       description: `${numberFormatter.format(summary.total_uniform_violations ?? 0)} pozuntu`,
-      palette: { line: 'bg-[#6366f1]', icon: 'from-[#6366f1] to-[#a5b4fc]', value: 'text-[#3730a3]' }
+      palette: {
+        bg: 'bg-blue-50/50',
+        border: 'border-blue-100',
+        accent: 'bg-blue-200/20',
+        text: 'text-blue-600',
+        icon: 'text-blue-500',
+        bar: 'bg-blue-500'
+      },
+      isPercent: true,
+      raw: summary.uniform_compliance_rate ?? 0
     },
     {
       label: 'Məlumat çatışmazlığı',
       value: summary.schools_missing_reports,
       icon: AlertTriangle,
       description: 'Gözlənilən hesabat daxil olmayanlar',
-      palette: { line: 'bg-[#f59e0b]', icon: 'from-[#f97316] to-[#facc15]', value: 'text-[#b45309]' },
-      special: true
-    },
+      palette: {
+        bg: 'bg-orange-50/50',
+        border: 'border-orange-200/60',
+        accent: 'bg-orange-200/20',
+        text: 'text-orange-600',
+        icon: 'text-orange-500',
+        bar: 'bg-orange-500'
+      },
+      isPercent: true,
+      raw: summary.total_schools > 0 ? (summary.schools_missing_reports / summary.total_schools) * 100 : 0
+    }
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-      {cards.map((card, idx) => (
-        <Card
-          key={card.label}
-          className={`relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 ${
-            card.special ? 'bg-gradient-to-br from-[#fff8eb] to-[#fff4d7] border border-amber-200' : ''
-          }`}
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {cards.map((card) => (
+        <Card 
+          key={card.label} 
+          className={`relative border-2 ${card.palette.border} ${card.palette.bg} rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group`}
         >
-          <div className={`absolute top-0 left-0 right-0 h-1 ${card.palette.line}`} />
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500">{card.label}</CardTitle>
-            <div
-              className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br ${card.palette.icon}`}
-            >
-              <card.icon className="h-5 w-5" />
+          <div className={`absolute top-0 right-0 w-24 h-24 ${card.palette.accent} rounded-bl-full transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500`} />
+
+          <CardHeader className="pb-2 pt-6 px-6">
+            <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 ring-1 ring-black/5 group-hover:-translate-y-1 transition-transform duration-300">
+              <card.icon className={`h-7 w-7 ${card.palette.icon}`} />
             </div>
+            <CardTitle className={`text-[10px] font-black ${card.palette.text} tracking-[0.15em] uppercase`}>
+              {card.label}
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-extrabold ${card.palette.value}`}>
-              {typeof card.value === 'number' ? numberFormatter.format(card.value) : card.value}
+          <CardContent className="px-6 pb-6">
+            <div className="space-y-1">
+              <div className="text-3xl font-black text-slate-800 tracking-tight">
+                {typeof card.value === 'number' ? numberFormatter.format(card.value) : card.value}
+              </div>
+              <p className="text-[11px] font-medium text-slate-400">
+                {card.description}
+              </p>
             </div>
-            <p className="text-[10px] text-slate-400 font-medium mt-1">{card.description}</p>
+
+            <div className="mt-6 flex items-center gap-3">
+              <div className="flex-1 h-2 bg-white/60 rounded-full overflow-hidden shadow-inner border border-black/5">
+                <div 
+                  className={`h-full rounded-full ${card.palette.bar} transition-all duration-1000 ease-out shadow-sm`}
+                  style={{ width: `${Math.min(card.raw, 100)}%` }}
+                />
+              </div>
+              <span className={`text-[10px] font-bold ${card.palette.text} min-w-[30px]`}>
+                {Math.round(card.raw)}%
+              </span>
+            </div>
           </CardContent>
         </Card>
       ))}

@@ -2,12 +2,11 @@
 
 namespace App\Services\GradeBook;
 
-use App\Models\GradeBookSession;
-use App\Models\GradeBookColumn;
 use App\Models\GradeBookCell;
+use App\Models\GradeBookColumn;
+use App\Models\GradeBookSession;
 use App\Services\GradeCalculationService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Collection;
 
 class GradeBookManagementService
 {
@@ -117,10 +116,14 @@ class GradeBookManagementService
      */
     public function ensureCellsExist(GradeBookSession $gradeBook, array $studentIds): void
     {
-        if (empty($studentIds)) return;
-        
+        if (empty($studentIds)) {
+            return;
+        }
+
         $columnIds = $gradeBook->columns()->pluck('id')->toArray();
-        if (empty($columnIds)) return;
+        if (empty($columnIds)) {
+            return;
+        }
 
         foreach ($columnIds as $columnId) {
             $existingStudentIds = GradeBookCell::where('grade_book_column_id', $columnId)
@@ -130,9 +133,9 @@ class GradeBookManagementService
 
             $missingStudentIds = array_diff($studentIds, $existingStudentIds);
 
-            if (!empty($missingStudentIds)) {
+            if (! empty($missingStudentIds)) {
                 $now = now();
-                $insertData = array_map(fn($sid) => [
+                $insertData = array_map(fn ($sid) => [
                     'grade_book_column_id' => $columnId,
                     'student_id' => $sid,
                     'is_present' => true,
@@ -151,10 +154,10 @@ class GradeBookManagementService
     public function getStudentsWithScores(GradeBookSession $gradeBook): \Illuminate\Support\Collection
     {
         // Load relationships if not already loaded
-        if (!$gradeBook->relationLoaded('columns')) {
-            $gradeBook->load(['columns' => fn($q) => $q->where('is_archived', false)->orderBy('display_order')]);
+        if (! $gradeBook->relationLoaded('columns')) {
+            $gradeBook->load(['columns' => fn ($q) => $q->where('is_archived', false)->orderBy('display_order')]);
         }
-        if (!$gradeBook->relationLoaded('grade')) {
+        if (! $gradeBook->relationLoaded('grade')) {
             $gradeBook->load('grade');
         }
 
@@ -171,19 +174,19 @@ class GradeBookManagementService
         $allStudents = \App\Models\Student::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
             ->where(function ($query) use ($gradeId, $enrolledStudentIds) {
                 $query->where('grade_id', $gradeId)
-                      ->orWhereIn('id', $enrolledStudentIds);
+                    ->orWhereIn('id', $enrolledStudentIds);
             })
             ->where('institution_id', $institutionId)
             ->where('is_active', true)
             ->get();
 
         $studentIds = $allStudents->pluck('id')->toArray();
-        
+
         // Ensure cells exist for ALL students for ALL active columns
         $this->ensureCellsExist($gradeBook, $studentIds);
 
         // Fetch scores for ALL students in one go
-        $allCells = GradeBookCell::whereHas('column', fn($q) => $q->where('grade_book_session_id', $gradeBook->id))
+        $allCells = GradeBookCell::whereHas('column', fn ($q) => $q->where('grade_book_session_id', $gradeBook->id))
             ->whereIn('student_id', $studentIds)
             ->get()
             ->groupBy('student_id');
@@ -191,7 +194,7 @@ class GradeBookManagementService
         return $allStudents->map(function ($student) use ($allCells, $gradeBook) {
             $studentCells = $allCells->get($student->id, collect());
             $scores = [];
-            
+
             // PRE-PAD: Ensure every column has an entry (even if null) to prevent "Xana tapılmadı"
             foreach ($gradeBook->columns as $column) {
                 $scores[$column->id] = null;

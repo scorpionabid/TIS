@@ -23,10 +23,15 @@ class GradeControllerTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private Institution $school;
+
     private Institution $otherSchool;
+
     private AcademicYear $activeYear;
+
     private $superAdmin;
+
     private $schoolAdmin;
+
     private $otherSchoolAdmin;
 
     protected function setUp(): void
@@ -37,7 +42,7 @@ class GradeControllerTest extends TestCase
         $this->activeYear = AcademicYear::factory()->active()->create();
 
         // İki ayrı məktəb
-        $this->school      = Institution::factory()->school()->create();
+        $this->school = Institution::factory()->school()->create();
         $this->otherSchool = Institution::factory()->school()->create();
 
         // İstifadəçilər
@@ -163,11 +168,11 @@ class GradeControllerTest extends TestCase
     public function school_admin_can_create_grade_for_own_school(): void
     {
         $payload = [
-            'name'             => 'A',
-            'class_level'      => 6,
+            'name' => 'A',
+            'class_level' => 6,
             'academic_year_id' => $this->activeYear->id,
-            'institution_id'   => $this->school->id,
-            'student_count'    => 20,
+            'institution_id' => $this->school->id,
+            'student_count' => 20,
         ];
 
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -177,8 +182,8 @@ class GradeControllerTest extends TestCase
         $response->assertJsonPath('success', true);
 
         $this->assertDatabaseHas('grades', [
-            'name'           => 'A',
-            'class_level'    => 6,
+            'name' => 'A',
+            'class_level' => 6,
             'institution_id' => $this->school->id,
         ]);
     }
@@ -190,15 +195,15 @@ class GradeControllerTest extends TestCase
             ->forInstitution($this->school)
             ->create([
                 'academic_year_id' => $this->activeYear->id,
-                'name'             => 'A',
-                'class_level'      => 6,
+                'name' => 'A',
+                'class_level' => 6,
             ]);
 
         $payload = [
-            'name'             => 'A',
-            'class_level'      => 6,
+            'name' => 'A',
+            'class_level' => 6,
             'academic_year_id' => $this->activeYear->id,
-            'institution_id'   => $this->school->id,
+            'institution_id' => $this->school->id,
         ];
 
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -211,10 +216,10 @@ class GradeControllerTest extends TestCase
     public function creating_grade_with_invalid_class_level_returns_422(): void
     {
         $payload = [
-            'name'             => 'A',
-            'class_level'      => 13,         // Etibarsız: max:12 aralığında olmalıdır
+            'name' => 'A',
+            'class_level' => 13,         // Etibarsız: max:12 aralığında olmalıdır
             'academic_year_id' => $this->activeYear->id,
-            'institution_id'   => $this->school->id,
+            'institution_id' => $this->school->id,
         ];
 
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -228,10 +233,10 @@ class GradeControllerTest extends TestCase
     public function school_admin_cannot_create_grade_for_other_school(): void
     {
         $payload = [
-            'name'             => 'A',
-            'class_level'      => 5,
+            'name' => 'A',
+            'class_level' => 5,
             'academic_year_id' => $this->activeYear->id,
-            'institution_id'   => $this->otherSchool->id,  // Başqa məktəb!
+            'institution_id' => $this->otherSchool->id,  // Başqa məktəb!
         ];
 
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -258,7 +263,7 @@ class GradeControllerTest extends TestCase
         $response->assertOk();
 
         $this->assertDatabaseHas('grades', [
-            'id'            => $grade->id,
+            'id' => $grade->id,
             'student_count' => 30,
         ]);
     }
@@ -294,7 +299,7 @@ class GradeControllerTest extends TestCase
         $response->assertOk();
 
         $this->assertDatabaseHas('grades', [
-            'id'        => $grade->id,
+            'id' => $grade->id,
             'is_active' => false,
         ]);
     }
@@ -315,7 +320,7 @@ class GradeControllerTest extends TestCase
 
         // deactivated_at doldurulmalıdır
         $this->assertDatabaseMissing('grades', [
-            'id'             => $grade->id,
+            'id' => $grade->id,
             'deactivated_at' => null,
         ]);
     }

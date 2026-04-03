@@ -18,40 +18,41 @@ class SendNotificationDigest extends Command
     protected $description = 'Bildiriş abunəçilərinə gündəlik/həftəlik xülasə email-i göndər';
 
     private array $typeToGroup = [
-        'task_assigned'            => 'tasks',
-        'task_updated'             => 'tasks',
-        'task_deadline'            => 'tasks',
-        'task_status_update'       => 'tasks',
-        'task_approval_required'   => 'tasks',
-        'task_approved'            => 'tasks',
-        'task_rejected'            => 'tasks',
+        'task_assigned' => 'tasks',
+        'task_updated' => 'tasks',
+        'task_deadline' => 'tasks',
+        'task_status_update' => 'tasks',
+        'task_approval_required' => 'tasks',
+        'task_approved' => 'tasks',
+        'task_rejected' => 'tasks',
         'task_deadline_approaching' => 'tasks',
-        'task_overdue'             => 'tasks',
-        'survey_published'         => 'surveys',
-        'survey_assigned'          => 'surveys',
-        'survey_assignment'        => 'surveys',
-        'survey_deadline'          => 'surveys',
+        'task_overdue' => 'tasks',
+        'survey_published' => 'surveys',
+        'survey_assigned' => 'surveys',
+        'survey_assignment' => 'surveys',
+        'survey_deadline' => 'surveys',
         'survey_deadline_reminder' => 'surveys',
-        'survey_approved'          => 'surveys',
-        'survey_rejected'          => 'surveys',
-        'survey_created'           => 'surveys',
-        'approval_completed'       => 'surveys',
-        'revision_required'        => 'surveys',
-        'document_shared'          => 'documents',
-        'document_uploaded'        => 'documents',
-        'document_updated'         => 'documents',
-        'link_shared'              => 'documents',
-        'link_updated'             => 'documents',
+        'survey_approved' => 'surveys',
+        'survey_rejected' => 'surveys',
+        'survey_created' => 'surveys',
+        'approval_completed' => 'surveys',
+        'revision_required' => 'surveys',
+        'document_shared' => 'documents',
+        'document_uploaded' => 'documents',
+        'document_updated' => 'documents',
+        'link_shared' => 'documents',
+        'link_updated' => 'documents',
     ];
 
     public function handle(): int
     {
-        $period  = $this->option('period');
-        $dryRun  = $this->option('dry-run');
-        $since   = $period === 'weekly' ? now()->subWeek() : now()->subDay();
+        $period = $this->option('period');
+        $dryRun = $this->option('dry-run');
+        $since = $period === 'weekly' ? now()->subWeek() : now()->subDay();
 
         if (! in_array($period, ['daily', 'weekly'])) {
             $this->error('--period must be "daily" or "weekly"');
+
             return self::FAILURE;
         }
 
@@ -62,6 +63,7 @@ class SendNotificationDigest extends Command
 
         if ($prefUserIds->isEmpty()) {
             $this->info('No users opted in to digest emails.');
+
             return self::SUCCESS;
         }
 
@@ -87,9 +89,9 @@ class SendNotificationDigest extends Command
             foreach ($notifications as $n) {
                 $group = $this->typeToGroup[$n->type] ?? 'system';
                 $groups[$group][] = [
-                    'title'      => $n->title,
-                    'message'    => $n->message,
-                    'priority'   => $n->priority,
+                    'title' => $n->title,
+                    'message' => $n->message,
+                    'priority' => $n->priority,
                     'created_at' => $n->created_at,
                 ];
             }
@@ -98,6 +100,7 @@ class SendNotificationDigest extends Command
 
             if ($dryRun) {
                 $this->line("  Would send to {$user->email} — {$notifications->count()} notifications");
+
                 continue;
             }
 

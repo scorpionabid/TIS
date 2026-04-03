@@ -52,7 +52,7 @@ class SurveyDataExportService
     public function exportToCSV(array $exportData, Survey $survey): array
     {
         $csvData = $this->convertToCSV($exportData['responses']);
-        
+
         return [
             'format' => 'csv',
             'filename' => "survey_{$survey->id}_export.csv",
@@ -129,10 +129,10 @@ class SurveyDataExportService
 
         $csv = '';
         $headers = array_keys($responses[0]);
-        
+
         // Add CSV header
         $csv .= implode(',', $headers) . "\n";
-        
+
         // Add data rows
         foreach ($responses as $response) {
             $row = [];
@@ -146,7 +146,7 @@ class SurveyDataExportService
             }
             $csv .= implode(',', $row) . "\n";
         }
-        
+
         return $csv;
     }
 
@@ -157,7 +157,7 @@ class SurveyDataExportService
     {
         $timestamp = now()->format('Y-m-d_H-i-s');
         $title = preg_replace('/[^a-zA-Z0-9_-]/', '_', $survey->title);
-        
+
         return "survey_{$survey->id}_{$title}_{$timestamp}.{$format}";
     }
 
@@ -210,8 +210,8 @@ class SurveyDataExportService
             return round($seconds, 1) . ' saniyə';
         } elseif ($seconds < 3600) {
             return round($seconds / 60, 1) . ' dəqiqə';
-        } else {
-            return round($seconds / 3600, 1) . ' saat';
         }
+
+        return round($seconds / 3600, 1) . ' saat';
     }
 }

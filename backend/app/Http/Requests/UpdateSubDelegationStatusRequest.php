@@ -53,7 +53,7 @@ class UpdateSubDelegationStatusRequest extends FormRequest
             $progress = $this->progress;
 
             // Status-specific validations
-            match($status) {
+            match ($status) {
                 'completed' => $this->validateCompletedStatus($validator),
                 'in_progress' => $this->validateInProgressStatus($validator),
                 default => null

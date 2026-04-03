@@ -27,7 +27,7 @@ class TeacherAchievement extends Model
         'approval_status',
         'approval_rejection_reason',
         'approved_at',
-        'approved_by'
+        'approved_by',
     ];
 
     protected $casts = [
@@ -41,17 +41,24 @@ class TeacherAchievement extends Model
      * Achievement types
      */
     const TYPE_AWARD = 'award';
+
     const TYPE_CERTIFICATION = 'certification';
+
     const TYPE_MILESTONE = 'milestone';
+
     const TYPE_RECOGNITION = 'recognition';
+
     const TYPE_PUBLICATION = 'publication';
+
     const TYPE_PRESENTATION = 'presentation';
 
     /**
      * Impact levels
      */
     const IMPACT_HIGH = 'high';
+
     const IMPACT_MEDIUM = 'medium';
+
     const IMPACT_LOW = 'low';
 
     /**
@@ -76,7 +83,7 @@ class TeacherAchievement extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(TeacherProfileApproval::class, 'model_id')
-                    ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_ACHIEVEMENT);
+            ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_ACHIEVEMENT);
     }
 
     /**
@@ -243,7 +250,9 @@ class TeacherAchievement extends Model
      * Approval statuses
      */
     const STATUS_PENDING = 'pending';
+
     const STATUS_APPROVED = 'approved';
+
     const STATUS_REJECTED = 'rejected';
 
     /**
@@ -303,7 +312,7 @@ class TeacherAchievement extends Model
             'approval_status' => self::STATUS_APPROVED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'approval_rejection_reason' => null
+            'approval_rejection_reason' => null,
         ]);
     }
 
@@ -316,7 +325,7 @@ class TeacherAchievement extends Model
             'approval_status' => self::STATUS_REJECTED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'approval_rejection_reason' => $reason
+            'approval_rejection_reason' => $reason,
         ]);
     }
 
@@ -327,7 +336,7 @@ class TeacherAchievement extends Model
     {
         $this->update([
             'approval_status' => self::STATUS_PENDING,
-            'approval_rejection_reason' => null
+            'approval_rejection_reason' => null,
         ]);
     }
 

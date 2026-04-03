@@ -38,7 +38,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        return match($this->type) {
+        return match ($this->type) {
             'delegated_to_you' => $this->delegatedToYouMail($notifiable),
             'delegation_accepted' => $this->delegationAcceptedMail($notifiable),
             'delegation_completed' => $this->delegationCompletedMail($notifiable),
@@ -63,7 +63,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
             'created_at' => now()->toISOString(),
         ];
 
-        return match($this->type) {
+        return match ($this->type) {
             'delegated_to_you' => array_merge($baseData, [
                 'title' => 'Yeni tapşırıq yönləndirildi',
                 'message' => "'{$this->entity->task->title}' tapşırığı sizə yönləndirildi",
@@ -75,7 +75,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
                 'deadline' => $this->entity->deadline?->format('Y-m-d H:i:s'),
                 'notes' => $this->entity->delegation_notes,
             ]),
-            
+
             'delegation_accepted' => array_merge($baseData, [
                 'title' => 'Yönləndirmə qəbul edildi',
                 'message' => "{$this->entity->delegatedToUser->name} '{$this->entity->task->title}' tapşırığını qəbul etdi",
@@ -85,7 +85,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
                     'name' => $this->entity->delegatedToUser->name,
                 ],
             ]),
-            
+
             'delegation_completed' => array_merge($baseData, [
                 'title' => 'Yönləndirmə tamamlandı',
                 'message' => "{$this->entity->delegatedToUser->name} '{$this->entity->task->title}' tapşırığını tamamladı",
@@ -96,7 +96,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
                 ],
                 'completion_notes' => $this->entity->completion_notes,
             ]),
-            
+
             'all_completed' => array_merge($baseData, [
                 'title' => 'Bütün yönləndirmələr tamamlandı',
                 'message' => "'{$this->entity->task->title}' tapşırığı üçün bütün yönləndirmələr tamamlandı",
@@ -104,7 +104,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
                 'total_delegations' => $this->entity->sub_delegation_count,
                 'completed_count' => $this->entity->completed_sub_delegations,
             ]),
-            
+
             'task_completed' => array_merge($baseData, [
                 'title' => 'Tapşırıq tamamlandı',
                 'message' => "'{$this->entity->task->title}' tapşırığı tamamlandı",
@@ -114,7 +114,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
                     'name' => $this->entity->user->name,
                 ],
             ]),
-            
+
             'status_changed' => array_merge($baseData, [
                 'title' => 'Status dəyişdirildi',
                 'message' => "'{$this->entity->task->title}' tapşırığının statusu dəyişdirildi: {$this->data['old_status']} → {$this->data['new_status']}",
@@ -122,7 +122,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
                 'old_status' => $this->data['old_status'] ?? '',
                 'new_status' => $this->data['new_status'] ?? '',
             ]),
-            
+
             default => $baseData,
         };
     }
@@ -151,8 +151,8 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
             ->greeting('Hörmətli ' . $notifiable->name . ',')
             ->line("'{$this->entity->task->title}' tapşırığı sizə yönləndirilib.")
             ->line('**Yönləndirən:** ' . $this->entity->delegatedByUser->name)
-            ->when($this->entity->deadline, fn($mail) => $mail->line('**Deadline:** ' . $this->entity->deadline->format('d.m.Y H:i')))
-            ->when($this->entity->delegation_notes, fn($mail) => $mail->line('**Qeydlər:** ' . $this->entity->delegation_notes))
+            ->when($this->entity->deadline, fn ($mail) => $mail->line('**Deadline:** ' . $this->entity->deadline->format('d.m.Y H:i')))
+            ->when($this->entity->delegation_notes, fn ($mail) => $mail->line('**Qeydlər:** ' . $this->entity->delegation_notes))
             ->action('Tapşırığa Bax', url('/tasks/' . $this->entity->task_id))
             ->line('Bu tapşırığa dərhal baxmağınız tövsiyə olunur.');
     }
@@ -173,7 +173,7 @@ class TaskSubDelegationNotification extends Notification implements ShouldQueue
             ->subject('Yönləndirmə Tamamlandı')
             ->greeting('Hörmətli ' . $notifiable->name . ',')
             ->line("{$this->entity->delegatedToUser->name} '{$this->entity->task->title}' tapşırığını tamamladı.")
-            ->when($this->entity->completion_notes, fn($mail) => $mail->line('**Tamamlama qeydləri:** ' . $this->entity->completion_notes))
+            ->when($this->entity->completion_notes, fn ($mail) => $mail->line('**Tamamlama qeydləri:** ' . $this->entity->completion_notes))
             ->action('Tapşırığa Bax', url('/tasks/' . $this->entity->task_id))
             ->line('Tamamlama nəticələrini yoxlaya bilərsiniz.');
     }

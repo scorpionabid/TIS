@@ -133,7 +133,7 @@ class SurveyController extends BaseController
         if (isset($validated['questions'])) {
             foreach ($validated['questions'] as $index => $question) {
                 if (empty($question['question'])) {
-                    return $this->errorResponse("Sual " . ($index + 1) . ": Sual mətni daxil edilməlidir", 422);
+                    return $this->errorResponse('Sual ' . ($index + 1) . ': Sual mətni daxil edilməlidir', 422);
                 }
             }
         }
@@ -195,7 +195,7 @@ class SurveyController extends BaseController
         if (isset($validated['questions'])) {
             foreach ($validated['questions'] as $index => $question) {
                 if (empty($question['question'])) {
-                    return $this->errorResponse("Sual " . ($index + 1) . ": Sual mətni daxil edilməlidir", 422);
+                    return $this->errorResponse('Sual ' . ($index + 1) . ': Sual mətni daxil edilməlidir', 422);
                 }
             }
         }
@@ -867,7 +867,7 @@ class SurveyController extends BaseController
                 // Default: Hide overdue surveys to keep the pending list clean
                 $surveysQuery->where(function ($q) {
                     $q->whereNull('end_date')
-                      ->orWhere('end_date', '>=', now());
+                        ->orWhere('end_date', '>=', now());
                 });
             }
 
@@ -956,7 +956,7 @@ class SurveyController extends BaseController
                 ->where('created_at', '>=', now()->subDays(7))
                 ->where(function ($q) {
                     $q->whereNull('end_date')
-                      ->orWhere('end_date', '>=', now());
+                        ->orWhere('end_date', '>=', now());
                 })
                 ->limit($limit)
                 ->get(['id', 'title', 'description', 'end_date', 'current_questions_count']);

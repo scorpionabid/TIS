@@ -758,7 +758,7 @@ class LinkShareControllerRefactored extends BaseController
      */
     public function markAsViewed(Request $request, string $type, int $id): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request, $type, $id) {
+        return $this->executeWithErrorHandling(function () use ($type, $id) {
             $user = Auth::user();
 
             // Authorization: istifadəçinin bu resursa giriş hüququ var mı?
@@ -907,7 +907,7 @@ class LinkShareControllerRefactored extends BaseController
                 abort(403, 'Bu sektora baxmaq icazəniz yoxdur');
             }
 
-            if (($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) 
+            if (($user->hasRole('regionadmin') || $user->hasRole('regionoperator'))
                 && $sector->parent_id !== $user->institution_id) {
                 \Log::warning('📚 LinkDatabase: Region user attempting to access unauthorized sector', [
                     'user_id' => $user->id,

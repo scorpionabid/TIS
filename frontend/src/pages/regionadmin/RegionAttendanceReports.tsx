@@ -16,6 +16,7 @@ import { AttendanceAlerts } from '@/components/regionadmin/attendance/Attendance
 import { SchoolsAttendanceTable } from '@/components/regionadmin/attendance/SchoolsAttendanceTable';
 import { SchoolClassesTable } from '@/components/regionadmin/attendance/SchoolClassesTable';
 import { GradeLevelStatsTable } from '@/components/regionadmin/attendance/GradeLevelStatsTable';
+import { SchoolGradeStatsTable } from '@/components/regionadmin/attendance/SchoolGradeStatsTable';
 import { MissingReportsTable } from '@/components/regionadmin/attendance/MissingReportsTable';
 
 export default function RegionAttendanceReports() {
@@ -37,6 +38,7 @@ export default function RegionAttendanceReports() {
     classBreakdown, classLoading, classFetching, classError,
     gradeLevelData, gradeLevelLoading, gradeLevelFetching, gradeLevelError,
     missingReportsData, missingReportsLoading, missingReportsFetching, missingReportsError,
+    schoolGradeData, schoolGradeLoading, schoolGradeFetching, schoolGradeError,
     handlePresetChange,
     handleSort,
     filters,
@@ -79,23 +81,33 @@ export default function RegionAttendanceReports() {
   const handleExportMissingReports = async () => {
     try {
       if (!missingReportsData?.schools?.length) return;
-      let csvContent = '\uFEFF'; 
-      csvContent += 'Məktəb adı,Sektor,Hesabat günləri,Təqdim edilməyən gün,Status\n';
-      const schoolDays = missingReportsData.summary.period.school_days;
-      missingReportsData.schools.forEach((school) => {
-        csvContent += `"${school.name}","${school.sector_name}",${schoolDays} gün,${schoolDays} gün,Hesabat yoxdur\n`;
-      });
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = await regionalAttendanceService.exportMissingReports(filters);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hesabat_teqdim_etmeyen_mektebler_${startDate}_${endDate}.csv`;
+      a.download = `doldurmayan_mektebler_${startDate}_${endDate}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
       console.error('Missing reports export error:', error);
+    }
+  };
+
+  const handleExportSchoolGrade = async () => {
+    try {
+      const blob = await regionalAttendanceService.exportSchoolGradeStats(filters);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mekteb_sinif_statistikasi_${startDate}_${endDate}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('School grade export error:', error);
     }
   };
 
@@ -155,10 +167,10 @@ export default function RegionAttendanceReports() {
         )}
       </div>
 
-      {(overviewError || classError || gradeLevelError || missingReportsError) && (
+      {(overviewError || classError || gradeLevelError || missingReportsError || schoolGradeError) && (
         <Alert variant="destructive">
           <AlertTitle>Hesabat yüklənmədi</AlertTitle>
-          <AlertDescription>{getErrorMessage(overviewError || classError || gradeLevelError || missingReportsError)}</AlertDescription>
+          <AlertDescription>{getErrorMessage(overviewError || classError || gradeLevelError || missingReportsError || schoolGradeError)}</AlertDescription>
         </Alert>
       )}
 
@@ -186,6 +198,7 @@ export default function RegionAttendanceReports() {
           <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Ümumi Panorama</TabsTrigger>
           <TabsTrigger value="classes" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Məktəb & Sinif nəzarəti</TabsTrigger>
           <TabsTrigger value="gradeLevel" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Sinif üzrə statistika</TabsTrigger>
+          <TabsTrigger value="schoolGrade" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Məktəb+sinif</TabsTrigger>
           <TabsTrigger value="missingReports" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Doldurmayan məktəblər</TabsTrigger>
         </TabsList>
 
@@ -242,6 +255,16 @@ export default function RegionAttendanceReports() {
           />
         </TabsContent>
 
+        <TabsContent value="schoolGrade" className="space-y-6">
+          <SchoolGradeStatsTable
+            schools={schoolGradeData?.schools ?? []}
+            regionalAverages={schoolGradeData?.regional_averages ?? []}
+            loading={schoolGradeLoading}
+            onExport={handleExportSchoolGrade}
+            exportDisabled={schoolGradeLoading || !schoolGradeData}
+          />
+        </TabsContent>
+
         <TabsContent value="missingReports" className="space-y-6">
           <MissingReportsTable 
             schools={missingReportsData?.schools ?? []} 
@@ -250,7 +273,7 @@ export default function RegionAttendanceReports() {
             endDate={endDate} 
             onExport={handleExportMissingReports}
             exportDisabled={missingReportsLoading || !missingReportsData?.schools?.length}
-            schoolDays={missingReportsData?.summary.period.school_days ?? 0}
+            baselineDays={missingReportsData?.summary.period.baseline_days ?? 0}
           />
         </TabsContent>
       </Tabs>

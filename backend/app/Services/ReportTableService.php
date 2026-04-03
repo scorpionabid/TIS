@@ -61,7 +61,7 @@ class ReportTableService
             $sectorId = $user->institution_id;
             $schoolIds = Institution::where('parent_id', $sectorId)->where('level', 4)->pluck('id')->toArray();
             $allIds = array_merge([$sectorId], $schoolIds);
-            
+
             $query->where(function ($q) use ($user, $allIds) {
                 $q->where('creator_id', $user->id)
                     ->orWhere(function ($sq) use ($allIds) {
@@ -129,16 +129,16 @@ class ReportTableService
 
         return DB::transaction(function () use ($data, $user) {
             return ReportTable::create([
-                'title'               => $data['title'],
-                'description'         => $data['description'] ?? null,
-                'notes'               => $data['notes'] ?? null,
-                'creator_id'          => $user->id,
-                'status'              => 'draft',
-                'columns'             => $data['columns'],
-                'fixed_rows'          => $data['fixed_rows'] ?? null,
-                'max_rows'            => $data['max_rows'] ?? 50,
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'creator_id' => $user->id,
+                'status' => 'draft',
+                'columns' => $data['columns'],
+                'fixed_rows' => $data['fixed_rows'] ?? null,
+                'max_rows' => $data['max_rows'] ?? 50,
                 'target_institutions' => $data['target_institutions'] ?? [],
-                'deadline'            => $data['deadline'] ?? null,
+                'deadline' => $data['deadline'] ?? null,
             ]);
         });
     }
@@ -153,13 +153,13 @@ class ReportTableService
         }
 
         $updateData = array_filter([
-            'title'               => $data['title'] ?? null,
-            'description'         => $data['description'] ?? null,
-            'notes'               => $data['notes'] ?? null,
-            'max_rows'            => $data['max_rows'] ?? null,
+            'title' => $data['title'] ?? null,
+            'description' => $data['description'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'max_rows' => $data['max_rows'] ?? null,
             'target_institutions' => $data['target_institutions'] ?? null,
-            'deadline'            => $data['deadline'] ?? null,
-            'fixed_rows'          => $data['fixed_rows'] ?? null,
+            'deadline' => $data['deadline'] ?? null,
+            'fixed_rows' => $data['fixed_rows'] ?? null,
         ], fn ($v) => $v !== null);
 
         // Sütunlar və fixed_rows yalnız draft-da dəyişdirilə bilər
@@ -232,31 +232,31 @@ class ReportTableService
         foreach ($schoolAdminIds as $userId) {
             try {
                 $this->notificationService->send([
-                    'user_id'      => $userId,
-                    'title'        => 'Yeni hesabat cədvəli əlavə edildi',
-                    'message'      => sprintf(
+                    'user_id' => $userId,
+                    'title' => 'Yeni hesabat cədvəli əlavə edildi',
+                    'message' => sprintf(
                         '"%s" hesabat cədvəli sizin məktəbə təyin edildi.%s',
                         $table->title,
                         $deadline ? " Son tarix: {$deadline}." : ''
                     ),
-                    'type'         => 'report_table_assigned',
-                    'channel'      => 'in_app',
-                    'priority'     => 'normal',
+                    'type' => 'report_table_assigned',
+                    'channel' => 'in_app',
+                    'priority' => 'normal',
                     'related_type' => ReportTable::class,
-                    'related_id'   => $table->id,
-                    'metadata'     => [
-                        'report_table_id'    => $table->id,
+                    'related_id' => $table->id,
+                    'metadata' => [
+                        'report_table_id' => $table->id,
                         'report_table_title' => $table->title,
-                        'creator_name'       => $creatorName,
-                        'deadline'           => $deadline,
-                        'action_url'         => '/report-table-entry',
+                        'creator_name' => $creatorName,
+                        'deadline' => $deadline,
+                        'action_url' => '/report-table-entry',
                     ],
                 ]);
             } catch (\Throwable $e) {
                 \Log::warning('Failed to send report_table_assigned notification', [
                     'table_id' => $table->id,
-                    'user_id'  => $userId,
-                    'error'    => $e->getMessage(),
+                    'user_id' => $userId,
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -365,7 +365,7 @@ class ReportTableService
                 } else {
                     foreach ($opts as $optIdx => $opt) {
                         if (! is_string($opt) || trim($opt) === '') {
-                            $errors["columns.{$index}.options.{$optIdx}"] = ["{$pos}. sütunun " . ($optIdx + 1) . ". variantı boş ola bilməz."];
+                            $errors["columns.{$index}.options.{$optIdx}"] = ["{$pos}. sütunun " . ($optIdx + 1) . '. variantı boş ola bilməz.'];
                         }
                     }
                 }
@@ -529,7 +529,7 @@ class ReportTableService
         if ($creatorId) {
             $query->where(function ($q) use ($creatorId) {
                 $q->where('creator_id', $creatorId)
-                  ->orWhereNull('template_category'); // Public templates
+                    ->orWhereNull('template_category'); // Public templates
             });
         }
 
@@ -542,6 +542,7 @@ class ReportTableService
     public function removeTemplateStatus(ReportTable $table): ReportTable
     {
         $table->removeTemplateStatus();
+
         return $table->fresh();
     }
 

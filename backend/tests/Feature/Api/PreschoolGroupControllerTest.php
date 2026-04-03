@@ -22,8 +22,8 @@ class PreschoolGroupControllerTest extends TestCase
     private function createPreschoolInstitution(string $type = 'kindergarten'): Institution
     {
         return Institution::factory()->create([
-            'type'      => $type,
-            'level'     => 4,
+            'type' => $type,
+            'level' => 4,
             'is_active' => true,
         ]);
     }
@@ -31,8 +31,8 @@ class PreschoolGroupControllerTest extends TestCase
     private function createSchoolInstitution(): Institution
     {
         return Institution::factory()->create([
-            'type'      => 'school',
-            'level'     => 4,
+            'type' => 'school',
+            'level' => 4,
             'is_active' => true,
         ]);
     }
@@ -50,11 +50,11 @@ class PreschoolGroupControllerTest extends TestCase
     public function test_index_returns_groups_for_preschool_institution(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         Grade::factory()->count(3)->create([
             'institution_id' => $institution->id,
-            'is_active'      => true,
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($user, 'sanctum')
@@ -68,7 +68,7 @@ class PreschoolGroupControllerTest extends TestCase
     public function test_index_denies_access_for_regular_school(): void
     {
         $institution = $this->createSchoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $response = $this->actingAs($user, 'sanctum')
             ->getJson('/api/preschool/groups');
@@ -81,14 +81,14 @@ class PreschoolGroupControllerTest extends TestCase
     public function test_store_creates_new_preschool_group(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $payload = [
-            'name'                 => 'Fidan Qrupu',
-            'student_count'        => 20,
-            'male_student_count'   => 10,
+            'name' => 'Fidan Qrupu',
+            'student_count' => 20,
+            'male_student_count' => 10,
             'female_student_count' => 10,
-            'description'          => 'Test qrupu',
+            'description' => 'Test qrupu',
         ];
 
         $response = $this->actingAs($user, 'sanctum')
@@ -100,17 +100,17 @@ class PreschoolGroupControllerTest extends TestCase
             ->assertJsonPath('data.student_count', 20);
 
         $this->assertDatabaseHas('grades', [
-            'name'           => 'FIDAN QRUPU',
+            'name' => 'FIDAN QRUPU',
             'institution_id' => $institution->id,
-            'class_level'    => 0,
-            'is_active'      => 1,
+            'class_level' => 0,
+            'is_active' => 1,
         ]);
     }
 
     public function test_store_denies_access_for_regular_school(): void
     {
         $institution = $this->createSchoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $response = $this->actingAs($user, 'sanctum')
             ->postJson('/api/preschool/groups', ['name' => 'Fidan Qrupu', 'student_count' => 10]);
@@ -121,20 +121,20 @@ class PreschoolGroupControllerTest extends TestCase
     public function test_update_modifies_existing_group(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $grade = Grade::factory()->create([
-            'name'           => 'Köhnə Ad',
+            'name' => 'Köhnə Ad',
             'institution_id' => $institution->id,
-            'student_count'  => 15,
+            'student_count' => 15,
         ]);
 
         $payload = [
-            'name'                 => 'Yeni Ad',
-            'student_count'        => 25,
-            'male_student_count'   => 12,
+            'name' => 'Yeni Ad',
+            'student_count' => 25,
+            'male_student_count' => 12,
             'female_student_count' => 13,
-            'is_active'            => true,
+            'is_active' => true,
         ];
 
         $response = $this->actingAs($user, 'sanctum')
@@ -146,8 +146,8 @@ class PreschoolGroupControllerTest extends TestCase
             ->assertJsonPath('data.student_count', 25);
 
         $this->assertDatabaseHas('grades', [
-            'id'            => $grade->id,
-            'name'          => 'YENI AD',
+            'id' => $grade->id,
+            'name' => 'YENI AD',
             'student_count' => 25,
         ]);
     }
@@ -156,10 +156,10 @@ class PreschoolGroupControllerTest extends TestCase
     {
         $institution1 = $this->createPreschoolInstitution();
         $institution2 = $this->createPreschoolInstitution();
-        $user         = $this->createUserForInstitution($institution1);
+        $user = $this->createUserForInstitution($institution1);
 
         $grade = Grade::factory()->create([
-            'name'           => 'Başqa Bağça Qrupu',
+            'name' => 'Başqa Bağça Qrupu',
             'institution_id' => $institution2->id,
         ]);
 
@@ -173,7 +173,7 @@ class PreschoolGroupControllerTest extends TestCase
     public function test_destroy_deletes_group_without_attendance(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $grade = Grade::factory()->create([
             'institution_id' => $institution->id,
@@ -192,20 +192,20 @@ class PreschoolGroupControllerTest extends TestCase
     public function test_destroy_soft_deletes_group_with_attendance(): void
     {
         $institution = $this->createPreschoolInstitution();
-        $user        = $this->createUserForInstitution($institution);
+        $user = $this->createUserForInstitution($institution);
 
         $grade = Grade::factory()->create([
             'institution_id' => $institution->id,
-            'is_active'      => true,
+            'is_active' => true,
         ]);
 
         PreschoolAttendance::create([
-            'institution_id'  => $institution->id,
-            'grade_id'        => $grade->id,
+            'institution_id' => $institution->id,
+            'grade_id' => $grade->id,
             'attendance_date' => now()->format('Y-m-d'),
-            'total_enrolled'  => 10,
-            'present_count'   => 9,
-            'recorded_by'     => $user->id,
+            'total_enrolled' => 10,
+            'present_count' => 9,
+            'recorded_by' => $user->id,
         ]);
 
         $response = $this->actingAs($user, 'sanctum')
@@ -216,7 +216,7 @@ class PreschoolGroupControllerTest extends TestCase
             ->assertJsonPath('message', 'Qrupun davamiyyət məlumatları olduğundan deaktivləşdirildi.');
 
         $this->assertDatabaseHas('grades', [
-            'id'        => $grade->id,
+            'id' => $grade->id,
             'is_active' => 0,
         ]);
     }

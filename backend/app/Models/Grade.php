@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use App\Traits\BelongsToInstitution;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -248,7 +248,7 @@ class Grade extends Model
     public function assignedStudents(): HasMany
     {
         return $this->hasMany(Student::class, 'grade_id')
-                    ->where('is_active', true);
+            ->where('is_active', true);
     }
 
     /**

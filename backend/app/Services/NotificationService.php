@@ -534,9 +534,9 @@ class NotificationService
                     // Task notification-larında silinmiş tapşırıqlara aid olanları say
                     $q->where(function ($inner) {
                         $inner->whereNull('related_type')
-                              ->orWhere('related_type', '!=', 'App\\Models\\Task');
+                            ->orWhere('related_type', '!=', 'App\\Models\\Task');
                     })->orWhereRaw(
-                        "EXISTS (SELECT 1 FROM tasks WHERE tasks.id = notifications.related_id)"
+                        'EXISTS (SELECT 1 FROM tasks WHERE tasks.id = notifications.related_id)'
                     );
                 })
                 ->selectRaw("
@@ -567,13 +567,13 @@ class NotificationService
                 ->pluck('cnt', 'page_key');
 
             return [
-                'tasks'         => (int) ($rows['tasks'] ?? 0),
+                'tasks' => (int) ($rows['tasks'] ?? 0),
                 'tasks_assigned' => (int) ($rows['tasks_assigned'] ?? 0),
-                'surveys'       => (int) ($rows['surveys'] ?? 0),
-                'documents'     => (int) ($rows['documents'] ?? 0),
+                'surveys' => (int) ($rows['surveys'] ?? 0),
+                'documents' => (int) ($rows['documents'] ?? 0),
                 'report_tables' => (int) ($rows['report_tables'] ?? 0),
-                'attendance'    => (int) ($rows['attendance'] ?? 0),
-                'system'        => (int) ($rows['system'] ?? 0),
+                'attendance' => (int) ($rows['attendance'] ?? 0),
+                'system' => (int) ($rows['system'] ?? 0),
             ];
         });
     }
@@ -851,12 +851,13 @@ class NotificationService
             );
 
             // Also include task creator
-            if ($task->created_by && !in_array($task->created_by, $targetUserIds)) {
+            if ($task->created_by && ! in_array($task->created_by, $targetUserIds)) {
                 $targetUserIds[] = $task->created_by;
             }
 
             if (empty($targetUserIds)) {
                 Log::info('sendTaskDeadlineWarning: No target users found', ['task_id' => $task->id]);
+
                 return [];
             }
 
@@ -867,11 +868,11 @@ class NotificationService
                 'deadline', // Matches 'task_deadline' template
                 $targetUserIds,
                 [
-                    'days_left'       => $daysLeft,
+                    'days_left' => $daysLeft,
                     'hours_remaining' => $daysLeft * 24,
-                    'due_date'        => $task->deadline?->format('d.m.Y H:i'),
-                    'deadline'        => $task->deadline?->format('d.m.Y H:i'),
-                    'action_url'      => "/tasks/{$task->id}",
+                    'due_date' => $task->deadline?->format('d.m.Y H:i'),
+                    'deadline' => $task->deadline?->format('d.m.Y H:i'),
+                    'action_url' => "/tasks/{$task->id}",
                 ],
                 [
                     'priority' => $daysLeft <= 1 ? 'high' : ($daysLeft <= 3 ? 'normal' : 'low'),
@@ -880,7 +881,7 @@ class NotificationService
         } catch (\Exception $e) {
             Log::error('sendTaskDeadlineWarning failed', [
                 'task_id' => $task->id ?? null,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return [];

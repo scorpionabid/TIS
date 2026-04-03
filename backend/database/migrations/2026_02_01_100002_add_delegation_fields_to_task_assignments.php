@@ -15,7 +15,7 @@ return new class extends Migration
             $table->boolean('has_sub_delegations')->default(false)->after('completion_data');
             $table->unsignedTinyInteger('sub_delegation_count')->default(0)->after('has_sub_delegations');
             $table->unsignedTinyInteger('completed_sub_delegations')->default(0)->after('sub_delegation_count');
-            
+
             // Indexes for performance
             $table->index('has_sub_delegations');
             $table->index(['sub_delegation_count', 'completed_sub_delegations']);

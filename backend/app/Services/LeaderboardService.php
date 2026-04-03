@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Rating;
 use App\Models\User;
-use App\Models\Institution;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 /**
  * PRD: Liderbordlar, filtrlər və dashboard
@@ -28,11 +28,11 @@ class LeaderboardService
      * Get top 20 teachers by scope.
      *
      * @param array $params [
-     *   'academic_year_id' => int,
-     *   'scope' => 'school'|'rayon'|'region'|'subject',
-     *   'scope_id' => int|null,
-     *   'subject_id' => int|null (for subject scope)
-     * ]
+     *                      'academic_year_id' => int,
+     *                      'scope' => 'school'|'rayon'|'region'|'subject',
+     *                      'scope_id' => int|null,
+     *                      'subject_id' => int|null (for subject scope)
+     *                      ]
      */
     public function getLeaderboard(array $params): Collection
     {
@@ -51,6 +51,7 @@ class LeaderboardService
         // Add rank to each entry
         return $ratings->map(function ($rating, $index) {
             $rating->rank = $index + 1;
+
             return $rating;
         });
     }
@@ -261,11 +262,11 @@ class LeaderboardService
     private function getScoreDistribution(Collection $ratings): array
     {
         return [
-            '0-20' => $ratings->filter(fn($r) => $r->overall_score >= 0 && $r->overall_score < 21)->count(),
-            '21-40' => $ratings->filter(fn($r) => $r->overall_score >= 21 && $r->overall_score < 41)->count(),
-            '41-60' => $ratings->filter(fn($r) => $r->overall_score >= 41 && $r->overall_score < 61)->count(),
-            '61-80' => $ratings->filter(fn($r) => $r->overall_score >= 61 && $r->overall_score < 81)->count(),
-            '81-100' => $ratings->filter(fn($r) => $r->overall_score >= 81)->count(),
+            '0-20' => $ratings->filter(fn ($r) => $r->overall_score >= 0 && $r->overall_score < 21)->count(),
+            '21-40' => $ratings->filter(fn ($r) => $r->overall_score >= 21 && $r->overall_score < 41)->count(),
+            '41-60' => $ratings->filter(fn ($r) => $r->overall_score >= 41 && $r->overall_score < 61)->count(),
+            '61-80' => $ratings->filter(fn ($r) => $r->overall_score >= 61 && $r->overall_score < 81)->count(),
+            '81-100' => $ratings->filter(fn ($r) => $r->overall_score >= 81)->count(),
         ];
     }
 

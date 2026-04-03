@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 class AiRateLimitMiddleware
 {
     private const MAX_ATTEMPTS = 10;
+
     private const DECAY_SECONDS = 60;
 
     public function __construct(
@@ -25,7 +26,7 @@ class AiRateLimitMiddleware
     public function handle(Request $request, Closure $next): mixed
     {
         $userId = $request->user()?->id ?? $request->ip();
-        $key    = 'ai_rate_limit:' . $userId;
+        $key = 'ai_rate_limit:' . $userId;
 
         if ($this->limiter->tooManyAttempts($key, self::MAX_ATTEMPTS)) {
             $retryAfter = $this->limiter->availableIn($key);
@@ -34,10 +35,10 @@ class AiRateLimitMiddleware
                 'success' => false,
                 'message' => "Çox sayda sorğu. {$retryAfter} saniyə sonra yenidən cəhd edin.",
             ], 429, [
-                'Retry-After'               => $retryAfter,
-                'X-RateLimit-Limit'         => self::MAX_ATTEMPTS,
-                'X-RateLimit-Remaining'     => 0,
-                'X-RateLimit-Reset'         => now()->addSeconds($retryAfter)->timestamp,
+                'Retry-After' => $retryAfter,
+                'X-RateLimit-Limit' => self::MAX_ATTEMPTS,
+                'X-RateLimit-Remaining' => 0,
+                'X-RateLimit-Reset' => now()->addSeconds($retryAfter)->timestamp,
             ]);
         }
 

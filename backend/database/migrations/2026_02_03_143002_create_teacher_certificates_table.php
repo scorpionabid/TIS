@@ -28,7 +28,7 @@ return new class extends Migration
             $table->enum('level', ['beginner', 'intermediate', 'advanced', 'expert'])->nullable();
             $table->enum('category', ['teaching', 'technical', 'language', 'management', 'research', 'other'])->nullable();
             $table->timestamps();
-            
+
             $table->index('user_id');
             $table->index('teacher_profile_id');
             $table->index('status');

@@ -31,7 +31,7 @@ class BackfillRowStatuses extends Command
     public function handle(): int
     {
         $isDryRun = ! $this->option('run');
-        $tableId  = $this->option('table');
+        $tableId = $this->option('table');
 
         if ($isDryRun) {
             $this->warn('DRY-RUN rejimi. Faktiki dəyişiklik olmayacaq. --run flag ilə çalışdırın.');
@@ -43,8 +43,8 @@ class BackfillRowStatuses extends Command
         $query = ReportTableResponse::where('status', 'submitted')
             ->where(function ($q) {
                 $q->whereNull('row_statuses')
-                  ->orWhereRaw("row_statuses::text = '[]'")
-                  ->orWhereRaw("row_statuses::text = '{}'");
+                    ->orWhereRaw("row_statuses::text = '[]'")
+                    ->orWhereRaw("row_statuses::text = '{}'");
             })
             ->whereNotNull('rows')
             ->whereRaw("rows::text != '[]'")
@@ -58,17 +58,18 @@ class BackfillRowStatuses extends Command
 
         if ($responses->isEmpty()) {
             $this->info('Düzəltməyə ehtiyac olan cavab tapılmadı.');
+
             return self::SUCCESS;
         }
 
         $this->info("Tapıldı: {$responses->count()} cavab");
         $this->newLine();
 
-        $totalRows  = 0;
+        $totalRows = 0;
         $totalFixed = 0;
 
         foreach ($responses as $response) {
-            $rows    = $response->rows ?? [];
+            $rows = $response->rows ?? [];
             $rowCount = count($rows);
 
             $this->line(sprintf(
@@ -87,7 +88,7 @@ class BackfillRowStatuses extends Command
                     $statuses = [];
                     foreach ($rows as $idx => $row) {
                         $statuses[$idx] = [
-                            'status'       => 'submitted',
+                            'status' => 'submitted',
                             'submitted_by' => $response->respondent_id,
                             'submitted_at' => $response->submitted_at?->toISOString() ?? now()->toISOString(),
                         ];
@@ -104,7 +105,7 @@ class BackfillRowStatuses extends Command
 
         if ($isDryRun) {
             $this->warn("DRY-RUN: {$responses->count()} cavab, {$totalRows} sətir düzəldiləcəkdi.");
-            $this->warn("Faktiki düzəliş üçün: php artisan report-tables:backfill-row-statuses --run");
+            $this->warn('Faktiki düzəliş üçün: php artisan report-tables:backfill-row-statuses --run');
         } else {
             $this->info("Tamamlandı: {$totalFixed} cavab düzəldildi, {$totalRows} sətir işarələndi.");
         }

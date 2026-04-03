@@ -672,8 +672,7 @@ class SchoolAttendanceController extends BaseController
                 });
 
                 // Weighted attendance rate — hər qeyd üçün calculateEffectiveRate istifadə et
-                $weightedSum = $items->sum(fn (ClassBulkAttendance $item) =>
-                    $this->calculateEffectiveRate($item) * max((int) $item->total_students, 1)
+                $weightedSum = $items->sum(fn (ClassBulkAttendance $item) => $this->calculateEffectiveRate($item) * max((int) $item->total_students, 1)
                 );
                 $attendanceRate = $totalStudents > 0
                     ? round($weightedSum / $totalStudents, 2)

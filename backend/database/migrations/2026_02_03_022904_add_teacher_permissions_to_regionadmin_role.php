@@ -1,11 +1,9 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 return new class extends Migration
 {
@@ -16,7 +14,7 @@ return new class extends Migration
     {
         // RegionAdmin roluna teacher permission-larını əlavə et
         $regionAdminRole = Role::where('name', 'regionadmin')->first();
-        
+
         if ($regionAdminRole) {
             $teacherPermissions = [
                 'teachers.create',
@@ -24,12 +22,12 @@ return new class extends Migration
                 'teachers.update',
                 'teachers.delete',
                 'teachers.write',
-                'teachers.manage'
+                'teachers.manage',
             ];
 
             foreach ($teacherPermissions as $permissionName) {
                 $permission = Permission::where('name', $permissionName)->first();
-                
+
                 if ($permission) {
                     // Permissionın artıq var olub olmadığını yoxla
                     $hasPermission = DB::table('role_has_permissions')
@@ -37,7 +35,7 @@ return new class extends Migration
                         ->where('permission_id', $permission->id)
                         ->exists();
 
-                    if (!$hasPermission) {
+                    if (! $hasPermission) {
                         // Permissionı rola əlavə et
                         DB::table('role_has_permissions')->insert([
                             'role_id' => $regionAdminRole->id,
@@ -56,7 +54,7 @@ return new class extends Migration
     {
         // RegionAdmin rolundan teacher permission-larını sil
         $regionAdminRole = Role::where('name', 'regionadmin')->first();
-        
+
         if ($regionAdminRole) {
             $teacherPermissions = [
                 'teachers.create',
@@ -64,12 +62,12 @@ return new class extends Migration
                 'teachers.update',
                 'teachers.delete',
                 'teachers.write',
-                'teachers.manage'
+                'teachers.manage',
             ];
 
             foreach ($teacherPermissions as $permissionName) {
                 $permission = Permission::where('name', $permissionName)->first();
-                
+
                 if ($permission) {
                     DB::table('role_has_permissions')
                         ->where('role_id', $regionAdminRole->id)

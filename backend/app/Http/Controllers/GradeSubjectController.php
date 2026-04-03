@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Grade;
 use App\Models\GradeSubject;
 use App\Models\Subject;
-use App\Models\CurriculumPlan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -31,7 +30,7 @@ class GradeSubjectController extends Controller
             ->whereNull('deleted_at')
             ->select('subject_id', 'education_type', 'teacher_id')
             ->get()
-            ->groupBy(function($item) {
+            ->groupBy(function ($item) {
                 return $item->subject_id . '_' . ($item->education_type ?? 'umumi');
             }) : collect();
 
@@ -61,7 +60,7 @@ class GradeSubjectController extends Controller
                     'teacher_id' => $gs->teacher_id, // Default teacher from curriculum
                     'teacher_name' => $gs->teacher ? $gs->teacher->name : null,
                     'assigned_teacher_id' => $classAssignment?->teacher_id, // Who is actually assigned in this class
-                    'is_assigned' => !is_null($classAssignment),
+                    'is_assigned' => ! is_null($classAssignment),
                     'notes' => $gs->notes,
                     'created_at' => $gs->created_at,
                     'updated_at' => $gs->updated_at,
@@ -99,7 +98,7 @@ class GradeSubjectController extends Controller
             ->toArray();
 
         // Get available subjects for this class level
-        // Note: We no longer exclude assignedSubjectIds here to allow 
+        // Note: We no longer exclude assignedSubjectIds here to allow
         // a subject to be visible for all education types.
         // The store() method validation will prevent duplicates in the same category.
         $availableSubjects = Subject::active()
@@ -136,7 +135,7 @@ class GradeSubjectController extends Controller
                 Rule::unique('grade_subjects')
                     ->where(function ($query) use ($grade, $request) {
                         return $query->where('grade_id', $grade->id)
-                                     ->where('education_type', $request->input('education_type', 'umumi'));
+                            ->where('education_type', $request->input('education_type', 'umumi'));
                     }),
             ],
             'weekly_hours' => 'required|numeric|min:0.5|max:10',
@@ -148,6 +147,25 @@ class GradeSubjectController extends Controller
             'teacher_id' => 'nullable|exists:users,id',
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        // Fəaliyyət növü yoxlanışı: tam olaraq bir növ seçilməlidir
+        $activityCount = (int) ($validated['is_teaching_activity'] ?? false)
+                       + (int) ($validated['is_extracurricular'] ?? false)
+                       + (int) ($validated['is_club'] ?? false);
+
+        if ($activityCount === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fəaliyyət növü seçilməlidir (tədris, dərsdənkənar və ya dərnək).',
+            ], 422);
+        }
+
+        if ($activityCount > 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yalnız bir fəaliyyət növü seçilə bilər.',
+            ], 422);
+        }
 
         // Verify subject is available for this grade level
         $subject = Subject::findOrFail($validated['subject_id']);
@@ -169,8 +187,30 @@ class GradeSubjectController extends Controller
         if ($plan && $validated['weekly_hours'] > $plan->hours) {
             return response()->json([
                 'success' => false,
-                'message' => "Tədris planına görə bu fənn üçün maksimal saat {$plan->weekly_hours} olmalıdır.",
+                'message' => "Tədris planına görə bu fənn üçün maksimal saat {$plan->hours} olmalıdır.",
             ], 422);
+        }
+
+        // Kateqoriya büdcəsi yoxlanışı: bu təhsil növü üzrə cəmi saat tədris planının limitini aşmamalıdır
+        $categoryBudget = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('class_level', $grade->class_level)
+            ->where('education_type', $validated['education_type'])
+            ->sum('hours');
+
+        if ($categoryBudget > 0) {
+            $currentUsed = $grade->gradeSubjects()
+                ->where('education_type', $validated['education_type'])
+                ->sum('weekly_hours');
+
+            if (($currentUsed + $validated['weekly_hours']) > $categoryBudget) {
+                $remaining = max(0, $categoryBudget - $currentUsed);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Cari istifadə: {$currentUsed}s, qalan: {$remaining}s.",
+                ], 422);
+            }
         }
 
         try {
@@ -234,6 +274,25 @@ class GradeSubjectController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        // Fəaliyyət növü yoxlanışı: tam olaraq bir növ seçilməlidir
+        $activityCount = (int) ($validated['is_teaching_activity'] ?? false)
+                       + (int) ($validated['is_extracurricular'] ?? false)
+                       + (int) ($validated['is_club'] ?? false);
+
+        if ($activityCount === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fəaliyyət növü seçilməlidir (tədris, dərsdənkənar və ya dərnək).',
+            ], 422);
+        }
+
+        if ($activityCount > 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yalnız bir fəaliyyət növü seçilə bilər.',
+            ], 422);
+        }
+
         // Check against Curriculum Plan (Master Plan)
         $plan = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
@@ -245,8 +304,31 @@ class GradeSubjectController extends Controller
         if ($plan && $validated['weekly_hours'] > $plan->hours) {
             return response()->json([
                 'success' => false,
-                'message' => "Tədris planına görə bu fənn üçün maksimal saat {$plan->weekly_hours} olmalıdır.",
+                'message' => "Tədris planına görə bu fənn üçün maksimal saat {$plan->hours} olmalıdır.",
             ], 422);
+        }
+
+        // Kateqoriya büdcəsi yoxlanışı (redaktə zamanı özünü xaric et)
+        $categoryBudget = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('class_level', $grade->class_level)
+            ->where('education_type', $validated['education_type'])
+            ->sum('hours');
+
+        if ($categoryBudget > 0) {
+            $currentUsed = $grade->gradeSubjects()
+                ->where('education_type', $validated['education_type'])
+                ->where('id', '!=', $gradeSubject->id)
+                ->sum('weekly_hours');
+
+            if (($currentUsed + $validated['weekly_hours']) > $categoryBudget) {
+                $remaining = max(0, $categoryBudget - $currentUsed);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Cari istifadə: {$currentUsed}s, qalan: {$remaining}s.",
+                ], 422);
+            }
         }
 
         try {

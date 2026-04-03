@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\API\ClassAttendanceApiController;
-use App\Http\Controllers\API\TeachingLoadApiController;
 use App\Http\Controllers\API\TeacherAvailabilityApiController;
+use App\Http\Controllers\API\TeachingLoadApiController;
 use App\Http\Controllers\Attendance\RegionalAttendanceController;
 use App\Http\Controllers\ClassAttendanceController;
 use Illuminate\Support\Facades\Route;
@@ -100,5 +100,8 @@ Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadm
     Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses']);
     Route::get('/grade-level-stats', [RegionalAttendanceController::class, 'gradeLevelStats']);
     Route::get('/grade-level-stats/export', [RegionalAttendanceController::class, 'exportGradeLevelStats']);
+    Route::get('/school-grade-stats', [RegionalAttendanceController::class, 'schoolGradeStats']);
+    Route::get('/school-grade-stats/export', [RegionalAttendanceController::class, 'exportSchoolGradeStats']);
     Route::get('/missing-reports', [RegionalAttendanceController::class, 'getSchoolsWithMissingReports']);
+    Route::get('/missing-reports/export', [RegionalAttendanceController::class, 'exportMissingReports']);
 });

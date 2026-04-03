@@ -2,21 +2,20 @@
 
 namespace App\Services;
 
+use App\Models\AcademicYear;
+use App\Models\AwardType;
+use App\Models\CertificateType;
+use App\Models\ClassAcademicResult;
+use App\Models\GrowthBonusConfig;
+use App\Models\LessonObservation;
+use App\Models\OlympiadAchievement;
+use App\Models\OlympiadLevelConfig;
 use App\Models\Rating;
 use App\Models\RatingConfig;
-use App\Models\User;
-use App\Models\AcademicYear;
-use App\Models\ClassAcademicResult;
-use App\Models\LessonObservation;
 use App\Models\TeacherAssessmentScore;
-use App\Models\TeacherCertification;
-use App\Models\OlympiadAchievement;
 use App\Models\TeacherAward;
-use App\Models\OlympiadLevelConfig;
-use App\Models\GrowthBonusConfig;
-use App\Models\CertificateType;
-use App\Models\AwardType;
-use Illuminate\Support\Facades\DB;
+use App\Models\TeacherCertification;
+use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -66,7 +65,7 @@ class TeacherRatingCalculationService
         foreach ($academicYears as $yearName => $yearId) {
             $yearWeight = $yearWeights[$yearName] ?? 0;
 
-            if ($yearWeight === 0 || !$yearId) {
+            if ($yearWeight === 0 || ! $yearId) {
                 continue;
             }
 
@@ -219,7 +218,7 @@ class TeacherRatingCalculationService
     private function calculateCertificateScore(int $teacherId, int $academicYearId): float
     {
         $academicYear = AcademicYear::find($academicYearId);
-        if (!$academicYear) {
+        if (! $academicYear) {
             return 0;
         }
 
@@ -290,7 +289,7 @@ class TeacherRatingCalculationService
     private function calculateAwardScore(int $teacherId, int $academicYearId): float
     {
         $academicYear = AcademicYear::find($academicYearId);
-        if (!$academicYear) {
+        if (! $academicYear) {
             return 0;
         }
 

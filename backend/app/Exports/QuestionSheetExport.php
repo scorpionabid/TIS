@@ -29,7 +29,7 @@ class QuestionSheetExport implements FromCollection, WithColumnWidths, WithCusto
 
     public function __construct(SurveyQuestion $question, Collection $responses)
     {
-        $this->question  = $question;
+        $this->question = $question;
         $this->responses = $responses;
     }
 
@@ -43,13 +43,13 @@ class QuestionSheetExport implements FromCollection, WithColumnWidths, WithCusto
 
     public function collection(): Collection
     {
-        $rows       = collect();
+        $rows = collect();
         $questionId = (string) $this->question->id;
 
         foreach ($this->responses as $response) {
-            $sectorName      = $this->getSectorName($response->institution);
+            $sectorName = $this->getSectorName($response->institution);
             $institutionName = $response->institution?->name ?? 'N/A';
-            $answer          = $response->responses[$questionId] ?? null;
+            $answer = $response->responses[$questionId] ?? null;
 
             $rows->push([$sectorName, $institutionName, $this->formatAnswer($answer)]);
         }
@@ -68,14 +68,14 @@ class QuestionSheetExport implements FromCollection, WithColumnWidths, WithCusto
         $sheet->mergeCells('A1:C1');
         $sheet->setCellValue('A1', strip_tags($this->question->title ?? ''));
         $sheet->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 12, 'color' => ['argb' => 'FF1E3A5F']],
+            'font' => ['bold' => true, 'size' => 12, 'color' => ['argb' => 'FF1E3A5F']],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_LEFT,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-                'wrapText'   => true,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
             ],
             'fill' => [
-                'fillType'   => Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['argb' => 'FFE8F0FE'],
             ],
         ]);
@@ -92,7 +92,7 @@ class QuestionSheetExport implements FromCollection, WithColumnWidths, WithCusto
         return [
             2 => [
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'FF3B82F6'],
                 ],
                 'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true, 'size' => 11],
@@ -132,9 +132,10 @@ class QuestionSheetExport implements FromCollection, WithColumnWidths, WithCusto
                 $tableRows = $this->question->table_rows ?? [];
                 $formatted = [];
                 foreach ($answer as $rowIndex => $rowData) {
-                    $label       = $tableRows[$rowIndex] ?? ('Sətir ' . ($rowIndex + 1));
+                    $label = $tableRows[$rowIndex] ?? ('Sətir ' . ($rowIndex + 1));
                     $formatted[] = $label . ': ' . (is_array($rowData) ? implode(', ', $rowData) : $rowData);
                 }
+
                 return implode(' | ', $formatted);
             }
 

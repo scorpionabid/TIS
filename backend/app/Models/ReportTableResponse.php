@@ -23,7 +23,7 @@ class ReportTableResponse extends Model
     protected function casts(): array
     {
         return [
-            'rows'         => 'array',
+            'rows' => 'array',
             'submitted_at' => 'datetime',
             'row_statuses' => 'array',
         ];
@@ -60,7 +60,7 @@ class ReportTableResponse extends Model
 
     public function submit(): void
     {
-        $this->status       = 'submitted';
+        $this->status = 'submitted';
         $this->submitted_at = now();
         $this->save();
     }
@@ -75,14 +75,15 @@ class ReportTableResponse extends Model
     public function isRowEditable(int $rowIndex): bool
     {
         $status = $this->getRowStatus($rowIndex)['status'] ?? null;
+
         return $status === null || $status === 'rejected' || $status === 'draft';
     }
 
     public function submitRow(int $rowIndex, int $userId): void
     {
-        $statuses              = $this->row_statuses ?? [];
-        $statuses[$rowIndex]   = [
-            'status'       => 'submitted',
+        $statuses = $this->row_statuses ?? [];
+        $statuses[$rowIndex] = [
+            'status' => 'submitted',
             'submitted_by' => $userId,
             'submitted_at' => now()->toISOString(),
         ];
@@ -91,9 +92,9 @@ class ReportTableResponse extends Model
 
     public function approveRow(int $rowIndex, int $userId): void
     {
-        $statuses            = $this->row_statuses ?? [];
+        $statuses = $this->row_statuses ?? [];
         $statuses[$rowIndex] = array_merge($statuses[$rowIndex] ?? [], [
-            'status'      => 'approved',
+            'status' => 'approved',
             'approved_by' => $userId,
             'approved_at' => now()->toISOString(),
         ]);
@@ -102,11 +103,11 @@ class ReportTableResponse extends Model
 
     public function rejectRow(int $rowIndex, int $userId, string $reason): void
     {
-        $statuses            = $this->row_statuses ?? [];
+        $statuses = $this->row_statuses ?? [];
         $statuses[$rowIndex] = array_merge($statuses[$rowIndex] ?? [], [
-            'status'           => 'rejected',
-            'rejected_by'      => $userId,
-            'rejected_at'      => now()->toISOString(),
+            'status' => 'rejected',
+            'rejected_by' => $userId,
+            'rejected_at' => now()->toISOString(),
             'rejection_reason' => $reason,
         ]);
         $this->update(['row_statuses' => $statuses]);
@@ -114,7 +115,7 @@ class ReportTableResponse extends Model
 
     public function returnRowToDraft(int $rowIndex): void
     {
-        $statuses            = $this->row_statuses ?? [];
+        $statuses = $this->row_statuses ?? [];
         $statuses[$rowIndex] = ['status' => 'draft'];
         $this->update(['row_statuses' => $statuses]);
     }

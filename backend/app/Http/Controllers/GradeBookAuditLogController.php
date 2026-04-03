@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\GradeBookAuditLog;
 use App\Models\GradeBookSession;
 use App\Services\GradeBookAuditService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class GradeBookAuditLogController extends Controller
@@ -24,7 +24,7 @@ class GradeBookAuditLogController extends Controller
     public function index(Request $request, GradeBookSession $gradeBook): JsonResponse
     {
         // Permission check
-        if (!$this->canView($gradeBook)) {
+        if (! $this->canView($gradeBook)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu jurnalın audit loglarını görüntülemək üçün icazəniz yoxdur.',
@@ -61,7 +61,7 @@ class GradeBookAuditLogController extends Controller
     public function studentHistory(GradeBookSession $gradeBook, int $studentId): JsonResponse
     {
         // Permission check
-        if (!$this->canView($gradeBook)) {
+        if (! $this->canView($gradeBook)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu şagirdin tarixçəsini görüntülemək üçün icazəniz yoxdur.',
@@ -82,7 +82,7 @@ class GradeBookAuditLogController extends Controller
     public function recentActivity(GradeBookSession $gradeBook): JsonResponse
     {
         // Permission check
-        if (!$this->canView($gradeBook)) {
+        if (! $this->canView($gradeBook)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu jurnalın aktivlik məlumatlarını görüntülemək üçün icazəniz yoxdur.',
@@ -103,7 +103,7 @@ class GradeBookAuditLogController extends Controller
     public function suspiciousActivity(GradeBookSession $gradeBook): JsonResponse
     {
         // Only admins can view suspicious activity
-        if (!Auth::user()->hasAnyRole(['superadmin', 'regionadmin', 'sectoradmin', 'schooladmin'])) {
+        if (! Auth::user()->hasAnyRole(['superadmin', 'regionadmin', 'sectoradmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Şübhəli fəaliyyətləri yoxlamaq üçün icazəniz yoxdur.',
@@ -127,7 +127,7 @@ class GradeBookAuditLogController extends Controller
         $gradeBook = $cell->column->gradeBookSession;
 
         // Permission check
-        if (!$this->canView($gradeBook)) {
+        if (! $this->canView($gradeBook)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu xananın tarixçəsini görüntülemək üçün icazəniz yoxdur.',

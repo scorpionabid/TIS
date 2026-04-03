@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\GradeBookAuditLog;
 use App\Models\GradeBookCell;
 use App\Models\GradeBookColumn;
-use App\Models\GradeBookAuditLog;
 use Illuminate\Support\Collection;
 
 class StudentAbsenceService
@@ -14,12 +14,12 @@ class StudentAbsenceService
      */
     public function markAbsent(
         int $cellId,
-        string $absenceReason = null,
-        string $notes = null,
-        int $recordedBy = null
+        ?string $absenceReason = null,
+        ?string $notes = null,
+        ?int $recordedBy = null
     ): GradeBookCell {
         $cell = GradeBookCell::findOrFail($cellId);
-        
+
         $cell->update([
             'is_present' => false,
             'score' => null,
@@ -54,8 +54,8 @@ class StudentAbsenceService
     public function markPresent(
         int $cellId,
         float $score,
-        string $notes = null,
-        int $recordedBy = null
+        ?string $notes = null,
+        ?int $recordedBy = null
     ): GradeBookCell {
         $cell = GradeBookCell::findOrFail($cellId);
         $column = $cell->column;
@@ -63,7 +63,7 @@ class StudentAbsenceService
         $percentage = ($score / $column->max_score) * 100;
         $gradeMark = $this->convertScoreToGrade($score);
 
-        $wasAbsent = !$cell->is_present;
+        $wasAbsent = ! $cell->is_present;
 
         $cell->update([
             'is_present' => true,
@@ -136,7 +136,7 @@ class StudentAbsenceService
         }
 
         // Sort by absence count descending
-        usort($stats, fn($a, $b) => $b['absence_count'] <=> $a['absence_count']);
+        usort($stats, fn ($a, $b) => $b['absence_count'] <=> $a['absence_count']);
 
         return [
             'total_exams' => $totalExams,
@@ -189,8 +189,8 @@ class StudentAbsenceService
     public function bulkMarkAbsences(
         int $columnId,
         array $studentIds,
-        string $absenceReason = null,
-        int $recordedBy = null
+        ?string $absenceReason = null,
+        ?int $recordedBy = null
     ): array {
         $column = GradeBookColumn::findOrFail($columnId);
         $results = [
@@ -223,9 +223,16 @@ class StudentAbsenceService
      */
     protected function convertScoreToGrade(float $score): int
     {
-        if ($score >= 80) return 5;
-        if ($score >= 60) return 4;
-        if ($score >= 30) return 3;
+        if ($score >= 80) {
+            return 5;
+        }
+        if ($score >= 60) {
+            return 4;
+        }
+        if ($score >= 30) {
+            return 3;
+        }
+
         return 2;
     }
 }

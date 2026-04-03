@@ -4,23 +4,29 @@ namespace App\Services;
 
 use App\Models\Institution;
 use App\Models\Survey;
-use App\Services\Survey\SurveyStatisticsCalculatorService;
+use App\Services\Analytics\HierarchicalAnalyticsService;
+use App\Services\Survey\Domains\Question\QuestionAnalyticsService;
+use App\Services\Survey\SurveyDashboardAnalyticsService;
 use App\Services\Survey\SurveyDataExportService;
 use App\Services\Survey\SurveyInsightsGeneratorService;
-use App\Services\Survey\SurveyDashboardAnalyticsService;
-use App\Services\Survey\Domains\Question\QuestionAnalyticsService;
-use App\Services\Analytics\HierarchicalAnalyticsService;
+use App\Services\Survey\SurveyStatisticsCalculatorService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class SurveyAnalyticsService
 {
     protected SurveyStatisticsCalculatorService $statisticsService;
+
     protected SurveyDataExportService $exportService;
+
     protected SurveyInsightsGeneratorService $insightsService;
+
     protected SurveyDashboardAnalyticsService $dashboardService;
+
     protected QuestionAnalyticsService $questionService;
+
     protected HierarchicalAnalyticsService $hierarchicalService;
+
     protected SurveyTargetingService $targetingService;
 
     public function __construct(
@@ -67,7 +73,7 @@ class SurveyAnalyticsService
         $survey->load([
             'responses' => function ($query) {
                 $query->with(['respondent.role', 'respondent.institution'])->latest();
-            }
+            },
         ]);
 
         return [
@@ -257,11 +263,11 @@ class SurveyAnalyticsService
             ->get();
 
         // Group by institution with statistics
-        $breakdown = $responses->groupBy('institution_id')->map(function ($instResponses, $instId) use ($survey) {
+        $breakdown = $responses->groupBy('institution_id')->map(function ($instResponses, $instId) {
             $institution = $instResponses->first()->institution;
 
-            if (!$institution) {
-                return null;
+            if (! $institution) {
+                return;
             }
 
             return [
@@ -325,7 +331,7 @@ class SurveyAnalyticsService
     {
         $userRegion = $user->institution;
 
-        if (!$userRegion) {
+        if (! $userRegion) {
             return collect([]);
         }
 
@@ -334,7 +340,7 @@ class SurveyAnalyticsService
             ->whereIn('id', \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user))
             ->get();
 
-        return $sectors->map(function ($sector) use ($survey, $responses) {
+        return $sectors->map(function ($sector) use ($responses) {
             $sectorResponses = $responses->filter(function ($response) use ($sector) {
                 return $response->institution && $response->institution->parent_id === $sector->id;
             });

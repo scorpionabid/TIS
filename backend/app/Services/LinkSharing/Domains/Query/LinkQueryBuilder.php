@@ -604,6 +604,7 @@ class LinkQueryBuilder
                     // Prefer the link whose target_institutions is exactly [userInstitutionId]
                     $exact = $group->first(function ($link) use ($userInstitutionId) {
                         $targets = $link->target_institutions ?? [];
+
                         return is_array($targets) && count($targets) === 1 && (int) $targets[0] === (int) $userInstitutionId;
                     });
 

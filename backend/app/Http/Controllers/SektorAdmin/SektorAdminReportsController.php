@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\SektorAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\User;
-use App\Models\ActivityLog;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +24,7 @@ class SektorAdminReportsController extends Controller
             $user = $request->user();
             $userSektorId = $user->institution_id;
 
-            if (!$userSektorId) {
+            if (! $userSektorId) {
                 return response()->json(['error' => 'Sektor məlumatları tapılmadı'], 404);
             }
 
@@ -63,7 +63,7 @@ class SektorAdminReportsController extends Controller
             $user = $request->user();
             $userSektorId = $user->institution_id;
 
-            if (!$userSektorId) {
+            if (! $userSektorId) {
                 return response()->json(['error' => 'Sektor məlumatları tapılmadı'], 404);
             }
 
@@ -100,12 +100,12 @@ class SektorAdminReportsController extends Controller
                     'active_users' => $institution->active_users,
                     'performance_score' => round($activityScore, 1),
                     'metrics' => [
-                        'survey_participation_rate' => $institution->total_users > 0 ? 
+                        'survey_participation_rate' => $institution->total_users > 0 ?
                             round(($totalResponses / $institution->total_users) * 100, 1) : 0,
                         'task_completion_rate' => 85.5, // Mock data - real calculation needed
-                        'user_engagement_score' => $institution->total_users > 0 ? 
+                        'user_engagement_score' => $institution->total_users > 0 ?
                             round(($institution->active_users / $institution->total_users) * 100, 1) : 0,
-                        'response_quality_score' => $totalResponses > 0 ? 
+                        'response_quality_score' => $totalResponses > 0 ?
                             round(($completedResponses / $totalResponses) * 100, 1) : 0,
                     ],
                     'comparison_data' => [
@@ -119,6 +119,7 @@ class SektorAdminReportsController extends Controller
             // Assign rankings
             $performanceData = $performanceData->map(function ($item, $index) {
                 $item['comparison_data']['ranking'] = $index + 1;
+
                 return $item;
             });
 
@@ -146,7 +147,7 @@ class SektorAdminReportsController extends Controller
             $user = $request->user();
             $userSektorId = $user->institution_id;
 
-            if (!$userSektorId) {
+            if (! $userSektorId) {
                 return response()->json(['error' => 'Sektor məlumatları tapılmadı'], 404);
             }
 
@@ -169,6 +170,7 @@ class SektorAdminReportsController extends Controller
                 ->get()
                 ->map(function ($item) {
                     $user = User::find($item->user_id);
+
                     return [
                         'user_id' => $item->user_id,
                         'username' => $user?->username ?? 'Unknown',
@@ -237,7 +239,7 @@ class SektorAdminReportsController extends Controller
             $user = $request->user();
             $userSektorId = $user->institution_id;
 
-            if (!$userSektorId) {
+            if (! $userSektorId) {
                 return response()->json(['error' => 'Sektor məlumatları tapılmadı'], 404);
             }
 
@@ -252,7 +254,7 @@ class SektorAdminReportsController extends Controller
                 ->get();
 
             $analyticsData = $surveys->map(function ($survey) {
-                $completionRate = $survey->total_responses > 0 ? 
+                $completionRate = $survey->total_responses > 0 ?
                     round(($survey->completed_responses / $survey->total_responses) * 100, 1) : 0;
 
                 return [
@@ -309,7 +311,7 @@ class SektorAdminReportsController extends Controller
     private function getSektorInstitutionIds(int $sektorId): array
     {
         $sektor = Institution::find($sektorId);
-        if (!$sektor) {
+        if (! $sektor) {
             return [];
         }
 
@@ -357,7 +359,7 @@ class SektorAdminReportsController extends Controller
     private function getSektorInstitutionStatistics(array $institutionIds, array $dateRange): array
     {
         $institutions = Institution::whereIn('id', $institutionIds)->get();
-        
+
         $total = $institutions->count();
         $active = $institutions->where('is_active', true)->count();
         $newInstitutions = $institutions->whereBetween('created_at', [$dateRange['start_date'], $dateRange['end_date']])->count();

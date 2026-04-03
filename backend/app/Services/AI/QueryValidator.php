@@ -24,7 +24,7 @@ class QueryValidator
         $upperSql = strtoupper(trim($sql));
 
         // Yalnız SELECT ilə başlamalıdır
-        if (!str_starts_with($upperSql, 'SELECT')) {
+        if (! str_starts_with($upperSql, 'SELECT')) {
             throw new \InvalidArgumentException(
                 'Yalnız SELECT sorğularına icazə verilir. Daxil edilmiş sorğu SELECT ilə başlamır.'
             );
@@ -37,7 +37,7 @@ class QueryValidator
             if (str_ends_with($keyword, ' ')) {
                 if (str_contains($upperSql, $upperKeyword)) {
                     throw new \InvalidArgumentException(
-                        "Sorğuda icazəsiz əməliyyat aşkar edildi: " . trim($keyword)
+                        'Sorğuda icazəsiz əməliyyat aşkar edildi: ' . trim($keyword)
                     );
                 }
             } else {
@@ -74,6 +74,7 @@ class QueryValidator
     public function validateRegionFilter(string $sql, int $regionId): bool
     {
         $upperSql = strtoupper($sql);
+
         // region_id = X və ya region_id=X formatını yoxla
         return (bool) preg_match('/REGION_ID\s*=\s*' . $regionId . '\b/', $upperSql);
     }

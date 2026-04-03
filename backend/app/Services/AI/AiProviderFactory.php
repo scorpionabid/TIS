@@ -12,12 +12,14 @@ use Illuminate\Support\Facades\Cache;
 class AiProviderFactory
 {
     private const CACHE_KEY = 'ai_llm_active_setting';
+
     private const CACHE_TTL = 300; // 5 dəqiqə
 
     /**
      * DB-dən aktiv provider-i yükləyib qaytarır.
      *
      * @param bool $useSqlModel SQL generasiya üçün güclü model istifadə et
+     *
      * @throws \RuntimeException Provider konfiqurasiya edilməyibsə
      */
     public static function make(bool $useSqlModel = false): AiProviderInterface
@@ -27,7 +29,7 @@ class AiProviderFactory
             return AiLlmSetting::where('is_active', true)->latest()->first();
         });
 
-        if (!$setting) {
+        if (! $setting) {
             throw new \RuntimeException(
                 'AI provider konfiqurasiya edilməyib. ' .
                 'Superadmin panelindən AI İdarəetmə səhifəsinə keçib API key əlavə edin.'
@@ -40,10 +42,10 @@ class AiProviderFactory
         $apiKey = $setting->api_key;
 
         return match ($setting->provider) {
-            'openai'    => new OpenAiProvider($apiKey, $model),
+            'openai' => new OpenAiProvider($apiKey, $model),
             'anthropic' => new AnthropicProvider($apiKey, $model),
-            'gemini'    => new GeminiProvider($apiKey, $model),
-            default     => throw new \RuntimeException("Naməlum provider: {$setting->provider}"),
+            'gemini' => new GeminiProvider($apiKey, $model),
+            default => throw new \RuntimeException("Naməlum provider: {$setting->provider}"),
         };
     }
 
@@ -73,34 +75,34 @@ class AiProviderFactory
     {
         return [
             [
-                'id'          => 'openai',
-                'name'        => 'OpenAI (GPT)',
+                'id' => 'openai',
+                'name' => 'OpenAI (GPT)',
                 'description' => 'GPT-4o, GPT-4o-mini və O1 seriyası',
-                'models'      => ['gpt-4o-mini', 'gpt-4o', 'o1-preview', 'o1-mini', 'gpt-4-turbo'],
-                'docs_url'    => 'https://platform.openai.com/api-keys',
+                'models' => ['gpt-4o-mini', 'gpt-4o', 'o1-preview', 'o1-mini', 'gpt-4-turbo'],
+                'docs_url' => 'https://platform.openai.com/api-keys',
             ],
             [
-                'id'          => 'anthropic',
-                'name'        => 'Anthropic (Claude)',
+                'id' => 'anthropic',
+                'name' => 'Anthropic (Claude)',
                 'description' => 'Claude 3.5 Sonnet v2 və Haiku modelleri',
-                'models'      => [
+                'models' => [
                     'claude-3-5-sonnet-20241022',
                     'claude-3-5-haiku-20241022',
                     'claude-3-opus-20240229',
                 ],
-                'docs_url'    => 'https://console.anthropic.com/',
+                'docs_url' => 'https://console.anthropic.com/',
             ],
             [
-                'id'          => 'gemini',
-                'name'        => 'Google (Gemini)',
+                'id' => 'gemini',
+                'name' => 'Google (Gemini)',
                 'description' => 'Gemini 2.0 Flash, 1.5 Pro və Flash',
-                'models'      => [
-                    'gemini-2.0-flash', 
+                'models' => [
+                    'gemini-2.0-flash',
                     'gemini-2.0-flash-lite-preview-02-05',
-                    'gemini-1.5-pro', 
-                    'gemini-1.5-flash'
+                    'gemini-1.5-pro',
+                    'gemini-1.5-flash',
                 ],
-                'docs_url'    => 'https://aistudio.google.com/apikey',
+                'docs_url' => 'https://aistudio.google.com/apikey',
             ],
         ];
     }

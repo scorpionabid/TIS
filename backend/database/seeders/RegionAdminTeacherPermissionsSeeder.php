@@ -3,10 +3,10 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RegionAdminTeacherPermissionsSeeder extends Seeder
 {
@@ -18,9 +18,10 @@ class RegionAdminTeacherPermissionsSeeder extends Seeder
         try {
             // RegionAdmin rolunu tap
             $regionAdminRole = Role::where('name', 'regionadmin')->first();
-            
-            if (!$regionAdminRole) {
+
+            if (! $regionAdminRole) {
                 $this->command->error('RegionAdmin role not found!');
+
                 return;
             }
 
@@ -31,7 +32,7 @@ class RegionAdminTeacherPermissionsSeeder extends Seeder
                 'teachers.update',
                 'teachers.delete',
                 'teachers.write',
-                'teachers.manage'
+                'teachers.manage',
             ];
 
             $addedPermissions = [];
@@ -39,7 +40,7 @@ class RegionAdminTeacherPermissionsSeeder extends Seeder
 
             foreach ($teacherPermissions as $permissionName) {
                 $permission = Permission::where('name', $permissionName)->first();
-                
+
                 if ($permission) {
                     // Permissionın artıq var olub olmadığını yoxla
                     $hasPermission = DB::table('role_has_permissions')
@@ -47,11 +48,11 @@ class RegionAdminTeacherPermissionsSeeder extends Seeder
                         ->where('permission_id', $permission->id)
                         ->exists();
 
-                    if (!$hasPermission) {
+                    if (! $hasPermission) {
                         // Permissionı rola əlavə et
                         $regionAdminRole->givePermissionTo($permission);
                         $addedPermissions[] = $permissionName;
-                        
+
                         $this->command->info("✅ Added permission: {$permissionName} to RegionAdmin role");
                     } else {
                         $existingPermissions[] = $permissionName;
@@ -68,10 +69,10 @@ class RegionAdminTeacherPermissionsSeeder extends Seeder
             // Nəticəni göstər
             $this->command->line('');
             $this->command->info('🎯 RegionAdmin Teacher Permissions Seeder completed!');
-            $this->command->line("📊 Added: " . count($addedPermissions) . " permissions");
-            $this->command->line("📋 Already existed: " . count($existingPermissions) . " permissions");
-            
-            if (!empty($addedPermissions)) {
+            $this->command->line('📊 Added: ' . count($addedPermissions) . ' permissions');
+            $this->command->line('📋 Already existed: ' . count($existingPermissions) . ' permissions');
+
+            if (! empty($addedPermissions)) {
                 $this->command->line('✨ New permissions added: ' . implode(', ', $addedPermissions));
             }
 
@@ -79,14 +80,13 @@ class RegionAdminTeacherPermissionsSeeder extends Seeder
             Log::info('RegionAdminTeacherPermissionsSeeder executed', [
                 'added_permissions' => $addedPermissions,
                 'existing_permissions' => $existingPermissions,
-                'total_processed' => count($teacherPermissions)
+                'total_processed' => count($teacherPermissions),
             ]);
-
         } catch (\Exception $e) {
             $this->command->error('❌ Error in RegionAdminTeacherPermissionsSeeder: ' . $e->getMessage());
             Log::error('RegionAdminTeacherPermissionsSeeder failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

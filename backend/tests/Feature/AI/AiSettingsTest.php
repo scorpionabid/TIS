@@ -63,7 +63,7 @@ class AiSettingsTest extends TestCase
         $response = $this->actingAs($regionAdmin)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => 'sk-test-key-1234567890',
+                'api_key' => 'sk-test-key-1234567890',
             ]);
 
         $response->assertStatus(403);
@@ -76,7 +76,7 @@ class AiSettingsTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => 'sk-test-key-1234567890',
+                'api_key' => 'sk-test-key-1234567890',
             ]);
 
         // schooladmin-in ai_analysis.view permission-u yoxdur — middleware 403 qaytarır
@@ -90,13 +90,13 @@ class AiSettingsTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => 'sk-test-key-1234567890',
+                'api_key' => 'sk-test-key-1234567890',
             ]);
 
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('ai_llm_settings', [
-            'provider'  => 'openai',
+            'provider' => 'openai',
             'is_active' => true,
         ]);
     }
@@ -108,7 +108,7 @@ class AiSettingsTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'invalid_provider',
-                'api_key'  => 'sk-test-key-1234567890',
+                'api_key' => 'sk-test-key-1234567890',
             ]);
 
         $response->assertStatus(422);
@@ -121,7 +121,7 @@ class AiSettingsTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => '',
+                'api_key' => '',
             ]);
 
         $response->assertStatus(422);
@@ -135,7 +135,7 @@ class AiSettingsTest extends TestCase
         $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => $plainApiKey,
+                'api_key' => $plainApiKey,
             ]);
 
         // DB-dəki raw dəyər Laravel-in encrypt() funksiyası ilə şifrəliydir —
@@ -158,14 +158,14 @@ class AiSettingsTest extends TestCase
         $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => 'sk-test-1234567890',
+                'api_key' => 'sk-test-1234567890',
             ]);
 
         // İkinci provider — anthropic
         $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'anthropic',
-                'api_key'  => 'sk-ant-test-1234567890',
+                'api_key' => 'sk-ant-test-1234567890',
             ]);
 
         // Yalnız 1 aktiv qeyd olmalıdır
@@ -184,7 +184,7 @@ class AiSettingsTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'gemini',
-                'api_key'  => 'AIza-test-key-1234567890',
+                'api_key' => 'AIza-test-key-1234567890',
             ]);
 
         $response->assertStatus(200);
@@ -201,8 +201,8 @@ class AiSettingsTest extends TestCase
         $this->actingAs($user)
             ->postJson('/api/ai-analysis/settings', [
                 'provider' => 'openai',
-                'api_key'  => 'sk-test-key-1234567890',
-                'model'    => 'gpt-4-turbo',
+                'api_key' => 'sk-test-key-1234567890',
+                'model' => 'gpt-4-turbo',
             ]);
 
         $setting = AiLlmSetting::where('provider', 'openai')->latest()->first();

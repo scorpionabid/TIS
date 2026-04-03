@@ -26,7 +26,7 @@ class PreschoolAttendanceController extends BaseController
 
     public function index(Request $request): JsonResponse
     {
-        $user        = Auth::user();
+        $user = Auth::user();
         $institution = $user->institution;
 
         if (! $institution || ! in_array($institution->type, self::PRESCHOOL_TYPES)) {
@@ -50,19 +50,19 @@ class PreschoolAttendanceController extends BaseController
             $record = $existingRecords->get($group->id);
 
             return [
-                'group_id'       => $group->id,
-                'group_name'     => $group->name,
+                'group_id' => $group->id,
+                'group_name' => $group->name,
                 'total_enrolled' => (int) ($group->student_count ?? 0),
-                'attendance'     => $record ? [
-                    'id'              => $record->id,
-                    'present_count'   => $record->present_count,
-                    'absent_count'    => $record->absent_count,
+                'attendance' => $record ? [
+                    'id' => $record->id,
+                    'present_count' => $record->present_count,
+                    'absent_count' => $record->absent_count,
                     'attendance_rate' => $record->attendance_rate,
-                    'notes'           => $record->notes,
-                    'is_locked'       => $record->is_locked,
-                    'photo_count'     => $record->photos->count(),
-                    'photos'          => $record->photos->map(fn (PreschoolAttendancePhoto $p) => [
-                        'id'  => $p->id,
+                    'notes' => $record->notes,
+                    'is_locked' => $record->is_locked,
+                    'photo_count' => $record->photos->count(),
+                    'photos' => $record->photos->map(fn (PreschoolAttendancePhoto $p) => [
+                        'id' => $p->id,
                         'url' => route('preschool.photos.serve', ['photo' => $p->id]),
                     ])->values(),
                 ] : null,
@@ -71,10 +71,10 @@ class PreschoolAttendanceController extends BaseController
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'date'        => $date,
+            'data' => [
+                'date' => $date,
                 'institution' => ['id' => $institution->id, 'name' => $institution->name],
-                'groups'      => $groupsData,
+                'groups' => $groupsData,
             ],
             'message' => 'Davamiyyət məlumatları yükləndi.',
         ]);
@@ -82,7 +82,7 @@ class PreschoolAttendanceController extends BaseController
 
     public function store(StorePreschoolAttendanceRequest $request): JsonResponse
     {
-        $user        = Auth::user();
+        $user = Auth::user();
         $institution = $user->institution;
 
         if (! $institution || ! in_array($institution->type, self::PRESCHOOL_TYPES)) {
@@ -90,7 +90,7 @@ class PreschoolAttendanceController extends BaseController
         }
 
         $savedCount = 0;
-        $failedIds  = [];
+        $failedIds = [];
 
         DB::transaction(function () use ($request, $user, &$savedCount, &$failedIds): void {
             foreach ($request->groups as $groupData) {
@@ -101,6 +101,7 @@ class PreschoolAttendanceController extends BaseController
 
                     if (! $grade) {
                         $failedIds[] = $groupData['group_id'];
+
                         continue;
                     }
 
@@ -112,13 +113,14 @@ class PreschoolAttendanceController extends BaseController
 
                     if ($record->is_locked) {
                         $failedIds[] = $groupData['group_id'];
+
                         continue;
                     }
 
-                    $record->present_count  = min((int) $groupData['present_count'], $record->total_enrolled ?: PHP_INT_MAX);
+                    $record->present_count = min((int) $groupData['present_count'], $record->total_enrolled ?: PHP_INT_MAX);
                     $record->total_enrolled = (int) ($grade->student_count ?? $record->total_enrolled);
-                    $record->notes          = $groupData['notes'] ?? $record->notes;
-                    $record->recorded_by    = $user->id;
+                    $record->notes = $groupData['notes'] ?? $record->notes;
+                    $record->recorded_by = $user->id;
                     $record->calculateAndSaveRate();
                     $record->save();
 
@@ -126,7 +128,7 @@ class PreschoolAttendanceController extends BaseController
                 } catch (\Exception $e) {
                     Log::error('PreschoolAttendance save error', [
                         'group_id' => $groupData['group_id'],
-                        'error'    => $e->getMessage(),
+                        'error' => $e->getMessage(),
                     ]);
                     $failedIds[] = $groupData['group_id'];
                 }
@@ -135,10 +137,10 @@ class PreschoolAttendanceController extends BaseController
 
         return response()->json([
             'success' => $savedCount > 0,
-            'data'    => [
-                'saved_count'  => $savedCount,
+            'data' => [
+                'saved_count' => $savedCount,
                 'failed_count' => count($failedIds),
-                'failed_ids'   => $failedIds,
+                'failed_ids' => $failedIds,
             ],
             'message' => $savedCount > 0
                 ? "{$savedCount} qrup üçün davamiyyət saxlandı."
@@ -154,9 +156,9 @@ class PreschoolAttendanceController extends BaseController
             return response()->json(['success' => false, 'message' => 'İcazəsiz əməliyyat.'], 403);
         }
 
-        $photoDate   = $attendance->attendance_date->format('Y-m-d');
-        $year        = Carbon::parse($photoDate)->format('Y');
-        $month       = Carbon::parse($photoDate)->format('m');
+        $photoDate = $attendance->attendance_date->format('Y-m-d');
+        $year = Carbon::parse($photoDate)->format('Y');
+        $month = Carbon::parse($photoDate)->format('m');
         $storagePath = "preschool-photos/{$year}/{$month}/{$attendance->institution_id}";
 
         $savedPhotos = [];
@@ -169,24 +171,24 @@ class PreschoolAttendanceController extends BaseController
 
             $photo = PreschoolAttendancePhoto::create([
                 'preschool_attendance_id' => $attendance->id,
-                'institution_id'          => $attendance->institution_id,
-                'uploaded_by'             => $user->id,
-                'photo_date'              => $photoDate,
-                'file_path'               => $fullPath,
-                'original_filename'       => $file->getClientOriginalName(),
-                'mime_type'               => $file->getMimeType() ?? 'image/jpeg',
-                'file_size_bytes'         => $file->getSize(),
+                'institution_id' => $attendance->institution_id,
+                'uploaded_by' => $user->id,
+                'photo_date' => $photoDate,
+                'file_path' => $fullPath,
+                'original_filename' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType() ?? 'image/jpeg',
+                'file_size_bytes' => $file->getSize(),
             ]);
 
             $savedPhotos[] = [
-                'id'  => $photo->id,
+                'id' => $photo->id,
                 'url' => route('preschool.photos.serve', ['photo' => $photo->id]),
             ];
         }
 
         return response()->json([
             'success' => true,
-            'data'    => ['photos' => $savedPhotos, 'count' => count($savedPhotos)],
+            'data' => ['photos' => $savedPhotos, 'count' => count($savedPhotos)],
             'message' => count($savedPhotos) . ' şəkil uğurla yükləndi.',
         ], 201);
     }
@@ -223,7 +225,7 @@ class PreschoolAttendanceController extends BaseController
         }
 
         return response()->file($path, [
-            'Content-Type'        => $photo->mime_type,
+            'Content-Type' => $photo->mime_type,
             'Content-Disposition' => 'inline; filename="' . $photo->original_filename . '"',
         ]);
     }

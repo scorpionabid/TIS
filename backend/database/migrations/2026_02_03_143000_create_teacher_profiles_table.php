@@ -29,7 +29,7 @@ return new class extends Migration
             $table->json('social_links')->nullable();
             $table->json('preferences')->nullable();
             $table->timestamps();
-            
+
             $table->index('user_id');
             $table->index('subject');
             $table->index('school');

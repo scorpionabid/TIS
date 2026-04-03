@@ -7,6 +7,7 @@ use Exception;
 class GradeBookException extends Exception
 {
     protected array $details = [];
+
     protected string $errorCode;
 
     public function __construct(string $message, string $errorCode = 'GRADEBOOK_ERROR', array $details = [], int $code = 422)

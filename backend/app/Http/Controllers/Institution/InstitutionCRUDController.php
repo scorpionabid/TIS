@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Institution;
 
+use App\Constants\SubjectConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\InstitutionDeleteRequest;
 use App\Models\Institution;
@@ -93,6 +94,8 @@ class InstitutionCRUDController extends Controller
 
             // Only add curriculum stats subqueries if we have a valid academic year
             if ($academicYearId > 0) {
+                $clubId = SubjectConstants::CLUB_SUBJECT_ID;
+
                 $query->addSelect(['institutions.*'])
                     ->addSelect([
                         'curriculum_status' => DB::table('curriculum_plan_approvals')
@@ -106,7 +109,7 @@ class InstitutionCRUDController extends Controller
                             ->selectRaw('COALESCE(SUM(hours), 0)')
                             ->whereColumn('institution_id', 'institutions.id')
                             ->where('academic_year_id', $academicYearId)
-                            ->where('subject_id', '<>', 57),
+                            ->where('subject_id', '<>', $clubId),
 
                         'curriculum_total_hours' => DB::table('curriculum_plans')
                             ->selectRaw('COALESCE(SUM(hours), 0)')
@@ -117,7 +120,7 @@ class InstitutionCRUDController extends Controller
                             ->selectRaw('COALESCE(SUM(hours), 0)')
                             ->whereColumn('institution_id', 'institutions.id')
                             ->where('academic_year_id', $academicYearId)
-                            ->where('subject_id', 57),
+                            ->where('subject_id', $clubId),
                     ]);
 
                 // To avoid Cardinality Violation errors from nested subqueries selecting from grades table,
@@ -125,30 +128,30 @@ class InstitutionCRUDController extends Controller
                 // Using addSelect('institutions.*') first ensures we don't drop the base table columns,
                 // and addSelect prevents overwriting the previous addSelect[] array elements from above.
                 $query->addSelect('institutions.*')
-                    ->selectRaw('(
-                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans 
-                    WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id <> 57)
+                    ->selectRaw("(
+                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans
+                    WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id <> {$clubId})
                     -
                     (SELECT COALESCE(SUM(tl.weekly_hours), 0) FROM teaching_loads tl
                     INNER JOIN classes c ON tl.class_id = c.id
-                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.subject_id <> 57 AND tl.deleted_at IS NULL)
-                  ) as curriculum_main_vacancies', [$academicYearId, $academicYearId])
+                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.subject_id <> {$clubId} AND tl.deleted_at IS NULL)
+                  ) as curriculum_main_vacancies", [$academicYearId, $academicYearId])
                     ->selectRaw('(
-                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans 
+                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans
                     WHERE institution_id = institutions.id AND academic_year_id = ?)
                     -
                     (SELECT COALESCE(SUM(tl.weekly_hours), 0) FROM teaching_loads tl
                     INNER JOIN classes c ON tl.class_id = c.id
                     WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.deleted_at IS NULL)
                   ) as curriculum_vacancies', [$academicYearId, $academicYearId])
-                    ->selectRaw('(
-                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans 
-                    WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id = 57)
+                    ->selectRaw("(
+                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans
+                    WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id = {$clubId})
                     -
                     (SELECT COALESCE(SUM(tl.weekly_hours), 0) FROM teaching_loads tl
                     INNER JOIN classes c ON tl.class_id = c.id
-                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.subject_id = 57 AND tl.deleted_at IS NULL)
-                  ) as curriculum_club_vacancies', [$academicYearId, $academicYearId]);
+                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.subject_id = {$clubId} AND tl.deleted_at IS NULL)
+                  ) as curriculum_club_vacancies", [$academicYearId, $academicYearId]);
             } // end if ($academicYearId > 0)
         } // end if (with_curriculum_stats)
 
@@ -162,30 +165,33 @@ class InstitutionCRUDController extends Controller
 
             if (! empty($institutionIds)) {
                 // One single DISTINCT ON query to get correctly deduplicated stats for all institutions
+                $clubId = SubjectConstants::CLUB_SUBJECT_ID;
                 $batchStats = DB::select("
                     SELECT
                         institution_id,
                         COALESCE(SUM(hours), 0) as total_hours,
-                        COALESCE(SUM(CASE WHEN subject_id <> 57 THEN hours ELSE 0 END), 0) as main_hours,
-                        COALESCE(SUM(CASE WHEN subject_id = 57 THEN hours ELSE 0 END), 0) as club_hours
+                        COALESCE(SUM(CASE WHEN subject_id <> {$clubId} THEN hours ELSE 0 END), 0) as main_hours,
+                        COALESCE(SUM(CASE WHEN subject_id = {$clubId} THEN hours ELSE 0 END), 0) as club_hours
                     FROM (
                         SELECT DISTINCT ON (
-                            institution_id, 
-                            class_level, 
-                            subject_id, 
+                            institution_id,
+                            class_level,
+                            subject_id,
+                            education_type,
                             COALESCE(is_extra, false)
                         )
-                            institution_id, 
-                            subject_id, 
+                            institution_id,
+                            subject_id,
                             hours
                         FROM curriculum_plans
                         WHERE academic_year_id = :year_id
                           AND institution_id = ANY(:inst_ids)
-                        ORDER BY 
-                            institution_id, 
-                            class_level, 
-                            subject_id, 
-                            COALESCE(is_extra, false), 
+                        ORDER BY
+                            institution_id,
+                            class_level,
+                            subject_id,
+                            education_type,
+                            COALESCE(is_extra, false),
                             id ASC
                     ) as deduped
                     GROUP BY institution_id
@@ -194,10 +200,10 @@ class InstitutionCRUDController extends Controller
                     'inst_ids' => '{' . implode(',', $institutionIds) . '}',
                 ]);
 
-                $statsMap = collect($batchStats)->keyBy(fn($item) => (int)$item->institution_id);
+                $statsMap = collect($batchStats)->keyBy(fn ($item) => (int) $item->institution_id);
 
                 $institutions->getCollection()->transform(function ($institution) use ($statsMap) {
-                    $stats = $statsMap->get((int)$institution->id);
+                    $stats = $statsMap->get((int) $institution->id);
                     if ($stats) {
                         // Correct teaching load hours = inflated_plan - raw_vacancy
                         $inflatedMain = (float) $institution->curriculum_main_hours;
@@ -220,9 +226,9 @@ class InstitutionCRUDController extends Controller
                         $institution->curriculum_main_hours = $correctMain;
                         $institution->curriculum_total_hours = $correctTotal;
                         $institution->curriculum_club_hours = $correctClub;
-                        $institution->curriculum_main_vacancies = $correctMain - $mainLoad;
-                        $institution->curriculum_vacancies = $correctTotal - $totalLoad;
-                        $institution->curriculum_club_vacancies = $correctClub - $clubLoad;
+                        $institution->curriculum_main_vacancies = max(0.0, $correctMain - $mainLoad);
+                        $institution->curriculum_vacancies = max(0.0, $correctTotal - $totalLoad);
+                        $institution->curriculum_club_vacancies = max(0.0, $correctClub - $clubLoad);
                     }
 
                     return $institution;

@@ -142,15 +142,13 @@ class TaskCrudController extends BaseTaskController
                         // Tasks directly assigned to this user — AND user has no cancelled/rejected assignment
                         ->where(function ($q) use ($user) {
                             $q->where('assigned_to', $user->id)
-                              ->whereDoesntHave('assignments', fn ($aq) =>
-                                  $aq->where('assigned_user_id', $user->id)
-                                     ->whereIn('assignment_status', ['cancelled', 'rejected'])
-                              );
+                                ->whereDoesntHave('assignments', fn ($aq) => $aq->where('assigned_user_id', $user->id)
+                                    ->whereIn('assignment_status', ['cancelled', 'rejected'])
+                                );
                         })
                         // OR tasks where user has an active (non-cancelled, non-rejected) assignment record
-                        ->orWhereHas('assignments', fn ($aq) =>
-                            $aq->where('assigned_user_id', $user->id)
-                               ->whereNotIn('assignment_status', ['cancelled', 'rejected'])
+                        ->orWhereHas('assignments', fn ($aq) => $aq->where('assigned_user_id', $user->id)
+                            ->whereNotIn('assignment_status', ['cancelled', 'rejected'])
                         );
                 });
 

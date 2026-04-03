@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::create('preschool_attendance_photos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('preschool_attendance_id')
-                  ->constrained('preschool_attendance')
-                  ->cascadeOnDelete();
+                ->constrained('preschool_attendance')
+                ->cascadeOnDelete();
             $table->foreignId('institution_id')->constrained('institutions')->cascadeOnDelete();
             $table->foreignId('uploaded_by')->constrained('users')->restrictOnDelete();
             $table->date('photo_date');

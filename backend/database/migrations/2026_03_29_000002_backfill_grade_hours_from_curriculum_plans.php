@@ -21,8 +21,8 @@ return new class extends Migration
             ->get();
 
         $typeToColumn = [
-            'ferdi'  => 'individual_hours',
-            'evde'   => 'home_hours',
+            'ferdi' => 'individual_hours',
+            'evde' => 'home_hours',
             'xususi' => 'special_hours',
         ];
 

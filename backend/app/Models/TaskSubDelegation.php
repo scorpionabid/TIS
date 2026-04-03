@@ -116,9 +116,9 @@ class TaskSubDelegation extends Model
      */
     public function isOverdue(): bool
     {
-        return $this->deadline && 
-               $this->deadline->isPast() && 
-               !in_array($this->status, ['completed', 'cancelled']);
+        return $this->deadline &&
+               $this->deadline->isPast() &&
+               ! in_array($this->status, ['completed', 'cancelled']);
     }
 
     /**
@@ -126,7 +126,7 @@ class TaskSubDelegation extends Model
      */
     public function getStatusColor(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'yellow',
             'accepted' => 'blue',
             'in_progress' => 'indigo',
@@ -141,7 +141,7 @@ class TaskSubDelegation extends Model
      */
     public function getStatusLabel(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'Gözləyir',
             'accepted' => 'Qəbul edildi',
             'in_progress' => 'İcrada',

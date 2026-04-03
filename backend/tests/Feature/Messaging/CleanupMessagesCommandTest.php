@@ -16,29 +16,29 @@ class CleanupMessagesCommandTest extends TestCase
 
     public function test_cleanup_soft_deletes_expired_read_recipients(): void
     {
-        $sender    = $this->createUserWithRole('regionadmin');
+        $sender = $this->createUserWithRole('regionadmin');
         $recipient = $this->createUserWithRole('schooladmin');
 
         $message = Message::create(['sender_id' => $sender->id, 'body' => 'Oxunmuş, müddəti keçmiş']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'is_read'      => true,
-            'read_at'      => now()->subDay()->subMinute(),
-            'expires_at'   => now()->subMinute(), // müddəti keçmiş
+            'is_read' => true,
+            'read_at' => now()->subDay()->subMinute(),
+            'expires_at' => now()->subMinute(), // müddəti keçmiş
         ]);
 
         $this->artisan('messages:cleanup')->assertExitCode(0);
 
         $this->assertSoftDeleted('message_recipients', [
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
         ]);
     }
 
     public function test_cleanup_does_not_delete_unread_within_five_days(): void
     {
-        $sender    = $this->createUserWithRole('regionadmin');
+        $sender = $this->createUserWithRole('regionadmin');
         $recipient = $this->createUserWithRole('schooladmin');
 
         $message = Message::create(['sender_id' => $sender->id, 'body' => '3 günlük oxunmamış mesaj']);
@@ -46,24 +46,24 @@ class CleanupMessagesCommandTest extends TestCase
             ->where('id', $message->id)
             ->update(['created_at' => now()->subDays(3)]);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         $this->artisan('messages:cleanup')->assertExitCode(0);
 
         // Silinməməlidir
         $this->assertDatabaseHas('message_recipients', [
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'deleted_at'   => null,
+            'deleted_at' => null,
         ]);
     }
 
     public function test_cleanup_soft_deletes_unread_recipients_after_five_days(): void
     {
-        $sender    = $this->createUserWithRole('regionadmin');
+        $sender = $this->createUserWithRole('regionadmin');
         $recipient = $this->createUserWithRole('schooladmin');
 
         $message = Message::create(['sender_id' => $sender->id, 'body' => '6 günlük oxunmamış']);
@@ -72,54 +72,54 @@ class CleanupMessagesCommandTest extends TestCase
             ->where('id', $message->id)
             ->update(['created_at' => now()->subDays(6)]);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'is_read'      => false,
+            'is_read' => false,
         ]);
 
         $this->artisan('messages:cleanup')->assertExitCode(0);
 
         $this->assertSoftDeleted('message_recipients', [
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
         ]);
     }
 
     public function test_cleanup_does_not_delete_unexpired_read_recipients(): void
     {
-        $sender    = $this->createUserWithRole('regionadmin');
+        $sender = $this->createUserWithRole('regionadmin');
         $recipient = $this->createUserWithRole('schooladmin');
 
         $message = Message::create(['sender_id' => $sender->id, 'body' => 'Yeni oxunmuş']);
         MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'is_read'      => true,
-            'read_at'      => now(),
-            'expires_at'   => now()->addDay(), // hələ vaxtı çatmayıb
+            'is_read' => true,
+            'read_at' => now(),
+            'expires_at' => now()->addDay(), // hələ vaxtı çatmayıb
         ]);
 
         $this->artisan('messages:cleanup')->assertExitCode(0);
 
         // Silinməməlidir
         $this->assertDatabaseHas('message_recipients', [
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'deleted_at'   => null,
+            'deleted_at' => null,
         ]);
     }
 
     public function test_cleanup_hard_deletes_orphan_messages(): void
     {
-        $sender    = $this->createUserWithRole('regionadmin');
+        $sender = $this->createUserWithRole('regionadmin');
         $recipient = $this->createUserWithRole('schooladmin');
 
         $message = Message::create(['sender_id' => $sender->id, 'body' => 'Orphan mesaj']);
         $recipientRecord = MessageRecipient::create([
-            'message_id'   => $message->id,
+            'message_id' => $message->id,
             'recipient_id' => $recipient->id,
-            'is_read'      => true,
-            'expires_at'   => now()->subMinute(),
+            'is_read' => true,
+            'expires_at' => now()->subMinute(),
         ]);
 
         // Göndərən tərəfindən silinmiş + recipient də soft-deleted

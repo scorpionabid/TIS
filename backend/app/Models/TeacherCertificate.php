@@ -28,7 +28,7 @@ class TeacherCertificate extends Model
         'approval_status',
         'approval_rejection_reason',
         'approved_at',
-        'approved_by'
+        'approved_by',
     ];
 
     protected $casts = [
@@ -44,32 +44,44 @@ class TeacherCertificate extends Model
      * Certificate statuses
      */
     const STATUS_ACTIVE = 'active';
+
     const STATUS_EXPIRED = 'expired';
+
     const STATUS_REVOKED = 'revoked';
 
     /**
      * Approval statuses
      */
     const APPROVAL_STATUS_PENDING = 'pending';
+
     const APPROVAL_STATUS_APPROVED = 'approved';
+
     const APPROVAL_STATUS_REJECTED = 'rejected';
 
     /**
      * Certificate levels
      */
     const LEVEL_BEGINNER = 'beginner';
+
     const LEVEL_INTERMEDIATE = 'intermediate';
+
     const LEVEL_ADVANCED = 'advanced';
+
     const LEVEL_EXPERT = 'expert';
 
     /**
      * Certificate categories
      */
     const CATEGORY_TEACHING = 'teaching';
+
     const CATEGORY_TECHNICAL = 'technical';
+
     const CATEGORY_LANGUAGE = 'language';
+
     const CATEGORY_MANAGEMENT = 'management';
+
     const CATEGORY_RESEARCH = 'research';
+
     const CATEGORY_OTHER = 'other';
 
     /**
@@ -94,7 +106,7 @@ class TeacherCertificate extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(TeacherProfileApproval::class, 'model_id')
-                    ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_CERTIFICATE);
+            ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_CERTIFICATE);
     }
 
     /**
@@ -151,10 +163,10 @@ class TeacherCertificate extends Model
     public function scopeExpired($query)
     {
         return $query->where('status', self::STATUS_EXPIRED)
-                    ->orWhere(function ($q) {
-                        $q->whereNotNull('expiry_date')
-                          ->where('expiry_date', '<', now());
-                    });
+            ->orWhere(function ($q) {
+                $q->whereNotNull('expiry_date')
+                    ->where('expiry_date', '<', now());
+            });
     }
 
     /**
@@ -163,9 +175,9 @@ class TeacherCertificate extends Model
     public function scopeExpiringSoon($query)
     {
         return $query->where('status', self::STATUS_ACTIVE)
-                    ->whereNotNull('expiry_date')
-                    ->where('expiry_date', '<=', now()->addDays(30))
-                    ->where('expiry_date', '>', now());
+            ->whereNotNull('expiry_date')
+            ->where('expiry_date', '<=', now()->addDays(30))
+            ->where('expiry_date', '>', now());
     }
 
     /**
@@ -213,10 +225,10 @@ class TeacherCertificate extends Model
      */
     public function isExpired(): bool
     {
-        if (!$this->expiry_date) {
+        if (! $this->expiry_date) {
             return false;
         }
-        
+
         return $this->expiry_date->isPast();
     }
 
@@ -225,10 +237,10 @@ class TeacherCertificate extends Model
      */
     public function isExpiringSoon(): bool
     {
-        if (!$this->expiry_date || $this->isExpired()) {
+        if (! $this->expiry_date || $this->isExpired()) {
             return false;
         }
-        
+
         return $this->expiry_date->diffInDays(now()) <= 30;
     }
 
@@ -237,10 +249,10 @@ class TeacherCertificate extends Model
      */
     public function getDaysUntilExpiryAttribute(): int
     {
-        if (!$this->expiry_date) {
+        if (! $this->expiry_date) {
             return -1;
         }
-        
+
         return $this->expiry_date->diffInDays(now());
     }
 
@@ -321,11 +333,11 @@ class TeacherCertificate extends Model
         if ($this->isExpired()) {
             return 'red';
         }
-        
+
         if ($this->isExpiringSoon()) {
             return 'yellow';
         }
-        
+
         switch ($this->status) {
             case self::STATUS_ACTIVE:
                 return 'green';
@@ -363,7 +375,7 @@ class TeacherCertificate extends Model
     public function removeSkill(string $skill): void
     {
         $skills = $this->skills ?? [];
-        $skills = array_values(array_filter($skills, fn($s) => $s !== $skill));
+        $skills = array_values(array_filter($skills, fn ($s) => $s !== $skill));
         $this->skills = $skills;
         $this->save();
     }
@@ -373,10 +385,10 @@ class TeacherCertificate extends Model
      */
     public function getValidityPeriodAttribute(): int
     {
-        if (!$this->date || !$this->expiry_date) {
+        if (! $this->date || ! $this->expiry_date) {
             return 0;
         }
-        
+
         return $this->date->diffInYears($this->expiry_date);
     }
 
@@ -437,7 +449,7 @@ class TeacherCertificate extends Model
             'approval_status' => self::APPROVAL_STATUS_APPROVED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'approval_rejection_reason' => null
+            'approval_rejection_reason' => null,
         ]);
     }
 
@@ -450,7 +462,7 @@ class TeacherCertificate extends Model
             'approval_status' => self::APPROVAL_STATUS_REJECTED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'approval_rejection_reason' => $reason
+            'approval_rejection_reason' => $reason,
         ]);
     }
 
@@ -461,7 +473,7 @@ class TeacherCertificate extends Model
     {
         $this->update([
             'approval_status' => self::APPROVAL_STATUS_PENDING,
-            'approval_rejection_reason' => null
+            'approval_rejection_reason' => null,
         ]);
     }
 

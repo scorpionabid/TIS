@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\CurriculumPlanService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
 class CurriculumPlanController extends Controller
@@ -101,7 +101,7 @@ class CurriculumPlanController extends Controller
         DB::beginTransaction();
         try {
             $this->service->deleteSubjectFromPlan($institutionId, $yearId, $subjectId, $eduType, $request->user());
-            
+
             // Recalculate for all potentially affected grades
             $this->service->recalculateGradeCurriculumHours($institutionId, $yearId);
 
@@ -134,8 +134,8 @@ class CurriculumPlanController extends Controller
 
         try {
             $this->service->submitForApproval(
-                (int)$request->institution_id,
-                (int)$request->academic_year_id,
+                (int) $request->institution_id,
+                (int) $request->academic_year_id,
                 $request->user()->id
             );
 
@@ -157,8 +157,8 @@ class CurriculumPlanController extends Controller
 
         try {
             $this->service->approvePlan(
-                (int)$request->institution_id,
-                (int)$request->academic_year_id,
+                (int) $request->institution_id,
+                (int) $request->academic_year_id,
                 $request->user()->id
             );
 
@@ -181,8 +181,8 @@ class CurriculumPlanController extends Controller
 
         try {
             $this->service->returnPlan(
-                (int)$request->institution_id,
-                (int)$request->academic_year_id,
+                (int) $request->institution_id,
+                (int) $request->academic_year_id,
                 $request->user()->id,
                 $request->comment
             );
@@ -205,8 +205,8 @@ class CurriculumPlanController extends Controller
 
         try {
             $this->service->resetPlan(
-                (int)$request->institution_id,
-                (int)$request->academic_year_id,
+                (int) $request->institution_id,
+                (int) $request->academic_year_id,
                 $request->user()->id
             );
 
@@ -222,16 +222,20 @@ class CurriculumPlanController extends Controller
     public function getSettings(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user->institution_id) {
+        if (! $user->institution_id) {
+            // SuperAdmin-in institution_id-si yoxdur — default boş settings qaytarılır
             return response()->json([
-                'status' => 'error',
-                'message' => 'İstifadəçinin müəssisə məlumatı tapılmadı.'
-            ], 422);
+                'status' => 'success',
+                'deadline' => null,
+                'is_locked' => false,
+                'can_sektor_edit' => true,
+                'can_operator_edit' => true,
+            ]);
         }
 
         try {
             $settings = $this->service->getRegionSettings($user->institution_id);
-            
+
             return response()->json([
                 'status' => 'success',
                 'deadline' => $settings['deadline'],
@@ -241,9 +245,10 @@ class CurriculumPlanController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::warning("Region settings fetch failed for User ID: {$user->id}: " . $e->getMessage());
+
             return response()->json([
-                'status' => 'error', 
-                'message' => 'Bu müəssisə üçün region tənzimləmələri tapılmadı.'
+                'status' => 'error',
+                'message' => 'Bu müəssisə üçün region tənzimləmələri tapılmadı.',
             ], 422);
         }
     }
@@ -261,20 +266,24 @@ class CurriculumPlanController extends Controller
         ]);
 
         $user = $request->user();
-        if (!$user->hasRole('regionadmin')) {
+        if (! $user->hasAnyRole(['regionadmin', 'superadmin'])) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
             ], 403);
         }
 
-        // RegionAdmin-in öz regionunu tapırıq
-        $region = \App\Models\Region::where('institution_id', $user->institution_id)->first();
-        
-        if (!$region) {
+        // RegionAdmin-in öz regionunu tapırıq; SuperAdmin üçün request-dən region_id istifadə edilir
+        $institutionId = $user->hasRole('superadmin')
+            ? $request->input('institution_id', $user->institution_id)
+            : $user->institution_id;
+
+        $region = \App\Models\Region::where('institution_id', $institutionId)->first();
+
+        if (! $region) {
             return response()->json([
-                'status' => 'error', 
-                'message' => 'Tənzimləmələri yeniləmək üçün region məlumatı tapılmadı.'
+                'status' => 'error',
+                'message' => 'Tənzimləmələri yeniləmək üçün region məlumatı tapılmadı.',
             ], 422);
         }
 

@@ -23,18 +23,18 @@ return new class extends Migration
             ->update([
                 'approval_chain' => json_encode([
                     [
-                        'level'         => 1,
-                        'role'          => 'schooladmin',
+                        'level' => 1,
+                        'role' => 'schooladmin',
                         'allowed_roles' => ['schooladmin', 'preschooladmin'],
-                        'required'      => false,
-                        'title'         => 'Məktəb Admini Təsdiqləməsi',
+                        'required' => false,
+                        'title' => 'Məktəb Admini Təsdiqləməsi',
                     ],
                     [
-                        'level'         => 2,
-                        'role'          => 'sektoradmin',
+                        'level' => 2,
+                        'role' => 'sektoradmin',
                         'allowed_roles' => ['sektoradmin', 'regionadmin', 'regionoperator'],
-                        'required'      => true,
-                        'title'         => 'Sektor/Region Admini Təsdiqləməsi',
+                        'required' => true,
+                        'title' => 'Sektor/Region Admini Təsdiqləməsi',
                     ],
                 ]),
             ]);
@@ -53,15 +53,15 @@ return new class extends Migration
             DB::table('data_approval_requests')
                 ->where('id', $req->id)
                 ->update([
-                    'current_status'         => 'approved',
+                    'current_status' => 'approved',
                     'current_approval_level' => 2,
-                    'completed_at'           => now(),
+                    'completed_at' => now(),
                 ]);
 
             DB::table('survey_responses')
                 ->where('id', $req->approvalable_id)
                 ->update([
-                    'status'      => 'approved',
+                    'status' => 'approved',
                     'approved_at' => now(),
                 ]);
         }
@@ -84,25 +84,25 @@ return new class extends Migration
             ->update([
                 'approval_chain' => json_encode([
                     [
-                        'level'         => 1,
-                        'role'          => 'schooladmin',
+                        'level' => 1,
+                        'role' => 'schooladmin',
                         'allowed_roles' => ['schooladmin', 'preschooladmin'],
-                        'required'      => false,
-                        'title'         => 'Məktəb Admini Təsdiqləməsi',
+                        'required' => false,
+                        'title' => 'Məktəb Admini Təsdiqləməsi',
                     ],
                     [
-                        'level'         => 2,
-                        'role'          => 'sektoradmin',
+                        'level' => 2,
+                        'role' => 'sektoradmin',
                         'allowed_roles' => ['sektoradmin'],
-                        'required'      => true,
-                        'title'         => 'Sektor Admini Təsdiqləməsi',
+                        'required' => true,
+                        'title' => 'Sektor Admini Təsdiqləməsi',
                     ],
                     [
-                        'level'         => 3,
-                        'role'          => 'regionadmin',
+                        'level' => 3,
+                        'role' => 'regionadmin',
                         'allowed_roles' => ['regionadmin', 'regionoperator'],
-                        'required'      => true,
-                        'title'         => 'Region Admini Təsdiqləməsi',
+                        'required' => true,
+                        'title' => 'Region Admini Təsdiqləməsi',
                     ],
                 ]),
             ]);

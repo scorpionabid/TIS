@@ -32,7 +32,7 @@ class TeacherProfile extends Model
         'status',
         'rejection_reason',
         'approved_at',
-        'approved_by'
+        'approved_by',
     ];
 
     protected $casts = [
@@ -84,32 +84,28 @@ class TeacherProfile extends Model
     }
 
     /**
-     * Müəllimin iş yeri qeydləri (teacher_workplaces cədvəli).
+     * Get the education history for the teacher.
      */
-    public function workplaces(): HasMany
+    public function educationHistory(): HasMany
     {
-        return $this->hasMany(TeacherWorkplace::class, 'user_id', 'user_id');
+        return $this->hasMany(TeacherEducation::class);
     }
 
     /**
-     * Müəllimin tədris etdiyi fənlər (teacher_subjects cədvəli).
+     * Get the work experience for the teacher.
      */
-    public function teacherSubjects(): HasMany
+    public function workExperience(): HasMany
     {
-        return $this->hasMany(TeacherSubject::class, 'teacher_id', 'user_id');
+        return $this->hasMany(TeacherWorkExperience::class);
     }
 
     /**
-     * Müəllimin qiymətləndirmələri (teacher_evaluations cədvəli).
+     * Get the skills for the teacher.
      */
-    public function evaluations(): HasMany
+    public function skills(): HasMany
     {
-        return $this->hasMany(TeacherEvaluation::class, 'teacher_id', 'user_id');
+        return $this->hasMany(TeacherSkill::class);
     }
-
-    // NOTE: educationHistory(), workExperience(), skills() metodları silindi.
-    // Səbəb: TeacherEducation, TeacherWorkExperience, TeacherSkill modelleri
-    // və müvafiq DB cədvəlləri mövcud deyil. Gələcəkdə əlavə ediləcək.
 
     /**
      * Get the approval requests for the teacher profile.
@@ -117,7 +113,7 @@ class TeacherProfile extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(TeacherProfileApproval::class, 'model_id')
-                    ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_PROFILE);
+            ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_PROFILE);
     }
 
     /**
@@ -129,16 +125,7 @@ class TeacherProfile extends Model
     }
 
     /**
-     * Fənnə görə filter (yeni FK-əsaslı).
-     */
-    public function scopeBySubjectId($query, int $subjectId)
-    {
-        return $query->where('subject_id', $subjectId);
-    }
-
-    /**
-     * @deprecated Köhnə varchar 'subject' sütununu istifadə edir.
-     * Bunun əvəzinə scopeBySubjectId() istifadə edin.
+     * Scope to get teachers by subject.
      */
     public function scopeBySubject($query, $subject)
     {
@@ -146,16 +133,7 @@ class TeacherProfile extends Model
     }
 
     /**
-     * İnstitusiyaya görə filter (yeni FK-əsaslı).
-     */
-    public function scopeByInstitutionId($query, int $institutionId)
-    {
-        return $query->where('institution_id', $institutionId);
-    }
-
-    /**
-     * @deprecated Köhnə varchar 'school' sütununu istifadə edir.
-     * Bunun əvəzinə scopeByInstitutionId() istifadə edin.
+     * Scope to get teachers by school.
      */
     public function scopeBySchool($query, $school)
     {
@@ -168,11 +146,11 @@ class TeacherProfile extends Model
     public function scopeByExperienceYears($query, $minYears, $maxYears = null)
     {
         $query->where('experience_years', '>=', $minYears);
-        
+
         if ($maxYears !== null) {
             $query->where('experience_years', '<=', $maxYears);
         }
-        
+
         return $query;
     }
 
@@ -198,16 +176,16 @@ class TeacherProfile extends Model
     public function getFormattedPhoneAttribute(): string
     {
         $phone = $this->phone;
-        
-        if (!$phone) {
+
+        if (! $phone) {
             return '';
         }
-        
+
         // Format: +994 XX XXX XX XX
         if (preg_match('/^(\d{3})(\d{2})(\d{3})(\d{2})(\d{2})$/', $phone, $matches)) {
             return "+{$matches[1]} {$matches[2]} {$matches[3]} {$matches[4]} {$matches[5]}";
         }
-        
+
         return $phone;
     }
 
@@ -236,7 +214,7 @@ class TeacherProfile extends Model
     public function removeQualification(string $qualification): void
     {
         $qualifications = $this->qualifications ?? [];
-        $qualifications = array_values(array_filter($qualifications, fn($q) => $q !== $qualification));
+        $qualifications = array_values(array_filter($qualifications, fn ($q) => $q !== $qualification));
         $this->qualifications = $qualifications;
         $this->save();
     }
@@ -247,11 +225,20 @@ class TeacherProfile extends Model
     public function getExperienceLevelAttribute(): string
     {
         $years = $this->experience_years;
-        
-        if ($years < 2) return 'Beginner';
-        if ($years < 5) return 'Intermediate';
-        if ($years < 10) return 'Experienced';
-        if ($years < 15) return 'Senior';
+
+        if ($years < 2) {
+            return 'Beginner';
+        }
+        if ($years < 5) {
+            return 'Intermediate';
+        }
+        if ($years < 10) {
+            return 'Experienced';
+        }
+        if ($years < 15) {
+            return 'Senior';
+        }
+
         return 'Expert';
     }
 
@@ -261,24 +248,22 @@ class TeacherProfile extends Model
     public function getProfileCompletionAttribute(): int
     {
         $fields = [
-            'phone'                  => $this->phone ? 10 : 0,
-            'bio'                    => $this->bio ? 10 : 0,
-            'qualifications'         => !empty($this->qualifications) ? 15 : 0,
-            'specialization'         => $this->specialization ? 10 : 0,
-            // institution_id (FK) istifadə edilir — köhnə 'school' varchar deyil
-            'institution'            => $this->institution_id ? 10 : 0,
-            // subject_id (FK) istifadə edilir — köhnə 'subject' varchar deyil
-            'subject'                => $this->subject_id ? 10 : 0,
-            'address'                => $this->address ? 5 : 0,
+            'phone' => $this->phone ? 10 : 0,
+            'bio' => $this->bio ? 10 : 0,
+            'qualifications' => ! empty($this->qualifications) ? 15 : 0,
+            'specialization' => $this->specialization ? 10 : 0,
+            'school' => $this->school ? 10 : 0,
+            'subject' => $this->subject ? 10 : 0,
+            'address' => $this->address ? 5 : 0,
             'emergency_contact_name' => $this->emergency_contact_name ? 5 : 0,
-            'emergency_contact_phone'=> $this->emergency_contact_phone ? 5 : 0,
-            'photo'                  => $this->photo ? 10 : 0,
+            'emergency_contact_phone' => $this->emergency_contact_phone ? 5 : 0,
+            'photo' => $this->photo ? 10 : 0,
         ];
 
-        // Nailiyyət və sertifikat tamamlanması
+        // Add achievements, certificates, and education completion
         $fields['achievements'] = $this->achievements()->count() > 0 ? 5 : 0;
         $fields['certificates'] = $this->certificates()->count() > 0 ? 5 : 0;
-        // NOTE: educationHistory() silindi — cədvəl mövcud deyil
+        $fields['education'] = $this->educationHistory()->count() > 0 ? 5 : 0;
 
         return array_sum($fields);
     }
@@ -289,10 +274,17 @@ class TeacherProfile extends Model
     public function getProfileCompletionStatusAttribute(): string
     {
         $completion = $this->profile_completion;
-        
-        if ($completion >= 90) return 'Excellent';
-        if ($completion >= 70) return 'Good';
-        if ($completion >= 50) return 'Fair';
+
+        if ($completion >= 90) {
+            return 'Excellent';
+        }
+        if ($completion >= 70) {
+            return 'Good';
+        }
+        if ($completion >= 50) {
+            return 'Fair';
+        }
+
         return 'Incomplete';
     }
 
@@ -300,7 +292,9 @@ class TeacherProfile extends Model
      * Approval statuses
      */
     const STATUS_PENDING = 'pending';
+
     const STATUS_APPROVED = 'approved';
+
     const STATUS_REJECTED = 'rejected';
 
     /**
@@ -360,7 +354,7 @@ class TeacherProfile extends Model
             'status' => self::STATUS_APPROVED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'rejection_reason' => null
+            'rejection_reason' => null,
         ]);
     }
 
@@ -373,7 +367,7 @@ class TeacherProfile extends Model
             'status' => self::STATUS_REJECTED,
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'rejection_reason' => $reason
+            'rejection_reason' => $reason,
         ]);
     }
 
@@ -384,7 +378,7 @@ class TeacherProfile extends Model
     {
         $this->update([
             'status' => self::STATUS_PENDING,
-            'rejection_reason' => null
+            'rejection_reason' => null,
         ]);
     }
 

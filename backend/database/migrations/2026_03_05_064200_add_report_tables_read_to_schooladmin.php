@@ -15,7 +15,7 @@ return new class extends Migration
 
         // report_tables.read permissionunu tap və ya yarat
         $permission = Permission::firstOrCreate([
-            'name'       => 'report_tables.read',
+            'name' => 'report_tables.read',
             'guard_name' => 'sanctum',
         ]);
 
@@ -24,7 +24,7 @@ return new class extends Migration
             ->where('guard_name', 'sanctum')
             ->first();
 
-        if ($role && !$role->hasPermissionTo('report_tables.read', 'sanctum')) {
+        if ($role && ! $role->hasPermissionTo('report_tables.read', 'sanctum')) {
             $role->givePermissionTo($permission);
         }
     }

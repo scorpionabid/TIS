@@ -52,6 +52,7 @@ class PermissionMiddleware
                 if ($user->hasRole($roleName)) {
                     return $next($request);
                 }
+
                 continue;
             }
 

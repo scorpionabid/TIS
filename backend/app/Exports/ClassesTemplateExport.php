@@ -34,9 +34,9 @@ class ClassesTemplateExport implements FromCollection, WithColumnWidths, WithEve
         // If no institutions provided, use generic placeholder data
         if (empty($this->institutions) || $this->institutions->isEmpty()) {
             $this->institutions = collect([(object) [
-                'utis_code'        => '1234567',
+                'utis_code' => '1234567',
                 'institution_code' => 'MMK001',
-                'name'             => 'Nümunə Məktəb',
+                'name' => 'Nümunə Məktəb',
             ]]);
         }
 

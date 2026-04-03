@@ -691,7 +691,7 @@ class GradeUnifiedController extends Controller
             // Real counts from Şagirdlər (Students) page
             ->withCount([
                 'assignedStudents as real_student_count',
-                'assignedStudents as real_male_count'   => fn ($q) => $q->where('gender', 'male'),
+                'assignedStudents as real_male_count' => fn ($q) => $q->where('gender', 'male'),
                 'assignedStudents as real_female_count' => fn ($q) => $q->where('gender', 'female'),
             ])
             // Lesson load hours from curriculum
@@ -723,20 +723,20 @@ class GradeUnifiedController extends Controller
         $grades = $query->orderBy('institution_id')->orderBy('class_level')->orderBy('name')->get();
 
         $data = $grades->map(fn ($g) => [
-            'Sinif'                => $g->name,
-            'Sinif Səviyyəsi'      => $g->class_level,
-            'Şagirdlər'           => $g->real_student_count ?? 0,
-            'Oğlan'               => $g->real_male_count ?? 0,
-            'Qız'                 => $g->real_female_count ?? 0,
-            'Növbə'               => $g->teaching_shift ?? '',
-            'Təhsil Proqramı'     => $g->education_program ?? '',
-            'Profil'              => $g->class_profile ?? '',
-            'Dərs yükü (saat)'    => (int) ($g->lesson_load_hours ?? 0),
+            'Sinif' => $g->name,
+            'Sinif Səviyyəsi' => $g->class_level,
+            'Şagirdlər' => $g->real_student_count ?? 0,
+            'Oğlan' => $g->real_male_count ?? 0,
+            'Qız' => $g->real_female_count ?? 0,
+            'Növbə' => $g->teaching_shift ?? '',
+            'Təhsil Proqramı' => $g->education_program ?? '',
+            'Profil' => $g->class_profile ?? '',
+            'Dərs yükü (saat)' => (int) ($g->lesson_load_hours ?? 0),
             'Dərsdənkənar (saat)' => (int) ($g->extracurricular_hours ?? 0),
-            'Dərnək (saat)'       => (int) ($g->club_hours ?? 0),
-            'Sinif Rəhbəri'       => $g->homeroomTeacher?->name ?? '',
-            'Təhsil İli'          => $g->academicYear?->name ?? '',
-            'Məktəb'              => $g->institution?->name ?? '',
+            'Dərnək (saat)' => (int) ($g->club_hours ?? 0),
+            'Sinif Rəhbəri' => $g->homeroomTeacher?->name ?? '',
+            'Təhsil İli' => $g->academicYear?->name ?? '',
+            'Məktəb' => $g->institution?->name ?? '',
         ]);
 
         $fileName = 'siniflər_' . date('Y-m-d_H-i-s') . '.xlsx';
@@ -757,17 +757,17 @@ class GradeUnifiedController extends Controller
             $query->where('institution_id', $user->institution_id ?? 0);
         }
 
-        $total    = (clone $query)->count();
-        $active   = (clone $query)->where('is_active', true)->count();
+        $total = (clone $query)->count();
+        $active = (clone $query)->where('is_active', true)->count();
         $inactive = (clone $query)->where('is_active', false)->count();
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'total_grades'    => $total,
-                'active_grades'   => $active,
+            'data' => [
+                'total_grades' => $total,
+                'active_grades' => $active,
                 'inactive_grades' => $inactive,
-                'by_institution'  => [],
+                'by_institution' => [],
             ],
         ]);
     }

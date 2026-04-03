@@ -31,7 +31,6 @@ Route::prefix('preschool/groups')
 // Preschool Attendance Entry
 // ==============================
 Route::prefix('preschool/attendance')->group(function () {
-
     // Specific sub-routes BEFORE parameterized ones to avoid route conflicts
     Route::get('/reports', [PreschoolAttendanceReportController::class, 'index'])
         ->middleware(['permission:preschool.attendance.reports']);

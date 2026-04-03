@@ -3,8 +3,6 @@
 namespace App\Services\Survey;
 
 use App\Models\Survey;
-use App\Models\SurveyResponse;
-use Illuminate\Support\Facades\Auth;
 
 class SurveyStatisticsCalculatorService
 {

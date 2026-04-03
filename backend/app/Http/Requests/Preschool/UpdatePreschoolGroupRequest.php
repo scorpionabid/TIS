@@ -16,12 +16,12 @@ class UpdatePreschoolGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'                 => ['sometimes', 'string', 'max:100'],
-            'student_count'        => ['sometimes', 'integer', 'min:1', 'max:500'],
-            'male_student_count'   => ['nullable', 'integer', 'min:0'],
+            'name' => ['sometimes', 'string', 'max:100'],
+            'student_count' => ['sometimes', 'integer', 'min:1', 'max:500'],
+            'male_student_count' => ['nullable', 'integer', 'min:0'],
             'female_student_count' => ['nullable', 'integer', 'min:0'],
-            'description'          => ['nullable', 'string', 'max:500'],
-            'is_active'            => ['sometimes', 'boolean'],
+            'description' => ['nullable', 'string', 'max:500'],
+            'is_active' => ['sometimes', 'boolean'],
         ];
     }
 }

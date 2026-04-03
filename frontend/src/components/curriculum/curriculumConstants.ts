@@ -1,5 +1,16 @@
 // ─── Tədris planı üçün sabit məlumatlar ─────────────────────────────────────
 
+/**
+ * Sistem üzrə ayrılmış fənn ID-ləri.
+ * Backend-dəki SubjectConstants.php ilə sinxronizasiya edilməlidir.
+ */
+export const SUBJECT_IDS = {
+  /** Dərsdənkənar məşğələ — extra_hours sütununda ayrıca uçota alınır */
+  EXTRACURRICULAR: 56,
+  /** Dərnək — club_hours sütununda ayrıca uçota alınır */
+  CLUB: 57,
+} as const;
+
 export interface SplitHours {
   split_foreign_lang_1: number;
   split_foreign_lang_2: number;

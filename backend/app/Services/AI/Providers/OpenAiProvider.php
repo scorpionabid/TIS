@@ -8,8 +8,10 @@ use Illuminate\Support\Facades\Log;
 
 class OpenAiProvider implements AiProviderInterface
 {
-    private const BASE_URL   = 'https://api.openai.com/v1';
-    private const MAX_RETRY  = 2;
+    private const BASE_URL = 'https://api.openai.com/v1';
+
+    private const MAX_RETRY = 2;
+
     private const RETRY_WAIT = [0, 1, 3]; // saniyə (0-indexed)
 
     /** @var array{prompt_tokens: int, completion_tokens: int, total_tokens: int} */
@@ -27,13 +29,13 @@ class OpenAiProvider implements AiProviderInterface
     public function chat(array $messages, array $options = []): string
     {
         $payload = array_merge([
-            'model'       => $this->model,
-            'messages'    => $messages,
+            'model' => $this->model,
+            'messages' => $messages,
             'temperature' => 0.3,
-            'max_tokens'  => 2048,
+            'max_tokens' => 2048,
         ], $options);
 
-        $attempt  = 0;
+        $attempt = 0;
         $lastError = null;
 
         while ($attempt <= self::MAX_RETRY) {
@@ -45,7 +47,7 @@ class OpenAiProvider implements AiProviderInterface
             try {
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type'  => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])
                     ->timeout(30)
                     ->post(self::BASE_URL . '/chat/completions', $payload);
@@ -54,9 +56,9 @@ class OpenAiProvider implements AiProviderInterface
                     // Token istifadəsini saxla
                     $usage = $response->json('usage', []);
                     $this->lastTokenUsage = [
-                        'prompt_tokens'     => $usage['prompt_tokens'] ?? 0,
+                        'prompt_tokens' => $usage['prompt_tokens'] ?? 0,
                         'completion_tokens' => $usage['completion_tokens'] ?? 0,
-                        'total_tokens'      => $usage['total_tokens'] ?? 0,
+                        'total_tokens' => $usage['total_tokens'] ?? 0,
                     ];
 
                     return $response->json('choices.0.message.content', '');
@@ -64,16 +66,16 @@ class OpenAiProvider implements AiProviderInterface
 
                 // 429 Rate Limit → retry, 4xx auth xəta → dərhal çıx
                 $statusCode = $response->status();
-                $errorMsg   = $response->json('error.message', 'OpenAI API xətası');
+                $errorMsg = $response->json('error.message', 'OpenAI API xətası');
 
                 if ($statusCode === 429 || $statusCode >= 500) {
                     $lastError = "OpenAI {$statusCode}: {$errorMsg}";
                     $attempt++;
+
                     continue;
                 }
 
                 throw new \RuntimeException("OpenAI {$statusCode}: {$errorMsg}");
-
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
                 $lastError = 'Şəbəkə xətası: ' . $e->getMessage();
                 $attempt++;

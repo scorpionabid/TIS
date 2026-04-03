@@ -378,6 +378,7 @@ class RegionalDataAccessMiddleware
         // Check for numeric institution_id in query parameters
         if ($request->has('institution_id') && $request->input('institution_id') !== null) {
             $institutionId = $request->input('institution_id');
+
             // Only consider it a valid institution ID if it's numeric and not 'all'
             return is_numeric($institutionId) && $institutionId !== 'all';
         }
@@ -402,7 +403,7 @@ class RegionalDataAccessMiddleware
         if ($request->route('institutionId')) {
             return (int) $request->route('institutionId');
         }
-        
+
         if ($request->route('schoolId')) {
             return (int) $request->route('schoolId');
         }

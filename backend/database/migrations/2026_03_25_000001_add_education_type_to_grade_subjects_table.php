@@ -14,13 +14,13 @@ return new class extends Migration
         Schema::table('grade_subjects', function (Blueprint $table) {
             // Add education_type column
             $table->string('education_type')->default('umumi')->after('subject_id');
-            
+
             // Drop old unique constraint
             $table->dropUnique('grade_subject_unique');
-            
+
             // Add new unique constraint including education_type
             $table->unique(['grade_id', 'subject_id', 'education_type'], 'grade_subject_education_unique');
-            
+
             // Add index for education_type
             $table->index('education_type');
         });

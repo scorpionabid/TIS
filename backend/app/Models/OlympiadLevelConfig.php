@@ -34,8 +34,11 @@ class OlympiadLevelConfig extends Model
      * Olympiad levels
      */
     public const LEVEL_RAYON = 'rayon';
+
     public const LEVEL_REGION = 'region';
+
     public const LEVEL_COUNTRY = 'country';
+
     public const LEVEL_INTERNATIONAL = 'international';
 
     public const LEVELS = [
@@ -64,10 +67,10 @@ class OlympiadLevelConfig extends Model
     /**
      * PRD: Calculate score for an olympiad achievement.
      *
-     * @param string $level Olympiad level (rayon, region, country, international)
-     * @param int $placement Position (1, 2, 3, etc.)
-     * @param int $studentCount Number of students who achieved this
-     * @return float Calculated score
+     * @param  string $level        Olympiad level (rayon, region, country, international)
+     * @param  int    $placement    Position (1, 2, 3, etc.)
+     * @param  int    $studentCount Number of students who achieved this
+     * @return float  Calculated score
      */
     public static function calculateScore(string $level, int $placement, int $studentCount = 1): float
     {
@@ -76,7 +79,7 @@ class OlympiadLevelConfig extends Model
             ->where('is_active', true)
             ->first();
 
-        if (!$config) {
+        if (! $config) {
             return 0;
         }
 

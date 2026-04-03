@@ -19,7 +19,7 @@ class AssessmentStageController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasPermissionTo('assessment-types.read')) {
+        if (! $user->hasPermissionTo('assessment-types.read')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu qiymətləndirmə növünün mərhələlərinə baxmaq icazəniz yoxdur',
@@ -164,7 +164,7 @@ class AssessmentStageController extends Controller
             if ($assessmentType->institution_id === null) {
                 return true;
             }
-            
+
             // Region admin can manage types created for their region
             if ($assessmentType->institution_id && $assessmentType->institution?->region_id === $user->institution?->region_id) {
                 return true;

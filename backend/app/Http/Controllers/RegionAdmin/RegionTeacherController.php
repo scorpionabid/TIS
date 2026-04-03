@@ -449,13 +449,13 @@ class RegionTeacherController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             // Force reload user with permissions
             if ($user) {
                 $user->load('roles', 'permissions');
                 $user->forgetCachedPermissions();
             }
-            
+
             // Detailed debugging
             Log::info('🔍 RegionTeacherController::store - AUTH DEBUG', [
                 'user_id' => $user?->id,
@@ -478,7 +478,7 @@ class RegionTeacherController extends Controller
                     'required_permission' => 'teachers.create',
                     'user_permissions' => $user?->getAllPermissions()->where('name', 'like', 'teachers.%')->pluck('name')->toArray() ?? [],
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized - Missing teachers.create permission',

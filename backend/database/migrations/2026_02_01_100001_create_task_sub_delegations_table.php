@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('delegated_by_user_id')->constrained('users');
 
             $table->enum('status', ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'])
-                  ->default('pending');
+                ->default('pending');
             $table->unsignedTinyInteger('progress')->default(0);
 
             $table->timestamp('deadline')->nullable();

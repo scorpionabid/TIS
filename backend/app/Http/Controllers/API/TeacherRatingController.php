@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\BaseController;
-use App\Services\TeacherRatingCalculationService;
-use App\Services\LeaderboardService;
+use App\Models\GrowthBonusConfig;
+use App\Models\OlympiadLevelConfig;
 use App\Models\Rating;
 use App\Models\RatingConfig;
-use App\Models\OlympiadLevelConfig;
-use App\Models\GrowthBonusConfig;
+use App\Services\LeaderboardService;
+use App\Services\TeacherRatingCalculationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -49,6 +49,7 @@ class TeacherRatingController extends BaseController
             ], 'Reytinq uğurla hesablandı');
         } catch (\Exception $e) {
             Log::error("Rating calculation failed for teacher {$teacherId}: " . $e->getMessage());
+
             return $this->errorResponse('Reytinq hesablanarkən xəta: ' . $e->getMessage(), 500);
         }
     }
@@ -75,7 +76,8 @@ class TeacherRatingController extends BaseController
 
             return $this->successResponse($results, 'Bütün reytinqlər hesablandı');
         } catch (\Exception $e) {
-            Log::error("Bulk rating calculation failed: " . $e->getMessage());
+            Log::error('Bulk rating calculation failed: ' . $e->getMessage());
+
             return $this->errorResponse('Reytinqlər hesablanarkən xəta: ' . $e->getMessage(), 500);
         }
     }
@@ -96,7 +98,7 @@ class TeacherRatingController extends BaseController
             ->where('academic_year_id', $validated['academic_year_id'])
             ->first();
 
-        if (!$rating) {
+        if (! $rating) {
             return $this->errorResponse('Reytinq tapılmadı', 404);
         }
 
@@ -184,7 +186,8 @@ class TeacherRatingController extends BaseController
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error("Leaderboard query failed: " . $e->getMessage());
+            Log::error('Leaderboard query failed: ' . $e->getMessage());
+
             return $this->errorResponse('Liderbord yüklənərkən xəta: ' . $e->getMessage(), 500);
         }
     }
@@ -209,7 +212,8 @@ class TeacherRatingController extends BaseController
 
             return $this->successResponse($stats);
         } catch (\Exception $e) {
-            Log::error("Statistics query failed: " . $e->getMessage());
+            Log::error('Statistics query failed: ' . $e->getMessage());
+
             return $this->errorResponse('Statistika yüklənərkən xəta: ' . $e->getMessage(), 500);
         }
     }
@@ -237,7 +241,8 @@ class TeacherRatingController extends BaseController
                 'region_id' => $validated['region_id'],
             ]);
         } catch (\Exception $e) {
-            Log::error("District comparison failed: " . $e->getMessage());
+            Log::error('District comparison failed: ' . $e->getMessage());
+
             return $this->errorResponse('Rayon müqayisəsi yüklənərkən xəta: ' . $e->getMessage(), 500);
         }
     }
@@ -264,7 +269,8 @@ class TeacherRatingController extends BaseController
                 'comparison' => $comparison,
             ]);
         } catch (\Exception $e) {
-            Log::error("Subject comparison failed: " . $e->getMessage());
+            Log::error('Subject comparison failed: ' . $e->getMessage());
+
             return $this->errorResponse('Fənn müqayisəsi yüklənərkən xəta: ' . $e->getMessage(), 500);
         }
     }
@@ -285,7 +291,7 @@ class TeacherRatingController extends BaseController
             ->where('academic_year_id', $validated['academic_year_id'])
             ->first();
 
-        if (!$config) {
+        if (! $config) {
             // Return defaults
             $config = new RatingConfig([
                 'institution_id' => $validated['institution_id'],
@@ -361,7 +367,7 @@ class TeacherRatingController extends BaseController
                 'olympiad_weight' => $validated['olympiad_weight'] ?? null,
                 'award_weight' => $validated['award_weight'] ?? null,
                 'year_weights' => $validated['year_weights'] ?? null,
-            ], fn($v) => $v !== null)
+            ], fn ($v) => $v !== null)
         );
 
         return $this->successResponse([

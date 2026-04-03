@@ -285,16 +285,17 @@ class Institution extends Model
             $currentId = $this->parent_id;
             while ($currentId) {
                 $current = static::find($currentId);
-                if (!$current) {
+                if (! $current) {
                     break;
                 }
                 $ancestors->push($current);
                 $currentId = $current->parent_id;
             }
+
             return $ancestors;
         }
 
-        $rows = \DB::select("
+        $rows = \DB::select('
             WITH RECURSIVE ancestors AS (
                 SELECT * FROM institutions WHERE id = ? AND deleted_at IS NULL
                 UNION ALL
@@ -303,9 +304,9 @@ class Institution extends Model
                 WHERE i.deleted_at IS NULL
             )
             SELECT * FROM ancestors WHERE id != ?
-        ", [$this->parent_id, $this->id]);
+        ', [$this->parent_id, $this->id]);
 
-        return collect($rows)->map(fn ($r) => (new static())->forceFill((array) $r));
+        return collect($rows)->map(fn ($r) => (new static)->forceFill((array) $r));
     }
 
     /**

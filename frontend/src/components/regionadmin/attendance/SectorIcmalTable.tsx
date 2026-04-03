@@ -15,9 +15,11 @@ interface Sector {
   name: string;
   reported_days: number;
   school_count: number;
+  reported_school_count: number;
   total_students: number;
+  attending_students: number;
   average_attendance_rate: number;
-  uniform_compliance_rate: number;
+  uniform_compliance_rate?: number;
 }
 
 interface SectorIcmalTableProps {
@@ -57,12 +59,38 @@ export function SectorIcmalTable({ sectors, loading, isFetching }: SectorIcmalTa
                       {sector.reported_days} hesabat günü
                     </p>
                   </TableCell>
-                  <TableCell className="text-center">{sector.school_count}</TableCell>
                   <TableCell className="text-center">
-                    {numberFormatter.format(sector.total_students)}
+                    <div className="font-semibold text-slate-700">{sector.reported_school_count}</div>
+                    <div className="text-[10px] text-muted-foreground whitespace-nowrap">/ {sector.school_count} məktəb</div>
                   </TableCell>
-                  <TableCell className="text-center font-semibold">
-                    {formatPercent(sector.average_attendance_rate)}
+                  <TableCell className="text-center">
+                    <div>{numberFormatter.format(sector.attending_students)}</div>
+                    <div className="text-[10px] text-muted-foreground">/ {numberFormatter.format(sector.total_students)}</div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center gap-3 justify-center min-w-[120px]">
+                      <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            sector.average_attendance_rate >= 95
+                              ? 'bg-emerald-500'
+                              : sector.average_attendance_rate >= 85
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(sector.average_attendance_rate, 100)}%` }}
+                        />
+                      </div>
+                      <span className={`font-bold whitespace-nowrap ${
+                        sector.average_attendance_rate >= 95
+                          ? 'text-emerald-600'
+                          : sector.average_attendance_rate >= 85
+                          ? 'text-amber-600'
+                          : 'text-red-600'
+                      }`}>
+                        {formatPercent(sector.average_attendance_rate)}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="text-center font-semibold">
                     {formatPercent(sector.uniform_compliance_rate)}

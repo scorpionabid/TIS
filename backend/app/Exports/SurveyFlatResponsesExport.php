@@ -3,15 +3,15 @@
 namespace App\Exports;
 
 use App\Models\Survey;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * SurveyFlatResponsesExport
@@ -20,9 +20,10 @@ use Illuminate\Support\Collection;
  * Column headers use full question titles (not truncated).
  * Only submitted responses are included.
  */
-class SurveyFlatResponsesExport implements FromCollection, WithHeadings, WithStyles, ShouldAutoSize, WithTitle
+class SurveyFlatResponsesExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles, WithTitle
 {
     private Survey $survey;
+
     private array $questions;
 
     public function __construct(Survey $survey)

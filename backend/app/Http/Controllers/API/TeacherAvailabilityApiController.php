@@ -26,23 +26,23 @@ class TeacherAvailabilityApiController extends Controller
 
         $query = TeacherAvailability::query()->with(['teacher', 'creator', 'approver']);
 
-        if (!empty($validated['teacher_id'])) {
+        if (! empty($validated['teacher_id'])) {
             $query->where('teacher_id', $validated['teacher_id']);
         }
 
-        if (!empty($validated['academic_year_id'])) {
+        if (! empty($validated['academic_year_id'])) {
             $query->where('academic_year_id', $validated['academic_year_id']);
         }
 
-        if (!empty($validated['day_of_week'])) {
+        if (! empty($validated['day_of_week'])) {
             $query->where('day_of_week', $validated['day_of_week']);
         }
 
-        if (!empty($validated['availability_type'])) {
+        if (! empty($validated['availability_type'])) {
             $query->where('availability_type', $validated['availability_type']);
         }
 
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
@@ -89,7 +89,7 @@ class TeacherAvailabilityApiController extends Controller
         // Institution scoping for non-superadmin
         if ($user?->institution_id) {
             $teacher = User::query()->where('id', $validated['teacher_id'])->first();
-            if (!$teacher || $teacher->institution_id !== $user->institution_id) {
+            if (! $teacher || $teacher->institution_id !== $user->institution_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Forbidden',

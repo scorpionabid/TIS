@@ -3,7 +3,6 @@
 namespace App\Services\Survey;
 
 use App\Models\Survey;
-use App\Services\Survey\SurveyStatisticsCalculatorService;
 
 class SurveyInsightsGeneratorService
 {
@@ -190,7 +189,7 @@ class SurveyInsightsGeneratorService
     public function getTrendAnalysis(Survey $survey): array
     {
         $responsesPerDay = $this->calculatorService->getResponsesPerDay($survey);
-        
+
         if (empty($responsesPerDay)) {
             return [
                 'trend' => 'no_data',
@@ -201,23 +200,23 @@ class SurveyInsightsGeneratorService
 
         $days = array_keys($responsesPerDay);
         $counts = array_values($responsesPerDay);
-        
+
         // Calculate trend
         $firstHalf = array_slice($counts, 0, count($counts) / 2);
         $secondHalf = array_slice($counts, count($counts) / 2);
-        
+
         $firstHalfAvg = array_sum($firstHalf) / count($firstHalf);
         $secondHalfAvg = array_sum($secondHalf) / count($secondHalf);
-        
-        $trend = $secondHalfAvg > $firstHalfAvg * 1.1 ? 'increasing' : 
+
+        $trend = $secondHalfAvg > $firstHalfAvg * 1.1 ? 'increasing' :
                 ($secondHalfAvg < $firstHalfAvg * 0.9 ? 'decreasing' : 'stable');
-        
+
         $trendDescriptions = [
             'increasing' => 'Cavablandırma tempi artır',
             'decreasing' => 'Cavablandırma tempi azalır',
             'stable' => 'Cavablandırma tempi stabildir',
         ];
-        
+
         return [
             'trend' => $trend,
             'description' => $trendDescriptions[$trend],
@@ -250,7 +249,7 @@ class SurveyInsightsGeneratorService
                 'Demoqrafik əhatəni genişləndirin',
             ],
         ];
-        
+
         return $recommendations[$trend] ?? [];
     }
 
@@ -260,7 +259,7 @@ class SurveyInsightsGeneratorService
     public function getPerformanceSummary(Survey $survey): array
     {
         $stats = $this->calculatorService;
-        
+
         return [
             'overall_score' => $stats->calculateEngagementScore($survey),
             'response_rate' => $stats->calculateResponseRate($survey),
@@ -279,12 +278,20 @@ class SurveyInsightsGeneratorService
     protected function calculatePerformanceGrade(Survey $survey): string
     {
         $score = $this->calculatorService->calculateEngagementScore($survey);
-        
-        if ($score >= 80) return 'A';
-        if ($score >= 70) return 'B';
-        if ($score >= 60) return 'C';
-        if ($score >= 50) return 'D';
-        
+
+        if ($score >= 80) {
+            return 'A';
+        }
+        if ($score >= 70) {
+            return 'B';
+        }
+        if ($score >= 60) {
+            return 'C';
+        }
+        if ($score >= 50) {
+            return 'D';
+        }
+
         return 'F';
     }
 }

@@ -13,27 +13,27 @@ return new class extends Migration
     {
         Schema::table('grades', function (Blueprint $table) {
             // Add missing fields from ClassModel to Grade
-            if (!Schema::hasColumn('grades', 'section')) {
+            if (! Schema::hasColumn('grades', 'section')) {
                 $table->string('section', 10)->nullable()->after('name');
             }
-            
-            if (!Schema::hasColumn('grades', 'max_capacity')) {
+
+            if (! Schema::hasColumn('grades', 'max_capacity')) {
                 $table->integer('max_capacity')->default(30)->after('student_count');
             }
-            
-            if (!Schema::hasColumn('grades', 'classroom_location')) {
+
+            if (! Schema::hasColumn('grades', 'classroom_location')) {
                 $table->string('classroom_location', 100)->nullable()->after('room_id');
             }
-            
-            if (!Schema::hasColumn('grades', 'status')) {
+
+            if (! Schema::hasColumn('grades', 'status')) {
                 $table->enum('status', ['active', 'inactive', 'archived'])->default('active')->after('is_active');
             }
-            
-            if (!Schema::hasColumn('grades', 'class_teacher_id')) {
+
+            if (! Schema::hasColumn('grades', 'class_teacher_id')) {
                 $table->foreignId('class_teacher_id')->nullable()->after('homeroom_teacher_id')->constrained('users')->onDelete('set null');
             }
-            
-            if (!Schema::hasColumn('grades', 'schedule_preferences')) {
+
+            if (! Schema::hasColumn('grades', 'schedule_preferences')) {
                 $table->json('schedule_preferences')->nullable()->after('metadata');
             }
         });
@@ -55,7 +55,7 @@ return new class extends Migration
                 'classroom_location',
                 'status',
                 'class_teacher_id',
-                'schedule_preferences'
+                'schedule_preferences',
             ]);
         });
     }

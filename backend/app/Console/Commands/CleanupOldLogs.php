@@ -17,11 +17,11 @@ class CleanupOldLogs extends Command
      * Retention periods per table (days).
      */
     protected array $tables = [
-        'activity_logs'        => 90,
-        'security_events'      => 90,
-        'link_access_logs'     => 60,
+        'activity_logs' => 90,
+        'security_events' => 90,
+        'link_access_logs' => 60,
         'document_access_logs' => 60,
-        'survey_audit_logs'    => 180,
+        'survey_audit_logs' => 180,
     ];
 
     public function handle(): int
@@ -41,6 +41,7 @@ class CleanupOldLogs extends Command
             // Check if table exists
             if (! $this->tableExists($table)) {
                 $results[] = [$table, $retentionDays, 'N/A', 'Table does not exist'];
+
                 continue;
             }
 

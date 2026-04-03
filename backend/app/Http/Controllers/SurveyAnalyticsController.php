@@ -18,7 +18,7 @@ class SurveyAnalyticsController extends Controller
     {
         // Resolve service dynamically through container to support feature flag switching
         $useRefactored = config('features.use_refactored_analytics', true);
-        
+
         if ($useRefactored) {
             $this->analyticsService = app(\App\Services\SurveyAnalyticsService::class);
         } else {

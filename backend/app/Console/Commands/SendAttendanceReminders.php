@@ -40,13 +40,14 @@ class SendAttendanceReminders extends Command
     public function handle(): int
     {
         $isDryRun = $this->option('dry-run');
-        $dateStr  = $this->option('date');
-        $date     = $dateStr ? Carbon::parse($dateStr) : Carbon::today();
+        $dateStr = $this->option('date');
+        $date = $dateStr ? Carbon::parse($dateStr) : Carbon::today();
         $onlySchool = $this->option('school') ? (int) $this->option('school') : null;
 
         // İş günü yoxla (1=Bazar ertəsi ... 5=Cümə)
         if (! $isDryRun && ! in_array($date->dayOfWeek, [1, 2, 3, 4, 5], true)) {
             $this->info("Bugün iş günü deyil ({$date->format('l')}), xatırlatma göndərilmir.");
+
             return Command::SUCCESS;
         }
 
@@ -64,8 +65,8 @@ class SendAttendanceReminders extends Command
         $schools = $schoolQuery->get();
         $this->info("Cəmi {$schools->count()} aktiv məktəb tapıldı.");
 
-        $sentCount  = 0;
-        $skipCount  = 0;
+        $sentCount = 0;
+        $skipCount = 0;
 
         foreach ($schools as $school) {
             // Bu məktəbdə bu gün üçün qeyd edilməmiş sinif varmı?
@@ -73,6 +74,7 @@ class SendAttendanceReminders extends Command
 
             if ($unrecordedCount === 0) {
                 $skipCount++;
+
                 continue;
             }
 
@@ -80,6 +82,7 @@ class SendAttendanceReminders extends Command
             if (! $isDryRun && $this->alreadySentToday($school->id, $date)) {
                 $this->line("  Skip (artıq göndərilib): {$school->name}");
                 $skipCount++;
+
                 continue;
             }
 
@@ -92,31 +95,32 @@ class SendAttendanceReminders extends Command
             if (empty($adminIds)) {
                 $this->line("  Skip (schooladmin yoxdur): {$school->name}");
                 $skipCount++;
+
                 continue;
             }
 
-            $this->line("  Göndərilir: {$school->name} ({$unrecordedCount} sinif, " . count($adminIds) . " admin)");
+            $this->line("  Göndərilir: {$school->name} ({$unrecordedCount} sinif, " . count($adminIds) . ' admin)');
 
             if (! $isDryRun) {
                 foreach ($adminIds as $userId) {
                     try {
                         $this->notificationService->send([
-                            'user_id'  => $userId,
-                            'title'    => 'Davamiyyət qeyd edilməyib',
-                            'message'  => sprintf(
-                                "%s tarixinə aid %d sinifin davamiyyəti hələ qeyd edilməyib. Zəhmət olmasa qeyd edin.",
+                            'user_id' => $userId,
+                            'title' => 'Davamiyyət qeyd edilməyib',
+                            'message' => sprintf(
+                                '%s tarixinə aid %d sinifin davamiyyəti hələ qeyd edilməyib. Zəhmət olmasa qeyd edin.',
                                 $date->format('d.m.Y'),
                                 $unrecordedCount
                             ),
-                            'type'     => 'attendance_reminder',
-                            'channel'  => 'in_app',
+                            'type' => 'attendance_reminder',
+                            'channel' => 'in_app',
                             'priority' => 'high',
                             'metadata' => [
-                                'institution_id'    => $school->id,
-                                'institution_name'  => $school->name,
-                                'date'              => $date->toDateString(),
-                                'unrecorded_count'  => $unrecordedCount,
-                                'action_url'        => '/attendance',
+                                'institution_id' => $school->id,
+                                'institution_name' => $school->name,
+                                'date' => $date->toDateString(),
+                                'unrecorded_count' => $unrecordedCount,
+                                'action_url' => '/attendance',
                             ],
                         ]);
 
@@ -124,8 +128,8 @@ class SendAttendanceReminders extends Command
                     } catch (\Throwable $e) {
                         Log::warning('SendAttendanceReminders: notification göndərilmədi', [
                             'school_id' => $school->id,
-                            'user_id'   => $userId,
-                            'error'     => $e->getMessage(),
+                            'user_id' => $userId,
+                            'error' => $e->getMessage(),
                         ]);
                     }
                 }

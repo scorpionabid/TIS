@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\ApprovalAction;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
 use App\Models\Institution;
@@ -29,14 +28,14 @@ class RatingCalculationService
             $academicYearId = $params['academic_year_id'];
             $period = $params['period'];
 
-            if (!$force) {
+            if (! $force) {
                 $cached = Rating::where('user_id', $userId)
                     ->where('institution_id', $institutionId)
                     ->where('academic_year_id', $academicYearId)
                     ->where('period', $period)
                     ->first();
 
-                if ($cached && !$this->isStale($cached)) {
+                if ($cached && ! $this->isStale($cached)) {
                     return $cached;
                 }
             }
@@ -66,11 +65,11 @@ class RatingCalculationService
 
             if ($userRole === 'sektoradmin') {
                 $overallScore = $taskResult['score'] + $surveyResult['score']
-                    + $approvalResult['score'] + $linkResult['score'] 
+                    + $approvalResult['score'] + $linkResult['score']
                     + $reportResult['score'] + $manualScore;
             } else {
                 $overallScore = $taskResult['score'] + $surveyResult['score']
-                    + $attendanceResult['score'] + $linkResult['score'] 
+                    + $attendanceResult['score'] + $linkResult['score']
                     + $reportResult['score'] + $manualScore;
             }
 
@@ -211,7 +210,7 @@ class RatingCalculationService
                 } else {
                     $late++;
                 }
-            } elseif (!in_array($assignment->assignment_status, ['completed', 'cancelled']) && $dueDate->isPast()) {
+            } elseif (! in_array($assignment->assignment_status, ['completed', 'cancelled']) && $dueDate->isPast()) {
                 $late++;
             }
         }
@@ -242,7 +241,7 @@ class RatingCalculationService
                 } else {
                     $onTime++;
                 }
-            } elseif ($deadline && $deadline->isPast() && !in_array($response->status, ['submitted', 'approved'])) {
+            } elseif ($deadline && $deadline->isPast() && ! in_array($response->status, ['submitted', 'approved'])) {
                 $late++;
             }
         }
@@ -270,8 +269,8 @@ class RatingCalculationService
         }
 
         $periodParts = explode('-', $period);
-        $year = (int)$periodParts[0];
-        $month = (int)($periodParts[1] ?? 1);
+        $year = (int) $periodParts[0];
+        $month = (int) ($periodParts[1] ?? 1);
         $startDate = Carbon::create($year, $month, 1)->startOfMonth();
         $endDate = $startDate->copy()->endOfMonth();
 
@@ -341,9 +340,9 @@ class RatingCalculationService
         $links = LinkShare::active()
             ->where(function ($q) use ($userId, $institutionId, $userRole) {
                 $q->whereJsonContains('target_users', $userId)
-                    ->orWhereJsonContains('target_users', (string)$userId)
+                    ->orWhereJsonContains('target_users', (string) $userId)
                     ->orWhereJsonContains('target_institutions', $institutionId)
-                    ->orWhereJsonContains('target_institutions', (string)$institutionId)
+                    ->orWhereJsonContains('target_institutions', (string) $institutionId)
                     ->orWhere('share_scope', 'public')
                     ->orWhere(function ($q2) use ($institutionId) {
                         $q2->where('share_scope', 'institutional')
@@ -405,7 +404,7 @@ class RatingCalculationService
 
         foreach ($surveyResponses as $response) {
             $deadline = $response->survey?->end_date;
-            if (!$deadline) {
+            if (! $deadline) {
                 continue;
             }
 
@@ -446,7 +445,7 @@ class RatingCalculationService
 
         $reportTables = ReportTable::published()
             ->notTemplates()
-            ->whereJsonContains('target_institutions', (string)$institutionId)
+            ->whereJsonContains('target_institutions', (string) $institutionId)
             ->orWhereJsonContains('target_institutions', $institutionId)
             ->get();
 
@@ -456,13 +455,13 @@ class RatingCalculationService
 
         foreach ($reportTables as $table) {
             $deadline = $table->deadline;
-            
+
             $response = ReportTableResponse::where('report_table_id', $table->id)
                 ->where('institution_id', $institutionId)
                 ->first();
 
             if ($response && $response->status === 'submitted' && $response->submitted_at) {
-                if (!$deadline || $response->submitted_at->lte($deadline)) {
+                if (! $deadline || $response->submitted_at->lte($deadline)) {
                     $onTime++;
                 } else {
                     $late++;
@@ -484,7 +483,7 @@ class RatingCalculationService
     private function isStale(Rating $rating): bool
     {
         $metadata = $rating->metadata;
-        if (!$metadata || !isset($metadata['calculated_at'])) {
+        if (! $metadata || ! isset($metadata['calculated_at'])) {
             return true;
         }
 
@@ -498,7 +497,7 @@ class RatingCalculationService
         }
 
         $institution = $user->institution;
-        if (!$institution) {
+        if (! $institution) {
             return [];
         }
 

@@ -81,8 +81,8 @@ class ReportTableResponseController extends BaseController
     public function save(Request $request, ReportTableResponse $response): JsonResponse
     {
         $validated = $request->validate([
-            'rows'    => 'required|array',
-            'rows.*'  => 'array',
+            'rows' => 'required|array',
+            'rows.*' => 'array',
         ]);
 
         $user = Auth::user();
@@ -181,7 +181,7 @@ class ReportTableResponseController extends BaseController
     {
         $validated = $request->validate([
             'row_index' => 'required|integer|min:0',
-            'reason'    => 'required|string|max:500',
+            'reason' => 'required|string|max:500',
         ]);
 
         try {
@@ -281,12 +281,12 @@ class ReportTableResponseController extends BaseController
     public function bulkRowAction(ReportTable $table, Request $request): JsonResponse
     {
         $request->validate([
-            'row_specs'                  => 'required|array|min:1',
-            'row_specs.*.response_id'    => 'required|integer',
-            'row_specs.*.row_indices'    => 'required|array|min:1',
-            'row_specs.*.row_indices.*'  => 'integer|min:0',
-            'action'                     => 'required|in:approve,reject,return',
-            'reason'                     => 'required_if:action,reject|nullable|string|max:500',
+            'row_specs' => 'required|array|min:1',
+            'row_specs.*.response_id' => 'required|integer',
+            'row_specs.*.row_indices' => 'required|array|min:1',
+            'row_specs.*.row_indices.*' => 'integer|min:0',
+            'action' => 'required|in:approve,reject,return',
+            'reason' => 'required_if:action,reject|nullable|string|max:500',
         ]);
 
         $result = $this->approvalService->bulkRowAction(
@@ -300,10 +300,10 @@ class ReportTableResponseController extends BaseController
         );
 
         return response()->json([
-            'message'    => "{$result['successful']} sətir emal edildi.",
+            'message' => "{$result['successful']} sətir emal edildi.",
             'successful' => $result['successful'],
-            'failed'     => $result['failed'],
-            'errors'     => $result['errors'],
+            'failed' => $result['failed'],
+            'errors' => $result['errors'],
         ]);
     }
 
@@ -314,9 +314,9 @@ class ReportTableResponseController extends BaseController
     public function bulkActionLogs(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Yalnız admin və superadmin görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -346,14 +346,15 @@ class ReportTableResponseController extends BaseController
     public function tableFillStatistics(ReportTable $table, Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // DEBUG: Log user roles
         $userRoles = $user->getRoleNames()->toArray();
         Log::info('tableFillStatistics - User roles: ' . json_encode($userRoles));
-        
+
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
+        if (! $user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
             Log::warning('tableFillStatistics - Permission denied for user: ' . $user->id . ' with roles: ' . json_encode($userRoles));
+
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -371,7 +372,7 @@ class ReportTableResponseController extends BaseController
         $user = $request->user();
 
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
+        if (! $user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -387,9 +388,9 @@ class ReportTableResponseController extends BaseController
     public function exportStatistics(ReportTable $table, Request $request)
     {
         $user = $request->user();
-        
+
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator export edə bilər
-        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
+        if (! $user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -398,7 +399,7 @@ class ReportTableResponseController extends BaseController
         // Generate Excel file
         $exportData = [];
         $exportData[] = ['Məktəb', 'Sektor', 'Status', 'Sətir sayı', 'Təsdiqlənib', 'Gözləyir'];
-        
+
         foreach ($data['schools'] as $school) {
             $statusMap = [
                 'not_started' => 'Başlanmayıb',
@@ -407,7 +408,7 @@ class ReportTableResponseController extends BaseController
                 'partial' => 'Qismən',
                 'completed' => 'Tamamlanıb',
             ];
-            
+
             $exportData[] = [
                 $school['institution_name'],
                 $school['sector_name'] ?? 'Sektor yoxdur',
@@ -417,27 +418,36 @@ class ReportTableResponseController extends BaseController
                 $school['pending_count'],
             ];
         }
-        
+
         // Create simple CSV/Excel response
         $filename = $table->title . '_statistika_' . date('Y-m-d') . '.xlsx';
-        
+
         // Use Laravel Excel package if available, otherwise return CSV
         if (class_exists('Maatwebsite\Excel\Facades\Excel')) {
-            $export = new class($exportData) implements \Maatwebsite\Excel\Concerns\FromArray {
+            $export = new class($exportData) implements \Maatwebsite\Excel\Concerns\FromArray
+            {
                 private $data;
-                public function __construct($data) { $this->data = $data; }
-                public function array(): array { return $this->data; }
+
+                public function __construct($data)
+                {
+                    $this->data = $data;
+                }
+
+                public function array(): array
+                {
+                    return $this->data;
+                }
             };
-            
+
             return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
         }
-        
+
         // Fallback to CSV
         $csv = '';
         foreach ($exportData as $row) {
-            $csv .= implode(',', array_map(fn($item) => '"' . str_replace('"', '""', $item) . '"', $row)) . "\n";
+            $csv .= implode(',', array_map(fn ($item) => '"' . str_replace('"', '""', $item) . '"', $row)) . "\n";
         }
-        
+
         return response($csv)
             ->header('Content-Type', 'text/csv; charset=utf-8')
             ->header('Content-Disposition', 'attachment; filename="' . str_replace('.xlsx', '.csv', $filename) . '"');
@@ -461,26 +471,26 @@ class ReportTableResponseController extends BaseController
     private function formatResponse(ReportTableResponse $response): array
     {
         return [
-            'id'              => $response->id,
+            'id' => $response->id,
             'report_table_id' => $response->report_table_id,
-            'institution_id'  => $response->institution_id,
-            'respondent_id'   => $response->respondent_id,
-            'rows'            => $response->rows,
-            'status'          => $response->status,
-            'submitted_at'    => $response->submitted_at,
-            'row_statuses'    => $response->row_statuses ?? [],
-            'created_at'      => $response->created_at,
-            'updated_at'      => $response->updated_at,
-            'report_table'    => $response->relationLoaded('reportTable') && $response->reportTable ? [
-                'id'      => $response->reportTable->id,
-                'title'   => $response->reportTable->title,
+            'institution_id' => $response->institution_id,
+            'respondent_id' => $response->respondent_id,
+            'rows' => $response->rows,
+            'status' => $response->status,
+            'submitted_at' => $response->submitted_at,
+            'row_statuses' => $response->row_statuses ?? [],
+            'created_at' => $response->created_at,
+            'updated_at' => $response->updated_at,
+            'report_table' => $response->relationLoaded('reportTable') && $response->reportTable ? [
+                'id' => $response->reportTable->id,
+                'title' => $response->reportTable->title,
                 'columns' => $response->reportTable->columns,
-                'max_rows'=> $response->reportTable->max_rows,
-                'status'  => $response->reportTable->status,
-                'deadline'=> $response->reportTable->deadline,
+                'max_rows' => $response->reportTable->max_rows,
+                'status' => $response->reportTable->status,
+                'deadline' => $response->reportTable->deadline,
             ] : null,
-            'institution'     => $response->relationLoaded('institution') && $response->institution ? [
-                'id'   => $response->institution->id,
+            'institution' => $response->relationLoaded('institution') && $response->institution ? [
+                'id' => $response->institution->id,
                 'name' => $response->institution->name,
             ] : null,
         ];
@@ -490,7 +500,7 @@ class ReportTableResponseController extends BaseController
     {
         return array_merge($this->formatResponse($response), [
             'respondent' => $response->relationLoaded('respondent') && $response->respondent ? [
-                'id'   => $response->respondent->id,
+                'id' => $response->respondent->id,
                 'name' => $response->respondent->profile?->full_name ?? $response->respondent->username,
             ] : null,
         ]);

@@ -8,10 +8,13 @@ use Illuminate\Support\Facades\Log;
 
 class AnthropicProvider implements AiProviderInterface
 {
-    private const BASE_URL    = 'https://api.anthropic.com/v1';
+    private const BASE_URL = 'https://api.anthropic.com/v1';
+
     private const API_VERSION = '2023-06-01';
-    private const MAX_RETRY   = 2;
-    private const RETRY_WAIT  = [0, 1, 3];
+
+    private const MAX_RETRY = 2;
+
+    private const RETRY_WAIT = [0, 1, 3];
 
     /** @var array{prompt_tokens: int, completion_tokens: int, total_tokens: int} */
     private array $lastTokenUsage = ['prompt_tokens' => 0, 'completion_tokens' => 0, 'total_tokens' => 0];
@@ -35,7 +38,7 @@ class AnthropicProvider implements AiProviderInterface
      */
     public function chat(array $messages, array $options = []): string
     {
-        $systemContent    = '';
+        $systemContent = '';
         $filteredMessages = [];
 
         foreach ($messages as $msg) {
@@ -47,12 +50,12 @@ class AnthropicProvider implements AiProviderInterface
         }
 
         $payload = [
-            'model'      => $options['model'] ?? $this->model,
+            'model' => $options['model'] ?? $this->model,
             'max_tokens' => $options['max_tokens'] ?? 2048,
-            'messages'   => $filteredMessages,
+            'messages' => $filteredMessages,
         ];
 
-        if (!empty($systemContent)) {
+        if (! empty($systemContent)) {
             // Prompt Caching: cache_control ephemeral → 5 dəqiqə cache
             $payload['system'] = [
                 [
@@ -63,7 +66,7 @@ class AnthropicProvider implements AiProviderInterface
             ];
         }
 
-        $attempt   = 0;
+        $attempt = 0;
         $lastError = null;
 
         while ($attempt <= self::MAX_RETRY) {
@@ -74,40 +77,40 @@ class AnthropicProvider implements AiProviderInterface
 
             try {
                 $response = Http::withHeaders([
-                    'x-api-key'                  => $this->apiKey,
-                    'anthropic-version'           => self::API_VERSION,
-                    'anthropic-beta'              => 'prompt-caching-2024-07-31',
-                    'Content-Type'               => 'application/json',
+                    'x-api-key' => $this->apiKey,
+                    'anthropic-version' => self::API_VERSION,
+                    'anthropic-beta' => 'prompt-caching-2024-07-31',
+                    'Content-Type' => 'application/json',
                 ])
                     ->timeout(30)
                     ->post(self::BASE_URL . '/messages', $payload);
 
                 if ($response->successful()) {
                     $usage = $response->json('usage', []);
-                    $inputTokens  = ($usage['input_tokens'] ?? 0);
+                    $inputTokens = ($usage['input_tokens'] ?? 0);
                     $outputTokens = ($usage['output_tokens'] ?? 0);
 
                     $this->lastTokenUsage = [
-                        'prompt_tokens'     => $inputTokens,
+                        'prompt_tokens' => $inputTokens,
                         'completion_tokens' => $outputTokens,
-                        'total_tokens'      => $inputTokens + $outputTokens,
+                        'total_tokens' => $inputTokens + $outputTokens,
                     ];
 
                     return $response->json('content.0.text', '');
                 }
 
                 $statusCode = $response->status();
-                $errorMsg   = $response->json('error.message', 'Anthropic API xətası');
+                $errorMsg = $response->json('error.message', 'Anthropic API xətası');
 
                 // 529 = Overloaded, 5xx = server xəta → retry
                 if ($statusCode === 529 || $statusCode >= 500) {
                     $lastError = "Anthropic {$statusCode}: {$errorMsg}";
                     $attempt++;
+
                     continue;
                 }
 
                 throw new \RuntimeException("Anthropic {$statusCode}: {$errorMsg}");
-
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
                 $lastError = 'Şəbəkə xətası: ' . $e->getMessage();
                 $attempt++;
@@ -131,13 +134,13 @@ class AnthropicProvider implements AiProviderInterface
             return [
                 'success' => true,
                 'message' => 'Anthropic Claude bağlantısı uğurludur',
-                'model'   => $this->model,
+                'model' => $this->model,
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'model'   => '',
+                'model' => '',
             ];
         }
     }

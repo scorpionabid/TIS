@@ -21,8 +21,8 @@ class PreschoolRoutesTest extends TestCase
     private function createPreschoolInstitution(): Institution
     {
         return Institution::factory()->create([
-            'type'      => 'kindergarten',
-            'level'     => 4,
+            'type' => 'kindergarten',
+            'level' => 4,
             'is_active' => true,
         ]);
     }
@@ -41,7 +41,7 @@ class PreschoolRoutesTest extends TestCase
     /** @test */
     public function preschool_groups_requires_permission(): void
     {
-        $authorizedUser   = $this->createUserWithPermission('preschool.groups.manage');
+        $authorizedUser = $this->createUserWithPermission('preschool.groups.manage');
         $unauthorizedUser = User::factory()->create();
 
         $this->actingAs($unauthorizedUser, 'sanctum')->getJson('/api/preschool/groups')->assertStatus(403);
@@ -53,7 +53,7 @@ class PreschoolRoutesTest extends TestCase
     /** @test */
     public function preschool_attendance_read_requires_permission(): void
     {
-        $authorizedUser   = $this->createUserWithPermission('preschool.attendance.read');
+        $authorizedUser = $this->createUserWithPermission('preschool.attendance.read');
         $unauthorizedUser = User::factory()->create();
 
         $this->actingAs($unauthorizedUser, 'sanctum')->getJson('/api/preschool/attendance')->assertStatus(403);
@@ -65,7 +65,7 @@ class PreschoolRoutesTest extends TestCase
     /** @test */
     public function preschool_attendance_write_requires_permission(): void
     {
-        $authorizedUser   = $this->createUserWithPermission('preschool.attendance.write');
+        $authorizedUser = $this->createUserWithPermission('preschool.attendance.write');
         $unauthorizedUser = User::factory()->create();
 
         $payload = ['foo' => 'bar'];
@@ -79,7 +79,7 @@ class PreschoolRoutesTest extends TestCase
     /** @test */
     public function preschool_attendance_reports_requires_permission(): void
     {
-        $authorizedUser   = $this->createUserWithPermission('preschool.attendance.reports');
+        $authorizedUser = $this->createUserWithPermission('preschool.attendance.reports');
         $unauthorizedUser = User::factory()->create();
 
         $this->actingAs($unauthorizedUser, 'sanctum')->getJson('/api/preschool/attendance/reports')->assertStatus(403);

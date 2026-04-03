@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\GrowthBonusConfig;
+use Illuminate\Database\Seeder;
 
 /**
  * PRD: Growth bonus qaydaları (opsional)

@@ -20,13 +20,13 @@ class GradeBookSessionFactory extends Factory
     public function definition(): array
     {
         return [
-            'institution_id'   => Institution::factory()->school(),
-            'grade_id'         => Grade::factory(),
-            'subject_id'       => Subject::factory(),
+            'institution_id' => Institution::factory()->school(),
+            'grade_id' => Grade::factory(),
+            'subject_id' => Subject::factory(),
             'academic_year_id' => AcademicYear::factory()->active(),
-            'created_by'       => User::factory(),
-            'title'            => null,
-            'status'           => 'active',
+            'created_by' => User::factory(),
+            'title' => null,
+            'status' => 'active',
         ];
     }
 
@@ -52,7 +52,7 @@ class GradeBookSessionFactory extends Factory
     public function forGrade(Grade $grade): static
     {
         return $this->state([
-            'grade_id'       => $grade->id,
+            'grade_id' => $grade->id,
             'institution_id' => $grade->institution_id,
         ]);
     }

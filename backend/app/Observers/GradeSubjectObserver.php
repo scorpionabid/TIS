@@ -15,10 +15,11 @@ class GradeSubjectObserver
     public function created(GradeSubject $gradeSubject): void
     {
         // Only create grade books for teaching activities
-        if (!$gradeSubject->is_teaching_activity) {
-            Log::info("Skipping grade book creation for non-teaching activity", [
+        if (! $gradeSubject->is_teaching_activity) {
+            Log::info('Skipping grade book creation for non-teaching activity', [
                 'grade_subject_id' => $gradeSubject->id,
             ]);
+
             return;
         }
 
@@ -26,28 +27,31 @@ class GradeSubjectObserver
         $subject = $gradeSubject->subject;
 
         // Validate related models exist
-        if (!$grade || !$subject) {
-            Log::warning("Cannot create grade book - missing grade or subject", [
+        if (! $grade || ! $subject) {
+            Log::warning('Cannot create grade book - missing grade or subject', [
                 'grade_subject_id' => $gradeSubject->id,
             ]);
+
             return;
         }
 
         // Check grade is active
-        if (!$grade->is_active) {
-            Log::warning("Skipping grade book creation for inactive grade", [
+        if (! $grade->is_active) {
+            Log::warning('Skipping grade book creation for inactive grade', [
                 'grade_id' => $grade->id,
                 'grade_subject_id' => $gradeSubject->id,
             ]);
+
             return;
         }
 
         // Check subject is active
-        if (method_exists($subject, 'is_active') && !$subject->is_active) {
-            Log::warning("Skipping grade book creation for inactive subject", [
+        if (method_exists($subject, 'is_active') && ! $subject->is_active) {
+            Log::warning('Skipping grade book creation for inactive subject', [
                 'subject_id' => $subject->id,
                 'grade_subject_id' => $gradeSubject->id,
             ]);
+
             return;
         }
 
@@ -55,11 +59,12 @@ class GradeSubjectObserver
         $institutionId = $grade->institution_id;
 
         // Validate academic year exists
-        if (!$academicYearId) {
-            Log::warning("Cannot create grade book - grade has no academic year", [
+        if (! $academicYearId) {
+            Log::warning('Cannot create grade book - grade has no academic year', [
                 'grade_id' => $grade->id,
                 'grade_subject_id' => $gradeSubject->id,
             ]);
+
             return;
         }
 
@@ -72,11 +77,12 @@ class GradeSubjectObserver
         ])->whereNull('deleted_at')->exists();
 
         if ($exists) {
-            Log::info("Grade book already exists, skipping creation", [
+            Log::info('Grade book already exists, skipping creation', [
                 'grade_id' => $grade->id,
                 'subject_id' => $subject->id,
                 'academic_year_id' => $academicYearId,
             ]);
+
             return;
         }
 
@@ -95,14 +101,14 @@ class GradeSubjectObserver
             // Auto-create calculated columns (semester + annual)
             $this->createCalculatedColumns($gradeBook);
 
-            Log::info("Auto-created grade book for subject assignment", [
+            Log::info('Auto-created grade book for subject assignment', [
                 'grade_book_id' => $gradeBook->id,
                 'grade_id' => $grade->id,
                 'subject_id' => $subject->id,
                 'grade_subject_id' => $gradeSubject->id,
             ]);
         } catch (\Exception $e) {
-            Log::error("Failed to auto-create grade book", [
+            Log::error('Failed to auto-create grade book', [
                 'grade_id' => $grade->id,
                 'subject_id' => $subject->id,
                 'error' => $e->getMessage(),
@@ -117,14 +123,14 @@ class GradeSubjectObserver
     public function deleted(GradeSubject $gradeSubject): void
     {
         // Only process teaching activities
-        if (!$gradeSubject->is_teaching_activity) {
+        if (! $gradeSubject->is_teaching_activity) {
             return;
         }
 
         $grade = $gradeSubject->grade;
         $subject = $gradeSubject->subject;
 
-        if (!$grade || !$subject) {
+        if (! $grade || ! $subject) {
             return;
         }
 
@@ -143,14 +149,14 @@ class GradeSubjectObserver
                 // Soft delete the grade book (archive)
                 $gradeBook->delete();
 
-                Log::info("Auto-archived grade book due to subject removal", [
+                Log::info('Auto-archived grade book due to subject removal', [
                     'grade_book_id' => $gradeBook->id,
                     'grade_id' => $grade->id,
                     'subject_id' => $subject->id,
                     'grade_subject_id' => $gradeSubject->id,
                 ]);
             } catch (\Exception $e) {
-                Log::error("Failed to auto-archive grade book", [
+                Log::error('Failed to auto-archive grade book', [
                     'grade_book_id' => $gradeBook->id,
                     'error' => $e->getMessage(),
                 ]);

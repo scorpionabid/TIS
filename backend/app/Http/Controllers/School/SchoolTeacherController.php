@@ -113,8 +113,7 @@ class SchoolTeacherController extends Controller
                         ->on('grade_subjects.education_type', '=', 'teaching_loads.education_type');
                 })
                 ->whereIn('teaching_loads.teacher_id', $teacherIds->all())
-                ->when($request->get('academic_year_id'), fn($q, $yr) =>
-                    $q->where('classes.academic_year_id', (int) $yr)
+                ->when($request->get('academic_year_id'), fn ($q, $yr) => $q->where('classes.academic_year_id', (int) $yr)
                 )
                 ->select([
                     'teaching_loads.teacher_id',
@@ -142,6 +141,7 @@ class SchoolTeacherController extends Controller
             $teacher['workload_individual_school'] = (float) ($summary->individual_school_hours ?? 0);
             $teacher['workload_home_education'] = (float) ($summary->home_education_hours ?? 0);
             $teacher['workload_special_education'] = (float) ($summary->special_education_hours ?? 0);
+
             return $teacher;
         });
 

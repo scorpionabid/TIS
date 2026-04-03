@@ -2,7 +2,6 @@
 
 namespace App\Services\AI;
 
-use App\Services\AI\AiProviderFactory;
 use Illuminate\Support\Facades\Log;
 
 class PromptEnhancementService
@@ -24,8 +23,8 @@ class PromptEnhancementService
      */
     public function generateClarificationQuestions(string $userPrompt): array
     {
-        $fullSchema      = $this->schemaService->getSchema();
-        $filteredSchema  = $this->relevanceFilter->filter($userPrompt, $fullSchema);
+        $fullSchema = $this->schemaService->getSchema();
+        $filteredSchema = $this->relevanceFilter->filter($userPrompt, $fullSchema);
         $condensedSchema = $this->buildCondensedSchema($filteredSchema);
 
         $systemPrompt = <<<SYSTEM
@@ -48,13 +47,14 @@ SYSTEM;
 
             $data = $this->decodeJson($response);
 
-            if (empty($data['questions']) || !is_array($data['questions'])) {
+            if (empty($data['questions']) || ! is_array($data['questions'])) {
                 throw new \RuntimeException('Gözlənilməz AI cavab formatı');
             }
 
             return $data;
         } catch (\Exception $e) {
             Log::warning('PromptEnhancement xətası: ' . $e->getMessage());
+
             return $this->getFallbackQuestions();
         }
     }
@@ -81,18 +81,18 @@ SYSTEM;
     private function shortType(string $type): string
     {
         return match (true) {
-            str_contains($type, 'int')       => 'int',
+            str_contains($type, 'int') => 'int',
             str_contains($type, 'char'),
-            str_contains($type, 'text')      => 'str',
-            str_contains($type, 'bool')      => 'bool',
+            str_contains($type, 'text') => 'str',
+            str_contains($type, 'bool') => 'bool',
             str_contains($type, 'timestamp') => 'ts',
-            str_contains($type, 'date')      => 'date',
+            str_contains($type, 'date') => 'date',
             str_contains($type, 'numeric'),
             str_contains($type, 'decimal'),
             str_contains($type, 'float'),
-            str_contains($type, 'real')      => 'num',
-            str_contains($type, 'json')      => 'json',
-            default                          => $type,
+            str_contains($type, 'real') => 'num',
+            str_contains($type, 'json') => 'json',
+            default => $type,
         };
     }
 
@@ -103,6 +103,7 @@ SYSTEM;
         } elseif (preg_match('/(\{[\s\S]*\})/s', $text, $m)) {
             $text = $m[1];
         }
+
         return json_decode($text, true) ?? [];
     }
 
@@ -111,16 +112,16 @@ SYSTEM;
         return [
             'questions' => [
                 [
-                    'id'       => 'q1',
+                    'id' => 'q1',
                     'question' => 'Hansı tədris ilini nəzərdə tutursunuz?',
-                    'type'     => 'single',
-                    'options'  => ['2023-2024', '2024-2025', 'Hamısı'],
+                    'type' => 'single',
+                    'options' => ['2023-2024', '2024-2025', 'Hamısı'],
                 ],
                 [
-                    'id'       => 'q2',
+                    'id' => 'q2',
                     'question' => 'Hansı müəssisəyə aid məlumat lazımdır?',
-                    'type'     => 'text',
-                    'options'  => [],
+                    'type' => 'text',
+                    'options' => [],
                 ],
             ],
         ];

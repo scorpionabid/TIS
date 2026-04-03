@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\SubjectConstants;
 use App\Models\CurriculumPlan;
 use App\Models\CurriculumPlanApproval;
 use App\Models\Grade;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\Log;
 
 class CurriculumPlanService
 {
+    /** Request ərzindəki approval sorğularını cache-ləyir: "{institutionId}_{yearId}" → CurriculumPlanApproval */
+    private array $approvalCache = [];
+
     /**
      * Müəssisə və il üzrə tədris planını assigned saatlarla birlikdə gətirir.
      */
@@ -51,7 +55,7 @@ class CurriculumPlanService
      */
     public function bulkUpsertPlanItems(int $institutionId, int $yearId, array $items, User $user): void
     {
-        if (!$this->isEditable($institutionId, $yearId, $user)) {
+        if (! $this->isEditable($institutionId, $yearId, $user)) {
             throw new \Exception('Bu tədris planı hazırda redaktə üçün bağlıdır.');
         }
 
@@ -77,7 +81,7 @@ class CurriculumPlanService
      */
     public function deleteSubjectFromPlan(int $institutionId, int $yearId, int $subjectId, string $eduType, User $user): void
     {
-        if (!$this->isEditable($institutionId, $yearId, $user)) {
+        if (! $this->isEditable($institutionId, $yearId, $user)) {
             throw new \Exception('Bu tədris planı hazırda redaktə üçün bağlıdır.');
         }
 
@@ -89,14 +93,28 @@ class CurriculumPlanService
     }
 
     /**
-     * Təsdiqləmə statusunu gətirir.
+     * Təsdiqləmə statusunu gətirir (eyni request ərzindəki təkrarlı DB sorğuları cache-lənir).
      */
     public function getApprovalStatus(int $institutionId, int $yearId): CurriculumPlanApproval
     {
-        return CurriculumPlanApproval::firstOrCreate(
-            ['institution_id' => $institutionId, 'academic_year_id' => $yearId],
-            ['status' => 'draft']
-        );
+        $key = "{$institutionId}_{$yearId}";
+
+        if (! isset($this->approvalCache[$key])) {
+            $this->approvalCache[$key] = CurriculumPlanApproval::firstOrCreate(
+                ['institution_id' => $institutionId, 'academic_year_id' => $yearId],
+                ['status' => 'draft']
+            );
+        }
+
+        return $this->approvalCache[$key];
+    }
+
+    /**
+     * Status dəyişdikdə cache-i təmizlə.
+     */
+    private function clearApprovalCache(int $institutionId, int $yearId): void
+    {
+        unset($this->approvalCache["{$institutionId}_{$yearId}"]);
     }
 
     /**
@@ -105,7 +123,7 @@ class CurriculumPlanService
     public function submitForApproval(int $institutionId, int $yearId, int $userId): void
     {
         $approval = $this->getApprovalStatus($institutionId, $yearId);
-        
+
         if ($approval->status !== 'draft' && $approval->status !== 'returned') {
             throw new \Exception('Plan artıq göndərilib və ya təsdiqlənib.');
         }
@@ -115,7 +133,8 @@ class CurriculumPlanService
             'submitted_at' => now(),
             'updated_by_id' => $userId,
         ]);
-        
+        $this->clearApprovalCache($institutionId, $yearId);
+
         Log::info("Curriculum plan submitted for institution {$institutionId}");
     }
 
@@ -125,7 +144,7 @@ class CurriculumPlanService
     public function approvePlan(int $institutionId, int $yearId, int $userId): void
     {
         $approval = $this->getApprovalStatus($institutionId, $yearId);
-        
+
         if ($approval->status !== 'submitted') {
             throw new \Exception('Təsdiqləmək üçün plan əvvəlcə göndərilməlidir.');
         }
@@ -135,6 +154,7 @@ class CurriculumPlanService
             'approved_at' => now(),
             'updated_by_id' => $userId,
         ]);
+        $this->clearApprovalCache($institutionId, $yearId);
     }
 
     /**
@@ -143,7 +163,7 @@ class CurriculumPlanService
     public function returnPlan(int $institutionId, int $yearId, int $userId, string $comment): void
     {
         $approval = $this->getApprovalStatus($institutionId, $yearId);
-        
+
         if ($approval->status !== 'submitted') {
             throw new \Exception('Yalnız göndərilmiş planı geri qaytarmaq olar.');
         }
@@ -154,6 +174,7 @@ class CurriculumPlanService
             'return_comment' => $comment,
             'updated_by_id' => $userId,
         ]);
+        $this->clearApprovalCache($institutionId, $yearId);
     }
 
     /**
@@ -162,11 +183,12 @@ class CurriculumPlanService
     public function resetPlan(int $institutionId, int $yearId, int $userId): void
     {
         $approval = $this->getApprovalStatus($institutionId, $yearId);
-        
+
         $approval->update([
             'status' => 'draft',
             'updated_by_id' => $userId,
         ]);
+        $this->clearApprovalCache($institutionId, $yearId);
     }
 
     /**
@@ -177,28 +199,30 @@ class CurriculumPlanService
         // 1. Müəssisənin aid olduğu Region tənzimləmələrini yoxlayırıq
         $settings = $this->getRegionSettings($institutionId);
 
-        if ($settings['is_locked']) return false;
+        if ($settings['is_locked']) {
+            return false;
+        }
 
         // Əgər Deadline keçibsə
         if ($settings['deadline'] && now()->greaterThan($settings['deadline'])) {
             // Deadline yalnız məktəb adminlərinə təsir etməlidir.
-            if (!$user->hasRole(['sektoradmin', 'regionadmin', 'superadmin'])) {
+            if (! $user->hasRole(['sektoradmin', 'regionadmin', 'superadmin'])) {
                 return false;
             }
         }
 
         // 2. Rol əsaslı əlavə məhdudiyyətlər (Region Admin tərəfindən qoyulan)
         // DİQQƏT: Bu yoxlama hasAnyRole-dan əvvəl gəlməlidir ki, bypass olmasın.
-        if ($user->hasRole('sektoradmin') && !($settings['can_sektor_edit'] ?? true)) {
+        if ($user->hasRole('sektoradmin') && ! ($settings['can_sektor_edit'] ?? true)) {
             return false;
         }
-        if ($user->hasRole('regionoperator') && !($settings['can_operator_edit'] ?? true)) {
+        if ($user->hasRole('regionoperator') && ! ($settings['can_operator_edit'] ?? true)) {
             return false;
         }
 
         // 3. Təsdiqləmə statusu yoxlanışı
         $approval = $this->getApprovalStatus($institutionId, $yearId);
-        
+
         // Superadmin və Regionadmin hər zaman redaktə edə bilir (kilid yoxdursa)
         if ($user->hasAnyRole(['regionadmin', 'superadmin'])) {
             return true;
@@ -220,7 +244,7 @@ class CurriculumPlanService
     public function getRegionSettings(int $institutionId): array
     {
         $institution = \App\Models\Institution::find($institutionId);
-        
+
         $regionDeadline = null;
         $isLocked = false;
         $canSektorEdit = true;
@@ -276,22 +300,22 @@ class CurriculumPlanService
                 ->where('academic_year_id', $yearId)
                 ->where('class_level', $level);
 
-            $umumi   = (clone $base)->where('education_type', 'umumi')->whereNotIn('subject_id', [56, 57])->sum('hours');
-            $extra   = (clone $base)->where('subject_id', 56)->sum('hours');
-            $club    = (clone $base)->where('subject_id', 57)->sum('hours');
-            $ferdi   = (clone $base)->where('education_type', 'ferdi')->sum('hours');
-            $evde    = (clone $base)->where('education_type', 'evde')->sum('hours');
-            $xususi  = (clone $base)->where('education_type', 'xususi')->sum('hours');
+            $umumi = (clone $base)->where('education_type', 'umumi')->whereNotIn('subject_id', [SubjectConstants::EXTRACURRICULAR_SUBJECT_ID, SubjectConstants::CLUB_SUBJECT_ID])->sum('hours');
+            $extra = (clone $base)->where('subject_id', SubjectConstants::EXTRACURRICULAR_SUBJECT_ID)->sum('hours');
+            $club = (clone $base)->where('subject_id', SubjectConstants::CLUB_SUBJECT_ID)->sum('hours');
+            $ferdi = (clone $base)->where('education_type', 'ferdi')->sum('hours');
+            $evde = (clone $base)->where('education_type', 'evde')->sum('hours');
+            $xususi = (clone $base)->where('education_type', 'xususi')->sum('hours');
 
             Grade::where('institution_id', $institutionId)
                 ->where('class_level', $level)
                 ->update([
-                    'curriculum_hours'  => $umumi,
-                    'extra_hours'       => $extra,
-                    'club_hours'        => $club,
-                    'individual_hours'  => $ferdi,
-                    'home_hours'        => $evde,
-                    'special_hours'     => $xususi,
+                    'curriculum_hours' => $umumi,
+                    'extra_hours' => $extra,
+                    'club_hours' => $club,
+                    'individual_hours' => $ferdi,
+                    'home_hours' => $evde,
+                    'special_hours' => $xususi,
                 ]);
         }
     }

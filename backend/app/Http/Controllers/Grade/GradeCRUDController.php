@@ -31,7 +31,7 @@ class GradeCRUDController extends Controller
         // Real student counts from students table (added via /students page)
         $query->withCount([
             'assignedStudents as real_student_count',
-            'assignedStudents as real_male_count'   => fn ($q) => $q->where('gender', 'male'),
+            'assignedStudents as real_male_count' => fn ($q) => $q->where('gender', 'male'),
             'assignedStudents as real_female_count' => fn ($q) => $q->where('gender', 'female'),
         ]);
 
@@ -524,7 +524,7 @@ class GradeCRUDController extends Controller
             $with[] = 'subjects.activeTeacherAssignments.teacher.profile';
             $with[] = 'gradeSubjects.subject';
             $with[] = 'gradeSubjects.teacher';
-//            $with[] = 'gradeSubjects.gradeBook'; // Disabled because whereColumn breaks eager loading
+            //            $with[] = 'gradeSubjects.gradeBook'; // Disabled because whereColumn breaks eager loading
         }
 
         return $with;
@@ -588,12 +588,14 @@ class GradeCRUDController extends Controller
                     \DB::table('grade_subjects')->insert([
                         'grade_id' => $newGrade->id,
                         'subject_id' => $gradeSubject->subject_id,
+                        'education_type' => $gradeSubject->education_type ?? 'umumi',
                         'weekly_hours' => $gradeSubject->weekly_hours,
+                        'calculated_hours' => $gradeSubject->calculated_hours ?? $gradeSubject->weekly_hours,
                         'is_teaching_activity' => $gradeSubject->is_teaching_activity ?? false,
                         'is_extracurricular' => $gradeSubject->is_extracurricular ?? false,
                         'is_club' => $gradeSubject->is_club ?? false,
                         'is_split_groups' => $gradeSubject->is_split_groups ?? false,
-                        'group_count' => $gradeSubject->group_count,
+                        'group_count' => $gradeSubject->group_count ?? 1,
                         'teacher_id' => null,
                         'notes' => $gradeSubject->notes,
                         'created_at' => now(),

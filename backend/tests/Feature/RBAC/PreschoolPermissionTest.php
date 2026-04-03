@@ -63,6 +63,7 @@ class PreschoolPermissionTest extends TestCase
 
     /**
      * @test
+     *
      * @dataProvider rolePermissionProvider
      */
     public function roles_have_correct_preschool_permissions(string $roleName, string $permissionName, bool $shouldHave): void

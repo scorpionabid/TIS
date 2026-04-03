@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\TeacherRatingController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,7 +17,6 @@ use App\Http\Controllers\API\TeacherRatingController;
 */
 
 Route::prefix('teacher-rating')->middleware(['auth:sanctum'])->group(function () {
-
     /*
     |--------------------------------------------------------------------------
     | Rating Calculation
@@ -94,5 +93,4 @@ Route::prefix('teacher-rating')->middleware(['auth:sanctum'])->group(function ()
     Route::put('/config', [TeacherRatingController::class, 'updateConfig'])
         ->middleware('permission:teacher-ratings.config.write')
         ->name('teacher-rating.config.update');
-
 });

@@ -59,7 +59,7 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
                 continue;
             }
 
-            $sectorName      = $this->getSectorName($response->institution);
+            $sectorName = $this->getSectorName($response->institution);
             $institutionName = $response->institution?->name ?? 'N/A';
 
             foreach ($tableData as $rowIndex => $tableRow) {
@@ -84,7 +84,7 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
 
                 foreach ($this->columns as $column) {
                     $value = $tableRow[$column['key']] ?? '';
-                    $type  = $column['type'] ?? 'text';
+                    $type = $column['type'] ?? 'text';
 
                     if ($value !== '' && $value !== null) {
                         if ($type === 'number' && is_numeric($value)) {
@@ -131,14 +131,14 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
         $sheet->mergeCells("A1:{$lastCol}1");
         $sheet->setCellValue('A1', $this->table->title);
         $sheet->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 13, 'color' => ['argb' => 'FF065F46']],
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['argb' => 'FF065F46']],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_LEFT,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-                'wrapText'   => true,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
             ],
             'fill' => [
-                'fillType'   => Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['argb' => 'FFD1FAE5'],
             ],
         ]);
@@ -155,13 +155,13 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
         return [
             2 => [
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'FF10B981'],
                 ],
                 'font' => [
                     'color' => ['argb' => 'FFFFFFFF'],
-                    'bold'  => true,
-                    'size'  => 11,
+                    'bold' => true,
+                    'size' => 11,
                 ],
             ],
         ];
@@ -179,8 +179,8 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
             $colLetter = Coordinate::stringFromColumnIndex(4 + $index);
             $widths[$colLetter] = match ($column['type'] ?? 'text') {
                 'number' => 15,
-                'date'   => 15,
-                default  => 25,
+                'date' => 15,
+                default => 25,
             };
         }
 
@@ -195,8 +195,8 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
             $colLetter = Coordinate::stringFromColumnIndex(4 + $index);
             $formats[$colLetter] = match ($column['type'] ?? 'text') {
                 'number' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
-                'date'   => NumberFormat::FORMAT_DATE_DDMMYYYY,
-                default  => NumberFormat::FORMAT_GENERAL,
+                'date' => NumberFormat::FORMAT_DATE_DDMMYYYY,
+                default => NumberFormat::FORMAT_GENERAL,
             };
         }
 

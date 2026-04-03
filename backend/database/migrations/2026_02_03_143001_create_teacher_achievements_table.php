@@ -25,7 +25,7 @@ return new class extends Migration
             $table->boolean('verification_status')->default(false);
             $table->text('notes')->nullable();
             $table->timestamps();
-            
+
             $table->index('user_id');
             $table->index('teacher_profile_id');
             $table->index('type');

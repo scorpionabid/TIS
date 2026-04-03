@@ -26,33 +26,33 @@ class GradeResource extends JsonResource
 
             // Real student counts from /students page (students table)
             'real_student_count' => $this->real_student_count ?? 0,
-            'real_male_count'    => $this->real_male_count ?? 0,
-            'real_female_count'  => $this->real_female_count ?? 0,
+            'real_male_count' => $this->real_male_count ?? 0,
+            'real_female_count' => $this->real_female_count ?? 0,
 
             // Lesson load hours from grade_subjects (curriculum)
-            'lesson_load_hours'     => (float) ($this->curriculum_hours ?? $this->lesson_load_hours ?? 0),
-            'curriculum_hours'      => (float) ($this->curriculum_hours ?? NULL),
-            'extra_hours'           => (float) ($this->extra_hours ?? 0),
-            'club_hours'            => (float) ($this->club_hours ?? 0),
-            'individual_hours'      => (float) ($this->individual_hours ?? 0),
-            'home_hours'            => (float) ($this->home_hours ?? 0),
-            'special_hours'         => (float) ($this->special_hours ?? 0),
+            'lesson_load_hours' => (float) ($this->curriculum_hours ?? $this->lesson_load_hours ?? 0),
+            'curriculum_hours' => (float) ($this->curriculum_hours ?? null),
+            'extra_hours' => (float) ($this->extra_hours ?? 0),
+            'club_hours' => (float) ($this->club_hours ?? 0),
+            'individual_hours' => (float) ($this->individual_hours ?? 0),
+            'home_hours' => (float) ($this->home_hours ?? 0),
+            'special_hours' => (float) ($this->special_hours ?? 0),
 
             // Education-type based hour totals (computed from grade_subjects)
-            'umumi_edu_hours'  => (float) ($this->umumi_edu_hours  ?? 0),
-            'ferdi_edu_hours'  => (float) ($this->ferdi_edu_hours  ?? 0),
-            'evde_edu_hours'   => (float) ($this->evde_edu_hours   ?? 0),
+            'umumi_edu_hours' => (float) ($this->umumi_edu_hours ?? 0),
+            'ferdi_edu_hours' => (float) ($this->ferdi_edu_hours ?? 0),
+            'evde_edu_hours' => (float) ($this->evde_edu_hours ?? 0),
             'xususi_edu_hours' => (float) ($this->xususi_edu_hours ?? 0),
-            
+
             // New split hours
-            'split_foreign_lang_1'  => (float) ($this->split_foreign_lang_1 ?? 0),
-            'split_foreign_lang_2'  => (float) ($this->split_foreign_lang_2 ?? 0),
-            'split_physical_ed'     => (float) ($this->split_physical_ed ?? 0),
-            'split_informatics'     => (float) ($this->split_informatics ?? 0),
-            'split_technology'      => (float) ($this->split_technology ?? 0),
-            'split_state_lang'      => (float) ($this->split_state_lang ?? 0),
-            'split_steam'           => (float) ($this->split_steam ?? 0),
-            'split_digital_skills'  => (float) ($this->split_digital_skills ?? 0),
+            'split_foreign_lang_1' => (float) ($this->split_foreign_lang_1 ?? 0),
+            'split_foreign_lang_2' => (float) ($this->split_foreign_lang_2 ?? 0),
+            'split_physical_ed' => (float) ($this->split_physical_ed ?? 0),
+            'split_informatics' => (float) ($this->split_informatics ?? 0),
+            'split_technology' => (float) ($this->split_technology ?? 0),
+            'split_state_lang' => (float) ($this->split_state_lang ?? 0),
+            'split_steam' => (float) ($this->split_steam ?? 0),
+            'split_digital_skills' => (float) ($this->split_digital_skills ?? 0),
 
             'education_program' => $this->education_program,
             'class_type' => $this->class_type,

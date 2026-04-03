@@ -42,7 +42,9 @@ class TeacherAssessmentScore extends Model
      * Assessment types
      */
     public const TYPE_MIQ = 'miq';
+
     public const TYPE_CERTIFICATION = 'certification';
+
     public const TYPE_DIAGNOSTIC = 'diagnostic';
 
     public const TYPES = [

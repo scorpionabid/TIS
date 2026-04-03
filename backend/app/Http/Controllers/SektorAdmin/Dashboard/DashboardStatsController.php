@@ -63,7 +63,7 @@ class DashboardStatsController extends Controller
 
             // Get real survey and task data - FILTERED BY SECTOR
             $schoolIds = $sectorSchools->pluck('id')->toArray();
-            
+
             // Count surveys targeting this sector's schools
             $activeSurveys = Survey::where('status', 'published')
                 ->where(function ($query) use ($userSector, $schoolIds) {
@@ -75,7 +75,7 @@ class DashboardStatsController extends Controller
                         });
                 })
                 ->count();
-            
+
             // Count pending tasks targeting this sector's schools
             $pendingTasks = Task::where('status', 'pending')
                 ->where(function ($query) use ($userSector, $schoolIds) {
@@ -233,15 +233,15 @@ class DashboardStatsController extends Controller
 
         // Get recent tasks - FILTERED BY SECTOR
         $recentTasks = Task::where(function ($query) use ($sector, $schoolIds) {
-                $query->where('assigned_to_institution_id', $sector->id)
-                    ->orWhereJsonContains('target_institutions', $sector->id)
-                    ->orWhere(function ($q) use ($schoolIds) {
-                        foreach ($schoolIds as $schoolId) {
-                            $q->orWhereJsonContains('target_institutions', $schoolId)
-                                ->orWhere('assigned_to_institution_id', $schoolId);
-                        }
-                    });
-            })
+            $query->where('assigned_to_institution_id', $sector->id)
+                ->orWhereJsonContains('target_institutions', $sector->id)
+                ->orWhere(function ($q) use ($schoolIds) {
+                    foreach ($schoolIds as $schoolId) {
+                        $q->orWhereJsonContains('target_institutions', $schoolId)
+                            ->orWhere('assigned_to_institution_id', $schoolId);
+                    }
+                });
+        })
             ->orderBy('updated_at', 'desc')
             ->take(2)
             ->get();

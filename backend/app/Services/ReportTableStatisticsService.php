@@ -47,13 +47,13 @@ class ReportTableStatisticsService
 
         foreach ($institutions as $institution) {
             $schoolData = [
-                'institution_id'              => $institution->id,
-                'institution_name'            => $institution->name,
-                'sector_name'                 => $institution->parent?->name,
-                'tables'                      => [],
-                'total_tables'                => $tables->count(),
-                'filled_tables'               => 0,
-                'not_filled_tables'           => 0,
+                'institution_id' => $institution->id,
+                'institution_name' => $institution->name,
+                'sector_name' => $institution->parent?->name,
+                'tables' => [],
+                'total_tables' => $tables->count(),
+                'filled_tables' => 0,
+                'not_filled_tables' => 0,
                 'total_rows_across_all_tables' => 0,
             ];
 
@@ -61,25 +61,30 @@ class ReportTableStatisticsService
                 $key = "{$institution->id}:{$table->id}";
                 $response = $responses[$key] ?? null;
 
-                $rowCount     = 0;
+                $rowCount = 0;
                 $approvedCount = 0;
-                $pendingCount  = 0;
+                $pendingCount = 0;
                 $rejectedCount = 0;
                 $returnedCount = 0;
-                $status        = 'not_started';
-                $submittedAt   = null;
+                $status = 'not_started';
+                $submittedAt = null;
 
                 if ($response) {
-                    $rows        = $response->rows ?? [];
-                    $rowCount    = count($rows);
+                    $rows = $response->rows ?? [];
+                    $rowCount = count($rows);
                     $rowStatuses = $response->row_statuses ?? [];
 
                     foreach ($rowStatuses as $meta) {
                         $rowStatus = $meta['status'] ?? null;
-                        if ($rowStatus === 'approved')  { $approvedCount++; }
-                        elseif ($rowStatus === 'submitted') { $pendingCount++; }
-                        elseif ($rowStatus === 'rejected')  { $rejectedCount++; }
-                        elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) { $returnedCount++; }
+                        if ($rowStatus === 'approved') {
+                            $approvedCount++;
+                        } elseif ($rowStatus === 'submitted') {
+                            $pendingCount++;
+                        } elseif ($rowStatus === 'rejected') {
+                            $rejectedCount++;
+                        } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
+                            $returnedCount++;
+                        }
                     }
 
                     if ($rowCount === 0) {
@@ -99,11 +104,11 @@ class ReportTableStatisticsService
                 }
 
                 $schoolData['tables'][] = [
-                    'table_id'      => $table->id,
-                    'table_title'   => $table->title,
-                    'row_count'     => $rowCount,
-                    'status'        => $status,
-                    'submitted_at'  => $submittedAt,
+                    'table_id' => $table->id,
+                    'table_title' => $table->title,
+                    'row_count' => $rowCount,
+                    'status' => $status,
+                    'submitted_at' => $submittedAt,
                     'approved_count' => $approvedCount,
                     'pending_count' => $pendingCount,
                     'rejected_count' => $rejectedCount,
@@ -130,12 +135,12 @@ class ReportTableStatisticsService
 
         if (empty($allowedInstitutionIds)) {
             return [
-                'table_id'          => $table->id,
-                'table_title'       => $table->title,
-                'total_schools'     => 0,
-                'filled_schools'    => 0,
+                'table_id' => $table->id,
+                'table_title' => $table->title,
+                'total_schools' => 0,
+                'filled_schools' => 0,
                 'not_filled_schools' => 0,
-                'schools'           => [],
+                'schools' => [],
             ];
         }
 
@@ -150,32 +155,37 @@ class ReportTableStatisticsService
             ->get()
             ->keyBy('institution_id');
 
-        $schools      = [];
-        $filledCount  = 0;
+        $schools = [];
+        $filledCount = 0;
         $notFilledCount = 0;
 
         foreach ($institutions as $institution) {
             $response = $responses[$institution->id] ?? null;
 
-            $rowCount      = 0;
+            $rowCount = 0;
             $approvedCount = 0;
-            $pendingCount  = 0;
+            $pendingCount = 0;
             $rejectedCount = 0;
             $returnedCount = 0;
-            $status        = 'not_started';
-            $submittedAt   = null;
+            $status = 'not_started';
+            $submittedAt = null;
 
             if ($response) {
-                $rows        = $response->rows ?? [];
-                $rowCount    = count($rows);
+                $rows = $response->rows ?? [];
+                $rowCount = count($rows);
                 $rowStatuses = $response->row_statuses ?? [];
 
                 foreach ($rowStatuses as $meta) {
                     $rowStatus = $meta['status'] ?? null;
-                    if ($rowStatus === 'approved')  { $approvedCount++; }
-                    elseif ($rowStatus === 'submitted') { $pendingCount++; }
-                    elseif ($rowStatus === 'rejected')  { $rejectedCount++; }
-                    elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) { $returnedCount++; }
+                    if ($rowStatus === 'approved') {
+                        $approvedCount++;
+                    } elseif ($rowStatus === 'submitted') {
+                        $pendingCount++;
+                    } elseif ($rowStatus === 'rejected') {
+                        $rejectedCount++;
+                    } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
+                        $returnedCount++;
+                    }
                 }
 
                 if ($rowCount === 0) {
@@ -195,17 +205,17 @@ class ReportTableStatisticsService
             }
 
             $schools[] = [
-                'institution_id'   => $institution->id,
+                'institution_id' => $institution->id,
                 'institution_name' => $institution->name,
-                'sector_name'      => $institution->parent?->name,
-                'row_count'        => $rowCount,
-                'approved_count'   => $approvedCount,
-                'pending_count'    => $pendingCount,
-                'rejected_count'   => $rejectedCount,
-                'returned_count'   => $returnedCount,
-                'status'           => $status,
-                'submitted_at'     => $submittedAt,
-                'is_filled'        => $response !== null,
+                'sector_name' => $institution->parent?->name,
+                'row_count' => $rowCount,
+                'approved_count' => $approvedCount,
+                'pending_count' => $pendingCount,
+                'rejected_count' => $rejectedCount,
+                'returned_count' => $returnedCount,
+                'status' => $status,
+                'submitted_at' => $submittedAt,
+                'is_filled' => $response !== null,
             ];
         }
 
@@ -213,16 +223,17 @@ class ReportTableStatisticsService
             if ($a['is_filled'] === $b['is_filled']) {
                 return strcmp($a['institution_name'], $b['institution_name']);
             }
+
             return $a['is_filled'] ? 1 : -1;
         });
 
         return [
-            'table_id'          => $table->id,
-            'table_title'       => $table->title,
-            'total_schools'     => count($schools),
-            'filled_schools'    => $filledCount,
+            'table_id' => $table->id,
+            'table_title' => $table->title,
+            'total_schools' => count($schools),
+            'filled_schools' => $filledCount,
             'not_filled_schools' => $notFilledCount,
-            'schools'           => $schools,
+            'schools' => $schools,
         ];
     }
 
@@ -252,11 +263,11 @@ class ReportTableStatisticsService
         $nonRespondingSchools = [];
 
         foreach ($institutions as $institution) {
-            if (!isset($responses[$institution->id])) {
+            if (! isset($responses[$institution->id])) {
                 $nonRespondingSchools[] = [
-                    'id'        => $institution->id,
-                    'name'      => $institution->name,
-                    'sector'    => $institution->parent?->name,
+                    'id' => $institution->id,
+                    'name' => $institution->name,
+                    'sector' => $institution->parent?->name,
                     'sector_id' => $institution->parent_id,
                 ];
             }

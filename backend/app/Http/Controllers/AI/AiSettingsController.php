@@ -22,9 +22,9 @@ class AiSettingsController extends BaseController
     public function index(): JsonResponse
     {
         return $this->successResponse([
-            'current_settings'   => $this->settingsService->getCurrentSettings(),
+            'current_settings' => $this->settingsService->getCurrentSettings(),
             'available_providers' => $this->settingsService->getAvailableProviders(),
-            'is_configured'      => AiProviderFactory::isConfigured(),
+            'is_configured' => AiProviderFactory::isConfigured(),
         ]);
     }
 
@@ -36,14 +36,14 @@ class AiSettingsController extends BaseController
     public function save(Request $request): JsonResponse
     {
         // Yalnız superadmin
-        if (!$request->user()->hasRole('superadmin')) {
+        if (! $request->user()->hasRole('superadmin')) {
             return $this->errorResponse('Bu əməliyyat yalnız Superadmin üçündür.', 403);
         }
 
         $request->validate([
             'provider' => 'required|in:openai,anthropic,gemini',
-            'api_key'  => 'required|string|min:10|max:500',
-            'model'    => 'nullable|string|max:100',
+            'api_key' => 'required|string|min:10|max:500',
+            'model' => 'nullable|string|max:100',
         ]);
 
         $this->settingsService->saveProvider(

@@ -102,7 +102,7 @@ class TableInputSheetExport implements FromCollection, WithColumnFormatting, Wit
                 // Add column values with proper type casting
                 foreach ($this->columns as $column) {
                     $value = $tableRow[$column['key']] ?? '';
-                    $type  = $column['type'] ?? 'text';
+                    $type = $column['type'] ?? 'text';
 
                     if ($value !== '' && $value !== null) {
                         if ($type === 'number' && is_numeric($value)) {
@@ -155,14 +155,14 @@ class TableInputSheetExport implements FromCollection, WithColumnFormatting, Wit
         $sheet->mergeCells("A1:{$lastCol}1");
         $sheet->setCellValue('A1', strip_tags($this->question->title ?? ''));
         $sheet->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 12, 'color' => ['argb' => 'FF065F46']],
+            'font' => ['bold' => true, 'size' => 12, 'color' => ['argb' => 'FF065F46']],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_LEFT,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-                'wrapText'   => true,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
             ],
             'fill' => [
-                'fillType'   => Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['argb' => 'FFD1FAE5'], // Light green
             ],
         ]);
@@ -179,7 +179,7 @@ class TableInputSheetExport implements FromCollection, WithColumnFormatting, Wit
         return [
             2 => [
                 'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'FF10B981'],
                 ],
                 'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true, 'size' => 11],
@@ -200,8 +200,8 @@ class TableInputSheetExport implements FromCollection, WithColumnFormatting, Wit
             $colLetter = Coordinate::stringFromColumnIndex(4 + $index);
             $widths[$colLetter] = match ($column['type'] ?? 'text') {
                 'number' => 15,
-                'date'   => 15,
-                default  => 25,
+                'date' => 15,
+                default => 25,
             };
         }
 
@@ -215,10 +215,11 @@ class TableInputSheetExport implements FromCollection, WithColumnFormatting, Wit
             $colLetter = Coordinate::stringFromColumnIndex(4 + $index);
             $formats[$colLetter] = match ($column['type'] ?? 'text') {
                 'number' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1, // #,##0.00
-                'date'   => NumberFormat::FORMAT_DATE_DDMMYYYY,           // DD/MM/YYYY
-                default  => NumberFormat::FORMAT_GENERAL,
+                'date' => NumberFormat::FORMAT_DATE_DDMMYYYY,           // DD/MM/YYYY
+                default => NumberFormat::FORMAT_GENERAL,
             };
         }
+
         return $formats;
     }
 

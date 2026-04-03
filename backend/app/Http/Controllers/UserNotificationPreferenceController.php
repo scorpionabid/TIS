@@ -28,7 +28,7 @@ class UserNotificationPreferenceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $preferences->only([
+                'data' => $preferences->only([
                     'task_deadline_reminder',
                     'task_reminder_days',
                     'task_assigned_notification',
@@ -48,7 +48,7 @@ class UserNotificationPreferenceController extends Controller
         } catch (\Exception $e) {
             Log::error('UserNotificationPreferenceController::show failed', [
                 'user_id' => Auth::id(),
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
@@ -65,20 +65,20 @@ class UserNotificationPreferenceController extends Controller
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'task_deadline_reminder'        => 'nullable|boolean',
-            'task_reminder_days'            => 'nullable|integer|min:1|max:30',
-            'task_assigned_notification'    => 'nullable|boolean',
+            'task_deadline_reminder' => 'nullable|boolean',
+            'task_reminder_days' => 'nullable|integer|min:1|max:30',
+            'task_assigned_notification' => 'nullable|boolean',
             'task_status_change_notification' => 'nullable|boolean',
-            'task_comment_notification'     => 'nullable|boolean',
-            'task_mention_notification'     => 'nullable|boolean',
-            'email_enabled'                 => 'nullable|boolean',
-            'email_daily_digest'            => 'nullable|boolean',
-            'email_digest_time'             => 'nullable|date_format:H:i',
-            'in_app_enabled'                => 'nullable|boolean',
-            'browser_push_enabled'          => 'nullable|boolean',
-            'quiet_hours_enabled'           => 'nullable|boolean',
-            'quiet_hours_start'             => 'nullable|date_format:H:i',
-            'quiet_hours_end'               => 'nullable|date_format:H:i',
+            'task_comment_notification' => 'nullable|boolean',
+            'task_mention_notification' => 'nullable|boolean',
+            'email_enabled' => 'nullable|boolean',
+            'email_daily_digest' => 'nullable|boolean',
+            'email_digest_time' => 'nullable|date_format:H:i',
+            'in_app_enabled' => 'nullable|boolean',
+            'browser_push_enabled' => 'nullable|boolean',
+            'quiet_hours_enabled' => 'nullable|boolean',
+            'quiet_hours_start' => 'nullable|date_format:H:i',
+            'quiet_hours_end' => 'nullable|date_format:H:i',
         ]);
 
         try {
@@ -94,7 +94,7 @@ class UserNotificationPreferenceController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Bildiriş tənzimləmələri yadda saxlanıldı.',
-                'data'    => $preferences->fresh()->only([
+                'data' => $preferences->fresh()->only([
                     'task_deadline_reminder',
                     'task_reminder_days',
                     'task_assigned_notification',
@@ -114,7 +114,7 @@ class UserNotificationPreferenceController extends Controller
         } catch (\Exception $e) {
             Log::error('UserNotificationPreferenceController::update failed', [
                 'user_id' => Auth::id(),
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([

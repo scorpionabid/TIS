@@ -22,7 +22,7 @@ class SektorAdminRatingPermissionSeeder extends Seeder
 
         if ($role) {
             $role->givePermissionTo($permissions);
-            $this->command->info("SektorAdmin roluna rating permission-ları əlavə edildi: " . implode(', ', $permissions));
+            $this->command->info('SektorAdmin roluna rating permission-ları əlavə edildi: ' . implode(', ', $permissions));
         } else {
             $this->command->warn('sektoradmin rolu tapılmadı!');
         }

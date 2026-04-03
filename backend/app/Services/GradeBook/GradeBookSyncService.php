@@ -2,12 +2,12 @@
 
 namespace App\Services\GradeBook;
 
-use App\Models\GradeBookSession;
 use App\Models\GradeBookColumn;
+use App\Models\GradeBookSession;
 use App\Models\GradeSubject;
 use App\Services\GradeCalculationService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GradeBookSyncService
 {
@@ -75,7 +75,9 @@ class GradeBookSyncService
         $grade = $gradeSubject->grade;
         $subject = $gradeSubject->subject;
 
-        if (!$grade || !$subject) return null;
+        if (! $grade || ! $subject) {
+            return null;
+        }
 
         $gradeBook = GradeBookSession::create([
             'institution_id' => $grade->institution_id,

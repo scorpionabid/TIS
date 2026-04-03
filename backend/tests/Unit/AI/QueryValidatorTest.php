@@ -12,7 +12,7 @@ class QueryValidatorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->validator = new QueryValidator();
+        $this->validator = new QueryValidator;
     }
 
     public function test_accepts_valid_select_query(): void

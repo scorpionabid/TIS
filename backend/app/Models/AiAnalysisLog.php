@@ -28,7 +28,7 @@ class AiAnalysisLog extends Model
 
     protected $casts = [
         'clarifications' => 'array',
-        'from_cache'     => 'boolean',
+        'from_cache' => 'boolean',
     ];
 
     public function user(): BelongsTo

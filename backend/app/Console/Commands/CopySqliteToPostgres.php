@@ -125,12 +125,12 @@ class CopySqliteToPostgres extends Command
         $this->info("\n🎉 Data copy completed!");
 
         // NEW: Clear permission cache
-        $this->info("🧹 Clearing permission cache...");
+        $this->info('🧹 Clearing permission cache...');
         try {
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-            $this->info("✅ Cache cleared");
+            $this->info('✅ Cache cleared');
         } catch (\Exception $e) {
-            $this->warn("⚠️  Could not clear permission cache: " . $e->getMessage());
+            $this->warn('⚠️  Could not clear permission cache: ' . $e->getMessage());
         }
 
         return 0;

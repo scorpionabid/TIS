@@ -16,11 +16,11 @@ use Illuminate\Http\Request;
 class AiAnalysisController extends BaseController
 {
     public function __construct(
-        private DatabaseSchemaService    $schemaService,
+        private DatabaseSchemaService $schemaService,
         private PromptEnhancementService $promptEnhancementService,
-        private SqlGenerationService     $sqlGenerationService,
-        private SafeQueryExecutor        $queryExecutor,
-        private SmartAnalysisService     $smartAnalysisService
+        private SqlGenerationService $sqlGenerationService,
+        private SafeQueryExecutor $queryExecutor,
+        private SmartAnalysisService $smartAnalysisService
     ) {}
 
     /**
@@ -31,12 +31,12 @@ class AiAnalysisController extends BaseController
     public function schema(Request $request): JsonResponse
     {
         $forceRefresh = $request->boolean('refresh', false);
-        $schema       = $this->schemaService->getSchema($forceRefresh);
+        $schema = $this->schemaService->getSchema($forceRefresh);
 
         return $this->successResponse([
-            'tables'       => $schema,
+            'tables' => $schema,
             'total_tables' => count($schema),
-            'cached_at'    => now()->toISOString(),
+            'cached_at' => now()->toISOString(),
         ], 'Schema uğurla alındı');
     }
 
@@ -47,7 +47,7 @@ class AiAnalysisController extends BaseController
      */
     public function logs(Request $request): JsonResponse
     {
-        $user  = $request->user();
+        $user = $request->user();
         $query = AiAnalysisLog::with('user:id,first_name,last_name,username')
             ->orderByDesc('created_at');
 
@@ -69,7 +69,7 @@ class AiAnalysisController extends BaseController
     {
         $request->validate(['prompt' => 'required|string|min:5|max:1000']);
 
-        if (!AiProviderFactory::isConfigured()) {
+        if (! AiProviderFactory::isConfigured()) {
             return $this->errorResponse(
                 'AI provider konfiqurasiya edilməyib. Superadmin AI İdarəetmə səhifəsindən API key əlavə edin.',
                 503
@@ -97,14 +97,14 @@ class AiAnalysisController extends BaseController
     {
         $request->validate(['prompt' => 'required|string|min:5|max:1000']);
 
-        if (!AiProviderFactory::isConfigured()) {
+        if (! AiProviderFactory::isConfigured()) {
             return $this->errorResponse(
                 'AI provider konfiqurasiya edilməyib. Superadmin AI İdarəetmə səhifəsindən API key əlavə edin.',
                 503
             );
         }
 
-        $user     = $request->user();
+        $user = $request->user();
         $userRole = $user->getRoleNames()->first() ?? 'unknown';
         $regionId = $user->hasRole('regionadmin')
             ? ($user->institution?->region_id ?? $user->institution_id)
@@ -127,13 +127,13 @@ class AiAnalysisController extends BaseController
     public function execute(Request $request): JsonResponse
     {
         $request->validate([
-            'prompt'         => 'required|string|min:5|max:1000',
+            'prompt' => 'required|string|min:5|max:1000',
             'clarifications' => 'nullable|array',
-            'raw_sql'        => 'nullable|string|max:5000',
+            'raw_sql' => 'nullable|string|max:5000',
             'presupplied_sql' => 'nullable|string|max:5000',
         ]);
 
-        $user     = $request->user();
+        $user = $request->user();
         $userRole = $user->getRoleNames()->first() ?? 'unknown';
         $regionId = $user->hasRole('regionadmin')
             ? ($user->institution?->region_id ?? $user->institution_id)
@@ -141,13 +141,13 @@ class AiAnalysisController extends BaseController
 
         // Audit log başlat
         $log = AiAnalysisLog::create([
-            'user_id'             => $user->id,
-            'user_role'           => $userRole,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
             'user_institution_id' => $regionId,
-            'original_prompt'     => $request->input('prompt'),
-            'clarifications'      => $request->input('clarifications', []),
-            'status'              => 'pending',
-            'ip_address'          => $request->ip(),
+            'original_prompt' => $request->input('prompt'),
+            'clarifications' => $request->input('clarifications', []),
+            'status' => 'pending',
+            'ip_address' => $request->ip(),
         ]);
 
         try {
@@ -157,35 +157,35 @@ class AiAnalysisController extends BaseController
 
             $tokenUsage = $sqlData['token_usage'] ?? [];
             $log->update([
-                'generated_sql'     => $sqlData['sql'],
-                'enhanced_prompt'   => $sqlData['explanation'],
-                'row_count'         => $result['row_count'],
-                'execution_ms'      => $result['execution_ms'],
-                'prompt_tokens'     => $tokenUsage['prompt_tokens'] ?? null,
+                'generated_sql' => $sqlData['sql'],
+                'enhanced_prompt' => $sqlData['explanation'],
+                'row_count' => $result['row_count'],
+                'execution_ms' => $result['execution_ms'],
+                'prompt_tokens' => $tokenUsage['prompt_tokens'] ?? null,
                 'completion_tokens' => $tokenUsage['completion_tokens'] ?? null,
-                'total_tokens'      => $tokenUsage['total_tokens'] ?? null,
-                'from_cache'        => $result['from_cache'] ?? false,
-                'status'            => 'success',
+                'total_tokens' => $tokenUsage['total_tokens'] ?? null,
+                'from_cache' => $result['from_cache'] ?? false,
+                'status' => 'success',
             ]);
 
             return $this->successResponse([
-                'data'                    => $result['data'],
-                'columns'                 => $result['columns'],
-                'row_count'               => $result['row_count'],
-                'execution_ms'            => $result['execution_ms'],
-                'sql_used'                => $result['sql_used'],
-                'explanation'             => $sqlData['explanation'],
+                'data' => $result['data'],
+                'columns' => $result['columns'],
+                'row_count' => $result['row_count'],
+                'execution_ms' => $result['execution_ms'],
+                'sql_used' => $result['sql_used'],
+                'explanation' => $sqlData['explanation'],
                 'suggested_visualization' => $sqlData['suggested_visualization'],
-                'log_id'                  => $log->id,
-                'from_cache'              => $result['from_cache'] ?? false,
+                'log_id' => $log->id,
+                'from_cache' => $result['from_cache'] ?? false,
             ]);
-
         } catch (\InvalidArgumentException $e) {
             $log->update(['status' => 'blocked', 'error_message' => $e->getMessage()]);
-            return $this->errorResponse($e->getMessage(), 422);
 
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (\RuntimeException $e) {
             $log->update(['status' => 'error', 'error_message' => $e->getMessage()]);
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -200,21 +200,21 @@ class AiAnalysisController extends BaseController
     {
         if ($request->filled('raw_sql')) {
             return [
-                'sql'                    => $request->input('raw_sql'),
-                'explanation'            => 'Manuel SQL sorğusu',
+                'sql' => $request->input('raw_sql'),
+                'explanation' => 'Manuel SQL sorğusu',
                 'suggested_visualization' => 'table',
             ];
         }
 
         if ($request->filled('presupplied_sql')) {
             return [
-                'sql'                    => $request->input('presupplied_sql'),
-                'explanation'            => $request->input('explanation', 'AI tərəfindən yaradılmış SQL'),
+                'sql' => $request->input('presupplied_sql'),
+                'explanation' => $request->input('explanation', 'AI tərəfindən yaradılmış SQL'),
                 'suggested_visualization' => $request->input('suggested_visualization', 'table'),
             ];
         }
 
-        if (!AiProviderFactory::isConfigured()) {
+        if (! AiProviderFactory::isConfigured()) {
             throw new \RuntimeException('AI provider konfiqurasiya edilməyib.');
         }
 

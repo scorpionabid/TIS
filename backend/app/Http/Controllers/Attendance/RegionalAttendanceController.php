@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Attendance;
 
+use App\Exports\RegionalAttendanceExport;
 use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Services\Attendance\RegionalAttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\RegionalAttendanceExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RegionalAttendanceController extends BaseController
@@ -91,6 +91,27 @@ class RegionalAttendanceController extends BaseController
     }
 
     /**
+     * Get school and grade level statistics for attendance.
+     */
+    public function schoolGradeStats(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
+        ]);
+
+        $data = $this->attendanceService->getSchoolGradeStats($request->user(), $validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
+    /**
      * Export grade level statistics to Excel.
      */
     public function exportGradeLevelStats(Request $request): BinaryFileResponse
@@ -106,7 +127,42 @@ class RegionalAttendanceController extends BaseController
         $exportData = $this->attendanceService->exportGradeLevelStats($request->user(), $validated);
 
         // Create a simple array export
-        $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray {
+        $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray
+        {
+            private array $data;
+
+            public function __construct(array $data)
+            {
+                $this->data = $data;
+            }
+
+            public function array(): array
+            {
+                return $this->data;
+            }
+        };
+
+        return Excel::download($export, $exportData['filename']);
+    }
+
+    /**
+     * Export school and grade level statistics to Excel.
+     */
+    public function exportSchoolGradeStats(Request $request): BinaryFileResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
+        ]);
+
+        $exportData = $this->attendanceService->exportSchoolGradeStats($request->user(), $validated);
+
+        // Create a simple array export
+        $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\ShouldAutoSize
+        {
             private array $data;
 
             public function __construct(array $data)
@@ -141,5 +197,37 @@ class RegionalAttendanceController extends BaseController
             'success' => true,
             'data' => $data,
         ]);
+    }
+
+    /**
+     * Export schools with missing reports to Excel.
+     */
+    public function exportMissingReports(Request $request): BinaryFileResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+        ]);
+
+        $exportData = $this->attendanceService->exportMissingReports($request->user(), $validated);
+
+        $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\ShouldAutoSize
+        {
+            private array $data;
+
+            public function __construct(array $data)
+            {
+                $this->data = $data;
+            }
+
+            public function array(): array
+            {
+                return $this->data;
+            }
+        };
+
+        return \Maatwebsite\Excel\Facades\Excel::download($export, $exportData['filename']);
     }
 }

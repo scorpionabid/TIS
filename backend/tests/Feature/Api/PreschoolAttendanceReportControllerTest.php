@@ -32,15 +32,15 @@ class PreschoolAttendanceReportControllerTest extends TestCase
         $sector = Institution::factory()->create(['type' => 'sector', 'level' => 3, 'parent_id' => $region->id]);
 
         $kg1 = Institution::factory()->create([
-            'type'      => 'kindergarten',
-            'level'     => 4,
+            'type' => 'kindergarten',
+            'level' => 4,
             'parent_id' => $sector->id,
             'is_active' => true,
         ]);
 
         $kg2 = Institution::factory()->create([
-            'type'      => 'kindergarten',
-            'level'     => 4,
+            'type' => 'kindergarten',
+            'level' => 4,
             'parent_id' => $sector->id,
             'is_active' => true,
         ]);
@@ -59,35 +59,35 @@ class PreschoolAttendanceReportControllerTest extends TestCase
     private function createAttendance(Institution $institution, Grade $grade, User $user, array $attrs = []): PreschoolAttendance
     {
         return PreschoolAttendance::create(array_merge([
-            'institution_id'  => $institution->id,
-            'grade_id'        => $grade->id,
+            'institution_id' => $institution->id,
+            'grade_id' => $grade->id,
             'attendance_date' => now()->format('Y-m-d'),
-            'total_enrolled'  => 10,
-            'present_count'   => 10,
-            'recorded_by'     => $user->id,
+            'total_enrolled' => 10,
+            'present_count' => 10,
+            'recorded_by' => $user->id,
         ], $attrs));
     }
 
     public function test_index_calculates_statistics_correctly(): void
     {
         [$region, $sector, $kg1, $kg2] = $this->createHierarchy();
-        $user  = $this->createUser('regionadmin', $region->id);
+        $user = $this->createUser('regionadmin', $region->id);
         $grade = Grade::factory()->create(['institution_id' => $kg1->id, 'is_active' => true]);
 
         $this->createAttendance($kg1, $grade, $user, [
             'attendance_date' => now()->startOfMonth()->format('Y-m-d'),
-            'total_enrolled'  => 10,
-            'present_count'   => 8,
+            'total_enrolled' => 10,
+            'present_count' => 8,
         ]);
 
         $this->createAttendance($kg1, $grade, $user, [
             'attendance_date' => now()->startOfMonth()->addDay()->format('Y-m-d'),
-            'total_enrolled'  => 10,
-            'present_count'   => 9,
+            'total_enrolled' => 10,
+            'present_count' => 9,
         ]);
 
         $startDate = now()->startOfMonth()->format('Y-m-d');
-        $endDate   = now()->startOfMonth()->addDays(2)->format('Y-m-d'); // 3 days total
+        $endDate = now()->startOfMonth()->addDays(2)->format('Y-m-d'); // 3 days total
 
         $response = $this->actingAs($user, 'sanctum')
             ->getJson("/api/preschool/attendance/reports?start_date={$startDate}&end_date={$endDate}");
@@ -117,7 +117,7 @@ class PreschoolAttendanceReportControllerTest extends TestCase
 
         // SektorAdmin sees ONLY their sector's KGs (kg1, kg2)
         $sektorUser = $this->createUser('sektoradmin', $sector->id);
-        $response   = $this->actingAs($sektorUser, 'sanctum')
+        $response = $this->actingAs($sektorUser, 'sanctum')
             ->getJson('/api/preschool/attendance/reports');
         $response->assertOk()
             ->assertJsonCount(2, 'data.institutions');
@@ -127,7 +127,7 @@ class PreschoolAttendanceReportControllerTest extends TestCase
 
         // Superadmin sees ALL 3 KGs
         $superAdmin = $this->createUser('superadmin', $sector->id);
-        $response   = $this->actingAs($superAdmin, 'sanctum')
+        $response = $this->actingAs($superAdmin, 'sanctum')
             ->getJson('/api/preschool/attendance/reports');
         $response->assertOk()
             ->assertJsonCount(3, 'data.institutions');
@@ -140,7 +140,7 @@ class PreschoolAttendanceReportControllerTest extends TestCase
         [$region, $sector, $kg1] = $this->createHierarchy();
 
         // Export requires preschool.attendance.export → regionadmin
-        $user  = $this->createUser('regionadmin', $region->id);
+        $user = $this->createUser('regionadmin', $region->id);
         $grade = Grade::factory()->create(['institution_id' => $kg1->id]);
 
         $attendance = $this->createAttendance($kg1, $grade, $user);
@@ -150,13 +150,13 @@ class PreschoolAttendanceReportControllerTest extends TestCase
 
         PreschoolAttendancePhoto::create([
             'preschool_attendance_id' => $attendance->id,
-            'institution_id'          => $kg1->id,
-            'uploaded_by'             => $user->id,
-            'photo_date'              => now()->format('Y-m-d'),
-            'file_path'               => $filePath,
-            'original_filename'       => 'fake_photo.jpg',
-            'mime_type'               => 'image/jpeg',
-            'file_size_bytes'         => 10,
+            'institution_id' => $kg1->id,
+            'uploaded_by' => $user->id,
+            'photo_date' => now()->format('Y-m-d'),
+            'file_path' => $filePath,
+            'original_filename' => 'fake_photo.jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size_bytes' => 10,
         ]);
 
         $response = $this->actingAs($user, 'sanctum')

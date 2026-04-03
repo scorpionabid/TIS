@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('cloned_from_id')->nullable()->after('is_template')->constrained('report_tables')->nullOnDelete();
             // Template name (optional - for organizing templates)
             $table->string('template_category', 100)->nullable()->after('cloned_from_id');
-            
+
             $table->index('is_template');
             $table->index('cloned_from_id');
         });

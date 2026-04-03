@@ -25,14 +25,14 @@ class ForceCors
         ]);
 
         $isAllowedOrigin = $origin && in_array($origin, $allowedOrigins, true);
-        
+
         // DEBUG: Log the result
         if ($origin) {
-            \Illuminate\Support\Facades\Log::info("CORS Debug: Origin={$origin}, isAllowed=" . ($isAllowedOrigin ? 'true' : 'false') . ", Allowed=" . json_encode($allowedOrigins));
+            \Illuminate\Support\Facades\Log::info("CORS Debug: Origin={$origin}, isAllowed=" . ($isAllowedOrigin ? 'true' : 'false') . ', Allowed=' . json_encode($allowedOrigins));
         }
-        
+
         // If not found in simple list, check with regex or wildcard (if * exists in config)
-        if (!$isAllowedOrigin && $origin && in_array('*', $allowedOrigins, true)) {
+        if (! $isAllowedOrigin && $origin && in_array('*', $allowedOrigins, true)) {
             $isAllowedOrigin = true;
         }
 
