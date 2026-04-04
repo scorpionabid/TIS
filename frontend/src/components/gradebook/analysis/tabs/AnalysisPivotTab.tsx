@@ -427,7 +427,7 @@ export function AnalysisPivotTab({
     if (isNestedMode && nestedNodes.length > 0) {
       setExpandedNodes(new Set(nestedNodes.filter(n => n.level === 0).map(n => n.nodeId)));
     }
-  }, [isNestedMode, nestedNodes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNestedMode, nestedNodes.length]);
 
   const toggleNode = useCallback((nodeId: string) => {
     setExpandedNodes(prev => {
@@ -453,16 +453,15 @@ export function AnalysisPivotTab({
     if (availableCols.length > 0 && selectedCols.length === 0) {
       setSelectedCols(availableCols.slice(0, 2).map((c) => c.key));
     }
-  }, [availableCols]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [availableCols]);
 
   // Reset when groupBys changes
   useEffect(() => {
     setCompareMode(false);
     setCompareItems([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const cols = availableCols;
     setSelectedCols(cols.length > 0 ? cols.slice(0, 2).map((c) => c.key) : []);
-  }, [groupBys]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groupBys]);
 
   // ── Column management ────────────────────────────────────────────────────
   const activeCols = useMemo(

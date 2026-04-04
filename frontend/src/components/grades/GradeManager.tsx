@@ -93,25 +93,19 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center p-6">
-        <Loader2 className="h-5 w-5 animate-spin" />
-      </div>
-    );
-  }
-
   // Fetch supporting data for filters
   const { data: institutionsResponse } = useQuery({
     queryKey: ['institutions', 'for-grade-filter'],
     queryFn: () => institutionService.getAll({ per_page: 100 }),
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    staleTime: 1000 * 60 * 5,
+    enabled: !!currentUser,
   });
 
   const { data: academicYearsResponse } = useQuery({
     queryKey: ['academic-years', 'for-grade-filter'],
     queryFn: () => academicYearService.getAll(),
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    staleTime: 1000 * 60 * 5,
+    enabled: !!currentUser,
   });
 
   // Process available institutions based on user role
@@ -463,6 +457,14 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
       }
     });
   }, [currentUser]);
+
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <>

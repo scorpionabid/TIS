@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('grades', function (Blueprint $table) {
-            $table->decimal('club_hours', 8, 2)->nullable();
-        });
+        // club_hours may already exist from 2026_03_28_162500_add_split_hour_overrides_to_grades_table
+        if (! Schema::hasColumn('grades', 'club_hours')) {
+            Schema::table('grades', function (Blueprint $table) {
+                $table->decimal('club_hours', 8, 2)->nullable();
+            });
+        }
     }
 
     /**
@@ -21,8 +24,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('grades', function (Blueprint $table) {
-            $table->dropColumn('club_hours');
-        });
+        if (Schema::hasColumn('grades', 'club_hours')) {
+            Schema::table('grades', function (Blueprint $table) {
+                $table->dropColumn('club_hours');
+            });
+        }
     }
 };
