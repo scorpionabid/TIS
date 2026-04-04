@@ -233,6 +233,34 @@ database_*.txt
 backend/.legacy-tests/
 test_student.php
 frontend/test_fetch.js
+
+# Debug & temp scripts (standalone PHP scripts in backend root/subdirs)
+backend/test_*.php
+backend/debug_*.php
+backend/verify_*.php
+backend/create_*.php
+backend/update_*.php
+backend/app/test_*.php
+backend/app/debug_*.php
+backend/app/verify_*.php
+backend/app/update_*.php
+backend/app/*.json
+backend/storage/test_*.php
+backend/storage/debug_*.php
+backend/storage/find_*.php
+backend/storage/verify_*.php
+backend/routes/test-*.php
+backend/routes_listum.txt
+
+# Vite build artifacts (timestamp cache files)
+frontend/vite.config.ts.timestamp-*.mjs
+
+# Temporary frontend files
+frontend/src/**/*.txt
+frontend/*.txt
+
+# Windows restore scripts
+restore-frontend.bat
 atis_verified_backup_*.tar.gz
 restore-db.bat
 restore-db.sh
