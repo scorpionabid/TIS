@@ -194,12 +194,12 @@ export default function RegionAttendanceReports() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="inline-flex w-full sm:w-auto rounded-2xl bg-slate-100 p-1 gap-1 h-auto">
-          <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Ümumi Panorama</TabsTrigger>
-          <TabsTrigger value="classes" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Məktəb & Sinif nəzarəti</TabsTrigger>
-          <TabsTrigger value="gradeLevel" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Sinif üzrə statistika</TabsTrigger>
-          <TabsTrigger value="schoolGrade" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Məktəb+sinif</TabsTrigger>
-          <TabsTrigger value="missingReports" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold">Doldurmayan məktəblər</TabsTrigger>
+        <TabsList className="inline-flex w-full items-center justify-start overflow-x-auto overflow-y-hidden rounded-2xl bg-slate-100 p-1 gap-1 h-auto scrollbar-hide no-scrollbar [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Ümumi Panorama</TabsTrigger>
+          <TabsTrigger value="classes" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Məktəb & Sinif nəzarəti</TabsTrigger>
+          <TabsTrigger value="gradeLevel" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Sinif üzrə statistika</TabsTrigger>
+          <TabsTrigger value="schoolGrade" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Məktəb+sinif</TabsTrigger>
+          <TabsTrigger value="missingReports" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Doldurmayan məktəblər</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

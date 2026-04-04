@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, ReferenceLine, Tooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, ReferenceLine, ReferenceArea, Tooltip } from 'recharts';
 import { parseISO, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { az } from 'date-fns/locale';
 
@@ -109,12 +109,16 @@ export function TrendChart({ trends }: TrendChartProps) {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={aggregatedData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
               <defs>
+                <filter id="areaGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25}/>
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35}/>
                   <stop offset="100%" stopColor="#6366f1" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+              <CartesianGrid strokeDasharray="3 3" vertical={true} stroke="#f1f5f9" strokeOpacity={0.6} />
               <XAxis 
                 dataKey="name" 
                 fontSize={10}
@@ -124,7 +128,16 @@ export function TrendChart({ trends }: TrendChartProps) {
                 dy={10}
               />
               <YAxis 
-                domain={[Math.min(minRate, targetRate - 2), 100]}
+                domain={[
+                  (dataMin: number) => {
+                    const min = Math.min(dataMin, targetRate);
+                    return Math.max(0, min - (dataMin === (aggregatedData[aggregatedData.length - 1]?.rate ?? 0) ? 1 : 0.4));
+                  },
+                  (dataMax: number) => {
+                    const max = Math.max(dataMax, targetRate);
+                    return Math.min(100, max + (dataMax === (aggregatedData[0]?.rate ?? 0) ? 1 : 0.4));
+                  }
+                ]}
                 tickFormatter={(val) => `${val}%`}
                 fontSize={10}
                 tick={{ fill: '#94a3b8', fontWeight: 600 }}
@@ -146,6 +159,12 @@ export function TrendChart({ trends }: TrendChartProps) {
                 formatter={(value: number) => [`${value?.toFixed(1) ?? '-'}%`, 'Davamiyyət']}
                 labelFormatter={(_, payload) => payload[0]?.payload?.fullLabel || ''}
               />
+              <ReferenceArea 
+                y1={targetRate} 
+                y2={100} 
+                fill="#22c55e" 
+                fillOpacity={0.03} 
+              />
               <ReferenceLine 
                 y={targetRate} 
                 stroke="#f59e0b" 
@@ -166,9 +185,11 @@ export function TrendChart({ trends }: TrendChartProps) {
                 strokeWidth={4} 
                 fillOpacity={1} 
                 fill="url(#chartGradient)" 
+                style={{ filter: 'url(#areaGlow)' }}
                 connectNulls
                 animationDuration={1500}
-                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 3 }}
+                dot={{ r: 4, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                activeDot={{ r: 7, fill: '#6366f1', stroke: '#fff', strokeWidth: 3 }}
               />
             </AreaChart>
           </ResponsiveContainer>

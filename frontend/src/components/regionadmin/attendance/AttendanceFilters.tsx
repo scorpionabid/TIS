@@ -75,18 +75,18 @@ export function AttendanceFilters({
           </div>
         </div>
 
-        <div className="flex gap-3 items-end flex-wrap">
-          <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <div className="flex flex-col gap-1 min-w-0">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Başlanğıc tarixi</Label>
             <Input
               type="date"
               value={startDate}
               max={new Date().toISOString().split('T')[0]}
               onChange={(e) => onStartDateChange(e.target.value)}
-              className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
+              className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm w-full"
             />
           </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+          <div className="flex flex-col gap-1 min-w-0">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Son tarix</Label>
             <Input
               type="date"
@@ -94,13 +94,13 @@ export function AttendanceFilters({
               min={startDate}
               max={new Date().toISOString().split('T')[0]}
               onChange={(e) => onEndDateChange(e.target.value)}
-              className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
+              className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm w-full"
             />
           </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+          <div className="flex flex-col gap-1 min-w-0">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sektor</Label>
             <Select value={selectedSectorId} onValueChange={onSectorChange}>
-              <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+              <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 w-full">
                 <SelectValue placeholder="Sektor seçin" />
               </SelectTrigger>
               <SelectContent>
@@ -113,10 +113,10 @@ export function AttendanceFilters({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+          <div className="flex flex-col gap-1 min-w-0">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Təhsil proqramı</Label>
             <Select value={selectedEducationProgram} onValueChange={onEducationProgramChange}>
-              <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+              <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 w-full">
                 <SelectValue placeholder="Təhsil proqramı seçin" />
               </SelectTrigger>
               <SelectContent>
@@ -128,14 +128,14 @@ export function AttendanceFilters({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
-            <div className="flex bg-slate-100 rounded-xl p-1 gap-1 mt-5">
+          <div className="flex flex-col gap-1 min-w-0 sm:col-span-2 lg:col-span-1">
+            <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
               {(['today', 'thisWeek', 'thisMonth'] as const).map((preset) => (
                 <button
                   key={preset}
                   type="button"
                   onClick={() => onPresetChange(preset)}
-                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
+                  className={`flex-1 rounded-lg px-2 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
                     datePreset === preset
                       ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
                       : 'text-slate-500 hover:bg-indigo-100 hover:text-indigo-700'
@@ -147,7 +147,7 @@ export function AttendanceFilters({
               <button
                 type="button"
                 disabled
-                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap cursor-not-allowed ${
+                className={`flex-1 rounded-lg px-2 py-2 text-xs font-semibold whitespace-nowrap cursor-not-allowed ${
                   datePreset === 'custom'
                     ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
                     : 'text-slate-400'

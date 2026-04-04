@@ -5,6 +5,7 @@ export interface RegionalAttendanceFilters {
   end_date?: string;
   sector_id?: number;
   region_id?: number;
+  education_program?: string;
 }
 
 export interface AttendanceSummary {

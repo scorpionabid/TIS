@@ -62,54 +62,54 @@ export function MissingReportsTable({
         {loading ? (
           <Skeleton className="h-48 w-full" />
         ) : schools && schools.length > 0 ? (
-          <div className="rounded-md border overflow-hidden">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Məktəb</TableHead>
-                  <TableHead className="text-center">Sektor</TableHead>
-                  <TableHead className="text-center">Doldurulub</TableHead>
-                  <TableHead className="text-center">Təqdim edilməyən gün</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Məktəb</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Sektor</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Doldurulub</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Təqdim edilməyən gün</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {schools.map((school) => {
                   return (
                     <TableRow key={school.school_id}>
-                      <TableCell>
-                        <div className="font-medium flex items-center gap-2">
+                      <TableCell className="whitespace-nowrap">
+                        <div className="font-medium flex items-center gap-2 text-sm">
                           <SchoolIcon className="h-4 w-4 text-muted-foreground" />
                           <div className="flex flex-col">
-                            <span>{school.name}</span>
+                            <span className="truncate max-w-[200px]">{school.name}</span>
                             {school.is_six_day && (
-                              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-0.5 uppercase tracking-wider">
+                              <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-0.5 uppercase tracking-wider">
                                 6-günlük rejim
                               </span>
                             )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                      <TableCell className="text-center whitespace-nowrap">
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-[10px] h-5">
                           {school.sector_name}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-slate-600 font-medium">
+                      <TableCell className="text-center whitespace-nowrap">
+                        <span className="text-slate-600 font-medium text-xs">
                           {school.reported_days} / {school.baseline_days} gün
                         </span>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-red-600 font-bold">{school.missing_days} gün</span>
+                      <TableCell className="text-center whitespace-nowrap">
+                        <span className="text-red-600 font-bold text-xs">{school.missing_days} gün</span>
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center whitespace-nowrap">
                         {school.reported_days === 0 ? (
-                          <Badge variant="destructive">
+                          <Badge variant="destructive" className="text-[10px] h-5 px-1.5 py-0">
                             Hesabat yoxdur
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                          <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] h-5">
                             Natamam
                           </Badge>
                         )}

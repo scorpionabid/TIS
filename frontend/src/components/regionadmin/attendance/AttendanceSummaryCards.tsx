@@ -58,7 +58,7 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
         bar: 'bg-indigo-500'
       },
       isPercent: true,
-      raw: 100
+      raw: summary.total_schools > 0 ? ((summary.total_schools - summary.schools_missing_reports) / summary.total_schools) * 100 : 0
     },
     {
       label: 'Gələn şagird',
@@ -77,10 +77,9 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
       raw: summary.total_students > 0 ? (summary.attending_students / summary.total_students) * 100 : 0
     },
     {
-      label: 'Orta davamiyyət',
       value: `${summary.average_attendance_rate.toFixed(1)}%`,
       icon: Target,
-      description: 'Hesabat dövrü üzrə',
+      description: `${summary.period?.school_days ?? 0} hesabat gününə görə`,
       palette: {
         bg: 'bg-emerald-50/50',
         border: 'border-emerald-100',
@@ -131,36 +130,37 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
       {cards.map((card) => (
         <Card 
           key={card.label} 
-          className={`relative border-2 ${card.palette.border} ${card.palette.bg} rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group`}
+          className={`relative border-2 border-b-4 ${card.palette.border} ${card.palette.bg} rounded-2xl overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 group ring-1 ring-inset ring-white/40`}
         >
-          <div className={`absolute top-0 right-0 w-24 h-24 ${card.palette.accent} rounded-bl-full transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500`} />
+          <div className={`absolute top-0 right-0 w-16 h-16 ${card.palette.accent} rounded-bl-full transform translate-x-3 -translate-y-3 group-hover:scale-110 transition-transform duration-500`} />
 
-          <CardHeader className="pb-2 pt-6 px-6">
-            <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 ring-1 ring-black/5 group-hover:-translate-y-1 transition-transform duration-300">
-              <card.icon className={`h-7 w-7 ${card.palette.icon}`} />
+          <div className="flex items-center gap-3 p-3 pb-0 relative">
+            <div className="w-10 h-10 bg-white rounded-lg shadow-md flex items-center justify-center ring-1 ring-black/5 shrink-0 group-hover:scale-105 transition-transform duration-300">
+              <card.icon className={`h-5 w-5 ${card.palette.icon}`} />
             </div>
-            <CardTitle className={`text-[10px] font-black ${card.palette.text} tracking-[0.15em] uppercase`}>
-              {card.label}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-1">
-              <div className="text-3xl font-black text-slate-800 tracking-tight">
+            <div className="flex-1 min-w-0">
+              <div className={`text-[9px] font-black ${card.palette.text} tracking-[0.1em] uppercase opacity-70 mb-0.5 truncate`}>
+                {card.label}
+              </div>
+              <div className="text-xl font-black text-slate-800 tracking-tight leading-none">
                 {typeof card.value === 'number' ? numberFormatter.format(card.value) : card.value}
               </div>
-              <p className="text-[11px] font-medium text-slate-400">
-                {card.description}
-              </p>
             </div>
+          </div>
 
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex-1 h-2 bg-white/60 rounded-full overflow-hidden shadow-inner border border-black/5">
+          <CardContent className="p-3 pt-1.5 pb-2.5">
+            <p className="text-[10px] font-medium text-slate-400 mb-2 truncate">
+              {card.description}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-white/60 rounded-full overflow-hidden shadow-inner border border-black/5">
                 <div 
                   className={`h-full rounded-full ${card.palette.bar} transition-all duration-1000 ease-out shadow-sm`}
                   style={{ width: `${Math.min(card.raw, 100)}%` }}
                 />
               </div>
-              <span className={`text-[10px] font-bold ${card.palette.text} min-w-[30px]`}>
+              <span className={`text-[9px] font-bold ${card.palette.text} min-w-[24px]`}>
                 {Math.round(card.raw)}%
               </span>
             </div>

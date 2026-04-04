@@ -26,6 +26,7 @@ class RegionalAttendanceController extends BaseController
             'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'school_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
         $data = $this->attendanceService->getOverview($request->user(), $validated);
@@ -44,6 +45,7 @@ class RegionalAttendanceController extends BaseController
             'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'school_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
         $data = $this->attendanceService->getOverview($request->user(), $validated);
@@ -189,6 +191,7 @@ class RegionalAttendanceController extends BaseController
             'end_date' => ['nullable', 'date'],
             'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
         $data = $this->attendanceService->getSchoolsWithMissingReports($request->user(), $validated);
@@ -209,6 +212,7 @@ class RegionalAttendanceController extends BaseController
             'end_date' => ['nullable', 'date'],
             'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
         $exportData = $this->attendanceService->exportMissingReports($request->user(), $validated);

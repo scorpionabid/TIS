@@ -22,16 +22,20 @@ class RegionalAttendanceService
 
         $scope = $this->resolveInstitutionScope($user, $filters, $startDate, $endDate);
         $schoolIds = $scope['school_ids'];
+        $schools = collect($scope['schools']);
+        $scope['schools'] = $schools;
+        $scope['sectors'] = collect($scope['sectors']);
 
         if (empty($schoolIds)) {
             return $this->formatEmptyOverview($scope, $startDate, $endDate);
         }
 
-        // Aggregate per school directly in SQL — avoids loading 100K+ rows into PHP memory
+        $educationProgram = $filters['education_program'] ?? null;
+
         $schoolAggregates = ClassBulkAttendance::selectRaw(
-            'institution_id,
+            'class_bulk_attendance.institution_id,
              COUNT(DISTINCT attendance_date) AS reported_days,
-             COUNT(DISTINCT grade_id)        AS reported_classes,
+             COUNT(DISTINCT class_bulk_attendance.grade_id) AS reported_classes,
              COUNT(*)                        AS records,
              SUM(morning_present)            AS total_morning_present,
              SUM(evening_present)            AS total_evening_present,
@@ -47,29 +51,62 @@ class RegionalAttendanceService
              SUM(total_students)             AS total_possible,
              AVG(daily_attendance_rate)      AS avg_rate'
         )
-            ->whereIn('institution_id', $schoolIds)
+            ->join('grades', 'grades.id', '=', 'class_bulk_attendance.grade_id')
+            ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
             ->whereDate('attendance_date', '>=', $startDate)
-            ->whereDate('attendance_date', '<=', $endDate)
-            ->groupBy('institution_id')
+            ->whereDate('attendance_date', '<=', $endDate);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $schoolAggregates->where('grades.education_program', $educationProgram);
+        }
+
+        $schoolAggregates = $schoolAggregates
+            ->groupBy('class_bulk_attendance.institution_id')
             ->get()
             ->keyBy('institution_id');
 
         // Aggregate per date for trend chart
         $trendAggregates = ClassBulkAttendance::selectRaw(
-            'attendance_date,
+            'class_bulk_attendance.attendance_date,
              AVG(daily_attendance_rate) AS avg_rate,
              COUNT(*)                   AS records'
         )
-            ->whereIn('institution_id', $schoolIds)
-            ->whereDate('attendance_date', '>=', $startDate)
-            ->whereDate('attendance_date', '<=', $endDate)
-            ->groupBy('attendance_date')
-            ->orderBy('attendance_date')
+            ->join('grades', 'grades.id', '=', 'class_bulk_attendance.grade_id')
+            ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
+            ->whereDate('class_bulk_attendance.attendance_date', '>=', $startDate)
+            ->whereDate('class_bulk_attendance.attendance_date', '<=', $endDate);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $trendAggregates->where('grades.education_program', $educationProgram);
+        }
+
+        $trendAggregates = $trendAggregates
+            ->groupBy('class_bulk_attendance.attendance_date')
+            ->orderBy('class_bulk_attendance.attendance_date')
             ->get()
             ->keyBy(fn ($r) => (string) $r->attendance_date);
 
         $gradeStudentCounts = Grade::query()
-            ->whereIn('institution_id', $schoolIds)
+            ->whereIn('institution_id', $schoolIds);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $gradeStudentCounts->where('grades.education_program', $educationProgram);
+            
+            // Filter schools collection to only those that have matching grades
+            $filteredSchoolIds = $gradeStudentCounts->clone()->pluck('institution_id')->unique()->toArray();
+            
+            // Sync all relevant variables for further processing
+            $schoolIds = $filteredSchoolIds;
+            $schools = $schools->whereIn('id', $filteredSchoolIds);
+            $scope['schools'] = $schools;
+            $scope['school_ids'] = $schoolIds;
+
+            // Also filter sectors to only those that have matching schools
+            $activeSectorIds = $schools->pluck('parent_id')->unique()->toArray();
+            $scope['sectors'] = $scope['sectors']->whereIn('id', $activeSectorIds);
+        }
+
+        $gradeStudentCounts = $gradeStudentCounts
             ->get(['id', 'institution_id', 'student_count', 'class_level', 'name'])
             ->groupBy('institution_id')
             ->map(fn (Collection $grades) => [
@@ -81,7 +118,7 @@ class RegionalAttendanceService
         $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
 
         $schoolStats = $this->buildSchoolStats(
-            $scope['schools'],
+            $scope['schools']->all(),
             $schoolAggregates,
             $gradeStudentCounts,
             $scope['school_days'],
@@ -89,7 +126,7 @@ class RegionalAttendanceService
         );
 
         $sectorStats = $this->buildSectorStats(
-            $scope['sectors'],
+            $scope['sectors']->all(),
             $schoolStats,
             $schoolIds,
             $startDate,
@@ -139,15 +176,22 @@ class RegionalAttendanceService
             ]);
         }
 
-        $gradeMap = Grade::query()
-            ->where('institution_id', $school->id)
+        $educationProgram = $filters['education_program'] ?? null;
+
+        $gradeQuery = Grade::query()
+            ->where('institution_id', $school->id);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $gradeQuery->where('education_program', $educationProgram);
+        }
+
+        $gradeMap = $gradeQuery
             ->get(['id', 'name', 'class_level', 'student_count'])
             ->keyBy('id');
 
-        $records = ClassBulkAttendance::with([
-            'grade:id,institution_id,name,class_level,student_count',
-        ])
+        $records = ClassBulkAttendance::query()
             ->where('institution_id', $school->id)
+            ->whereIn('grade_id', $gradeMap->keys())
             ->whereDate('attendance_date', '>=', $startDate)
             ->whereDate('attendance_date', '<=', $endDate)
             ->get();
@@ -246,14 +290,15 @@ class RegionalAttendanceService
             ->values();
 
         if ($targetSectorId) {
-            if (! $sectors->contains('id', (int) $targetSectorId)) {
-                throw ValidationException::withMessages([
-                    'sector_id' => 'Bu sektora baxmaq üçün icazəniz yoxdur.',
-                ]);
-            }
-
             $activeSector = $activeSector ?: $sectors->firstWhere('id', (int) $targetSectorId);
-            $schools = $schools->where('parent_id', (int) $targetSectorId)->values();
+            if ($activeSector) {
+                $sectorDescendantIds = (new Institution)->forceFill($activeSector->toArray())->getAllChildrenIds();
+                $schools = $schools->filter(function($school) use ($sectorDescendantIds, $targetSectorId) {
+                    return $school->parent_id == $targetSectorId || in_array((int)$school->id, $sectorDescendantIds);
+                })->values();
+            } else {
+                $schools = $schools->where('parent_id', (int) $targetSectorId)->values();
+            }
         }
 
         if (isset($filters['school_id'])) {
@@ -818,16 +863,22 @@ class RegionalAttendanceService
             : 0.0;
         $weightedRates = 0;
         $denominator = 0;
+        $totalAttending = 0;
 
         foreach ($classStats as $stat) {
             $weight = max($stat['student_count'], 1);
             $weightedRates += $stat['average_attendance_rate'] * $weight;
             $denominator += $weight;
+            
+            // Calculate attending students for this class (avg students per day)
+            $classAvgAttending = ($stat['average_attendance_rate'] / 100) * $weight;
+            $totalAttending += $classAvgAttending;
         }
 
         return [
             'total_classes' => $totalClasses,
             'reported_classes' => $reportedClasses,
+            'attending_students' => round($totalAttending),
             'average_attendance_rate' => $denominator > 0 ? round($weightedRates / $denominator, 2) : 0,
             'present_total' => $presentTotal,
             'total_uniform_violations' => $uniformViolations,
@@ -900,7 +951,8 @@ class RegionalAttendanceService
             SUM(class_bulk_attendance.total_students) AS total_possible,
             SUM((morning_present + evening_present) / 2.0) as actual_attendance,
             SUM(daily_attendance_rate * class_bulk_attendance.total_students) as weighted_rates,
-            SUM(class_bulk_attendance.total_students) as weighted_denominator
+            SUM(class_bulk_attendance.total_students) as weighted_denominator,
+            COUNT(DISTINCT class_bulk_attendance.institution_id) AS reported_school_count
         ')
             ->join('grades', 'grades.id', '=', 'class_bulk_attendance.grade_id')
             ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
@@ -953,6 +1005,7 @@ class RegionalAttendanceService
                 'class_level_display' => $this->getRomanNumeral($level),
                 'student_count' => $summary['student_count'],
                 'school_count' => $summary['school_count'],
+                'reported_school_count' => $agg ? (int) $agg->reported_school_count : 0,
                 'average_attendance_rate' => $avgRate,
                 'uniform_compliance_rate' => $uniformComplianceRate,
                 'total_uniform_violations' => $totalUniformViolations,
@@ -1135,10 +1188,16 @@ class RegionalAttendanceService
 
         $educationProgram = $filters['education_program'] ?? null;
 
+        $scope['schools'] = collect($scope['schools']);
+        
         // 1. Get all grades for these schools to build a grade_id -> class_level map
         $gradeQuery = Grade::whereIn('institution_id', $schoolIds);
         if ($educationProgram && $educationProgram !== 'all') {
             $gradeQuery->where('education_program', $educationProgram);
+            
+            // Sync school IDs to only include those that have matching grades
+            $schoolIds = $gradeQuery->clone()->pluck('institution_id')->unique()->toArray();
+            $scope['schools'] = $scope['schools']->whereIn('id', $schoolIds);
         }
         $gradeMap = $gradeQuery->get(['id', 'class_level'])->pluck('class_level', 'id')->all();
         $relevantGradeIds = array_keys($gradeMap);
@@ -1235,22 +1294,41 @@ class RegionalAttendanceService
         for ($i = 0; $i <= 11; $i++) {
             $headers[] = $this->getRomanNumeral($i);
         }
+        $headers[] = 'Orta';
 
         $rows = [$headers];
 
         foreach ($data['schools'] as $school) {
             $row = [$school['name']];
+            $validRates = [];
             foreach ($school['grades'] as $rate) {
+                if ($rate !== null) {
+                    $validRates[] = $rate;
+                }
                 $row[] = $rate !== null ? $rate . '%' : '-';
             }
+            // Add school average
+            $row[] = count($validRates) > 0 
+                ? round(array_sum($validRates) / count($validRates), 2) . '%' 
+                : '-';
+            
             $rows[] = $row;
         }
 
         // Add regional averages row
         $avgRow = ['Orta (Region)'];
+        $regRates = [];
         foreach ($data['regional_averages'] as $rate) {
+            if ($rate !== null) {
+                $regRates[] = $rate;
+            }
             $avgRow[] = $rate !== null ? $rate . '%' : '-';
         }
+        // Add overall regional average
+        $avgRow[] = count($regRates) > 0 
+            ? round(array_sum($regRates) / count($regRates), 2) . '%' 
+            : '-';
+            
         $rows[] = $avgRow;
 
         return [
@@ -1282,19 +1360,39 @@ class RegionalAttendanceService
                         'baseline_days' => 0,
                     ],
                 ],
-                'sectors' => [],
                 'schools' => [],
             ];
         }
 
+        $educationProgram = $filters['education_program'] ?? null;
+        $scope['schools'] = collect($scope['schools']);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $matchingSchoolIds = Grade::whereIn('institution_id', $schoolIds)
+                ->where('education_program', $educationProgram)
+                ->pluck('institution_id')
+                ->unique()
+                ->toArray();
+            
+            $schoolIds = $matchingSchoolIds;
+            $scope['schools'] = $scope['schools']->whereIn('id', $schoolIds);
+        }
+
         // 1. Get unique reporting count for each school in the target scope (respects filters)
-        $reportCounts = DB::table('class_bulk_attendance')
-            ->whereIn('institution_id', $schoolIds)
+        $reportQuery = DB::table('class_bulk_attendance')
+            ->join('grades', 'grades.id', '=', 'class_bulk_attendance.grade_id')
+            ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
             ->whereDate('attendance_date', '>=', $startDate)
-            ->whereDate('attendance_date', '<=', $endDate)
-            ->selectRaw('institution_id, COUNT(DISTINCT attendance_date) as c')
-            ->groupBy('institution_id')
-            ->pluck('c', 'institution_id')
+            ->whereDate('attendance_date', '<=', $endDate);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $reportQuery->where('grades.education_program', $educationProgram);
+        }
+
+        $reportCounts = $reportQuery
+            ->selectRaw('class_bulk_attendance.institution_id, COUNT(DISTINCT attendance_date) as c')
+            ->groupBy('class_bulk_attendance.institution_id')
+            ->pluck('c', 'class_bulk_attendance.institution_id')
             ->all();
 
         // 2. Identify 'Standard Dates' based on the WHOLE region (ignores sector/school filter)

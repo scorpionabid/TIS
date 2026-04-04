@@ -87,12 +87,12 @@ export function SchoolsAttendanceTable({
         {loading ? (
           <Skeleton className="h-40 w-full" />
         ) : (
-          <div className="rounded-md border overflow-hidden">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
+                    className="cursor-pointer hover:bg-muted/50 whitespace-nowrap min-w-[150px]"
                     onClick={() => onSort('name')}
                   >
                     <div className="flex items-center gap-1">
@@ -101,7 +101,7 @@ export function SchoolsAttendanceTable({
                     </div>
                   </TableHead>
                   <TableHead 
-                    className="text-center cursor-pointer hover:bg-muted/50"
+                    className="text-center cursor-pointer hover:bg-muted/50 whitespace-nowrap"
                     onClick={() => onSort('total_students')}
                   >
                     <div className="flex items-center justify-center gap-1">
@@ -110,7 +110,7 @@ export function SchoolsAttendanceTable({
                     </div>
                   </TableHead>
                   <TableHead 
-                    className="text-center cursor-pointer hover:bg-muted/50"
+                    className="text-center cursor-pointer hover:bg-muted/50 whitespace-nowrap"
                     onClick={() => onSort('reported_days')}
                   >
                     <div className="flex items-center justify-center gap-1">
@@ -119,7 +119,7 @@ export function SchoolsAttendanceTable({
                     </div>
                   </TableHead>
                   <TableHead 
-                    className="text-center cursor-pointer hover:bg-muted/50"
+                    className="text-center cursor-pointer hover:bg-muted/50 whitespace-nowrap"
                     onClick={() => onSort('average_attendance_rate')}
                   >
                     <div className="flex items-center justify-center gap-1">
@@ -128,7 +128,7 @@ export function SchoolsAttendanceTable({
                     </div>
                   </TableHead>
                   <TableHead
-                    className="text-center cursor-pointer hover:bg-muted/50"
+                    className="text-center cursor-pointer hover:bg-muted/50 whitespace-nowrap"
                     onClick={() => onSort('uniform_compliance_rate')}
                   >
                     <div className="flex items-center justify-center gap-1">
@@ -136,7 +136,7 @@ export function SchoolsAttendanceTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -155,36 +155,40 @@ export function SchoolsAttendanceTable({
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => onSchoolClick(String(school.school_id))}
                       >
-                        <TableCell>
-                          <div className="font-medium">{school.name}</div>
-                          <p className="text-xs text-muted-foreground">
+                        <TableCell className="whitespace-nowrap">
+                          <div className="font-medium text-sm">{school.name}</div>
+                          <p className="text-[10px] text-muted-foreground">
                             {school.reported_classes} sinif
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-[10px] text-slate-400">
                             {regionName}
                           </p>
                         </TableCell>
-                        <TableCell className="text-center">
-                          {numberFormatter.format(school.total_students)}
+                        <TableCell className="text-center font-medium whitespace-nowrap">
+                          <div className="text-slate-800 text-sm">
+                            {numberFormatter.format(Math.round((school.total_students * (school.average_attendance_rate ?? 0)) / 100))}
+                            <span className="text-muted-foreground mx-1">/</span>
+                            <span className="text-[10px] text-muted-foreground font-normal">{numberFormatter.format(school.total_students)}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center text-sm whitespace-nowrap">
                           {school.reported_days}/{school.expected_school_days}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">
+                        <TableCell className="text-center font-semibold text-sm whitespace-nowrap">
                           {formatPercent(school.average_attendance_rate)}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">
+                        <TableCell className="text-center font-semibold text-sm whitespace-nowrap">
                           {formatPercent(school.uniform_compliance_rate)}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center whitespace-nowrap">
                           {warnings.length === 0 ? (
-                            <Badge variant="secondary" className="bg-green-50 text-green-700">
+                            <Badge variant="secondary" className="bg-green-50 text-green-700 text-[10px] h-5">
                               Normal
                             </Badge>
                           ) : (
                             <div className="flex flex-wrap justify-center gap-1">
                               {warnings.map((warning) => (
-                                <Badge key={warning} variant="destructive">
+                                <Badge key={warning} variant="destructive" className="text-[10px] h-5 py-0 px-1.5">
                                   {warning === 'reports_missing' ? 'Hesabat yoxdur' : 'Aşağı davamiyyət'}
                                 </Badge>
                               ))}

@@ -103,8 +103,8 @@ export function useRegionalAttendanceData() {
     error: classError,
     refetch: refetchClassBreakdown,
   } = useQuery<SchoolClassBreakdown | null>({
-    queryKey: ['regional-attendance', 'school-classes', selectedSchoolId, startDate, endDate],
-    queryFn: () => selectedSchoolId ? regionalAttendanceService.getSchoolClasses(Number(selectedSchoolId), { start_date: startDate, end_date: endDate }) : Promise.resolve(null),
+    queryKey: ['regional-attendance', 'school-classes', selectedSchoolId, filters],
+    queryFn: () => selectedSchoolId ? regionalAttendanceService.getSchoolClasses(Number(selectedSchoolId), filters) : Promise.resolve(null),
     enabled: hasAccess && Boolean(selectedSchoolId),
     staleTime: 60 * 1000,
   });

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const numberFormatter = new Intl.NumberFormat('az');
 
@@ -17,6 +18,7 @@ interface GradeLevel {
   class_level_display: string;
   student_count: number;
   school_count: number;
+  reported_school_count: number;
   average_attendance_rate: number;
   uniform_compliance_rate: number;
 }
@@ -57,15 +59,15 @@ export function GradeLevelStatsTable({
         {loading ? (
           <Skeleton className="h-48 w-full" />
         ) : gradeLevels?.length ? (
-          <div className="rounded-md border overflow-hidden">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center">Sinif</TableHead>
-                  <TableHead className="text-center">Şagird sayı</TableHead>
-                  <TableHead className="text-center">Məktəb sayı</TableHead>
-                  <TableHead className="text-center">Orta davamiyyət</TableHead>
-                  <TableHead className="text-center">Məktəbli forma</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Sinif</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Şagird sayısı</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Məktəb sayısı</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Orta davamiyyət</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Məktəbli forma</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -73,35 +75,43 @@ export function GradeLevelStatsTable({
                   .filter(gl => gl.student_count > 0)
                   .map((gradeLevel) => (
                   <TableRow key={`grade-${gradeLevel.class_level}`}>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center whitespace-nowrap">
                       <div className="font-bold text-lg">{gradeLevel.class_level_display}</div>
-                      <p className="text-xs text-muted-foreground">{gradeLevel.class_level_display} sinif</p>
+                      <p className="text-[10px] text-muted-foreground">{gradeLevel.class_level_display} sinif</p>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {numberFormatter.format(gradeLevel.student_count)}
+                    <TableCell className="text-center font-medium whitespace-nowrap">
+                      <div className="text-slate-800 text-sm">
+                        {numberFormatter.format(Math.round((gradeLevel.student_count * (gradeLevel.average_attendance_rate ?? 0)) / 100))}
+                        <span className="text-muted-foreground mx-1">/</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">{numberFormatter.format(gradeLevel.student_count)}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {numberFormatter.format(gradeLevel.school_count)}
+                    <TableCell className="text-center font-medium whitespace-nowrap">
+                      <div className="text-slate-800 text-sm">
+                        {gradeLevel.reported_school_count}
+                        <span className="text-muted-foreground mx-1">/</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">{gradeLevel.school_count}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center font-semibold">
-                      <span className={
+                    <TableCell className="text-center font-semibold whitespace-nowrap">
+                      <span className={cn('text-sm', 
                         gradeLevel.average_attendance_rate >= 95
                           ? 'text-emerald-600'
                           : gradeLevel.average_attendance_rate >= 85
                           ? 'text-amber-600'
                           : 'text-red-600'
-                      }>
+                      )}>
                         {formatPercent(gradeLevel.average_attendance_rate)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-center font-semibold">
-                      <span className={
+                    <TableCell className="text-center font-semibold whitespace-nowrap">
+                      <span className={cn('text-sm', 
                         gradeLevel.uniform_compliance_rate >= 95
                           ? 'text-emerald-600'
                           : gradeLevel.uniform_compliance_rate >= 85
                           ? 'text-amber-600'
                           : 'text-red-600'
-                      }>
+                      )}>
                         {formatPercent(gradeLevel.uniform_compliance_rate)}
                       </span>
                     </TableCell>
