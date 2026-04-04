@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -40,6 +39,7 @@ class DatabaseSeeder extends Seeder
                 SchoolDataSeeder::class,       // Grades, classes, schedules, attendance
                 TaskDocumentSeeder::class,     // Tasks and documents
                 AssessmentDataSeeder::class,   // KSQ/BSQ results
+                TeacherProfileSeeder::class,   // Teacher profiles, achievements, certificates
             ]);
         }
     }

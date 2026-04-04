@@ -158,21 +158,24 @@ class BasicDataSeeder extends Seeder
 
         // Teachers
         $teachers = [
-            ['username' => 'teacher1', 'email' => 'teacher1@edu.az', 'role' => 'müəllim'],
-            ['username' => 'teacher2', 'email' => 'teacher2@edu.az', 'role' => 'müəllim'],
-            ['username' => 'teacher3', 'email' => 'teacher3@edu.az', 'role' => 'müəllim'],
-            ['username' => 'teacher4', 'email' => 'teacher4@edu.az', 'role' => 'müəllim'],
-            ['username' => 'teacher5', 'email' => 'teacher5@edu.az', 'role' => 'müəllim'],
+            ['username' => 'teacher1', 'email' => 'teacher1@edu.az', 'first_name' => 'Aynur',   'last_name' => 'Həsənova',  'utis_code' => 'UTIS-TEST-001', 'role' => 'müəllim'],
+            ['username' => 'teacher2', 'email' => 'teacher2@edu.az', 'first_name' => 'Rəşad',   'last_name' => 'Məmmədov',  'utis_code' => 'UTIS-TEST-002', 'role' => 'müəllim'],
+            ['username' => 'teacher3', 'email' => 'teacher3@edu.az', 'first_name' => 'Günel',   'last_name' => 'Əliyeva',   'utis_code' => 'UTIS-TEST-003', 'role' => 'müəllim'],
+            ['username' => 'teacher4', 'email' => 'teacher4@edu.az', 'first_name' => 'Tural',   'last_name' => 'Quliyev',   'utis_code' => 'UTIS-TEST-004', 'role' => 'müəllim'],
+            ['username' => 'teacher5', 'email' => 'teacher5@edu.az', 'first_name' => 'Sevinc',  'last_name' => 'Babayeva',  'utis_code' => 'UTIS-TEST-005', 'role' => 'müəllim'],
         ];
 
         foreach ($teachers as $teacher) {
             $user = User::firstOrCreate(
                 ['username' => $teacher['username']],
                 [
-                    'email' => $teacher['email'],
-                    'password' => bcrypt('teacher123'),
-                    'email_verified_at' => now(),
-                    'is_active' => true,
+                    'email'              => $teacher['email'],
+                    'first_name'         => $teacher['first_name'],
+                    'last_name'          => $teacher['last_name'],
+                    'utis_code'          => $teacher['utis_code'],
+                    'password'           => bcrypt('teacher123'),
+                    'email_verified_at'  => now(),
+                    'is_active'          => true,
                 ]
             );
 
