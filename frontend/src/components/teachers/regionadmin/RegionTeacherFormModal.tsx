@@ -27,10 +27,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import type {
-  Institution,
-  RegionTeacherCreateInput,
-} from '@/services/regionAdminTeachers';
+import {
+  type Institution,
+  type RegionTeacherCreateInput,
+} from '@/services/teachers';
 import {
   EMPLOYMENT_STATUS_LABELS,
   POSITION_TYPE_LABELS,

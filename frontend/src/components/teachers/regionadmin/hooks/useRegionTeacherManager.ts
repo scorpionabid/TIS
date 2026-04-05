@@ -8,13 +8,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
-  regionAdminTeacherService,
+  regionTeacherService,
   type RegionTeacherFilters,
   type RegionTeacherStatistics,
   type Institution,
   type RegionTeacherCreateInput,
   type RegionTeacherUpdateInput,
-} from '@/services/regionAdminTeachers';
+} from '@/services/teachers';
 import type { EnhancedTeacherProfile } from '@/types/teacher';
 import type { PaginationMeta } from '@/types/api';
 
@@ -29,7 +29,6 @@ export const useRegionTeacherManager = () => {
     userId: currentUser?.id,
     userEmail: currentUser?.email,
     userRole: currentUser?.role,
-    userRoles: currentUser?.roles,
     isRegionAdmin: currentUser?.role === 'regionadmin',
     fullUser: currentUser,
   });
@@ -43,18 +42,15 @@ export const useRegionTeacherManager = () => {
   const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
   const [selectedTeachers, setSelectedTeachers] = useState<EnhancedTeacherProfile[]>([]);
 
-  // Helper: Check if user is regionadmin (supports both role string and roles array)
-  const isRegionAdmin = !!currentUser && (
-    currentUser.role === 'regionadmin' ||
-    (Array.isArray(currentUser.roles) && currentUser.roles.some((r: any) => r.name === 'regionadmin' || r === 'regionadmin'))
-  );
+  // Helper: Check if user is regionadmin
+  const isRegionAdmin = !!currentUser && currentUser.role === 'regionadmin';
 
   console.log('✅ isRegionAdmin check result:', isRegionAdmin);
 
   // Fetch sectors
   const sectorsQuery = useQuery({
-    queryKey: ['regionadmin-sectors', currentUser?.institution_id],
-    queryFn: () => regionAdminTeacherService.getSectors(),
+    queryKey: ['regionadmin-sectors', currentUser?.institution?.id || currentUser?.institution],
+    queryFn: () => regionTeacherService.getSectors(),
     enabled: isRegionAdmin,
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
@@ -62,7 +58,7 @@ export const useRegionTeacherManager = () => {
   // Fetch schools (dependent on selected sectors)
   const schoolsQuery = useQuery({
     queryKey: ['regionadmin-schools', selectedSectorIds],
-    queryFn: () => regionAdminTeacherService.getSchools(
+    queryFn: () => regionTeacherService.getSchools(
       selectedSectorIds.length > 0 ? selectedSectorIds : undefined
     ),
     enabled: isRegionAdmin,
@@ -78,7 +74,7 @@ export const useRegionTeacherManager = () => {
       console.log('  User role:', currentUser?.role);
       console.log('  Filters:', filters);
 
-      const result = await regionAdminTeacherService.getTeachers(filters);
+      const result = await regionTeacherService.getTeachers(filters);
 
       console.log('📊 useRegionTeacherManager - Query result:', {
         success: !!result,
@@ -99,7 +95,7 @@ export const useRegionTeacherManager = () => {
   // Bulk update status mutation
   const bulkUpdateStatusMutation = useMutation({
     mutationFn: ({ teacherIds, isActive }: { teacherIds: number[]; isActive: boolean }) =>
-      regionAdminTeacherService.bulkUpdateStatus(teacherIds, isActive),
+      regionTeacherService.bulkUpdateStatus(teacherIds, isActive),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
@@ -120,7 +116,7 @@ export const useRegionTeacherManager = () => {
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
     mutationFn: (teacherIds: number[]) =>
-      regionAdminTeacherService.bulkDelete(teacherIds),
+      regionTeacherService.bulkDelete(teacherIds),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
@@ -140,21 +136,18 @@ export const useRegionTeacherManager = () => {
 
   // Export mutation
   const exportMutation = useMutation({
-    mutationFn: () => regionAdminTeacherService.exportTeachers(filters),
-    onSuccess: (data) => {
-      // Convert data to CSV and download
-      const csvContent = convertToCSV(data);
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    mutationFn: () => regionTeacherService.exportTeachers(filters),
+    onSuccess: (blob) => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `muellimler_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `muellimler_${new Date().toISOString().split('T')[0]}.xlsx`; // Service returns Excel usually
       link.click();
       window.URL.revokeObjectURL(url);
 
       toast({
         title: 'Uğurlu',
-        description: 'Məlumatlar export edildi',
+        description: 'Məlumatlar ixrac edildi',
       });
     },
     onError: (error) => {
@@ -169,7 +162,7 @@ export const useRegionTeacherManager = () => {
   // Create teacher mutation
   const createTeacherMutation = useMutation({
     mutationFn: (payload: RegionTeacherCreateInput) =>
-      regionAdminTeacherService.createTeacher(payload),
+      regionTeacherService.createTeacher(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
@@ -190,7 +183,7 @@ export const useRegionTeacherManager = () => {
   // Update teacher mutation
   const updateTeacherMutation = useMutation({
     mutationFn: ({ teacherId, data }: { teacherId: number; data: RegionTeacherUpdateInput }) =>
-      regionAdminTeacherService.updateTeacher(teacherId, data),
+      regionTeacherService.updateTeacher(teacherId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({

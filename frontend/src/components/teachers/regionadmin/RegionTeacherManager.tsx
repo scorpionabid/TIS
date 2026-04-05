@@ -48,7 +48,7 @@ import {
 import { RegionTeacherImportModal } from './RegionTeacherImportModal';
 import type { EnhancedTeacherProfile } from '@/types/teacher';
 import { RegionTeacherFormModal } from './RegionTeacherFormModal';
-import type { RegionTeacherCreateInput } from '@/services/regionAdminTeachers';
+import { type RegionTeacherCreateInput } from '@/services/teachers';
 
 // Position type labels
 const POSITION_TYPE_LABELS: Record<string, string> = {

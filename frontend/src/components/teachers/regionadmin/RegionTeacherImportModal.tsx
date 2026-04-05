@@ -52,10 +52,10 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import {
-  regionAdminTeacherService,
+  teacherImportService,
   type ValidationResult,
   type ImportStrategy
-} from '@/services/regionAdminTeachers';
+} from '@/services/teachers';
 
 interface RegionTeacherImportModalProps {
   isOpen: boolean;
@@ -150,7 +150,7 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   // Import mutation (Phase 4 - with strategy support)
   const importMutation = useMutation({
     mutationFn: (file: File) => {
-      return regionAdminTeacherService.importTeachersWithStrategy(file, {
+      return teacherImportService.importTeachers(file, {
         skip_duplicates: skipDuplicates,
         update_existing: updateExisting,
         strategy: importStrategy,

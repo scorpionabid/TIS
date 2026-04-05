@@ -1,5 +1,5 @@
-import { apiClient } from './api';
-import { schoolAdminService, SchoolTeacher, ImportResult } from './schoolAdmin';
+import { apiClient } from '../api';
+import { schoolAdminService, SchoolTeacher, ImportResult } from '../schoolAdmin';
 import { TeacherWorkplace, WorkplaceFormData } from '@/types/teacher';
 
 export type Teacher = SchoolTeacher;
@@ -329,4 +329,4 @@ class TeacherService {
   }
 }
 
-export const teacherService = new TeacherService();
+export const schoolTeacherService = new TeacherService();
