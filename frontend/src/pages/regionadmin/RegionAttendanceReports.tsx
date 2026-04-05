@@ -289,8 +289,10 @@ export default function RegionAttendanceReports() {
             summary={rankingsData?.summary ?? { total_schools: 0, submitted_count: 0, on_time_count: 0, late_count: 0, not_submitted_count: 0 }}
             loading={rankingsLoading}
             morningDeadline={rankingsData?.morning_deadline ?? '10:00'}
-            eveningDeadline={rankingsData?.evening_deadline ?? '14:30'}
+            eveningDeadline={rankingsData?.evening_deadline ?? '15:00'}
             date={rankingsData?.date ?? startDate}
+            startDate={startDate}
+            endDate={endDate}
             shiftType={selectedShiftType}
             onSchoolClick={(id) => { setSelectedSchoolId(id); setActiveTab('classes'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />

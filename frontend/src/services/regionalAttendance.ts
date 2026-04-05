@@ -259,6 +259,7 @@ export interface SchoolRankingStat {
   late_minutes: number;
   classes_count: number;
   status: 'on_time' | 'late' | 'not_submitted';
+  score: number;
   morning: ShiftRankingData;
   evening: ShiftRankingData;
 }
@@ -380,6 +381,8 @@ export class RegionalAttendanceService {
   async getRankings(
     filters: {
       date?: string;
+      start_date?: string;
+      end_date?: string;
       sector_id?: number;
       region_id?: number;
       shift_type?: 'morning' | 'evening' | 'all';

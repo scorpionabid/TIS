@@ -64,6 +64,7 @@ interface TaskMetrics {
   total_tasks?: number;
   completed_tasks?: number;
   pending_tasks?: number;
+  overdue_tasks?: number;
   completion_rate?: number;
 }
 
@@ -172,7 +173,8 @@ export const RegionAdminDashboard = () => {
         description: "Region üzrə təyin edilmiş tapşırıqlar.",
         href: "/tasks/assigned",
         icon: ClipboardList,
-        badge: taskMetrics?.pending_tasks ?? 0,
+        badge: taskMetrics?.overdue_tasks ?? 0,
+        badgeVariant: (taskMetrics?.overdue_tasks ?? 0) > 0 ? "destructive" : "secondary",
         color: "text-blue-600",
         bg: "bg-blue-100"
       },
@@ -183,6 +185,7 @@ export const RegionAdminDashboard = () => {
         href: "/my-surveys/pending",
         icon: ListChecks,
         badge: surveyMetrics?.active_surveys ?? 0,
+        badgeVariant: "secondary",
         color: "text-emerald-600",
         bg: "bg-emerald-100"
       },
@@ -192,7 +195,8 @@ export const RegionAdminDashboard = () => {
         description: "Qiymətləndirmə daxil etmə modulu.",
         href: "/assessments/entry",
         icon: CheckSquare,
-        badge: dashboard?.task_metrics?.total_tasks ?? 0,
+        badge: 0,
+        badgeVariant: "secondary",
         color: "text-amber-600",
         bg: "bg-amber-100"
       },
@@ -202,7 +206,8 @@ export const RegionAdminDashboard = () => {
         description: "Toplu davamiyyət girişi.",
         href: "/attendance/bulk",
         icon: Users,
-        badge: dashboard?.region_overview?.active_users ?? 0,
+        badge: 0,
+        badgeVariant: "secondary",
         color: "text-purple-600",
         bg: "bg-purple-100"
       },
@@ -430,7 +435,7 @@ export const RegionAdminDashboard = () => {
                       <span className="text-xs text-muted-foreground font-normal line-clamp-1">{link.description}</span>
                     </div>
                     {link.badge > 0 && (
-                      <Badge variant="secondary" className="ml-auto">
+                      <Badge variant={(link.badgeVariant as any) || "secondary"} className="ml-auto">
                         {link.badge}
                       </Badge>
                     )}

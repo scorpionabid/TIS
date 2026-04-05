@@ -42,6 +42,7 @@ return new class extends Migration
                     'revision_required', 'link_shared', 'link_updated', 'document_shared',
                     'document_uploaded', 'document_updated', 'system_alert', 'maintenance',
                     'security_alert', 'attendance_reminder',
+                    'report_table_assigned', 'report_table_approved', 'report_table_rejected',
                     'project_assigned', 'project_activity_assigned', 'project_completed'
                 ))
             ");

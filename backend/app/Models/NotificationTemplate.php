@@ -79,12 +79,13 @@ class NotificationTemplate extends Model
     public function render(string $field, array $variables = [], string $language = 'az'): string
     {
         $template = $this->getTemplate($field, $language);
-
-        // Replace variables in template
+    
+        // Replace variables in template (handles both {var} and {{var}} formats)
         foreach ($variables as $key => $value) {
+            $template = str_replace('{{' . $key . '}}', $value, $template);
             $template = str_replace('{' . $key . '}', $value, $template);
         }
-
+    
         return $template;
     }
 

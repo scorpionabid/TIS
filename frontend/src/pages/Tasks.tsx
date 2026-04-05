@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Loader2, ChevronLeft, ChevronRight, BarChart2, X, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +23,8 @@ import { TaskViewToggle, TaskViewMode } from "@/components/tasks/TaskViewToggle"
 import { TaskKanbanView } from "@/components/tasks/TaskKanbanView";
 import { TaskStatsWidget } from "@/components/tasks/TaskStatsWidget";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AssignedTasksTab } from "@/components/tasks/tabs/AssignedTasksTab";
+import { MyDelegationsTab } from "@/components/tasks/tabs/MyDelegationsTab";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
@@ -98,6 +101,30 @@ export default function Tasks() {
     canEditTaskItem,
     canDeleteTaskItem,
   } = permissions;
+  
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle tab from navigation state (redirects) or query params
+  useEffect(() => {
+    const state = location.state as { activeTab?: TaskTabValue } | null;
+    const tabParam = searchParams.get('tab') as TaskTabValue | null;
+    const targetTab = state?.activeTab || tabParam;
+
+    if (targetTab && availableTabs.some(t => t.value === targetTab)) {
+      setActiveTab(targetTab);
+      
+      // Clean up state and params
+      if (state?.activeTab) {
+        window.history.replaceState({}, document.title);
+      }
+      if (tabParam) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('tab');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [location.state, searchParams, availableTabs, setActiveTab, setSearchParams]);
 
   const tasksData = useTasksData({
     currentUser,
@@ -376,29 +403,31 @@ export default function Tasks() {
         disabled={isFetching}
       />
 
-      {/* Enhanced Stats with Charts */}
-      <Collapsible open={showCharts} onOpenChange={setShowCharts}>
-        <div className="flex items-center justify-between">
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <BarChart2 className="h-4 w-4" />
-              {showCharts ? "Statistikanı gizlə" : "Statistikanı göstər"}
-            </Button>
-          </CollapsibleTrigger>
-          <div className="flex items-center gap-2">
-            <TaskViewToggle
-              value={viewMode}
-              onChange={handleViewModeChange}
-              showCalendar={false}
-              showAnalytics={false}
-              disabled={isFetching}
-            />
+      {/* Enhanced Stats with Charts - Only for region/sector tabs */}
+      {!["assigned", "delegations"].includes(activeTab) && (
+        <Collapsible open={showCharts} onOpenChange={setShowCharts}>
+          <div className="flex items-center justify-between">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2">
+                <BarChart2 className="h-4 w-4" />
+                {showCharts ? "Statistikanı gizlə" : "Statistikanı göstər"}
+              </Button>
+            </CollapsibleTrigger>
+            <div className="flex items-center gap-2">
+              <TaskViewToggle
+                value={viewMode}
+                onChange={handleViewModeChange}
+                showCalendar={false}
+                showAnalytics={false}
+                disabled={isFetching}
+              />
+            </div>
           </div>
-        </div>
-        <CollapsibleContent className="mt-4">
-          <TaskStatsWidget stats={stats} showCharts={true} />
-        </CollapsibleContent>
-      </Collapsible>
+          <CollapsibleContent className="mt-4">
+            <TaskStatsWidget stats={stats} showCharts={true} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Conditional View Rendering */}
       {viewMode === "kanban" ? (
@@ -412,6 +441,10 @@ export default function Tasks() {
           canDeleteTaskItem={canDeleteTaskItem}
           isLoading={isFetching}
         />
+      ) : activeTab === "assigned" ? (
+        <AssignedTasksTab />
+      ) : activeTab === "delegations" ? (
+        <MyDelegationsTab />
       ) : (
         /* Excel Task Table */
         <ExcelTaskTable
@@ -430,12 +463,12 @@ export default function Tasks() {
           availableUsers={availableUsers}
           onRefresh={refreshTasks}
           onTaskCreated={handleTaskCreated}
-          originScope={activeTab}
+          originScope={activeTab as "region" | "sector"}
         />
       )}
 
-      {/* Pagination - Only show for table view */}
-      {viewMode === "table" && pagination && pagination.total > 0 && (
+      {/* Pagination - Only show for table view in region/sector tabs */}
+      {viewMode === "table" && !["assigned", "delegations"].includes(activeTab) && pagination && pagination.total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Səhifədə:</span>

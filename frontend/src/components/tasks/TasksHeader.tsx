@@ -175,102 +175,104 @@ export function TasksHeader({
         </Tabs>
       )}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-[250px]">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tapşırıq axtar..."
-              value={searchTerm}
-              onChange={(event) => onSearchChange(event.target.value)}
-              className="pl-8"
-              disabled={disabled}
-            />
+      {!["assigned", "delegations"].includes(activeTab) && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-[250px]">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tapşırıq axtar..."
+                value={searchTerm}
+                onChange={(event) => onSearchChange(event.target.value)}
+                className="pl-8"
+                disabled={disabled}
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={onStatusFilterChange} disabled={disabled}>
+              <SelectTrigger className="w-full sm:w-[150px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün statuslar</SelectItem>
+                {Object.entries(statusLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={priorityFilter} onValueChange={onPriorityFilterChange} disabled={disabled}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="Prioritet" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün prioritetlər</SelectItem>
+                {Object.entries(priorityLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={onCategoryFilterChange} disabled={disabled}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="Kateqoriya" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün kateqoriyalar</SelectItem>
+                {Object.entries(categoryLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={deadlineFilter} onValueChange={onDeadlineFilterChange} disabled={disabled}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="Son tarix" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün tarixlər</SelectItem>
+                <SelectItem value="overdue">Gecikmiş</SelectItem>
+                <SelectItem value="upcoming">Yaxınlaşan</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <Select value={statusFilter} onValueChange={onStatusFilterChange} disabled={disabled}>
-            <SelectTrigger className="w-full sm:w-[150px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün statuslar</SelectItem>
-              {Object.entries(statusLabels).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={priorityFilter} onValueChange={onPriorityFilterChange} disabled={disabled}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue placeholder="Prioritet" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün prioritetlər</SelectItem>
-              {Object.entries(priorityLabels).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={categoryFilter} onValueChange={onCategoryFilterChange} disabled={disabled}>
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="Kateqoriya" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün kateqoriyalar</SelectItem>
-              {Object.entries(categoryLabels).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={deadlineFilter} onValueChange={onDeadlineFilterChange} disabled={disabled}>
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="Son tarix" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün tarixlər</SelectItem>
-              <SelectItem value="overdue">Gecikmiş</SelectItem>
-              <SelectItem value="upcoming">Yaxınlaşan</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{tasksCount} tapşırıq</span>
+            <Select
+              value={selectedPreset}
+              onValueChange={(value) => {
+                setSelectedPreset(value);
+                const preset = filterPresets.find((item) => item.id === value);
+                if (preset) {
+                  onApplyPreset(preset.value);
+                  setSelectedPreset("");
+                }
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="w-full sm:w-[190px]">
+                <SelectValue placeholder="Hazır filterlər" />
+              </SelectTrigger>
+              <SelectContent>
+                {filterPresets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">{tasksCount} tapşırıq</span>
-          <Select
-            value={selectedPreset}
-            onValueChange={(value) => {
-              setSelectedPreset(value);
-              const preset = filterPresets.find((item) => item.id === value);
-              if (preset) {
-                onApplyPreset(preset.value);
-                setSelectedPreset("");
-              }
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="w-full sm:w-[190px]">
-              <SelectValue placeholder="Hazır filterlər" />
-            </SelectTrigger>
-            <SelectContent>
-              {filterPresets.map((preset) => (
-                <SelectItem key={preset.id} value={preset.id}>
-                  {preset.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {isFiltering && activeFilters.length > 0 && (
+      {!["assigned", "delegations"].includes(activeTab) && isFiltering && activeFilters.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           {activeFilters.map((filter) => (
             <Badge key={filter.key} variant="secondary" className="flex items-center gap-1">

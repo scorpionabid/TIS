@@ -16,6 +16,8 @@ interface AttendanceRankingsTableProps {
   morningDeadline: string;
   eveningDeadline: string;
   date: string;
+  startDate: string;
+  endDate: string;
   shiftType: 'morning' | 'evening' | 'all';
   onSchoolClick?: (schoolId: string) => void;
 }
@@ -27,9 +29,12 @@ export function AttendanceRankingsTable({
   morningDeadline,
   eveningDeadline,
   date,
+  startDate,
+  endDate,
   shiftType,
   onSchoolClick,
 }: AttendanceRankingsTableProps) {
+  const isMultipleDays = startDate !== endDate;
   if (loading) {
     return <RankingsTableSkeleton />;
   }
@@ -55,12 +60,13 @@ export function AttendanceRankingsTable({
       {/* Xülasə kartları */}
       <SummaryCards summary={summary} />
 
-      {/* Deadline xəbərdarlığı */}
-      <DeadlineNotice
-        morningDeadline={morningDeadline}
-        eveningDeadline={eveningDeadline}
-        shiftType={shiftType}
-      />
+      {!isMultipleDays && (
+        <DeadlineNotice
+          morningDeadline={morningDeadline}
+          eveningDeadline={eveningDeadline}
+          shiftType={shiftType}
+        />
+      )}
 
       {/* Reytinq cədvəli */}
       <Card className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] border-0">
@@ -70,7 +76,7 @@ export function AttendanceRankingsTable({
             Davamiyyət Reytinqi
           </CardTitle>
           <CardDescription>
-            {date} tarixi üzrə ən tez dolduran məktəblər
+            {isMultipleDays ? `${startDate} - ${endDate} tarixləri üzrə ümumi xallar` : `${date} tarixi üzrə ən tez dolduran məktəblər`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,11 +87,16 @@ export function AttendanceRankingsTable({
                   <TableHead className="w-16 text-center">Reytinq</TableHead>
                   <TableHead>Məktəb</TableHead>
                   <TableHead className="text-center">Sektor</TableHead>
+                  <TableHead className="text-center">Bal</TableHead>
                   <TableHead className="text-center">Növə</TableHead>
-                  <TableHead className="text-center">Deadline</TableHead>
-                  <TableHead className="text-center">Doldurma Vaxtı</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-center">Geri Sayım</TableHead>
+                  {!isMultipleDays && (
+                    <>
+                      <TableHead className="text-center">Deadline</TableHead>
+                      <TableHead className="text-center">Doldurma Vaxtı</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Geri Sayım</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -96,6 +107,7 @@ export function AttendanceRankingsTable({
                     rank={index + 1}
                     morningDeadline={morningDeadline}
                     eveningDeadline={eveningDeadline}
+                    isMultipleDays={isMultipleDays}
                     onClick={() => onSchoolClick?.(String(school.school_id))}
                   />
                 ))}
@@ -130,11 +142,12 @@ interface RankingsTableRowProps {
   rank: number;
   morningDeadline: string;
   eveningDeadline: string;
+  isMultipleDays?: boolean;
   onClick?: () => void;
 }
 
-function RankingsTableRow({ school, rank, morningDeadline, eveningDeadline, onClick }: RankingsTableRowProps) {
-  const deadline = school.shift_type === 'morning' ? '10:00' : school.shift_type === 'evening' ? '14:30' : null;
+function RankingsTableRow({ school, rank, morningDeadline, eveningDeadline, isMultipleDays, onClick }: RankingsTableRowProps) {
+  const deadline = school.shift_type === 'morning' ? '10:00' : school.shift_type === 'evening' ? '15:00' : null;
 
   // Sətir stili - reytinqə görə
   const getRowClass = () => {
@@ -175,45 +188,64 @@ function RankingsTableRow({ school, rank, morningDeadline, eveningDeadline, onCl
         {school.sector_name}
       </TableCell>
 
+      {/* Bal */}
+      <TableCell className="text-center">
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "font-bold",
+            school.score >= 0.8 ? "text-green-600 bg-green-50 border-green-200" :
+            school.score >= 0.5 ? "text-amber-600 bg-amber-50 border-amber-200" :
+            "text-red-600 bg-red-50 border-red-200"
+          )}
+        >
+          {school.score.toFixed(2)}
+        </Badge>
+      </TableCell>
+
       {/* Növə tipi */}
       <TableCell className="text-center">
         <ShiftTypeBadge shiftType={school.shift_type} />
       </TableCell>
 
-      {/* Deadline */}
-      <TableCell className="text-center">
-        {deadline ? <DeadlineBadge deadline={deadline} /> : '-'}
-      </TableCell>
+      {!isMultipleDays && (
+        <>
+          {/* Deadline */}
+          <TableCell className="text-center">
+            {deadline ? <DeadlineBadge deadline={deadline} /> : '-'}
+          </TableCell>
 
-      {/* Doldurma vaxtı */}
-      <TableCell className="text-center">
-        <SubmissionTimeBadge
-          submittedAt={school.submitted_at}
-          deadline={deadline}
-          isLate={school.is_late}
-          lateMinutes={school.late_minutes}
-        />
-      </TableCell>
+          {/* Doldurma vaxtı */}
+          <TableCell className="text-center">
+            <SubmissionTimeBadge
+              submittedAt={school.submitted_at}
+              deadline={deadline}
+              isLate={school.is_late}
+              lateMinutes={school.late_minutes}
+            />
+          </TableCell>
 
-      {/* Status */}
-      <TableCell className="text-center">
-        <StatusBadge
-          status={school.status}
-          lateMinutes={school.late_minutes}
-        />
-      </TableCell>
+          {/* Status */}
+          <TableCell className="text-center">
+            <StatusBadge
+              status={school.status}
+              lateMinutes={school.late_minutes}
+            />
+          </TableCell>
 
-      {/* Geri Sayım */}
-      <TableCell className="text-center">
-        {deadline && (
-          <CountdownTimer
-            deadline={deadline}
-            submittedAt={school.submitted_at}
-            size="sm"
-            showIcon={true}
-          />
-        )}
-      </TableCell>
+          {/* Geri Sayım */}
+          <TableCell className="text-center">
+            {deadline && (
+              <CountdownTimer
+                deadline={deadline}
+                submittedAt={school.submitted_at}
+                size="sm"
+                showIcon={true}
+              />
+            )}
+          </TableCell>
+        </>
+      )}
     </TableRow>
   );
 }
@@ -305,7 +337,7 @@ function DeadlineNotice({ morningDeadline, eveningDeadline, shiftType }: Deadlin
         <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 rounded-lg text-sm">
           <Clock className="h-4 w-4 text-orange-500" />
           <span className="text-orange-700">
-            <strong>Günorta növbəsi:</strong> 14:30-a kimi doldurulmalıdır
+            <strong>Günorta növbəsi:</strong> 15:00-a kimi doldurulmalıdır
           </span>
         </div>
       )}

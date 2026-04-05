@@ -105,10 +105,18 @@ class RegionAdminDashboardService
                     ->orWhereIn('assigned_to_institution_id', $institutionIds);
             })->count();
 
+        $overdueTasks = Task::where('status', '!=', 'completed')
+            ->where('deadline', '<', now())
+            ->where(function ($query) use ($user, $institutionIds) {
+                $query->where('created_by', $user->id)
+                    ->orWhereIn('assigned_to_institution_id', $institutionIds);
+            })->count();
+
         return [
             'total_tasks' => $totalTasks,
             'completed_tasks' => $completedTasks,
             'pending_tasks' => $pendingTasks,
+            'overdue_tasks' => $overdueTasks,
             'completion_rate' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100, 1) : 0,
         ];
     }

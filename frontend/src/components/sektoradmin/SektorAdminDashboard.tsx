@@ -82,6 +82,7 @@ interface SektorDashboardStats {
   sektorUsers: number;
   activeSurveys: number;
   pendingReports: number;
+  overdueTasks: number;
   sektorInfo: {
     name: string;
     region: string;
@@ -192,7 +193,8 @@ export const SektorAdminDashboard = () => {
         description: "Sektor üzrə tapşırıqları izləyin.",
         href: "/tasks/assigned",
         icon: ClipboardList,
-        badge: statsData?.pendingReports ?? 0,
+        badge: statsData?.overdueTasks ?? 0,
+        badgeVariant: (statsData?.overdueTasks ?? 0) > 0 ? "destructive" : "secondary" as const,
         color: "text-blue-600",
         bg: "bg-blue-100"
       },
@@ -203,6 +205,7 @@ export const SektorAdminDashboard = () => {
         href: "/my-surveys/pending",
         icon: ListChecks,
         badge: statsData?.activeSurveys ?? 0,
+        badgeVariant: "secondary" as const,
         color: "text-emerald-600",
         bg: "bg-emerald-100"
       },
@@ -213,6 +216,7 @@ export const SektorAdminDashboard = () => {
         href: "/assessments/entry",
         icon: GraduationCap,
         badge: 0,
+        badgeVariant: "secondary" as const,
         color: "text-amber-600",
         bg: "bg-amber-100"
       },
@@ -223,6 +227,7 @@ export const SektorAdminDashboard = () => {
         href: "/attendance/bulk",
         icon: Users,
         badge: 0,
+        badgeVariant: "secondary" as const,
         color: "text-purple-600",
         bg: "bg-purple-100"
       },
@@ -418,7 +423,7 @@ export const SektorAdminDashboard = () => {
                       <span className="text-xs text-muted-foreground font-normal line-clamp-1">{link.description}</span>
                     </div>
                     {link.badge > 0 && (
-                      <Badge variant="secondary" className="ml-auto">
+                      <Badge variant={(link.badgeVariant as any) || "secondary"} className="ml-auto">
                         {link.badge}
                       </Badge>
                     )}

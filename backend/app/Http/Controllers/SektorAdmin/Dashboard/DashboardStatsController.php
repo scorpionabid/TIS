@@ -90,6 +90,21 @@ class DashboardStatsController extends Controller
                 })
                 ->count();
 
+            // Count overdue tasks targeting this sector's schools
+            $overdueTasks = Task::where('status', '!=', 'completed')
+                ->where('deadline', '<', now())
+                ->where(function ($query) use ($userSector, $schoolIds) {
+                    $query->where('assigned_to_institution_id', $userSector->id)
+                        ->orWhereJsonContains('target_institutions', $userSector->id)
+                        ->orWhere(function ($q) use ($schoolIds) {
+                            foreach ($schoolIds as $schoolId) {
+                                $q->orWhereJsonContains('target_institutions', $schoolId)
+                                    ->orWhere('assigned_to_institution_id', $schoolId);
+                            }
+                        });
+                })
+                ->count();
+
             // Get sector information
             $sektorInfo = [
                 'name' => $userSector->name,
@@ -111,6 +126,7 @@ class DashboardStatsController extends Controller
                 'sektorUsers' => $totalSektorUsers,
                 'activeSurveys' => $activeSurveys,
                 'pendingReports' => $pendingTasks,
+                'overdueTasks' => $overdueTasks,
                 'sektorInfo' => $sektorInfo,
                 'recentActivities' => $recentActivities,
                 'schoolsList' => $schoolsList,

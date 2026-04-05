@@ -765,40 +765,11 @@ const App = () => {
                     />
                     <Route
                       path="tasks/assigned"
-                      element={
-                        <RoleProtectedRoute
-                          allowedRoles={[
-                            USER_ROLES.SUPERADMIN,
-                            USER_ROLES.REGIONADMIN,
-                            USER_ROLES.REGIONOPERATOR,
-                            USER_ROLES.SEKTORADMIN,
-                            USER_ROLES.SCHOOLADMIN,
-                          ]}
-                        >
-                          <LazyWrapper>
-                            <AssignedTasks />
-                          </LazyWrapper>
-                        </RoleProtectedRoute>
-                      }
+                      element={<Navigate to="/tasks" state={{ activeTab: 'assigned' }} replace />}
                     />
                     <Route
                       path="my-delegations"
-                      element={
-                        <RoleProtectedRoute
-                          allowedRoles={[
-                            USER_ROLES.SUPERADMIN,
-                            USER_ROLES.REGIONADMIN,
-                            USER_ROLES.REGIONOPERATOR,
-                            USER_ROLES.SEKTORADMIN,
-                            USER_ROLES.SCHOOLADMIN,
-                            USER_ROLES.MUELLIM,
-                          ]}
-                        >
-                          <LazyWrapper>
-                            <MyDelegations />
-                          </LazyWrapper>
-                        </RoleProtectedRoute>
-                      }
+                      element={<Navigate to="/tasks" state={{ activeTab: 'delegations' }} replace />}
                     />
 
                     <Route

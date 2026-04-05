@@ -257,14 +257,20 @@ class RatingCalculationService
     private function calculateAttendanceScore(int $userId, string $period): array
     {
         $user = User::find($userId);
+        if (! $user) {
+            return ['score' => 0, 'on_time' => 0, 'missed' => 0, 'total_days' => 0];
+        }
         $institutionId = $user->institution_id;
 
-        $totalGrades = Grade::withoutGlobalScopes()
+        $grades = Grade::withoutGlobalScopes()
             ->where('institution_id', $institutionId)
             ->where('is_active', true)
-            ->count();
+            ->select('id', 'teaching_shift')
+            ->get();
 
-        if ($totalGrades === 0) {
+        $totalGradesCount = $grades->count();
+
+        if ($totalGradesCount === 0) {
             return ['score' => 0, 'on_time' => 0, 'missed' => 0, 'total_days' => 0];
         }
 
@@ -299,34 +305,67 @@ class RatingCalculationService
             ->where('institution_id', $institutionId)
             ->whereBetween('attendance_date', [$workdays[0], end($workdays)])
             ->get()
-            ->groupBy(fn ($record) => \Carbon\Carbon::parse($record->attendance_date)->toDateString());
+            ->groupBy(function ($record) {
+                return Carbon::parse($record->attendance_date)->toDateString();
+            });
 
-        $onTime = 0;
-        $missed = 0;
+        $totalScore = 0;
+        $totalOnTimeCount = 0; // Cumulative on-time registrations across all days
+        $totalLateCount = 0;   // Cumulative late/missed registrations across all days
 
         foreach ($workdays as $dateStr) {
-            $dayRecords = $attendanceRecords->get($dateStr, collect());
+            $dayRecords = $attendanceRecords->get($dateStr, collect())
+                ->groupBy('grade_id');
 
-            $sameDay = $dayRecords->filter(function ($record) use ($dateStr) {
-                $morningOk = $record->morning_recorded_at
-                    && \Carbon\Carbon::parse($record->morning_recorded_at)->toDateString() === $dateStr;
-                $eveningOk = $record->evening_recorded_at
-                    && \Carbon\Carbon::parse($record->evening_recorded_at)->toDateString() === $dateStr;
+            $dayOnTime = 0;
+            $dayLate = 0;
 
-                return $morningOk || $eveningOk;
-            })->count();
+            foreach ($grades as $grade) {
+                $gradeRecords = $dayRecords->get($grade->id, collect());
+                $record = $gradeRecords->first();
 
-            if ($sameDay >= $totalGrades) {
-                $onTime++;
-            } else {
-                $missed++;
+                // Shift detection
+                // 1-ci növbə (Morning): Limit 10:00
+                // 2-ci növbə (Afternoon): Limit 15:00
+                $shift = $grade->teaching_shift ?? '1';
+                $isAfternoon = str_contains($shift, '2');
+                $limitTime = $isAfternoon ? '15:00:00' : '10:00:00';
+                
+                $recordedAt = null;
+                if ($record) {
+                    $recordedAt = $isAfternoon ? $record->evening_recorded_at : $record->morning_recorded_at;
+                    
+                    // Fallback to whichever is recorded if shift-specific one is null
+                    if (! $recordedAt) {
+                        $recordedAt = $record->morning_recorded_at ?? $record->evening_recorded_at;
+                    }
+                }
+
+                if ($recordedAt) {
+                    $recordTime = Carbon::parse($recordedAt)->format('H:i:s');
+                    
+                    if ($recordTime <= $limitTime) {
+                        $dayOnTime++;
+                    } else {
+                        $dayLate++;
+                    }
+                } else {
+                    $dayLate++; // Missed counts as late (-1)
+                }
             }
+
+            $totalOnTimeCount += $dayOnTime;
+            $totalLateCount += $dayLate;
+
+            // (OnTime - Late) / TotalClasses
+            $dayScore = ($dayOnTime - $dayLate) / $totalGradesCount;
+            $totalScore += $dayScore;
         }
 
         return [
-            'score' => $onTime - $missed,
-            'on_time' => $onTime,
-            'missed' => $missed,
+            'score' => round($totalScore, 2),
+            'on_time' => $totalOnTimeCount,   // Track total on-time instances
+            'missed' => $totalLateCount,     // Track total late instances
             'total_days' => count($workdays),
         ];
     }

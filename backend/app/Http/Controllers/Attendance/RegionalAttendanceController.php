@@ -242,6 +242,8 @@ class RegionalAttendanceController extends BaseController
     {
         $validated = $request->validate([
             'date' => ['nullable', 'date'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
             'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'shift_type' => ['nullable', 'string', 'in:morning,evening,all'],

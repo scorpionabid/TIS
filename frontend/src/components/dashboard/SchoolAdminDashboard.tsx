@@ -146,7 +146,8 @@ export const SchoolAdminDashboard = ({ className }: { className?: string } = {})
         description: "Komanda tapşırıqlarını idarə et.",
         href: "/tasks/assigned",
         icon: ClipboardList,
-        badge: stats?.active_tasks ?? 0,
+        badge: stats?.overdue_tasks ?? 0,
+        badgeVariant: (stats?.overdue_tasks ?? 0) > 0 ? "destructive" : "secondary",
         color: "text-blue-600",
         bg: "bg-blue-100"
       },
@@ -157,6 +158,7 @@ export const SchoolAdminDashboard = ({ className }: { className?: string } = {})
         href: "/my-surveys/pending",
         icon: ListChecks,
         badge: stats?.pending_surveys ?? 0,
+        badgeVariant: "secondary",
         color: "text-emerald-600",
         bg: "bg-emerald-100"
       },
@@ -167,6 +169,7 @@ export const SchoolAdminDashboard = ({ className }: { className?: string } = {})
         href: "/assessments/entry",
         icon: CheckSquare,
         badge: stats?.pending_assessments ?? 0,
+        badgeVariant: "secondary",
         color: "text-amber-600",
         bg: "bg-amber-100"
       },
@@ -177,6 +180,7 @@ export const SchoolAdminDashboard = ({ className }: { className?: string } = {})
         href: "/attendance/bulk",
         icon: Users,
         badge: 0,
+        badgeVariant: "secondary",
         color: "text-purple-600",
         bg: "bg-purple-100"
       },
@@ -369,7 +373,7 @@ export const SchoolAdminDashboard = ({ className }: { className?: string } = {})
                       <span className="text-xs text-muted-foreground font-normal line-clamp-1">{link.description}</span>
                     </div>
                     {link.badge > 0 && (
-                      <Badge variant="secondary" className="ml-auto">
+                      <Badge variant={link.badgeVariant as any || "secondary"} className="ml-auto">
                         {link.badge}
                       </Badge>
                     )}

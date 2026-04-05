@@ -8,11 +8,19 @@ use App\Models\NotificationTemplate;
 use App\Models\Survey;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\TaskPermissionService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
+    protected TaskPermissionService $permissionService;
+
+    public function __construct(TaskPermissionService $permissionService)
+    {
+        $this->permissionService = $permissionService;
+    }
+
     /**
      * Send a notification
      */
@@ -566,8 +574,18 @@ class NotificationService
                 ")
                 ->pluck('cnt', 'page_key');
 
+            $overdueCount = Task::where('deadline', '<', now())
+                ->whereNotIn('status', ['completed', 'cancelled']);
+            
+            $user = User::find($userId);
+            if ($user) {
+                $this->permissionService->applyTaskAccessControl($overdueCount, $user);
+            }
+            
+            $overdueTotal = $overdueCount->count();
+
             return [
-                'tasks' => (int) ($rows['tasks'] ?? 0),
+                'tasks' => $overdueTotal, // Replaced with overdue tasks count
                 'tasks_assigned' => (int) ($rows['tasks_assigned'] ?? 0),
                 'surveys' => (int) ($rows['surveys'] ?? 0),
                 'documents' => (int) ($rows['documents'] ?? 0),

@@ -155,12 +155,13 @@ export function useRegionalAttendanceData() {
   // Rankings Query
   const rankingFilters = useMemo(() => {
     const f: Record<string, any> = {
-      date: startDate,
+      start_date: startDate,
+      end_date: endDate,
     };
     if (selectedSectorId !== 'all') f.sector_id = Number(selectedSectorId);
     if (selectedShiftType !== 'all') f.shift_type = selectedShiftType;
     return f;
-  }, [startDate, selectedSectorId, selectedShiftType]);
+  }, [startDate, endDate, selectedSectorId, selectedShiftType]);
 
   const {
     data: rankingsData,

@@ -65,13 +65,13 @@ class NotificationSent implements ShouldBroadcast
                 'title' => $this->notification->title,
                 'message' => $this->notification->message,
                 'type' => $this->notification->type,
-                'ui_type' => $this->notification->ui_type,      // computed attribute
-                'display_type' => $this->notification->display_type, // computed attribute
+                'ui_type' => $this->notification->ui_type ?? 'info',
+                'display_type' => $this->notification->display_type ?? 'info',
                 'priority' => $this->notification->priority ?? 'normal',
                 'is_read' => false,
-                'metadata' => $this->notification->metadata,     // fixed: was ->data
-                'action_data' => $this->notification->action_data,
-                'created_at' => $this->notification->created_at->toISOString(),
+                'metadata' => $this->notification->metadata ?? [],
+                'action_data' => $this->notification->action_data ?? [],
+                'created_at' => $this->notification->created_at ? $this->notification->created_at->toISOString() : now()->toISOString(),
             ],
             'user' => [
                 'id' => $this->user->id,

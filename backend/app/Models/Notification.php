@@ -116,6 +116,9 @@ class Notification extends Model
         'task_assignment_completed' => ['ui_type' => 'task', 'display_type' => 'success'],
         'task_delegation_completed' => ['ui_type' => 'task', 'display_type' => 'success'],
         'task_delegation_rejected' => ['ui_type' => 'task', 'display_type' => 'warning'],
+        'project_assigned' => ['ui_type' => 'project', 'display_type' => 'info'],
+        'project_activity_assigned' => ['ui_type' => 'project', 'display_type' => 'info'],
+        'project_completed' => ['ui_type' => 'project', 'display_type' => 'success'],
     ];
 
     /**

@@ -1610,102 +1610,213 @@ class RegionalAttendanceService
      */
     public function getRankings(User $user, array $filters = []): array
     {
-        $date = $filters['date'] ?? now()->toDateString();
         $shiftType = $filters['shift_type'] ?? 'all';
 
-        // Resolve scope to get schools list
-        [$startDate, $endDate] = [$date, $date];
+        // Resolve scope to get schools list and date range
+        [$startDate, $endDate] = $this->resolveDateRange($filters);
+        if (isset($filters['date']) && !isset($filters['start_date'])) {
+            $startDate = $filters['date'];
+            $endDate = $filters['date'];
+        }
+
         $scope = $this->resolveInstitutionScope($user, $filters, $startDate, $endDate);
         $schoolIds = $scope['school_ids'];
 
-        if (empty($schoolIds)) {
+        $isMultipleDays = $startDate !== $endDate;
+        $workdays = [];
+        $current = CarbonImmutable::parse($startDate);
+        $end = CarbonImmutable::parse($endDate);
+        while ($current->lte($end)) {
+            // Include Mondays through Saturdays
+            if (!$current->isSunday()) {
+                $workdays[] = $current->toDateString();
+            }
+            $current = $current->addDay();
+        }
+        
+        $standardDaysCount = 0;
+        foreach ($workdays as $wd) {
+            // Count Mon-Fri days as the standard comparison base
+            if (CarbonImmutable::parse($wd)->isWeekday()) {
+                $standardDaysCount++;
+            }
+        }
+
+        if (empty($schoolIds) || empty($workdays)) {
             return [
-                'date' => $date,
+                'date' => $startDate,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
                 'shift_type' => $shiftType,
                 'schools' => [],
                 'summary' => [
-                    'total_schools' => 0,
+                    'total_schools' => count($schoolIds),
                     'submitted_count' => 0,
                     'on_time_count' => 0,
                     'late_count' => 0,
+                    'not_submitted_count' => count($schoolIds),
                 ],
             ];
         }
 
-        // Get submission times for each school on the given date
+        // Get all active grades for these schools to calculate score
+        $allGrades = Grade::withoutGlobalScopes()
+            ->whereIn('institution_id', $schoolIds)
+            ->where('is_active', true)
+            ->select('id', 'institution_id', 'teaching_shift')
+            ->get()
+            ->groupBy('institution_id');
+
+        // Get submission times for each school in the range
         $submissions = ClassBulkAttendance::selectRaw(
             'class_bulk_attendance.institution_id,
-             MIN(morning_recorded_at) as first_morning_submission,
-             MAX(morning_recorded_at) as last_morning_submission,
-             MIN(evening_recorded_at) as first_evening_submission,
-             MAX(evening_recorded_at) as last_evening_submission,
-             COUNT(DISTINCT CASE WHEN morning_recorded_at IS NOT NULL THEN grade_id END) as morning_classes,
-             COUNT(DISTINCT CASE WHEN evening_recorded_at IS NOT NULL THEN grade_id END) as evening_classes'
+             class_bulk_attendance.attendance_date,
+             class_bulk_attendance.grade_id,
+             morning_recorded_at,
+             evening_recorded_at'
         )
             ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
-            ->whereDate('attendance_date', $date)
-            ->groupBy('class_bulk_attendance.institution_id')
+            ->whereBetween('class_bulk_attendance.attendance_date', [$startDate, $endDate])
             ->get()
-            ->keyBy('institution_id');
+            ->groupBy(['institution_id', function ($item) {
+                return $item->attendance_date->toDateString();
+            }]);
 
-        // Build sector name map
-        $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
-
-        // Define deadlines
-        $morningDeadline = CarbonImmutable::parse($date)->setTime(10, 0, 0);
-        $eveningDeadline = CarbonImmutable::parse($date)->setTime(14, 30, 0);
-
+        // Initialize counters and range data
         $rankings = [];
         $submittedCount = 0;
         $onTimeCount = 0;
         $lateCount = 0;
+        
+        $morningDeadlineTime = '10:00:00';
+        $eveningDeadlineTime = '15:00:00';
+        $morningDeadline = CarbonImmutable::parse($workdays[0])->setTime(10, 0, 0);
+        $eveningDeadline = CarbonImmutable::parse($workdays[0])->setTime(15, 0, 0);
+        $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
+        
+        $lastDayInWorkdays = !empty($workdays) ? $workdays[count($workdays) - 1] : null;
 
         foreach ($scope['schools'] as $school) {
-            $submission = $submissions->get($school->id);
+            $instSubmissionsByDate = $submissions->get($school->id, collect());
             $sectorId = $school->parent_id;
 
-            // Determine which shift to use
-            $isMorning = in_array($shiftType, ['morning', 'all']);
-            $isEvening = in_array($shiftType, ['evening', 'all']);
+            $schoolGrades = $allGrades->get($school->id, collect());
+            $totalGradesCount = $schoolGrades->count();
+            $totalScoreInPeriod = 0;
+            
+            // For range result summary (speed of last day or earliest day)
+            $lastDaySubmissions = $lastDayInWorkdays ? $instSubmissionsByDate->get($lastDayInWorkdays, collect()) : collect();
+            $firstDaySubmissions = !empty($workdays) ? $instSubmissionsByDate->get($workdays[0], collect()) : collect();
+            
+            // We use the last day's submission details for display purposes in the row
+            $displaySubmissions = $isMultipleDays ? $lastDaySubmissions : $firstDaySubmissions;
+            
+            $actualWorkdaysForSchool = 0;
+            $isSixDaySchool = false;
+            
+            // Detect if 6-day school by checking Saturday submissions in the entire date range
+            foreach ($workdays as $day) {
+                if (CarbonImmutable::parse($day)->isSaturday()) {
+                    if ($instSubmissionsByDate->has($day)) {
+                        $isSixDaySchool = true;
+                        break;
+                    }
+                }
+            }
 
-            $morningSubmittedAt = $submission?->first_morning_submission
-                ? CarbonImmutable::parse($submission->first_morning_submission)
-                : null;
-            $eveningSubmittedAt = $submission?->first_evening_submission
-                ? CarbonImmutable::parse($submission->first_evening_submission)
-                : null;
+            foreach ($workdays as $day) {
+                $isSaturday = CarbonImmutable::parse($day)->isSaturday();
+                
+                // If it's a 5-day school, skip Saturday points but also don't count it as a workday
+                if ($isSaturday) {
+                    if (!$isSixDaySchool) continue;
+                    // For 6-day schools, Saturday is a penalty-only day, so we don't increment the workday counter (divisor)
+                } else {
+                    $actualWorkdaysForSchool++;
+                }
+                $daySubmissions = $instSubmissionsByDate->get($day, collect());
+                $onTimeCountForScore = 0;
+                $lateCountForScore = 0;
 
-            // Calculate status for each shift
+                if ($totalGradesCount > 0) {
+                    $gradeSubmissionMap = $daySubmissions->keyBy('grade_id');
+                    
+                    foreach ($schoolGrades as $grade) {
+                        $gradeSub = $gradeSubmissionMap->get($grade->id);
+                        $shift = $grade->teaching_shift ?? '1';
+                        $isAfternoon = str_contains($shift, '2');
+                        $limitTime = $isAfternoon ? $eveningDeadlineTime : $morningDeadlineTime;
+                        
+                        $recordedAt = null;
+                        if ($gradeSub) {
+                            $recordedAt = $isAfternoon ? $gradeSub->evening_recorded_at : $gradeSub->morning_recorded_at;
+                            if (!$recordedAt) {
+                                $recordedAt = $gradeSub->morning_recorded_at ?? $gradeSub->evening_recorded_at;
+                            }
+                        }
+
+                        if ($recordedAt) {
+                            $recordTime = CarbonImmutable::parse($recordedAt)->format('H:i:s');
+                            if ($recordTime <= $limitTime) {
+                                $onTimeCountForScore++;
+                            } else {
+                                $lateCountForScore++;
+                            }
+                        } else {
+                            $lateCountForScore++;
+                        }
+                    }
+                    $dayScore = ($onTimeCountForScore - $lateCountForScore) / $totalGradesCount;
+                    
+                    if ($isSaturday && $isSixDaySchool) {
+                        // Penalty-only logic for Saturdays: 0 if 100% on-time, negative if any delays
+                        // (onTimeCountForScore / totalGradesCount) - 1.0 gives:
+                        // 100% on-time -> 0.0 (no advantage)
+                        // 80% on-time -> -0.2 (penalty)
+                        // 0% on-time -> -1.0 (full penalty)
+                        $totalScoreInPeriod += (($onTimeCountForScore / $totalGradesCount) - 1.0);
+                    } else {
+                        $totalScoreInPeriod += $dayScore;
+                    }
+                }
+            }
+
+            // Normalization: Fairly compare 5-day and 6-day schools
+            if ($actualWorkdaysForSchool > 0) {
+                $averagePerformance = $totalScoreInPeriod / $actualWorkdaysForSchool;
+                // For totals, normalize to the standard 5-day week length in results
+                $finalPeriodScore = $isMultipleDays && $standardDaysCount > 0
+                    ? $averagePerformance * $standardDaysCount 
+                    : $totalScoreInPeriod;
+            } else {
+                $finalPeriodScore = 0;
+            }
+
+            $morningSubmittedAt = $displaySubmissions->whereNotNull('morning_recorded_at')->min('morning_recorded_at');
+            $eveningSubmittedAt = $displaySubmissions->whereNotNull('evening_recorded_at')->min('evening_recorded_at');
+
+            // Shift data for ranking display (last day)
             $morningData = $this->calculateShiftData(
-                $morningSubmittedAt,
+                $morningSubmittedAt ? CarbonImmutable::parse($morningSubmittedAt) : null,
                 $morningDeadline,
-                $submission?->morning_classes ?? 0,
+                $displaySubmissions->whereNotNull('morning_recorded_at')->count(),
                 'morning'
             );
             $eveningData = $this->calculateShiftData(
-                $eveningSubmittedAt,
+                $eveningSubmittedAt ? CarbonImmutable::parse($eveningSubmittedAt) : null,
                 $eveningDeadline,
-                $submission?->evening_classes ?? 0,
+                $displaySubmissions->whereNotNull('evening_recorded_at')->count(),
                 'evening'
             );
 
-            // Use the earliest submission for ranking
             $primaryData = null;
+            $isMorning = in_array($shiftType, ['morning', 'all']);
+            $isEvening = in_array($shiftType, ['evening', 'all']);
+
             if ($isMorning && $morningData['submitted']) {
                 $primaryData = $morningData;
             } elseif ($isEvening && $eveningData['submitted']) {
                 $primaryData = $eveningData;
-            } elseif ($isMorning && $isEvening) {
-                // Both shifts - use the earlier one
-                if ($morningData['submitted'] && $eveningData['submitted']) {
-                    $primaryData = $morningData['submitted_at']->lte($eveningData['submitted_at'])
-                        ? $morningData
-                        : $eveningData;
-                } elseif ($morningData['submitted']) {
-                    $primaryData = $morningData;
-                } elseif ($eveningData['submitted']) {
-                    $primaryData = $eveningData;
-                }
             }
 
             if ($primaryData && $primaryData['submitted']) {
@@ -1724,10 +1835,14 @@ class RegionalAttendanceService
                 'sector_name' => $sectorNamesById->get($sectorId, 'Naməlum'),
                 'shift_type' => $primaryData ? $primaryData['shift_type'] : null,
                 'deadline_time' => $primaryData ? $primaryData['deadline_time'] : null,
-                'submitted_at' => $primaryData ? $primaryData['submitted_at']->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'submitted_at' => $primaryData && $primaryData['submitted_at'] ? $primaryData['submitted_at']->setTimezone('Asia/Baku')->toDateTimeString() : null,
                 'is_late' => $primaryData ? $primaryData['is_late'] : false,
                 'late_minutes' => $primaryData ? $primaryData['late_minutes'] : 0,
-                'classes_count' => $primaryData ? $primaryData['classes_count'] : 0,
+                'classes_count' => $totalGradesCount,
+                'score' => round($finalPeriodScore, 2),
+                'per_day_score' => round($totalScoreInPeriod / ($actualWorkdaysForSchool ?: 1), 2),
+                'is_six_day' => $isSixDaySchool,
+                'workday_count' => $actualWorkdaysForSchool,
                 'status' => $this->getRankingStatus($primaryData),
                 'morning' => [
                     'submitted' => $morningData['submitted'],
@@ -1744,29 +1859,18 @@ class RegionalAttendanceService
             ];
         }
 
-        // Sort by submission time (earliest first), then by school name
+        // Sort by Score DESC, then name
         usort($rankings, function ($a, $b) {
-            // Submitted schools first
-            if ($a['submitted_at'] === null && $b['submitted_at'] !== null) {
-                return 1;
+            if ($a['score'] !== $b['score']) {
+                return $b['score'] <=> $a['score'];
             }
-            if ($a['submitted_at'] !== null && $b['submitted_at'] === null) {
-                return -1;
-            }
-            // By submission time (earlier first)
-            if ($a['submitted_at'] && $b['submitted_at']) {
-                $cmp = strcmp($a['submitted_at'], $b['submitted_at']);
-                if ($cmp !== 0) {
-                    return $cmp;
-                }
-            }
-
-            // By name if same time
             return strcmp($a['name'], $b['name']);
         });
 
         return [
-            'date' => $date,
+            'date' => $startDate,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
             'shift_type' => $shiftType,
             'morning_deadline' => $morningDeadline->toDateTimeString(),
             'evening_deadline' => $eveningDeadline->toDateTimeString(),
@@ -1795,7 +1899,7 @@ class RegionalAttendanceService
                 'submitted' => false,
                 'submitted_at' => null,
                 'deadline' => $deadline,
-                'deadline_time' => $shiftType === 'morning' ? '10:00' : '14:30',
+                'deadline_time' => $shiftType === 'morning' ? '10:00' : '15:00',
                 'shift_type' => $shiftType,
                 'is_late' => false,
                 'late_minutes' => 0,
@@ -1810,7 +1914,7 @@ class RegionalAttendanceService
             'submitted' => true,
             'submitted_at' => $submittedAt,
             'deadline' => $deadline,
-            'deadline_time' => $shiftType === 'morning' ? '10:00' : '14:30',
+            'deadline_time' => $shiftType === 'morning' ? '10:00' : '15:00',
             'shift_type' => $shiftType,
             'is_late' => $isLate,
             'late_minutes' => $lateMinutes,

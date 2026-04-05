@@ -4,7 +4,7 @@ import { User } from "@/types/user";
 import { getTaskOrigin } from "@/utils/taskActions";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 
-export type TaskTabValue = "region" | "sector";
+export type TaskTabValue = "region" | "sector" | "assigned" | "delegations";
 export type TaskTab = { value: TaskTabValue; label: string };
 
 type UseTaskPermissionsResult = {
@@ -48,9 +48,11 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
         [
           canSeeRegionTab && { value: "region" as const, label: "Regional Tapşırıqlar" },
           canSeeSectorTab && { value: "sector" as const, label: "Sektor Tapşırıqları" },
+          hasAccess && { value: "assigned" as const, label: "Təyin olunmuş" },
+          hasAccess && { value: "delegations" as const, label: "Yönləndirilmiş" },
         ].filter(Boolean) as TaskTab[]
       ),
-    [canSeeRegionTab, canSeeSectorTab]
+    [canSeeRegionTab, canSeeSectorTab, hasAccess]
   );
 
   const [activeTab, setActiveTab] = useState<TaskTabValue>("region");
