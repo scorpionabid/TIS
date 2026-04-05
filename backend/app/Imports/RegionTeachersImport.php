@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
+use App\Traits\TeacherSubjectMapper;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
@@ -24,6 +25,8 @@ use Maatwebsite\Excel\Validators\Failure;
  */
 class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow
 {
+    use TeacherSubjectMapper;
+
     protected $region;
 
     protected $skipDuplicates;
@@ -391,7 +394,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
      */
     private function createTeacher(array $data): User
     {
-        // Create user
+        // 1. Create user
         $user = User::create([
             'username' => $data['username'],
             'email' => $data['email'],
@@ -401,10 +404,10 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             'email_verified_at' => now(),
         ]);
 
-        // Assign teacher role
+        // 2. Assign teacher role
         $user->assignRole('müəllim');
 
-        // Create user profile
+        // 3. Create user profile
         $user->profile()->create([
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
@@ -426,7 +429,50 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             'notes' => $data['notes'] ?: null,
         ]);
 
-        Log::info('RegionTeachersImport - Teacher created successfully', [
+        // 4. Create official teacher profile
+        if (\Schema::hasTable('teacher_profiles')) {
+            $subjectId = $this->mapSubjectNameToId($data['main_subject']);
+            \DB::table('teacher_profiles')->insert([
+                'user_id' => $user->id,
+                'phone' => $data['contact_phone'] ?: null,
+                'specialization' => $data['specialty'] ?: ($data['main_subject'] ?: 'Müəllim'),
+                'institution_id' => $data['institution_id'],
+                'subject_id' => $subjectId,
+                'status' => 'approved',
+                'approved_at' => now(),
+                'approved_by' => \Auth::id() ?? 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 5. Create teacher workplace
+            \DB::table('teacher_workplaces')->insert([
+                'user_id' => $user->id,
+                'institution_id' => $data['institution_id'],
+                'workplace_priority' => 'primary',
+                'position_type' => $data['position_type'],
+                'employment_type' => 'full_time',
+                'status' => 'active',
+                'salary_currency' => 'AZN',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 6. Create teacher subject mapping
+            if ($subjectId) {
+                \DB::table('teacher_subjects')->insert([
+                    'teacher_id' => $user->id,
+                    'subject_id' => $subjectId,
+                    'is_active' => true,
+                    'is_primary_subject' => true,
+                    'valid_from' => $data['contract_start_date'] ?: '2025-09-01',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        Log::info('RegionTeachersImport - Teacher created successfully with full onboarding', [
             'user_id' => $user->id,
             'email' => $user->email,
             'institution_id' => $data['institution_id'],
@@ -473,7 +519,22 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             'notes' => $data['notes'] ?: null,
         ]);
 
-        Log::info('RegionTeachersImport - Teacher updated successfully', [
+        // Update official teacher profile if exists
+        if (\Schema::hasTable('teacher_profiles')) {
+            $subjectId = $this->mapSubjectNameToId($data['main_subject']);
+            \DB::table('teacher_profiles')->updateOrInsert(
+                ['user_id' => $user->id],
+                [
+                    'phone' => $data['contact_phone'] ?: null,
+                    'specialization' => $data['specialty'] ?: ($data['main_subject'] ?: 'Müəllim'),
+                    'institution_id' => $data['institution_id'],
+                    'subject_id' => $subjectId ?: \DB::table('teacher_profiles')->where('user_id', $user->id)->value('subject_id'),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+
+        Log::info('RegionTeachersImport - Teacher updated successfully with profile sync', [
             'user_id' => $user->id,
             'email' => $user->email,
         ]);
