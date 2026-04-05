@@ -45,6 +45,10 @@ Route::prefix('school-students')->middleware('auth:sanctum')->group(function () 
     Route::put('/{id}', [SchoolStudentController::class, 'update'])->middleware('permission:students.write');
     Route::delete('/{id}', [SchoolStudentController::class, 'destroy'])->middleware('permission:students.delete');
 
+    // Lightweight CRUD (no User account creation) — SchoolAdmin üçün
+    Route::post('/simple', [SchoolStudentController::class, 'storeSimple'])->middleware('permission:students.write');
+    Route::put('/{id}/simple', [SchoolStudentController::class, 'updateSimple'])->middleware('permission:students.write');
+
     // Bulk import
     Route::post('/bulk-import', [SchoolStudentController::class, 'bulkImport'])->middleware('permission:students.bulk');
 

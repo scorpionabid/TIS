@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\RegionAdmin\RegionAdminClassController;
+use App\Http\Controllers\RegionAdmin\RegionStudentController;
 use App\Http\Controllers\RegionAdmin\RegionTeacherController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +41,17 @@ Route::middleware(['auth:sanctum', 'role:regionadmin|superadmin'])
 
         // Get specific class details
         Route::get('/{id}', [RegionAdminClassController::class, 'show']);
+    });
+
+// Student Management for RegionAdmin
+Route::middleware(['auth:sanctum', 'role:regionadmin|superadmin'])
+    ->prefix('regionadmin/students')
+    ->group(function () {
+        Route::get('/',                [RegionStudentController::class, 'index']);
+        Route::get('/filter-options',  [RegionStudentController::class, 'filterOptions']);
+        Route::get('/template',        [RegionStudentController::class, 'downloadTemplate']);
+        Route::post('/import',         [RegionStudentController::class, 'import']);
+        Route::get('/export',          [RegionStudentController::class, 'export']);
     });
 
 // Teacher Management for RegionAdmin

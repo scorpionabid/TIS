@@ -108,10 +108,14 @@ const RegionClassManagement = lazy(
 const RegionAttendanceReports = lazy(
   () => import("./pages/regionadmin/RegionAttendanceReports"),
 );
+const RegionStudents = lazy(
+  () => import("./pages/regionadmin/RegionStudents"),
+);
 
 // School pages
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
 const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
+const SchoolStudents = lazy(() => import("./pages/school/SchoolStudents"));
 const CurriculumPlan = lazy(() => import("./pages/school/CurriculumPlan"));
 const SchoolAttendanceRecord = lazy(
   () => import("./pages/school/SchoolAttendanceRecord"),
@@ -1169,6 +1173,21 @@ const App = () => {
                         }
                       />
                       <Route
+                        path="regionadmin/students"
+                        element={
+                          <LazyWrapper>
+                            <RoleProtectedRoute
+                              allowedRoles={[
+                                USER_ROLES.SUPERADMIN,
+                                USER_ROLES.REGIONADMIN,
+                              ]}
+                            >
+                              <RegionStudents />
+                            </RoleProtectedRoute>
+                          </LazyWrapper>
+                        }
+                      />
+                      <Route
                         path="regionadmin/classes"
                         element={
                           <LazyWrapper>
@@ -1296,6 +1315,21 @@ const App = () => {
                             ]}
                           >
                             <SchoolClasses />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="school/students"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                            ]}
+                          >
+                            <SchoolStudents />
                           </RoleProtectedRoute>
                         </LazyWrapper>
                       }

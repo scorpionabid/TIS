@@ -15,6 +15,7 @@ class Student extends Model
 
     protected $fillable = [
         'student_number',
+        'utis_code',
         'first_name',
         'last_name',
         'institution_id',
@@ -135,7 +136,9 @@ class Student extends Model
         return $query->where(function ($q) use ($search) {
             $q->where('first_name', 'like', "%{$search}%")
                 ->orWhere('last_name', 'like', "%{$search}%")
-                ->orWhere('student_number', 'like', "%{$search}%");
+                ->orWhere('student_number', 'like', "%{$search}%")
+                ->orWhere('utis_code', 'like', "%{$search}%")
+                ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
         });
     }
 }

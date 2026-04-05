@@ -626,6 +626,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         icon: Building2,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
       },
+      {
+        id: "school-students",
+        label: "Şagirdlər",
+        path: "/school/students",
+        icon: Users,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+      },
       // ─── Məktəbəqədər İdarəetmə ─────────────────────────────────────────
       {
         id: "preschool-groups",
@@ -836,6 +843,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Siniflər",
         path: "/regionadmin/classes",
         icon: Users,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+      },
+      {
+        id: "region-students",
+        label: "Şagirdlər",
+        path: "/regionadmin/students",
+        icon: GraduationCap,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
       },
       {

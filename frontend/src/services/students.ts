@@ -114,6 +114,103 @@ export interface StudentCreateData {
   notes?: string;
 }
 
+// ─── Region Admin student types ──────────────────────────────────────────────
+
+export interface RegionStudent {
+  id: number;
+  utis_code: string | null;
+  student_number: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  gender: 'male' | 'female' | null;
+  birth_date: string | null;
+  grade_level: string;
+  class_name: string;
+  grade: { id: number; name: string; class_level: number } | null;
+  is_active: boolean;
+  school: { id: number; name: string } | null;
+  sector: { id: number; name: string } | null;
+  parent_name: string | null;
+  parent_phone: string | null;
+}
+
+export interface RegionStudentFilters {
+  search?: string;
+  sector_id?: number;
+  school_id?: number;
+  grade_level?: string;
+  class_name?: string;
+  is_active?: boolean | string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  page?: number;
+  per_page?: number;
+}
+
+export interface RegionStudentStatistics {
+  total_students: number;
+  active_students: number;
+  inactive_students: number;
+  total_schools: number;
+  total_sectors: number;
+  by_grade_level: Record<string, number>;
+  by_sector: Array<{ sector_id: number; sector_name: string; student_count: number }>;
+}
+
+export interface RegionStudentResponse {
+  success: boolean;
+  data: RegionStudent[];
+  pagination: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+  };
+  statistics: RegionStudentStatistics;
+}
+
+export interface RegionStudentFilterOptions {
+  sectors: Array<{ id: number; name: string }>;
+  schools: Array<{ id: number; name: string; parent_id: number }>;
+}
+
+export interface SchoolStudentFormData {
+  utis_code?: string;
+  first_name: string;
+  last_name: string;
+  grade_id?: number;
+  grade_level: string;
+  class_name: string;
+  gender?: 'male' | 'female';
+  birth_date?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  is_active?: boolean;
+}
+
+export interface RegionImportResult {
+  success: boolean;
+  message: string;
+  data: {
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: string[];
+  };
+}
+
+export interface RegionExportResponse {
+  success: boolean;
+  data: Record<string, string>[];
+  total: number;
+  filename: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface PaginatedStudents {
   students: Student[];
   pagination: {
@@ -477,6 +574,80 @@ class StudentService {
         by_institution: {}
       };
     }
+  }
+
+  // ─── School admin lightweight CRUD ───────────────────────────────────────
+  // apiClient.post() returns the raw parsed JSON: { success, data: student, message }
+  // So .data gives us the student object directly.
+
+  async createSimple(data: SchoolStudentFormData): Promise<RegionStudent> {
+    const response = await apiClient.post<any>('/school-students/simple', data);
+    return (response as any).data as RegionStudent;
+  }
+
+  async updateSimple(id: number, data: SchoolStudentFormData): Promise<RegionStudent> {
+    const response = await apiClient.put<any>(`/school-students/${id}/simple`, data);
+    return (response as any).data as RegionStudent;
+  }
+
+  // ─── Region admin import/export ───────────────────────────────────────────
+  // apiClient returns the full parsed JSON — no extra .data wrapper needed.
+
+  async downloadRegionTemplate(): Promise<Blob> {
+    const response = await apiClient.get<Blob>('/regionadmin/students/template', undefined, {
+      responseType: 'blob',
+    });
+    // apiClient blob path returns { data: Blob } — same pattern as downloadTemplate()
+    return ((response as any).data || response) as Blob;
+  }
+
+  async importRegionStudents(file: File): Promise<RegionImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<any>('/regionadmin/students/import', formData);
+    // Backend: { success, message, data: { created, updated, skipped, errors } }
+    return response as unknown as RegionImportResult;
+  }
+
+  async exportRegionStudents(filters: RegionStudentFilters = {}): Promise<RegionExportResponse> {
+    const params: Record<string, string | number | boolean> = {};
+    if (filters.sector_id)   params.sector_id   = filters.sector_id;
+    if (filters.school_id)   params.school_id   = filters.school_id;
+    if (filters.grade_level) params.grade_level = filters.grade_level;
+    if (filters.is_active !== undefined) params.is_active = String(filters.is_active);
+    const response = await apiClient.get<any>('/regionadmin/students/export', params);
+    // Backend: { success, data: [...], total, filename }
+    return response as unknown as RegionExportResponse;
+  }
+
+  /**
+   * Region admin: get all students in the region with filters + pagination + stats
+   */
+  async getRegionStudents(filters: RegionStudentFilters = {}): Promise<RegionStudentResponse> {
+    const params: Record<string, string | number | boolean> = {};
+    if (filters.search)      params.search      = filters.search;
+    if (filters.sector_id)   params.sector_id   = filters.sector_id;
+    if (filters.school_id)   params.school_id   = filters.school_id;
+    if (filters.grade_level) params.grade_level = filters.grade_level;
+    if (filters.class_name)  params.class_name  = filters.class_name;
+    if (filters.is_active !== undefined) params.is_active = String(filters.is_active);
+    if (filters.sort_by)     params.sort_by     = filters.sort_by;
+    if (filters.sort_order)  params.sort_order  = filters.sort_order;
+    if (filters.page)        params.page        = filters.page;
+    if (filters.per_page)    params.per_page    = filters.per_page;
+
+    const response = await apiClient.get<RegionStudentResponse>('/regionadmin/students', params);
+    // Backend: { success, data: [...], pagination, statistics }
+    return response as unknown as RegionStudentResponse;
+  }
+
+  /**
+   * Region admin: get filter options (sectors + schools)
+   */
+  async getRegionStudentFilterOptions(): Promise<RegionStudentFilterOptions> {
+    const response = await apiClient.get<any>('/regionadmin/students/filter-options');
+    // Backend: { success, data: { sectors: [...], schools: [...] } }
+    return ((response as any).data ?? { sectors: [], schools: [] }) as RegionStudentFilterOptions;
   }
 
   /**

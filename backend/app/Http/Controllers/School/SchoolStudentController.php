@@ -228,6 +228,127 @@ class SchoolStudentController extends Controller
     }
 
     /**
+     * Sadə şagird yarat (User account yaratmadan) — SchoolAdmin üçün
+     * POST /school-students/simple
+     */
+    public function storeSimple(Request $request): JsonResponse
+    {
+        $user   = Auth::user();
+        $school = $user->institution;
+
+        if (! $school) {
+            return response()->json(['success' => false, 'message' => 'Məktəb tapılmadı'], 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'utis_code'   => 'nullable|string|max:50|unique:students,utis_code',
+            'first_name'  => 'required|string|max:100',
+            'last_name'   => 'required|string|max:100',
+            'grade_id'    => 'nullable|exists:grades,id',
+            'grade_level' => 'required|string|max:10',
+            'class_name'  => 'required|string|max:20',
+            'gender'      => 'nullable|in:male,female',
+            'birth_date'  => 'nullable|date',
+            'parent_name' => 'nullable|string|max:255',
+            'parent_phone'=> 'nullable|string|max:30',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $validator->errors(),
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $d = $validator->validated();
+
+        try {
+            $student = \App\Models\Student::create([
+                'utis_code'      => $d['utis_code']    ?? null,
+                'student_number' => $d['utis_code']    ?? 'ST-' . time() . rand(100, 999),
+                'first_name'     => $d['first_name'],
+                'last_name'      => $d['last_name'],
+                'institution_id' => $school->id,
+                'grade_id'       => $d['grade_id']     ?? null,
+                'grade_level'    => $d['grade_level'],
+                'class_name'     => $d['class_name'],
+                'gender'         => $d['gender']       ?? null,
+                'birth_date'     => $d['birth_date']   ?? null,
+                'parent_name'    => $d['parent_name']  ?? null,
+                'parent_phone'   => $d['parent_phone'] ?? null,
+                'is_active'      => true,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $student->load('grade'),
+                'message' => 'Şagird uğurla əlavə edildi',
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Şagird əlavə edilərkən xəta: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Sadə şagird güncəllə (yalnız students cədvəli) — SchoolAdmin üçün
+     * PUT /school-students/{id}/simple
+     */
+    public function updateSimple(Request $request, int $id): JsonResponse
+    {
+        $user    = Auth::user();
+        $student = \App\Models\Student::find($id);
+
+        if (! $student) {
+            return response()->json(['success' => false, 'message' => 'Şagird tapılmadı'], 404);
+        }
+
+        if ($student->institution_id !== $user->institution_id) {
+            return response()->json(['success' => false, 'message' => 'İcazə yoxdur'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'utis_code'   => 'nullable|string|max:50|unique:students,utis_code,' . $id,
+            'first_name'  => 'required|string|max:100',
+            'last_name'   => 'required|string|max:100',
+            'grade_id'    => 'nullable|exists:grades,id',
+            'grade_level' => 'required|string|max:10',
+            'class_name'  => 'required|string|max:20',
+            'gender'      => 'nullable|in:male,female',
+            'birth_date'  => 'nullable|date',
+            'parent_name' => 'nullable|string|max:255',
+            'parent_phone'=> 'nullable|string|max:30',
+            'is_active'   => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $validator->errors(),
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        try {
+            $student->update($validator->validated());
+
+            return response()->json([
+                'success' => true,
+                'data'    => $student->fresh()->load('grade'),
+                'message' => 'Şagird yeniləndi',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yeniləmə xətası: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Bulk import students
      */
     public function bulkImport(Request $request): JsonResponse
