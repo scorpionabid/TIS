@@ -4,16 +4,19 @@ namespace App\Services\RegionAdmin;
 
 use App\Models\Institution;
 use App\Models\User;
+use App\Traits\TeacherSubjectMapper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RegionTeacherService
 {
+    use TeacherSubjectMapper;
+
     /**
      * Get all teachers for a region with filtering, pagination, and statistics
      */
-    public function getRegionTeachers(Request $request, Institution $region): array
+    public function getRegionTeachers(array $filters, Institution $region): array
     {
         // 1. Get all institution IDs under this region (recursive)
         $institutionIds = $region->getAllChildrenIds();
@@ -32,14 +35,14 @@ class RegionTeacherService
             ]);
 
         // 3. Apply filters
-        $this->applyFilters($query, $request);
+        $this->applyFilters($query, $filters);
 
         // 4. Get pagination
-        $perPage = $request->input('per_page', 20);
+        $perPage = $filters['per_page'] ?? 20;
         $teachers = $query->paginate($perPage);
 
         // 5. Calculate statistics
-        $statistics = $this->calculateStatistics($institutionIds, $request);
+        $statistics = $this->calculateStatistics($institutionIds, $filters);
 
         return [
             'data' => $teachers,
@@ -50,13 +53,13 @@ class RegionTeacherService
     /**
      * Apply filters to teacher query
      */
-    protected function applyFilters($query, Request $request): void
+    protected function applyFilters($query, array $filters): void
     {
         // Sector filter (Level 3 institutions)
-        if ($request->filled('sector_ids')) {
-            $sectorIds = is_array($request->sector_ids)
-                ? $request->sector_ids
-                : explode(',', $request->sector_ids);
+        if (! empty($filters['sector_ids'])) {
+            $sectorIds = is_array($filters['sector_ids'])
+                ? $filters['sector_ids']
+                : explode(',', $filters['sector_ids']);
 
             // Get all institution IDs under these sectors
             $sectorInstitutionIds = Institution::whereIn('id', $sectorIds)
@@ -69,42 +72,42 @@ class RegionTeacherService
         }
 
         // School filter (Level 4 institutions)
-        if ($request->filled('school_ids')) {
-            $schoolIds = is_array($request->school_ids)
-                ? $request->school_ids
-                : explode(',', $request->school_ids);
+        if (! empty($filters['school_ids'])) {
+            $schoolIds = is_array($filters['school_ids'])
+                ? $filters['school_ids']
+                : explode(',', $filters['school_ids']);
 
             $query->whereIn('institution_id', $schoolIds);
         }
 
         // Department filter
-        if ($request->filled('department_id')) {
-            $query->where('department_id', $request->department_id);
+        if (! empty($filters['department_id'])) {
+            $query->where('department_id', $filters['department_id']);
         }
 
         // Position type filter
-        if ($request->filled('position_type')) {
-            $query->whereHas('profile', function ($q) use ($request) {
-                $q->where('position_type', $request->position_type);
+        if (! empty($filters['position_type'])) {
+            $query->whereHas('profile', function ($q) use ($filters) {
+                $q->where('position_type', $filters['position_type']);
             });
         }
 
         // Employment status filter
-        if ($request->filled('employment_status')) {
-            $query->whereHas('profile', function ($q) use ($request) {
-                $q->where('employment_status', $request->employment_status);
+        if (! empty($filters['employment_status'])) {
+            $query->whereHas('profile', function ($q) use ($filters) {
+                $q->where('employment_status', $filters['employment_status']);
             });
         }
 
         // Active status filter
-        if ($request->filled('is_active')) {
-            $isActive = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);
+        if (isset($filters['is_active'])) {
+            $isActive = filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN);
             $query->where('is_active', $isActive);
         }
 
         // Search filter (name, email, username)
-        if ($request->filled('search')) {
-            $search = $request->search;
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
                     ->orWhere('email', 'LIKE', "%{$search}%")
@@ -117,8 +120,8 @@ class RegionTeacherService
         }
 
         // Sorting
-        $sortBy = $request->input('sort_by', 'created_at');
-        $sortOrder = $request->input('sort_order', 'desc');
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
 
         // Map frontend column names to database columns with table prefix
         $sortMapping = [
@@ -134,7 +137,7 @@ class RegionTeacherService
     /**
      * Calculate statistics for teachers in region
      */
-    protected function calculateStatistics(array $institutionIds, Request $request): array
+    protected function calculateStatistics(array $institutionIds, array $filters): array
     {
         // Base query for all teachers in region
         $baseQuery = User::whereIn('institution_id', $institutionIds)
@@ -144,7 +147,7 @@ class RegionTeacherService
 
         // Clone query and apply same filters for accurate filtered statistics
         $filteredQuery = clone $baseQuery;
-        $this->applyFilters($filteredQuery, $request);
+        $this->applyFilters($filteredQuery, $filters);
 
         // Total counts
         $totalTeachers = $filteredQuery->count();
@@ -225,7 +228,7 @@ class RegionTeacherService
     /**
      * Export teachers data
      */
-    public function exportTeachers(Request $request, Institution $region): array
+    public function exportTeachers(array $filters, Institution $region): array
     {
         $institutionIds = $region->getAllChildrenIds();
 
@@ -235,7 +238,7 @@ class RegionTeacherService
             })
             ->with(['roles', 'institution', 'department', 'profile']);
 
-        $this->applyFilters($query, $request);
+        $this->applyFilters($query, $filters);
 
         return $query->get()->map(function ($teacher) {
             $profile = $teacher->profile;
@@ -578,6 +581,49 @@ class RegionTeacherService
                         'graduation_year' => $rowData['graduation_year'] ?: null,
                         'notes' => $rowData['notes'] ?: null,
                     ]);
+
+                    // Create official teacher profile
+                    if (\Schema::hasTable('teacher_profiles')) {
+                        $subjectId = $this->mapSubjectNameToId($rowData['main_subject']);
+                        \DB::table('teacher_profiles')->insert([
+                            'user_id' => $user->id,
+                            'phone' => $rowData['contact_phone'] ?: null,
+                            'specialization' => $rowData['specialty'] ?: ($rowData['main_subject'] ?: 'Müəllim'),
+                            'institution_id' => $rowData['institution_id'],
+                            'subject_id' => $subjectId,
+                            'status' => 'approved',
+                            'approved_at' => now(),
+                            'approved_by' => \Auth::id() ?? 1,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        // Create teacher workplace
+                        \DB::table('teacher_workplaces')->insert([
+                            'user_id' => $user->id,
+                            'institution_id' => $rowData['institution_id'],
+                            'workplace_priority' => 'primary',
+                            'position_type' => $rowData['position_type'],
+                            'employment_type' => 'full_time',
+                            'status' => 'active',
+                            'salary_currency' => 'AZN',
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        // Create teacher subject mapping
+                        if ($subjectId) {
+                            \DB::table('teacher_subjects')->insert([
+                                'teacher_id' => $user->id,
+                                'subject_id' => $subjectId,
+                                'is_active' => true,
+                                'is_primary_subject' => true,
+                                'valid_from' => $rowData['contract_start_date'] ?: '2025-09-01',
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
 
                     $successCount++;
                     $details['success'][] = "Sətir {$rowNumber}: {$rowData['first_name']} {$rowData['last_name']} ({$rowData['email']})";
