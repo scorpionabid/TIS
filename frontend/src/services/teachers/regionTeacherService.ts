@@ -250,4 +250,4 @@ export class TeacherService extends BaseService<any> {
 export const regionTeacherService = new TeacherService();
 
 // Backward compatibility alias
-export const regionAdminTeacherService = teacherService;
+export const regionAdminTeacherService = regionTeacherService;

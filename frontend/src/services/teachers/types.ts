@@ -97,13 +97,22 @@ export interface ImportResult {
  */
 export interface ValidationResult {
   success: boolean;
-  summary?: {
+  summary: {
     total_rows: number;
     valid_rows: number;
     invalid_rows: number;
+    valid_percentage: number;
+    can_proceed_with_skip: boolean;
   };
-  invalid_rows?: any[];
-  errors?: any[];
+  suggestions: string[];
+  error_groups: Record<string, number>;
+  errors: Array<{
+    row_number: number;
+    field: string;
+    message: string;
+    value?: any;
+    suggestion?: string;
+  }>;
 }
 
 /**

@@ -90,7 +90,7 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
 
   // Validation mutation (Phase 1)
   const validateMutation = useMutation({
-    mutationFn: (file: File) => regionAdminTeacherService.validateImportFile(file),
+    mutationFn: (file: File) => teacherImportService.validateImportFile(file),
     onSuccess: (result) => {
       setValidationResult(result);
       setCurrentStep('validation');
@@ -121,7 +121,7 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   const exportErrorsMutation = useMutation({
     mutationFn: () => {
       if (!validationResult) throw new Error('Validation result yoxdur');
-      return regionAdminTeacherService.exportValidationErrors(validationResult);
+      return teacherImportService.exportValidationErrors(validationResult);
     },
     onSuccess: (blob) => {
       const url = window.URL.createObjectURL(blob);
@@ -192,7 +192,7 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   // Download template handler
   const handleDownloadTemplate = async () => {
     try {
-      const templateBlob = await regionAdminTeacherService.downloadImportTemplate();
+      const templateBlob = await teacherImportService.downloadImportTemplate();
       const url = window.URL.createObjectURL(templateBlob);
       const a = document.createElement('a');
       a.href = url;
