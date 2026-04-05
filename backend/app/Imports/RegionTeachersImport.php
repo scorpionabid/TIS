@@ -15,7 +15,9 @@ use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Events\BeforeImport;
 use Maatwebsite\Excel\Validators\Failure;
 
 /**
@@ -23,7 +25,7 @@ use Maatwebsite\Excel\Validators\Failure;
  * Imports teachers from Excel file with all required fields
  * Optimized for importing 1000+ teachers efficiently
  */
-class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow
+class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow, WithEvents
 {
     use TeacherSubjectMapper;
 
@@ -33,13 +35,13 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
     protected $updateExisting;
 
-    protected $successCount = 0;
+    protected static $successCount = 0;
+    protected static $errorCount = 0;
+    protected static $skippedCount = 0;
+    protected static $processedRowsCount = 0;
+    protected static $existingUtisCodes = [];
 
-    protected $errorCount = 0;
-
-    protected $skippedCount = 0;
-
-    protected $details = [
+    protected static $details = [
         'success' => [],
         'errors' => [],
         'skipped' => [],
@@ -73,11 +75,9 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
         // Bulk load existing emails and usernames for this chunk
         $this->loadExistingData($rows);
 
-        $rowNumber = $this->processedRows + 1; // Continue from last processed
-
         foreach ($rows as $row) {
-            $rowNumber++;
-            $this->processedRows++;
+            static::$processedRowsCount++;
+            $currentRow = static::$processedRowsCount + 1; // 1 for header
 
             try {
                 // Convert row to array and trim values
@@ -91,20 +91,17 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                 // STEP 1: HYBRID INSTITUTION LOOKUP (NEW)
                 $institution = $this->findInstitution($data);
                 if (! $institution) {
-                    $utisCode = $data['institution_utis_code'];
-                    $instCode = $data['institution_code'];
-                    $instId = $data['institution_id'];
-                    $identifier = $utisCode ?: ($instCode ?: $instId);
-                    $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə tapılmadı (kod/ID: {$identifier})";
-                    $this->errorCount++;
+                    $identifier = $data['institution_utis_code'] ?: ($data['institution_code'] ?: $data['institution_id']);
+                    static::$details['errors'][] = "Sətir {$currentRow}: Müəssisə tapılmadı (kod/ID: {$identifier})";
+                    static::$errorCount++;
 
                     continue;
                 }
 
                 // STEP 2: Verify institution belongs to region
                 if (! $this->isInstitutionInRegion($institution)) {
-                    $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə (ID:{$institution->id}, Kod:{$institution->institution_code}) sizin regionunuza aid deyil";
-                    $this->errorCount++;
+                    static::$details['errors'][] = "Sətir {$currentRow}: Müəssisə (ID:{$institution->id}) sizin regionunuza aid deyil";
+                    static::$errorCount++;
 
                     continue;
                 }
@@ -117,46 +114,55 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
                 if ($validator->fails()) {
                     $errors = implode(', ', $validator->errors()->all());
-                    $this->details['errors'][] = "Sətir {$rowNumber}: {$errors}";
-                    $this->errorCount++;
+                    static::$details['errors'][] = "Sətir {$currentRow}: {$errors}";
+                    static::$errorCount++;
 
                     continue;
                 }
 
-                // STEP 5: Check for duplicates
-                $existingTeacher = User::where('email', $data['email'])->first();
+                // STEP 5: Check for duplicates (Hybrid: UTIS -> Email -> Username)
+                $existingTeacher = null;
+
+                // Priority 1: UTIS code (strongest)
+                if (! empty($data['utis_code'])) {
+                    $existingTeacher = User::where('utis_code', $data['utis_code'])->first();
+                }
+
+                // Priority 2: Email
+                if (! $existingTeacher) {
+                    $existingTeacher = User::where('email', $data['email'])->first();
+                }
 
                 if ($existingTeacher) {
                     if ($this->skipDuplicates) {
-                        $this->details['errors'][] = "Sətir {$rowNumber}: {$data['email']} artıq mövcuddur (keçildi)";
+                        static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . " artıq mövcuddur (keçildi)";
 
                         continue;
                     } elseif ($this->updateExisting) {
                         $this->updateTeacher($existingTeacher, $data);
-                        $this->details['success'][] = "Yeniləndi: {$data['first_name']} {$data['last_name']} ({$data['email']})";
-                        $this->successCount++;
+                        static::$details['success'][] = "Yeniləndi: {$data['first_name']} {$data['last_name']} (UTİS: {$data['utis_code']})";
+                        static::$successCount++;
 
                         continue;
                     }
-                    $this->details['errors'][] = "Sətir {$rowNumber}: {$data['email']} artıq mövcuddur";
-                    $this->errorCount++;
+                    static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . " artıq mövcuddur";
+                    static::$errorCount++;
 
                     continue;
                 }
 
                 // Create new teacher
                 $this->createTeacher($data);
-                $this->details['success'][] = "Yaradıldı: {$data['first_name']} {$data['last_name']} ({$data['email']})";
-                $this->successCount++;
+                static::$details['success'][] = "Yaradıldı: {$data['first_name']} {$data['last_name']} ({$data['email']})";
+                static::$successCount++;
             } catch (\Exception $e) {
                 Log::error('RegionTeachersImport - Error processing row', [
-                    'row_number' => $rowNumber,
+                    'row_number' => static::$processedRowsCount,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
                 ]);
 
-                $this->details['errors'][] = "Sətir {$rowNumber}: {$e->getMessage()}";
-                $this->errorCount++;
+                static::$details['errors'][] = "Sətir {$currentRow}: {$e->getMessage()}";
+                static::$errorCount++;
             }
         }
     }
@@ -191,10 +197,23 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                 ->toArray();
         }
 
+        // Bulk load existing UTIS codes
+        $utisCodes = $rows->map(function ($row) {
+            return trim($row['utis_code'] ?? '');
+        })->filter()->unique()->toArray();
+
+        if (! empty($utisCodes)) {
+            static::$existingUtisCodes = User::whereIn('utis_code', $utisCodes)
+                ->pluck('utis_code')
+                ->flip()
+                ->toArray();
+        }
+
         Log::info('RegionTeachersImport - Bulk validation loaded', [
             'chunk_size' => $rows->count(),
             'existing_emails' => count($this->existingEmails),
             'existing_usernames' => count($this->existingUsernames),
+            'existing_utis' => count(static::$existingUtisCodes),
         ]);
     }
 
@@ -220,6 +239,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             'main_subject' => $this->normalizeOptionalField($row['main_subject'] ?? null),
             'assessment_type' => $this->normalizeOptionalField($row['assessment_type'] ?? null),
             'assessment_score' => $this->normalizeOptionalField($row['assessment_score'] ?? null),
+            'utis_code' => trim($row['utis_code'] ?? ''),
             'password' => trim($row['password'] ?? ''),
 
             // Optional fields
@@ -261,6 +281,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'patronymic' => 'required|string|max:100',
+            'utis_code' => 'required|string|max:50',
             'institution_id' => 'required|exists:institutions,id',
             'position_type' => [
                 'required',
@@ -309,6 +330,11 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             // Check username uniqueness
             if (isset($this->existingUsernames[$data['username']])) {
                 $validator->errors()->add('username', 'Username artıq istifadə olunur');
+            }
+
+            // Check UTIS code uniqueness
+            if (! empty($data['utis_code']) && isset(static::$existingUtisCodes[$data['utis_code']])) {
+                $validator->errors()->add('utis_code', 'Bu UTİS kod artıq başqa müəllim tərəfindən istifadə olunur');
             }
         });
 
@@ -398,6 +424,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
         $user = User::create([
             'username' => $data['username'],
             'email' => $data['email'],
+            'utis_code' => $data['utis_code'] ?: null,
             'password' => Hash::make($data['password']),
             'institution_id' => $data['institution_id'],
             'is_active' => true,
@@ -489,6 +516,8 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
         // Update user
         $user->update([
             'username' => $data['username'],
+            'email' => $data['email'], // Update email if changed
+            'utis_code' => $data['utis_code'] ?: $user->utis_code,
             'institution_id' => $data['institution_id'],
         ]);
 
@@ -564,13 +593,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
      */
     public function onError(\Throwable $e): void
     {
-        Log::error('RegionTeachersImport - Row processing error', [
+        Log::error('RegionTeachersImport - Global processing error', [
             'error' => $e->getMessage(),
-            'row' => $this->processedRows,
         ]);
 
-        $this->errorCount++;
-        $this->details['errors'][] = "Sətir {$this->processedRows}: {$e->getMessage()}";
+        static::$errorCount++;
+        static::$details['errors'][] = "Qlobal Xəta: {$e->getMessage()}";
     }
 
     /**
@@ -583,13 +611,8 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             $row = $failure->row();
             $errors = implode(', ', $failure->errors());
 
-            Log::warning('RegionTeachersImport - Validation failure', [
-                'row' => $row,
-                'errors' => $errors,
-            ]);
-
-            $this->errorCount++;
-            $this->details['errors'][] = "Sətir {$row}: {$errors}";
+            static::$errorCount++;
+            static::$details['errors'][] = "Sətir {$row}: {$errors}";
         }
     }
 
@@ -599,11 +622,33 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
     public function getResults(): array
     {
         return [
-            'success_count' => $this->successCount,
-            'error_count' => $this->errorCount,
-            'skipped_count' => $this->skippedCount,
-            'total_processed' => $this->processedRows,
-            'details' => $this->details,
+            'success_count' => static::$successCount,
+            'error_count' => static::$errorCount,
+            'skipped_count' => static::$skippedCount,
+            'total_processed' => static::$processedRowsCount,
+            'details' => static::$details,
+        ];
+    }
+
+    /**
+     * Register events for import session
+     */
+    public function registerEvents(): array
+    {
+        return [
+            BeforeImport::class => function (BeforeImport $event) {
+                // IMPORTANT: RESET STATIC COUNTERS FOR EACH NEW IMPORT
+                static::$successCount = 0;
+                static::$errorCount = 0;
+                static::$skippedCount = 0;
+                static::$processedRowsCount = 0;
+                static::$existingUtisCodes = [];
+                static::$details = [
+                    'success' => [],
+                    'errors' => [],
+                    'skipped' => [],
+                ];
+            },
         ];
     }
 }

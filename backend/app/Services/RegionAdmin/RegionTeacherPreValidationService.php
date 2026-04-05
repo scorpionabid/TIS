@@ -35,6 +35,7 @@ class RegionTeacherPreValidationService
     protected array $existingEmails = [];
 
     protected array $existingUsernames = [];
+    protected array $existingUtisCodes = [];
 
     protected array $institutionCache = [];
 
@@ -117,11 +118,19 @@ class RegionTeacherPreValidationService
         }
 
         // Validate headers
-        $headings = Excel::toArray(new HeadingRowImport, $file)[0] ?? [];
+        $headingsData = Excel::toArray(new HeadingRowImport, $file);
+        $rawHeadings = $headingsData[0][0] ?? []; // HeadingRowImport returns [ [ headings ] ]
 
-        if (empty($headings)) {
+        if (empty($rawHeadings)) {
             throw new \Exception('Excel faylında başlıq sətri tapılmadı');
         }
+
+        // Normalize headings (strip stars, trim, to lower)
+        $normalizedHeadings = array_map(function ($h) {
+            if ($h === null) return '';
+            $h = str_replace(['*', ' *'], '', $h);
+            return trim($h);
+        }, $rawHeadings);
 
         $requiredColumns = [
             'email',
@@ -130,13 +139,14 @@ class RegionTeacherPreValidationService
             'last_name',
             'patronymic',
             'position_type',
+            'utis_code',
             'workplace_type',
             'password',
         ];
 
         $missingColumns = [];
         foreach ($requiredColumns as $column) {
-            if (! in_array($column, $headings)) {
+            if (! in_array($column, $normalizedHeadings)) {
                 $missingColumns[] = $column;
             }
         }
@@ -153,22 +163,30 @@ class RegionTeacherPreValidationService
      */
     protected function loadExcelData(UploadedFile $file): array
     {
-        $data = Excel::toArray([], $file);
+        $data = Excel::toArray(new \stdClass(), $file);
 
         if (empty($data) || empty($data[0])) {
             return [];
         }
 
         // Get headers and rows
-        $headers = $data[0][0]; // First row
+        $rawHeaders = $data[0][0] ?? []; // First row
         $rows = array_slice($data[0], 1); // Skip header
+
+        // Normalize headers (strip stars, trim)
+        $normalizedHeaders = array_map(function ($h) {
+            if ($h === null) return '';
+            return trim(str_replace(['*', ' *'], '', (string)$h));
+        }, $rawHeaders);
 
         // Convert to associative arrays
         $result = [];
         foreach ($rows as $row) {
             $rowData = [];
-            foreach ($headers as $index => $header) {
-                $rowData[$header] = $row[$index] ?? null;
+            foreach ($normalizedHeaders as $index => $header) {
+                if ($header !== '') {
+                    $rowData[$header] = $row[$index] ?? null;
+                }
             }
 
             // Skip empty rows
@@ -199,6 +217,15 @@ class RegionTeacherPreValidationService
         if (! empty($usernames)) {
             $this->existingUsernames = User::whereIn('username', $usernames)
                 ->pluck('username')
+                ->flip()
+                ->toArray();
+        }
+
+        // Load existing UTIS codes in bulk
+        $utisCodes = array_filter(array_column($rows, 'utis_code'));
+        if (! empty($utisCodes)) {
+            $this->existingUtisCodes = User::whereIn('utis_code', $utisCodes)
+                ->pluck('utis_code')
                 ->flip()
                 ->toArray();
         }
@@ -339,6 +366,7 @@ class RegionTeacherPreValidationService
             'last_name' => trim($row['last_name'] ?? ''),
             'patronymic' => trim($row['patronymic'] ?? ''),
             'position_type' => trim($row['position_type'] ?? ''),
+            'utis_code' => trim($row['utis_code'] ?? ''),
             'workplace_type' => trim($row['workplace_type'] ?? ''),
             'password' => trim($row['password'] ?? ''),
 
@@ -396,6 +424,7 @@ class RegionTeacherPreValidationService
             'last_name' => 'required|string|max:100',
             'patronymic' => 'required|string|max:100',
             'institution_id' => 'required|exists:institutions,id',
+            'utis_code' => 'required|string|max:50',
             'position_type' => [
                 'required',
                 'string',
@@ -457,6 +486,18 @@ class RegionTeacherPreValidationService
                 'suggestion' => 'Fərqli username istifadə edin',
             ];
             $this->incrementErrorGroup('duplicate_username');
+        }
+
+        // Check UTIS code
+        if (! empty($data['utis_code']) && isset($this->existingUtisCodes[$data['utis_code']])) {
+            $errors[] = [
+                'field' => 'utis_code',
+                'value' => $data['utis_code'],
+                'severity' => 'critical',
+                'message' => 'Bu UTİS kod artıq başqa müəllim tərəfindən istifadə olunur',
+                'suggestion' => 'UTİS kodu yoxlayın və ya müvafiq müəllimin profilini yeniləyin',
+            ];
+            $this->incrementErrorGroup('duplicate_utis_code');
         }
 
         return $errors;
@@ -562,6 +603,14 @@ class RegionTeacherPreValidationService
 
         if (isset($this->errorGroups['invalid_position_type']) && $this->errorGroups['invalid_position_type'] > 0) {
             $this->suggestions[] = '📌 Vəzifə növləri düzgün yazılmalıdır. Məsələn: "muəllim" (e ilə), "müəllim" yox! 3-cü vərəqdə tam siyahıya baxın.';
+        }
+
+        if (isset($this->errorGroups['duplicate_username']) && $this->errorGroups['duplicate_username'] > 0) {
+            $this->suggestions[] = '📌 ' . $this->errorGroups['duplicate_username'] . ' username artıq sistemdə mövcuddur. Fərqli username istifadə edin.';
+        }
+
+        if (isset($this->errorGroups['duplicate_utis_code']) && $this->errorGroups['duplicate_utis_code'] > 0) {
+            $this->suggestions[] = '📌 ' . $this->errorGroups['duplicate_utis_code'] . ' müəllim UTİS kodu artıq sistemdə mövcuddur. Bu müəllimlər artıq qeydiyyatdan keçib.';
         }
 
         if (isset($this->errorGroups['duplicate_email']) && $this->errorGroups['duplicate_email'] > 0) {

@@ -76,6 +76,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Məmmədov',
                 'Rəşid',
                 'muəllim',
+                '1000001', // utis_code
                 'secondary',
                 'Riyaziyyat',
                 'Riyaziyyat',
@@ -102,6 +103,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Həsənova',
                 'Vaqif',
                 'direktor_muavini_tedris',
+                '1000002', // utis_code
                 'primary',
                 'Pedaqogika',
                 'Azərbaycan dili',
@@ -128,6 +130,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Əliyeva',
                 'Kamran',
                 'psixoloq',
+                '1000003', // utis_code
                 'secondary',
                 'Psixologiya',
                 'Psixoloji xidmət',
@@ -154,6 +157,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Məmmədov',
                 'Tofiq',
                 'direktor',
+                '1000004', // utis_code
                 'secondary',
                 'İdarəetmə',
                 '',
@@ -180,6 +184,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Qasımova',
                 'Elşən',
                 'kitabxanaçı',
+                '1000005', // utis_code
                 'primary',
                 'Kitabxanaçılıq',
                 'Ədəbiyyat klubu',
@@ -206,6 +211,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Hüseynov',
                 'Məhəmməd',
                 'muəllim',
+                '1000006', // utis_code
                 'secondary',
                 'Fizika',
                 'Fizika',
@@ -232,6 +238,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Əhmədova',
                 'Rauf',
                 'metodik_birlesme_rəhbəri',
+                '1000007', // utis_code
                 'primary',
                 'İbtidai sinif pedaqogikası',
                 'İbtidai siniflər',
@@ -258,6 +265,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
                 'Məhərrəmov',
                 'Şəhriyar',
                 'təsərrüfat_işçisi',
+                '1000008', // utis_code
                 'secondary',
                 'Texniki xidmət',
                 '',
@@ -290,6 +298,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
             'last_name *',
             'patronymic *',
             'position_type *',
+            'utis_code *',
             'workplace_type *',
             'specialty',
             'main_subject',
@@ -321,8 +330,8 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF4CAF50']],
         ];
-        $sheet->getStyle('D1:J1')->applyFromArray($requiredStyle);
-        $sheet->getStyle('O1:O1')->applyFromArray($requiredStyle);
+        $sheet->getStyle('D1:K1')->applyFromArray($requiredStyle);
+        $sheet->getStyle('P1:P1')->applyFromArray($requiredStyle); // Wait, need to check indices
 
         // Optional fields (gray background)
         $optionalStyle = [
@@ -349,19 +358,20 @@ class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHea
             'G' => 15, // last_name
             'H' => 15, // patronymic
             'I' => 25, // position_type
-            'J' => 20, // workplace_type
-            'K' => 25, // specialty
-            'L' => 25, // main_subject
-            'M' => 20, // assessment_type
-            'N' => 20, // assessment_score
-            'O' => 15, // password
-            'P' => 18, // contact_phone
-            'Q' => 20, // contract_start_date
-            'R' => 20, // contract_end_date
-            'S' => 20, // education_level
-            'T' => 30, // graduation_university
-            'U' => 18, // graduation_year
-            'V' => 40, // notes
+            'J' => 18, // utis_code
+            'K' => 20, // workplace_type
+            'L' => 25, // specialty
+            'M' => 25, // main_subject
+            'N' => 20, // assessment_type
+            'O' => 20, // assessment_score
+            'P' => 15, // password
+            'Q' => 18, // contact_phone
+            'R' => 20, // contract_start_date
+            'S' => 20, // contract_end_date
+            'T' => 20, // education_level
+            'U' => 30, // graduation_university
+            'V' => 18, // graduation_year
+            'W' => 40, // notes
         ];
     }
 }
