@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse, SchoolGradeStatsResponse } from '@/services/regionalAttendance';
+import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse, SchoolGradeStatsResponse, RankingsResponse } from '@/services/regionalAttendance';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
@@ -37,8 +37,9 @@ export function useRegionalAttendanceData() {
     key: 'name',
     direction: 'asc',
   });
-  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'gradeLevel' | 'schoolGrade' | 'missingReports'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'gradeLevel' | 'schoolGrade' | 'missingReports' | 'rankings'>('overview');
   const [selectedEducationProgram, setSelectedEducationProgram] = useState<string>('all');
+  const [selectedShiftType, setSelectedShiftType] = useState<'morning' | 'evening' | 'all'>('all');
   const [pendingRefresh, setPendingRefresh] = useState(false);
 
   const filters = useMemo(() => {
@@ -151,6 +152,29 @@ export function useRegionalAttendanceData() {
     staleTime: 60 * 1000,
   });
 
+  // Rankings Query
+  const rankingFilters = useMemo(() => {
+    const f: Record<string, any> = {
+      date: startDate,
+    };
+    if (selectedSectorId !== 'all') f.sector_id = Number(selectedSectorId);
+    if (selectedShiftType !== 'all') f.shift_type = selectedShiftType;
+    return f;
+  }, [startDate, selectedSectorId, selectedShiftType]);
+
+  const {
+    data: rankingsData,
+    isLoading: rankingsLoading,
+    isFetching: rankingsFetching,
+    error: rankingsError,
+    refetch: refetchRankings,
+  } = useQuery<RankingsResponse>({
+    queryKey: ['regional-attendance', 'rankings', rankingFilters],
+    queryFn: () => regionalAttendanceService.getRankings(rankingFilters),
+    enabled: hasAccess && activeTab === 'rankings',
+    staleTime: 30 * 1000, // 30 seconds for more frequent updates
+  });
+
   // Sync selected school
   useEffect(() => {
     if (!schools.length) {
@@ -173,8 +197,9 @@ export function useRegionalAttendanceData() {
     refetchGradeLevel();
     refetchMissingReports();
     refetchSchoolGrade();
+    refetchRankings();
     setPendingRefresh(false);
-  }, [pendingRefresh, refetchOverview, refetchClassBreakdown, refetchGradeLevel, refetchMissingReports, refetchSchoolGrade, selectedSchoolId]);
+  }, [pendingRefresh, refetchOverview, refetchClassBreakdown, refetchGradeLevel, refetchMissingReports, refetchSchoolGrade, refetchRankings, selectedSchoolId]);
 
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -214,6 +239,7 @@ export function useRegionalAttendanceData() {
     statusFilter, setStatusFilter,
     activeTab, setActiveTab,
     selectedEducationProgram, setSelectedEducationProgram,
+    selectedShiftType, setSelectedShiftType,
     pendingRefresh, setPendingRefresh,
     overview, overviewLoading, overviewFetching, overviewError,
     processedSchools,
@@ -221,9 +247,11 @@ export function useRegionalAttendanceData() {
     gradeLevelData, gradeLevelLoading, gradeLevelFetching, gradeLevelError,
     missingReportsData, missingReportsLoading, missingReportsFetching, missingReportsError,
     schoolGradeData, schoolGradeLoading, schoolGradeFetching, schoolGradeError,
+    rankingsData, rankingsLoading, rankingsFetching, rankingsError,
     handlePresetChange,
     handleSort,
     filters,
+    rankingFilters,
     sectors,
     schools
   };

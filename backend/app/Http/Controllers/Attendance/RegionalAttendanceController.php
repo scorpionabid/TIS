@@ -234,4 +234,24 @@ class RegionalAttendanceController extends BaseController
 
         return \Maatwebsite\Excel\Facades\Excel::download($export, $exportData['filename']);
     }
+
+    /**
+     * Get attendance rankings for schools based on submission time.
+     */
+    public function rankings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'shift_type' => ['nullable', 'string', 'in:morning,evening,all'],
+        ]);
+
+        $data = $this->attendanceService->getRankings($request->user(), $validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
 }

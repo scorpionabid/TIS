@@ -91,7 +91,7 @@ class GradeBookController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (! Auth::user()->hasAnyRole(['superadmin', 'regionadmin', 'sectoradmin', 'schooladmin'])) {
+        if (! Auth::user()->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin'])) {
             return response()->json(['success' => false, 'message' => 'Jurnal yaratmaq üçün icazəniz yoxdur.'], 403);
         }
 

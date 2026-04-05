@@ -208,6 +208,20 @@ export const improvedNavigationConfig: MenuGroup[] = [
         ],
       },
       {
+        id: "projects",
+        label: "Layihələr",
+        path: "/projects",
+        icon: Briefcase,
+        roles: [
+          USER_ROLES.SUPERADMIN,
+          USER_ROLES.REGIONADMIN,
+          USER_ROLES.REGIONOPERATOR,
+          USER_ROLES.SEKTORADMIN,
+          USER_ROLES.SCHOOLADMIN,
+          USER_ROLES.MUELLIM,
+        ],
+      },
+      {
         id: "assigned-tasks",
         label: "Təyin olunmuş Tapşırıqlar",
         path: "/tasks/assigned",

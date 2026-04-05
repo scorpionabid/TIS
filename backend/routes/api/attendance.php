@@ -34,25 +34,25 @@ Route::prefix('attendance-records')->group(function () {
 // Note: Using role-based access instead of permission middleware due to guard incompatibility
 // schooladmin role has all necessary teaching_loads.* permissions
 Route::prefix('teaching-loads')->group(function () {
-    Route::get('/', [TeachingLoadApiController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::post('/', [TeachingLoadApiController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/statistics', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/teacher/{teacher}', [TeachingLoadApiController::class, 'getByTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/teacher/{teacher}/subjects', [TeachingLoadApiController::class, 'getTeacherSubjects'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/institution/{institution}', [TeachingLoadApiController::class, 'getByInstitution'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::post('/bulk-assign', [TeachingLoadApiController::class, 'bulkAssign'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/analytics/overview', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/', [TeachingLoadApiController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::post('/', [TeachingLoadApiController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/statistics', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/teacher/{teacher}', [TeachingLoadApiController::class, 'getByTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/teacher/{teacher}/subjects', [TeachingLoadApiController::class, 'getTeacherSubjects'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/institution/{institution}', [TeachingLoadApiController::class, 'getByInstitution'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::post('/bulk-assign', [TeachingLoadApiController::class, 'bulkAssign'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/analytics/overview', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
 });
 
 // Teacher Availability API Routes
 Route::prefix('teacher-availabilities')->group(function () {
-    Route::get('/', [TeacherAvailabilityApiController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::post('/', [TeacherAvailabilityApiController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::put('/{teacherAvailability}', [TeacherAvailabilityApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{teacherAvailability}', [TeacherAvailabilityApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/', [TeacherAvailabilityApiController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::post('/', [TeacherAvailabilityApiController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::put('/{teacherAvailability}', [TeacherAvailabilityApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::delete('/{teacherAvailability}', [TeacherAvailabilityApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
 });
 
 // Attendance Management Routes
@@ -87,6 +87,8 @@ Route::prefix('school-attendance')->group(function () {
     Route::get('/daily-report', [App\Http\Controllers\SchoolAttendanceController::class, 'getDailyReport'])->middleware('permission:school_attendance.read|attendance.read');
     Route::get('/weekly-summary', [App\Http\Controllers\SchoolAttendanceController::class, 'getWeeklySummary'])->middleware('permission:school_attendance.read|attendance.read');
     Route::get('/monthly-statistics', [App\Http\Controllers\SchoolAttendanceController::class, 'getMonthlyStatistics'])->middleware('permission:school_attendance.read|attendance.read');
+    Route::get('/school-grade-stats', [App\Http\Controllers\SchoolAttendanceController::class, 'schoolGradeStats'])->middleware('permission:school_attendance.read|attendance.read');
+    Route::get('/rankings', [App\Http\Controllers\SchoolAttendanceController::class, 'rankings'])->middleware('permission:school_attendance.read|attendance.read');
 
     // Parameterized CRUD routes should remain at the end to avoid conflicts
     Route::get('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'show'])->middleware('permission:school_attendance.read|attendance.read');
@@ -104,4 +106,5 @@ Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadm
     Route::get('/school-grade-stats/export', [RegionalAttendanceController::class, 'exportSchoolGradeStats']);
     Route::get('/missing-reports', [RegionalAttendanceController::class, 'getSchoolsWithMissingReports']);
     Route::get('/missing-reports/export', [RegionalAttendanceController::class, 'exportMissingReports']);
+    Route::get('/rankings', [RegionalAttendanceController::class, 'rankings']);
 });

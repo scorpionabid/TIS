@@ -6,6 +6,7 @@ import { useRegionalAttendanceData } from './hooks/useRegionalAttendanceData';
 import { regionalAttendanceService } from '@/services/regionalAttendance';
 
 // Extracted Components
+import { AttendanceRankingsTable } from '@/components/regionadmin/attendance/AttendanceRankingsTable';
 import { AttendanceFilters } from '@/components/regionadmin/attendance/AttendanceFilters';
 import { AttendanceSummaryCards } from '@/components/regionadmin/attendance/AttendanceSummaryCards';
 import { SectorAttendanceCharts } from '@/components/regionadmin/attendance/SectorAttendanceCharts';
@@ -32,6 +33,7 @@ export default function RegionAttendanceReports() {
     statusFilter, setStatusFilter,
     activeTab, setActiveTab,
     selectedEducationProgram, setSelectedEducationProgram,
+    selectedShiftType, setSelectedShiftType,
     pendingRefresh, setPendingRefresh,
     overview, overviewLoading, overviewFetching, overviewError,
     processedSchools,
@@ -39,6 +41,7 @@ export default function RegionAttendanceReports() {
     gradeLevelData, gradeLevelLoading, gradeLevelFetching, gradeLevelError,
     missingReportsData, missingReportsLoading, missingReportsFetching, missingReportsError,
     schoolGradeData, schoolGradeLoading, schoolGradeFetching, schoolGradeError,
+    rankingsData, rankingsLoading, rankingsFetching, rankingsError,
     handlePresetChange,
     handleSort,
     filters,
@@ -167,10 +170,10 @@ export default function RegionAttendanceReports() {
         )}
       </div>
 
-      {(overviewError || classError || gradeLevelError || missingReportsError || schoolGradeError) && (
+      {(overviewError || classError || gradeLevelError || missingReportsError || schoolGradeError || rankingsError) && (
         <Alert variant="destructive">
           <AlertTitle>Hesabat yüklənmədi</AlertTitle>
-          <AlertDescription>{getErrorMessage(overviewError || classError || gradeLevelError || missingReportsError || schoolGradeError)}</AlertDescription>
+          <AlertDescription>{getErrorMessage(overviewError || classError || gradeLevelError || missingReportsError || schoolGradeError || rankingsError)}</AlertDescription>
         </Alert>
       )}
 
@@ -180,6 +183,7 @@ export default function RegionAttendanceReports() {
         endDate={endDate}
         selectedSectorId={selectedSectorId}
         selectedEducationProgram={selectedEducationProgram}
+        selectedShiftType={selectedShiftType}
         datePreset={datePreset}
         sectors={sectors}
         loading={pendingRefresh || overviewLoading || overviewFetching}
@@ -187,6 +191,7 @@ export default function RegionAttendanceReports() {
         onEndDateChange={setEndDate}
         onSectorChange={setSelectedSectorId}
         onEducationProgramChange={setSelectedEducationProgram}
+        onShiftTypeChange={setSelectedShiftType}
         onPresetChange={handlePresetChange}
         onRefresh={() => setPendingRefresh(true)}
         onExport={handleExport}
@@ -200,6 +205,7 @@ export default function RegionAttendanceReports() {
           <TabsTrigger value="gradeLevel" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Sinif üzrə statistika</TabsTrigger>
           <TabsTrigger value="schoolGrade" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Məktəb+sinif</TabsTrigger>
           <TabsTrigger value="missingReports" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Doldurmayan məktəblər</TabsTrigger>
+          <TabsTrigger value="rankings" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">🏆 Reytinq</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -274,6 +280,19 @@ export default function RegionAttendanceReports() {
             onExport={handleExportMissingReports}
             exportDisabled={missingReportsLoading || !missingReportsData?.schools?.length}
             baselineDays={missingReportsData?.summary.period.baseline_days ?? 0}
+          />
+        </TabsContent>
+
+        <TabsContent value="rankings" className="space-y-6">
+          <AttendanceRankingsTable
+            data={rankingsData?.schools ?? []}
+            summary={rankingsData?.summary ?? { total_schools: 0, submitted_count: 0, on_time_count: 0, late_count: 0, not_submitted_count: 0 }}
+            loading={rankingsLoading}
+            morningDeadline={rankingsData?.morning_deadline ?? '10:00'}
+            eveningDeadline={rankingsData?.evening_deadline ?? '14:30'}
+            date={rankingsData?.date ?? startDate}
+            shiftType={selectedShiftType}
+            onSchoolClick={(id) => { setSelectedSchoolId(id); setActiveTab('classes'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         </TabsContent>
       </Tabs>

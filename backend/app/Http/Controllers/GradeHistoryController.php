@@ -85,11 +85,11 @@ class GradeHistoryController extends Controller
             return true;
         }
 
-        if ($user->hasRole('regionadmin')) {
+        if ($user->hasAnyRole(['regionadmin', 'regionoperator'])) {
             return $gradeBook->institution && $gradeBook->institution->region_id === $user->region_id;
         }
 
-        if ($user->hasRole('sectoradmin')) {
+        if ($user->hasRole('sektoradmin')) {
             return $gradeBook->institution && $gradeBook->institution->sector_id === $user->sector_id;
         }
 

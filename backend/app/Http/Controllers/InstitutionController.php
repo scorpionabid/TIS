@@ -571,7 +571,7 @@ class InstitutionController extends Controller
     /**
      * Download import template by type
      */
-    public function downloadImportTemplateByType(Request $request, string $type = null)
+    public function downloadImportTemplateByType(Request $request, ?string $type = null)
     {
         return $this->bulkController->downloadImportTemplateByType($request, $type);
     }

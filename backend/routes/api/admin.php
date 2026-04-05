@@ -158,7 +158,7 @@ Route::middleware('permission:institutions.write')->group(function () {
     // Import/Export routes - GET versions for frontend compatibility
     Route::get('institutions/template/{type}', [InstitutionController::class, 'downloadImportTemplateByType']);
     Route::get('institutions/export', [InstitutionController::class, 'exportInstitutionsByType']);
-    
+
     // Import/Export routes - POST versions
     Route::post('institutions/import/template', [InstitutionController::class, 'downloadImportTemplate']);
     Route::post('institutions/import', [InstitutionController::class, 'importFromTemplate']);

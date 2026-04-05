@@ -1,6 +1,8 @@
 # Dependencies
-frontend/node_modules
-backend/vendor
+node_modules/
+**/node_modules/
+vendor/
+**/vendor/
 
 # Build outputs
 frontend/dist

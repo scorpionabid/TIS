@@ -19,10 +19,15 @@ class CurriculumPlanIndexTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private Institution $regionInstitution;
+
     private Institution $school;
+
     private AcademicYear $year;
+
     private Region $region;
+
     private $schoolAdmin;
+
     private $superAdmin;
 
     protected function setUp(): void

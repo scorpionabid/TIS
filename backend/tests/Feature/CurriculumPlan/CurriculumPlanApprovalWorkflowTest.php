@@ -25,12 +25,19 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private Institution $regionInstitution;
+
     private Institution $school;
+
     private AcademicYear $year;
+
     private Region $region;
+
     private $schoolAdmin;
+
     private $sektorAdmin;
+
     private $regionAdmin;
+
     private $superAdmin;
 
     protected function setUp(): void

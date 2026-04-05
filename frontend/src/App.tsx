@@ -40,6 +40,7 @@ const Surveys = lazy(() => import("./pages/Surveys"));
 const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
 const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
+const Projects = lazy(() => import("./pages/projects/index"));
 const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
 const MyDelegations = lazy(() => import("./pages/MyDelegations"));
 const Links = lazy(() => import("./pages/Links"));
@@ -751,6 +752,14 @@ const App = () => {
                       element={
                         <LazyWrapper>
                           <Tasks />
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="projects"
+                      element={
+                        <LazyWrapper>
+                          <Projects />
                         </LazyWrapper>
                       }
                     />

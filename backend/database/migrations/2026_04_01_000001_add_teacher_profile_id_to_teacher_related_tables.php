@@ -21,37 +21,37 @@ return new class extends Migration
         // 1. teacher_certifications
         Schema::table('teacher_certifications', function (Blueprint $table) {
             $table->foreignId('teacher_profile_id')
-                  ->nullable()
-                  ->after('teacher_id')
-                  ->constrained('teacher_profiles')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('teacher_id')
+                ->constrained('teacher_profiles')
+                ->nullOnDelete();
         });
 
         // 2. teacher_professional_developments
         Schema::table('teacher_professional_developments', function (Blueprint $table) {
             $table->foreignId('teacher_profile_id')
-                  ->nullable()
-                  ->after('teacher_id')
-                  ->constrained('teacher_profiles')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('teacher_id')
+                ->constrained('teacher_profiles')
+                ->nullOnDelete();
         });
 
         // 3. teacher_availability
         Schema::table('teacher_availability', function (Blueprint $table) {
             $table->foreignId('teacher_profile_id')
-                  ->nullable()
-                  ->after('teacher_id')
-                  ->constrained('teacher_profiles')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('teacher_id')
+                ->constrained('teacher_profiles')
+                ->nullOnDelete();
         });
 
         // 4. teacher_evaluations
         Schema::table('teacher_evaluations', function (Blueprint $table) {
             $table->foreignId('teacher_profile_id')
-                  ->nullable()
-                  ->after('teacher_id')
-                  ->constrained('teacher_profiles')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('teacher_id')
+                ->constrained('teacher_profiles')
+                ->nullOnDelete();
         });
     }
 

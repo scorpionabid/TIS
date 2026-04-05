@@ -30,6 +30,9 @@ type CachedUsers = Record<string, AssignableUser>;
 const ROW_HEIGHT = 64;
 const LIST_HEIGHT = 320;
 
+import { useAuth } from '@/contexts/AuthContext';
+import { USER_ROLES, ROLE_HIERARCHY, UserRole } from '@/constants/roles';
+
 export function ResponsibleUserSelector({
   value,
   onChange,
@@ -37,6 +40,10 @@ export function ResponsibleUserSelector({
   allowedRoles,
   disabled = false,
 }: ResponsibleUserSelectorProps) {
+  const { currentUser } = useAuth();
+  const currentUserRole = (currentUser?.role as UserRole) || USER_ROLES.MUELLIM;
+  const currentUserLevel = ROLE_HIERARCHY[currentUserRole] || 99;
+
   const [searchTerm, setSearchTerm] = React.useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), 400);
   const [roleFilter, setRoleFilter] = React.useState<string | null>(null);
@@ -44,8 +51,14 @@ export function ResponsibleUserSelector({
 
   const activeRoles = React.useMemo(() => {
     const roles = allowedRoles?.length ? allowedRoles : ASSIGNABLE_ROLES;
-    return Array.from(new Set(roles.map((role) => role.toLowerCase())));
-  }, [allowedRoles]);
+    
+    // Hierarchy Filter: Only show roles at or below current user's level
+    return Array.from(new Set(roles.map((role) => role.toLowerCase())))
+      .filter(role => {
+        const targetLevel = ROLE_HIERARCHY[role as UserRole] || 99;
+        return targetLevel >= currentUserLevel;
+      });
+  }, [allowedRoles, currentUserLevel]);
 
   const {
     users,
@@ -136,7 +149,7 @@ export function ResponsibleUserSelector({
         <label
           htmlFor={`responsible-${userId}`}
           className={cn(
-            'flex h-full cursor-pointer items-center gap-3 px-3 py-2 transition hover:bg-muted',
+            'flex h-full cursor-pointer items-center gap-3 px-3 py-1 transition hover:bg-muted',
             isChecked && 'bg-muted/70',
           )}
         >
@@ -147,11 +160,7 @@ export function ResponsibleUserSelector({
             disabled={disabled}
           />
           <div className="flex flex-col">
-            <span className="font-medium text-sm text-foreground">{user.name}</span>
-            <span className="text-xs text-muted-foreground">
-              {roleLabel}
-              {path ? ` • ${path}` : ''}
-            </span>
+            <span className="font-semibold text-sm text-foreground">{user.name}</span>
           </div>
         </label>
       </div>
@@ -179,7 +188,7 @@ export function ResponsibleUserSelector({
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Rol filtrləri</span>
             {roleFilter && (
-              <Button variant="ghost" size="xs" onClick={() => setRoleFilter(null)}>
+              <Button variant="ghost" size="sm" onClick={() => setRoleFilter(null)}>
                 Filtri sil
               </Button>
             )}
@@ -188,7 +197,7 @@ export function ResponsibleUserSelector({
             {activeRoles.map((role) => (
               <Button
                 key={role}
-                size="xs"
+                size="sm"
                 type="button"
                 variant={roleFilter === role ? 'default' : 'outline'}
                 onClick={() => setRoleFilter((current) => current === role ? null : role)}
@@ -206,7 +215,7 @@ export function ResponsibleUserSelector({
         <div className="space-y-2 rounded-md border border-border/60 p-3 bg-muted/40">
           <div className="flex items-center justify-between text-sm font-medium text-foreground">
             <span>Seçilmiş məsul şəxslər ({value.length})</span>
-            <Button variant="ghost" size="xs" onClick={handleClearSelection}>
+            <Button variant="ghost" size="sm" onClick={handleClearSelection}>
               Hamısını təmizlə
             </Button>
           </div>

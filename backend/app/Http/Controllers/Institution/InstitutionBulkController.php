@@ -423,7 +423,7 @@ class InstitutionBulkController extends Controller
     /**
      * Download import template by institution type
      */
-    public function downloadImportTemplateByType(Request $request, string $type = null)
+    public function downloadImportTemplateByType(Request $request, ?string $type = null)
     {
         try {
             // Get type from route parameter or query parameter

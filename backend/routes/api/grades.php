@@ -11,16 +11,16 @@ use Illuminate\Support\Facades\Route;
 // Note: /api/classes routes now proxy to GradeUnifiedController for backward compatibility
 Route::prefix('classes')->group(function () {
     Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::post('/{grade}/students', [GradeUnifiedController::class, 'enrollMultipleStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{grade}/students/{student}', [GradeUnifiedController::class, 'unenrollStudent'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::post('/{grade}/teachers', [GradeUnifiedController::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{grade}/teachers/{teacher}', [GradeUnifiedController::class, 'removeTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher|regionoperator');
+    Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher|regionoperator');
+    Route::post('/{grade}/students', [GradeUnifiedController::class, 'enrollMultipleStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::delete('/{grade}/students/{student}', [GradeUnifiedController::class, 'unenrollStudent'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::post('/{grade}/teachers', [GradeUnifiedController::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::delete('/{grade}/teachers/{teacher}', [GradeUnifiedController::class, 'removeTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
+    Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator');
 });
 
 // Unified Grades Management Routes (New Implementation)

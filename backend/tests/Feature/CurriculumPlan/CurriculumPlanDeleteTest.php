@@ -20,11 +20,17 @@ class CurriculumPlanDeleteTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private Institution $regionInstitution;
+
     private Institution $school;
+
     private AcademicYear $year;
+
     private Subject $subject;
+
     private Region $region;
+
     private $schoolAdmin;
+
     private $sektorAdmin;
 
     protected function setUp(): void

@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'inventory.rate_limit' => \App\Http\Middleware\InventoryRateLimiter::class,
 
             // Spatie Permission Middleware (keeping for compatibility)
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
             'permission.spatie' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,

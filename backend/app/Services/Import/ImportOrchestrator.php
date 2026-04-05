@@ -97,6 +97,7 @@ class ImportOrchestrator
             // Check if data is empty
             if (empty($data)) {
                 Log::warning('No data parsed from Excel file');
+
                 return $this->responseBuilder->buildErrorResponse(
                     'Excel faylından məlumat oxuna bilmədi və ya fayl boşdur',
                     [],
@@ -117,6 +118,7 @@ class ImportOrchestrator
                 Log::warning('Validation failed', [
                     'errors' => $this->validator->getValidationErrors(),
                 ]);
+
                 return $this->buildValidationErrorResponse($this->validator->getValidationErrors());
             }
 
@@ -173,7 +175,7 @@ class ImportOrchestrator
         if ($totalRows > 50) {
             $importResults = $this->stateManager->getImportResults();
             $importedCount = $this->chunkProcessor->executeChunkedImport($data, $institutionType, $importResults);
-            
+
             return [
                 'imported_count' => $importedCount,
                 'duplicate_count' => 0, // ChunkProcessor doesn't track duplicates yet

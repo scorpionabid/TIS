@@ -240,6 +240,46 @@ export interface SchoolGradeStatsResponse {
   };
 }
 
+export interface ShiftRankingData {
+  submitted: boolean;
+  submitted_at: string | null;
+  is_late: boolean;
+  late_minutes: number;
+}
+
+export interface SchoolRankingStat {
+  school_id: number;
+  name: string;
+  sector_id: number | null;
+  sector_name: string;
+  shift_type: 'morning' | 'evening' | null;
+  deadline_time: string | null;
+  submitted_at: string | null;
+  is_late: boolean;
+  late_minutes: number;
+  classes_count: number;
+  status: 'on_time' | 'late' | 'not_submitted';
+  morning: ShiftRankingData;
+  evening: ShiftRankingData;
+}
+
+export interface RankingsSummary {
+  total_schools: number;
+  submitted_count: number;
+  on_time_count: number;
+  late_count: number;
+  not_submitted_count: number;
+}
+
+export interface RankingsResponse {
+  date: string;
+  shift_type: 'morning' | 'evening' | 'all';
+  morning_deadline: string;
+  evening_deadline: string;
+  schools: SchoolRankingStat[];
+  summary: RankingsSummary;
+}
+
 const unwrap = <T>(payload: any): T => {
   if (payload && typeof payload === "object" && "data" in payload) {
     return payload.data as T;
@@ -335,6 +375,21 @@ export class RegionalAttendanceService {
       { responseType: "blob" }
     );
     return unwrap<Blob>(response);
+  }
+
+  async getRankings(
+    filters: {
+      date?: string;
+      sector_id?: number;
+      region_id?: number;
+      shift_type?: 'morning' | 'evening' | 'all';
+    }
+  ): Promise<RankingsResponse> {
+    const response = await apiClient.get<RankingsResponse>(
+      "/regional-attendance/rankings",
+      filters
+    );
+    return unwrap<RankingsResponse>(response);
   }
 }
 

@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Teacher extends User
 {
@@ -46,8 +46,8 @@ class Teacher extends User
     public function primaryWorkplace(): HasOne
     {
         return $this->hasOne(TeacherWorkplace::class, 'user_id')
-                    ->where('workplace_priority', 'primary')
-                    ->where('status', 'active');
+            ->where('workplace_priority', 'primary')
+            ->where('status', 'active');
     }
 
     /**

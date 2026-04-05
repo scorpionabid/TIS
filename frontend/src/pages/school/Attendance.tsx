@@ -2,11 +2,12 @@ import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { School } from 'lucide-react';
+import { School, BarChart3, Trophy } from 'lucide-react';
 import BulkAttendanceEntry from './BulkAttendanceEntry';
 import AttendanceReports from '../AttendanceReports';
+import SchoolAttendanceReports from './SchoolAttendanceReports';
 
-type AttendanceTab = 'entry' | 'reports';
+type AttendanceTab = 'entry' | 'reports' | 'schoolGrade' | 'rankings';
 
 const SchoolAttendance: React.FC = () => {
   const { hasPermission, currentUser } = useAuth();
@@ -18,7 +19,11 @@ const SchoolAttendance: React.FC = () => {
   const allowedTabs = useMemo(() => {
     const tabs: AttendanceTab[] = [];
     if (canManageEntry) tabs.push('entry');
-    if (canViewReports) tabs.push('reports');
+    if (canViewReports) {
+      tabs.push('reports');
+      tabs.push('schoolGrade');
+      tabs.push('rankings');
+    }
     return tabs;
   }, [canViewReports, canManageEntry]);
 
@@ -83,6 +88,24 @@ const SchoolAttendance: React.FC = () => {
                 Davamiyyət hesabatı
               </TabsTrigger>
             )}
+            {allowedTabs.includes('schoolGrade') && (
+              <TabsTrigger
+                value="schoolGrade"
+                className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
+              >
+                <BarChart3 className="h-4 w-4 mr-1" />
+                Siniflər
+              </TabsTrigger>
+            )}
+            {allowedTabs.includes('rankings') && (
+              <TabsTrigger
+                value="rankings"
+                className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
+              >
+                <Trophy className="h-4 w-4 mr-1" />
+                Reytinq
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {institutionChipText && (
@@ -98,6 +121,18 @@ const SchoolAttendance: React.FC = () => {
         {allowedTabs.includes('reports') && (
           <TabsContent value="reports">
             <AttendanceReports embedded />
+          </TabsContent>
+        )}
+
+        {allowedTabs.includes('schoolGrade') && (
+          <TabsContent value="schoolGrade">
+            <SchoolAttendanceReports activeTab="schoolGrade" />
+          </TabsContent>
+        )}
+
+        {allowedTabs.includes('rankings') && (
+          <TabsContent value="rankings">
+            <SchoolAttendanceReports activeTab="rankings" />
           </TabsContent>
         )}
 

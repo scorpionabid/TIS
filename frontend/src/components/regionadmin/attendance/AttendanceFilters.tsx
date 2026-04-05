@@ -16,6 +16,7 @@ interface AttendanceFiltersProps {
   endDate: string;
   selectedSectorId: string;
   selectedEducationProgram: string;
+  selectedShiftType?: 'morning' | 'evening' | 'all';
   datePreset: 'today' | 'thisWeek' | 'thisMonth' | 'custom';
   sectors: Sector[];
   loading: boolean;
@@ -23,6 +24,7 @@ interface AttendanceFiltersProps {
   onEndDateChange: (val: string) => void;
   onSectorChange: (val: string) => void;
   onEducationProgramChange: (val: string) => void;
+  onShiftTypeChange?: (val: 'morning' | 'evening' | 'all') => void;
   onPresetChange: (preset: 'today' | 'thisWeek' | 'thisMonth' | 'custom') => void;
   onRefresh: () => void;
   onExport: () => void;
@@ -33,6 +35,7 @@ export function AttendanceFilters({
   endDate,
   selectedSectorId,
   selectedEducationProgram,
+  selectedShiftType = 'all',
   datePreset,
   sectors,
   loading,
@@ -40,6 +43,7 @@ export function AttendanceFilters({
   onEndDateChange,
   onSectorChange,
   onEducationProgramChange,
+  onShiftTypeChange,
   onPresetChange,
   onRefresh,
   onExport
@@ -75,7 +79,7 @@ export function AttendanceFilters({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
           <div className="flex flex-col gap-1 min-w-0">
             <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Başlanğıc tarixi</Label>
             <Input
@@ -125,6 +129,19 @@ export function AttendanceFilters({
                 <SelectItem value="xususi">Xüsusi təhsil</SelectItem>
                 <SelectItem value="mektebde_ferdi">Məktəbdə fərdi təhsil</SelectItem>
                 <SelectItem value="evde_ferdi">Evdə fərdi təhsil</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1 min-w-0">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Növə</Label>
+            <Select value={selectedShiftType} onValueChange={(v) => onShiftTypeChange?.(v as 'morning' | 'evening' | 'all')}>
+              <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 w-full">
+                <SelectValue placeholder="Növə seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Hər iki növə</SelectItem>
+                <SelectItem value="morning">Səhər növbəsi (10:00)</SelectItem>
+                <SelectItem value="evening">Günorta növbəsi (14:30)</SelectItem>
               </SelectContent>
             </Select>
           </div>

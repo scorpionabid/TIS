@@ -160,6 +160,7 @@ class BulkAttendanceController extends BaseController
 
             $attendanceDate = Carbon::parse($request->attendance_date);
             $academicYear = AcademicYear::findOrFail($request->academic_year_id);
+
             $savedRecords = [];
             $failedRecords = [];
 

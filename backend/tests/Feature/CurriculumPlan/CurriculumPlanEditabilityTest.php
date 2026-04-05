@@ -25,13 +25,21 @@ class CurriculumPlanEditabilityTest extends TestCase
     use SeedsDefaultRolesAndPermissions;
 
     private Institution $regionInstitution;
+
     private Institution $school;
+
     private AcademicYear $year;
+
     private Subject $subject;
+
     private Region $region;
+
     private $schoolAdmin;
+
     private $sektorAdmin;
+
     private $regionAdmin;
+
     private $regionOperator;
 
     protected function setUp(): void

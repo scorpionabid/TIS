@@ -91,10 +91,10 @@ class RegionalAttendanceService
 
         if ($educationProgram && $educationProgram !== 'all') {
             $gradeStudentCounts->where('grades.education_program', $educationProgram);
-            
+
             // Filter schools collection to only those that have matching grades
             $filteredSchoolIds = $gradeStudentCounts->clone()->pluck('institution_id')->unique()->toArray();
-            
+
             // Sync all relevant variables for further processing
             $schoolIds = $filteredSchoolIds;
             $schools = $schools->whereIn('id', $filteredSchoolIds);
@@ -293,8 +293,8 @@ class RegionalAttendanceService
             $activeSector = $activeSector ?: $sectors->firstWhere('id', (int) $targetSectorId);
             if ($activeSector) {
                 $sectorDescendantIds = (new Institution)->forceFill($activeSector->toArray())->getAllChildrenIds();
-                $schools = $schools->filter(function($school) use ($sectorDescendantIds, $targetSectorId) {
-                    return $school->parent_id == $targetSectorId || in_array((int)$school->id, $sectorDescendantIds);
+                $schools = $schools->filter(function ($school) use ($sectorDescendantIds, $targetSectorId) {
+                    return $school->parent_id == $targetSectorId || in_array((int) $school->id, $sectorDescendantIds);
                 })->values();
             } else {
                 $schools = $schools->where('parent_id', (int) $targetSectorId)->values();
@@ -869,7 +869,7 @@ class RegionalAttendanceService
             $weight = max($stat['student_count'], 1);
             $weightedRates += $stat['average_attendance_rate'] * $weight;
             $denominator += $weight;
-            
+
             // Calculate attending students for this class (avg students per day)
             $classAvgAttending = ($stat['average_attendance_rate'] / 100) * $weight;
             $totalAttending += $classAvgAttending;
@@ -1189,12 +1189,12 @@ class RegionalAttendanceService
         $educationProgram = $filters['education_program'] ?? null;
 
         $scope['schools'] = collect($scope['schools']);
-        
+
         // 1. Get all grades for these schools to build a grade_id -> class_level map
         $gradeQuery = Grade::whereIn('institution_id', $schoolIds);
         if ($educationProgram && $educationProgram !== 'all') {
             $gradeQuery->where('education_program', $educationProgram);
-            
+
             // Sync school IDs to only include those that have matching grades
             $schoolIds = $gradeQuery->clone()->pluck('institution_id')->unique()->toArray();
             $scope['schools'] = $scope['schools']->whereIn('id', $schoolIds);
@@ -1308,10 +1308,10 @@ class RegionalAttendanceService
                 $row[] = $rate !== null ? $rate . '%' : '-';
             }
             // Add school average
-            $row[] = count($validRates) > 0 
-                ? round(array_sum($validRates) / count($validRates), 2) . '%' 
+            $row[] = count($validRates) > 0
+                ? round(array_sum($validRates) / count($validRates), 2) . '%'
                 : '-';
-            
+
             $rows[] = $row;
         }
 
@@ -1325,10 +1325,10 @@ class RegionalAttendanceService
             $avgRow[] = $rate !== null ? $rate . '%' : '-';
         }
         // Add overall regional average
-        $avgRow[] = count($regRates) > 0 
-            ? round(array_sum($regRates) / count($regRates), 2) . '%' 
+        $avgRow[] = count($regRates) > 0
+            ? round(array_sum($regRates) / count($regRates), 2) . '%'
             : '-';
-            
+
         $rows[] = $avgRow;
 
         return [
@@ -1373,7 +1373,7 @@ class RegionalAttendanceService
                 ->pluck('institution_id')
                 ->unique()
                 ->toArray();
-            
+
             $schoolIds = $matchingSchoolIds;
             $scope['schools'] = $scope['schools']->whereIn('id', $schoolIds);
         }
@@ -1603,5 +1603,233 @@ class RegionalAttendanceService
         $workingDays = (int) ($metadata['working_days'] ?? 5);
 
         return $workingDays === 6;
+    }
+
+    /**
+     * Get attendance rankings for schools based on submission time.
+     */
+    public function getRankings(User $user, array $filters = []): array
+    {
+        $date = $filters['date'] ?? now()->toDateString();
+        $shiftType = $filters['shift_type'] ?? 'all';
+
+        // Resolve scope to get schools list
+        [$startDate, $endDate] = [$date, $date];
+        $scope = $this->resolveInstitutionScope($user, $filters, $startDate, $endDate);
+        $schoolIds = $scope['school_ids'];
+
+        if (empty($schoolIds)) {
+            return [
+                'date' => $date,
+                'shift_type' => $shiftType,
+                'schools' => [],
+                'summary' => [
+                    'total_schools' => 0,
+                    'submitted_count' => 0,
+                    'on_time_count' => 0,
+                    'late_count' => 0,
+                ],
+            ];
+        }
+
+        // Get submission times for each school on the given date
+        $submissions = ClassBulkAttendance::selectRaw(
+            'class_bulk_attendance.institution_id,
+             MIN(morning_recorded_at) as first_morning_submission,
+             MAX(morning_recorded_at) as last_morning_submission,
+             MIN(evening_recorded_at) as first_evening_submission,
+             MAX(evening_recorded_at) as last_evening_submission,
+             COUNT(DISTINCT CASE WHEN morning_recorded_at IS NOT NULL THEN grade_id END) as morning_classes,
+             COUNT(DISTINCT CASE WHEN evening_recorded_at IS NOT NULL THEN grade_id END) as evening_classes'
+        )
+            ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
+            ->whereDate('attendance_date', $date)
+            ->groupBy('class_bulk_attendance.institution_id')
+            ->get()
+            ->keyBy('institution_id');
+
+        // Build sector name map
+        $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
+
+        // Define deadlines
+        $morningDeadline = CarbonImmutable::parse($date)->setTime(10, 0, 0);
+        $eveningDeadline = CarbonImmutable::parse($date)->setTime(14, 30, 0);
+
+        $rankings = [];
+        $submittedCount = 0;
+        $onTimeCount = 0;
+        $lateCount = 0;
+
+        foreach ($scope['schools'] as $school) {
+            $submission = $submissions->get($school->id);
+            $sectorId = $school->parent_id;
+
+            // Determine which shift to use
+            $isMorning = in_array($shiftType, ['morning', 'all']);
+            $isEvening = in_array($shiftType, ['evening', 'all']);
+
+            $morningSubmittedAt = $submission?->first_morning_submission
+                ? CarbonImmutable::parse($submission->first_morning_submission)
+                : null;
+            $eveningSubmittedAt = $submission?->first_evening_submission
+                ? CarbonImmutable::parse($submission->first_evening_submission)
+                : null;
+
+            // Calculate status for each shift
+            $morningData = $this->calculateShiftData(
+                $morningSubmittedAt,
+                $morningDeadline,
+                $submission?->morning_classes ?? 0,
+                'morning'
+            );
+            $eveningData = $this->calculateShiftData(
+                $eveningSubmittedAt,
+                $eveningDeadline,
+                $submission?->evening_classes ?? 0,
+                'evening'
+            );
+
+            // Use the earliest submission for ranking
+            $primaryData = null;
+            if ($isMorning && $morningData['submitted']) {
+                $primaryData = $morningData;
+            } elseif ($isEvening && $eveningData['submitted']) {
+                $primaryData = $eveningData;
+            } elseif ($isMorning && $isEvening) {
+                // Both shifts - use the earlier one
+                if ($morningData['submitted'] && $eveningData['submitted']) {
+                    $primaryData = $morningData['submitted_at']->lte($eveningData['submitted_at'])
+                        ? $morningData
+                        : $eveningData;
+                } elseif ($morningData['submitted']) {
+                    $primaryData = $morningData;
+                } elseif ($eveningData['submitted']) {
+                    $primaryData = $eveningData;
+                }
+            }
+
+            if ($primaryData && $primaryData['submitted']) {
+                $submittedCount++;
+                if ($primaryData['is_late']) {
+                    $lateCount++;
+                } else {
+                    $onTimeCount++;
+                }
+            }
+
+            $rankings[] = [
+                'school_id' => $school->id,
+                'name' => $school->name,
+                'sector_id' => $sectorId,
+                'sector_name' => $sectorNamesById->get($sectorId, 'Naməlum'),
+                'shift_type' => $primaryData ? $primaryData['shift_type'] : null,
+                'deadline_time' => $primaryData ? $primaryData['deadline_time'] : null,
+                'submitted_at' => $primaryData ? $primaryData['submitted_at']->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'is_late' => $primaryData ? $primaryData['is_late'] : false,
+                'late_minutes' => $primaryData ? $primaryData['late_minutes'] : 0,
+                'classes_count' => $primaryData ? $primaryData['classes_count'] : 0,
+                'status' => $this->getRankingStatus($primaryData),
+                'morning' => [
+                    'submitted' => $morningData['submitted'],
+                    'submitted_at' => $morningData['submitted'] ? $morningData['submitted_at']->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                    'is_late' => $morningData['is_late'],
+                    'late_minutes' => $morningData['late_minutes'],
+                ],
+                'evening' => [
+                    'submitted' => $eveningData['submitted'],
+                    'submitted_at' => $eveningData['submitted'] ? $eveningData['submitted_at']->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                    'is_late' => $eveningData['is_late'],
+                    'late_minutes' => $eveningData['late_minutes'],
+                ],
+            ];
+        }
+
+        // Sort by submission time (earliest first), then by school name
+        usort($rankings, function ($a, $b) {
+            // Submitted schools first
+            if ($a['submitted_at'] === null && $b['submitted_at'] !== null) {
+                return 1;
+            }
+            if ($a['submitted_at'] !== null && $b['submitted_at'] === null) {
+                return -1;
+            }
+            // By submission time (earlier first)
+            if ($a['submitted_at'] && $b['submitted_at']) {
+                $cmp = strcmp($a['submitted_at'], $b['submitted_at']);
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+            }
+
+            // By name if same time
+            return strcmp($a['name'], $b['name']);
+        });
+
+        return [
+            'date' => $date,
+            'shift_type' => $shiftType,
+            'morning_deadline' => $morningDeadline->toDateTimeString(),
+            'evening_deadline' => $eveningDeadline->toDateTimeString(),
+            'schools' => $rankings,
+            'summary' => [
+                'total_schools' => count($schoolIds),
+                'submitted_count' => $submittedCount,
+                'on_time_count' => $onTimeCount,
+                'late_count' => $lateCount,
+                'not_submitted_count' => count($schoolIds) - $submittedCount,
+            ],
+        ];
+    }
+
+    /**
+     * Calculate shift-specific data for rankings.
+     */
+    private function calculateShiftData(
+        ?CarbonImmutable $submittedAt,
+        CarbonImmutable $deadline,
+        int $classesCount,
+        string $shiftType
+    ): array {
+        if ($submittedAt === null) {
+            return [
+                'submitted' => false,
+                'submitted_at' => null,
+                'deadline' => $deadline,
+                'deadline_time' => $shiftType === 'morning' ? '10:00' : '14:30',
+                'shift_type' => $shiftType,
+                'is_late' => false,
+                'late_minutes' => 0,
+                'classes_count' => $classesCount,
+            ];
+        }
+
+        $isLate = $submittedAt->gt($deadline);
+        $lateMinutes = $isLate ? (int) round($submittedAt->diffInMinutes($deadline, false) * -1) : 0;
+
+        return [
+            'submitted' => true,
+            'submitted_at' => $submittedAt,
+            'deadline' => $deadline,
+            'deadline_time' => $shiftType === 'morning' ? '10:00' : '14:30',
+            'shift_type' => $shiftType,
+            'is_late' => $isLate,
+            'late_minutes' => $lateMinutes,
+            'classes_count' => $classesCount,
+        ];
+    }
+
+    /**
+     * Get human-readable status for ranking.
+     */
+    private function getRankingStatus(?array $data): string
+    {
+        if ($data === null || ! $data['submitted']) {
+            return 'not_submitted';
+        }
+        if ($data['is_late']) {
+            return 'late';
+        }
+
+        return 'on_time';
     }
 }
