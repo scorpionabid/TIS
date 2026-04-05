@@ -293,6 +293,10 @@ class RegionTeacherController extends Controller
      */
     public function import(ImportTeacherRequest $request): JsonResponse
     {
+        // Increase limits for bulk import (3000+ teachers)
+        set_time_limit(600); // 10 minutes
+        ini_set('memory_limit', '512M');
+
         try {
             $region = $this->resolvePrimaryInstitution();
             $strategy = $request->input('strategy', 'strict');
