@@ -113,8 +113,12 @@ info "Core seeders yoxlanılır (yalnız role/permission)..."
 docker exec atis_backend php artisan db:seed --class=RoleSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force 2>&1
+docker exec atis_backend php artisan db:seed --class=RegionAdminTeacherPermissionsSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=RegionOperatorPermissionSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=RegionAdminPermissionBalanceSeeder --force 2>&1
+docker exec atis_backend php artisan db:seed --class=SystemConfigSeeder --force 2>&1
+docker exec atis_backend php artisan db:seed --class=OlympiadLevelConfigSeeder --force 2>&1
+docker exec atis_backend php artisan db:seed --class=GrowthBonusConfigSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=SektorAdminRatingPermissionSeeder --force 2>&1
 ok "Core seeders tamamdır"
 

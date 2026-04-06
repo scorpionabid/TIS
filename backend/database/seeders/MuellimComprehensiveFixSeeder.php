@@ -154,8 +154,8 @@ class MuellimComprehensiveFixSeeder extends Seeder
             'informatika'                       => 10,
             'musiqi'                            => 11,
             'təsviri incəsənət'                 => 12,
-            'fiziki tərbiyə'                    => 13,
-            'fiziki-tərbiyə'                    => 13,
+            'fiziki tərbiyə'                    => 16,
+            'fiziki-tərbiyə'                    => 16,
             'texnologiya'                       => 19,
         ];
 
