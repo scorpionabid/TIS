@@ -31,15 +31,12 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
   }, [currentUser?.role]);
 
   const hasAccess = moduleAccess.canView;
-  const regionOperatorView = normalizedRole === 'regionoperator' && moduleAccess.canView;
 
   const canSeeRegionTab = Boolean(
-    normalizedRole &&
-      (["superadmin", "regionadmin"].includes(normalizedRole) || regionOperatorView)
+    normalizedRole && ["superadmin", "regionadmin"].includes(normalizedRole)
   );
   const canSeeSectorTab = Boolean(
-    normalizedRole &&
-      (["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole) || regionOperatorView)
+    normalizedRole && ["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole)
   );
 
   const availableTabs = useMemo(
@@ -49,10 +46,10 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
           canSeeRegionTab && { value: "region" as const, label: "Regional Tapşırıqlar" },
           canSeeSectorTab && { value: "sector" as const, label: "Sektor Tapşırıqları" },
           hasAccess && { value: "assigned" as const, label: "Təyin olunmuş" },
-          hasAccess && { value: "delegations" as const, label: "Yönləndirilmiş" },
+          hasAccess && normalizedRole !== "schooladmin" && { value: "delegations" as const, label: "Yönləndirilmiş" },
         ].filter(Boolean) as TaskTab[]
       ),
-    [canSeeRegionTab, canSeeSectorTab, hasAccess]
+    [canSeeRegionTab, canSeeSectorTab, hasAccess, normalizedRole]
   );
 
   const [activeTab, setActiveTab] = useState<TaskTabValue>("region");

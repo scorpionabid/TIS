@@ -205,6 +205,8 @@ export const improvedNavigationConfig: MenuGroup[] = [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
           USER_ROLES.SEKTORADMIN,
+          USER_ROLES.REGIONOPERATOR,
+          USER_ROLES.SCHOOLADMIN,
         ],
       },
       {
