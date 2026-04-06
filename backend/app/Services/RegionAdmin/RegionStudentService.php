@@ -169,7 +169,7 @@ class RegionStudentService
         $byGradeLevel = (clone $filtered)
             ->select('grade_level', DB::raw('COUNT(*) as count'))
             ->groupBy('grade_level')
-            ->orderByRaw('CAST(grade_level AS INTEGER) ASC')
+            ->orderByRaw("CAST(NULLIF(grade_level, '') AS INTEGER) ASC NULLS LAST")
             ->pluck('count', 'grade_level')
             ->toArray();
 
