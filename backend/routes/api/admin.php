@@ -81,7 +81,7 @@ Route::middleware('role:superadmin')->group(function () {
 });
 
 // User bulk import/export operations
-Route::prefix('users/bulk')->middleware('permission:users.write')->group(function () {
+Route::prefix('users/bulk')->middleware('permission:users.write|users.create')->group(function () {
     Route::post('activate', [App\Http\Controllers\UserBulkController::class, 'activate']);
     Route::post('deactivate', [App\Http\Controllers\UserBulkController::class, 'deactivate']);
     Route::post('assign-role', [App\Http\Controllers\UserBulkController::class, 'assignRole']);

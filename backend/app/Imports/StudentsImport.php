@@ -10,13 +10,17 @@ use App\Models\UserProfile;
 use App\Services\UtisCodeService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\OnEachRow;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
+use Maatwebsite\Excel\Validators\Failure;
+use Maatwebsite\Excel\Row;
 
-class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
+class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation, SkipsOnFailure, SkipsEmptyRows
 {
     protected $institution;
 
@@ -24,111 +28,119 @@ class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
 
     protected $successCount = 0;
 
+    protected $updatedCount = 0;
+
     public function __construct($institution)
     {
         $this->institution = $institution;
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * Process each row
      */
-    public function model(array $row)
+    public function onRow(Row $row)
     {
+        $rowIndex = $row->getIndex();
+        $data = $row->toArray();
+
         try {
-            Log::info('Processing student import row:', $row);
-
-            // Validate required fields
-            if (empty($row['first_name']) || empty($row['last_name']) || empty($row['date_of_birth'])) {
-                Log::warning('Skipping row due to missing required fields:', $row);
-
-                return;
+            // Find existing student by UTIS code (via Profile) or Email
+            $utisCode = ! empty($data['utis_code']) ? trim($data['utis_code']) : null;
+            
+            if (!$utisCode) {
+                throw new \Exception('UTİS kod daxil edilməyib');
             }
 
-            // Generate username from name
-            $firstName = trim($row['first_name']);
-            $lastName = trim($row['last_name']);
-            $baseUsername = strtolower($firstName . '_' . $lastName);
-            $username = $this->generateUniqueUsername($baseUsername);
+            $user = User::whereHas('profile', function($q) use ($utisCode) {
+                    $q->where('utis_code', $utisCode);
+                })
+                ->orWhere('email', $data['email'])
+                ->first();
 
-            // Generate email if not provided
-            $email = ! empty($row['email']) ? $row['email'] : $username . '@student.local';
-
-            // Validate email uniqueness
-            if (User::where('email', $email)->exists()) {
-                $email = $username . '_' . time() . '@student.local';
-            }
+            $isUpdate = !!$user;
 
             // Find grade if specified
             $grade = null;
-            if (! empty($row['grade_name'])) {
-                $grade = Grade::where('name', $row['grade_name'])
+            if (! empty($data['grade_name'])) {
+                $grade = Grade::where('name', $data['grade_name'])
                     ->where('institution_id', $this->institution->id)
                     ->first();
             }
 
-            // Create user
-            $user = User::create([
-                'username' => $username,
-                'email' => $email,
-                'password' => Hash::make('student123'),
-                'institution_id' => $this->institution->id,
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]);
+            if ($isUpdate) {
+                // Update existing user
+                $user->update([
+                    'institution_id' => $this->institution->id,
+                ]);
+                $this->updatedCount++;
+            } else {
+                // Create new user (check if username exists handled by generateUniqueUsername)
+                $firstName = trim($data['first_name']);
+                $lastName = trim($data['last_name']);
+                $baseUsername = strtolower($firstName . '_' . $lastName);
+                $username = $this->generateUniqueUsername($baseUsername);
 
-            // Assign student role
-            $user->assignRole('şagird');
+                // Use provided email or generate a default one
+                $email = ! empty($data['email']) ? $data['email'] : $username . '@student.local';
 
-            // Generate UTIS code
-            $utisCode = ! empty($row['utis_code']) && strlen($row['utis_code']) === 7
-                ? $row['utis_code']
-                : UtisCodeService::generateUserUtisCode();
-
-            // Validate UTIS code uniqueness
-            if (UserProfile::where('utis_code', $utisCode)->exists()) {
-                $utisCode = UtisCodeService::generateUserUtisCode();
+                $user = User::create([
+                    'username' => $username,
+                    'email' => $email,
+                    'password' => Hash::make('student123'),
+                    'institution_id' => $this->institution->id,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]);
+                
+                // Assign student role
+                $user->assignRole('şagird');
+                $this->successCount++;
             }
 
-            // Create user profile
-            $user->profile()->create([
+            // Handle Profile
+            $profileData = [
+                'first_name' => trim($data['first_name']),
+                'last_name' => trim($data['last_name']),
+                'birth_date' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
+                'gender' => ! empty($data['gender']) ? $data['gender'] : null,
                 'utis_code' => $utisCode,
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'birth_date' => $row['date_of_birth'],
-                'gender' => ! empty($row['gender']) ? $row['gender'] : null,
-                'enrollment_date' => ! empty($row['enrollment_date']) ? $row['enrollment_date'] : now()->format('Y-m-d'),
-                'address' => '',
-            ]);
+                'enrollment_date' => ! empty($data['enrollment_date']) ? $data['enrollment_date'] : now()->format('Y-m-d'),
+                'address' => $data['address'] ?? '',
+            ];
 
-            // Create enrollment if grade is found
+            if ($user->profile) {
+                $user->profile->update($profileData);
+            } else {
+                $user->profile()->create($profileData);
+            }
+
+            // Handle Enrollment
             if ($grade) {
                 $currentAcademicYear = AcademicYear::where('is_active', true)->first();
                 if ($currentAcademicYear) {
                     $studentNumber = $this->generateStudentNumber();
 
-                    StudentEnrollment::create([
-                        'student_id' => $user->id,
-                        'grade_id' => $grade->id,
-                        'academic_year_id' => $currentAcademicYear->id,
-                        'student_number' => $studentNumber,
-                        'enrollment_date' => ! empty($row['enrollment_date']) ? $row['enrollment_date'] : now(),
-                        'enrollment_status' => 'active',
-                    ]);
+                    StudentEnrollment::updateOrCreate(
+                        [
+                            'student_id' => $user->id,
+                            'academic_year_id' => $currentAcademicYear->id,
+                        ],
+                        [
+                            'grade_id' => $grade->id,
+                            'student_number' => $studentNumber,
+                            'enrollment_date' => ! empty($data['enrollment_date']) ? $data['enrollment_date'] : now(),
+                            'enrollment_status' => 'active',
+                        ]
+                    );
                 }
             }
 
-            $this->successCount++;
-            Log::info('Successfully imported student:', ['user_id' => $user->id, 'utis_code' => $utisCode]);
-
-            return $user;
         } catch (\Exception $e) {
-            Log::error('Error importing student:', [
-                'row' => $row,
-                'error' => $e->getMessage(),
-            ]);
-            $this->errors[] = 'Row error: ' . $e->getMessage();
-
-            return;
+            Log::error("Error at row {$rowIndex}: " . $e->getMessage());
+            $this->errors[] = [
+                'row' => $rowIndex,
+                'errors' => ["Sistem xətası: " . $e->getMessage()]
+            ];
         }
     }
 
@@ -138,14 +150,65 @@ class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
     public function rules(): array
     {
         return [
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'date_of_birth' => 'required|date|before:today',
-            'gender' => 'nullable|in:male,female,other',
-            'grade_name' => 'nullable|string',
-            'utis_code' => 'nullable|string|max:20|unique:user_profiles,utis_code',
-            'enrollment_date' => 'nullable|date',
+            '*.first_name'      => 'required|string|max:255',
+            '*.last_name'       => 'required|string|max:255',
+            '*.date_of_birth'   => 'required|date|before:today',
+            '*.gender'          => 'nullable|in:male,female,other',
+            '*.grade_name'      => 'nullable|string',
+            '*.utis_code'       => 'required|digits:7',
+            '*.enrollment_date' => 'nullable|date',
+            '*.email'           => 'nullable|email|max:255',
         ];
+    }
+
+    /**
+     * Custom validation messages in Azerbaijani
+     */
+    public function customValidationMessages(): array
+    {
+        return [
+            '*.first_name.required'    => 'Ad daxil edilməlidir',
+            '*.last_name.required'     => 'Soyad daxil edilməlidir',
+            '*.date_of_birth.required' => 'Doğum tarixi daxil edilməlidir',
+            '*.date_of_birth.date'     => 'Doğum tarixi düzgün formatda deyil (YYYY-MM-DD)',
+            '*.date_of_birth.before'   => 'Doğum tarixi bu günün tarixindən əvvəl olmalıdır',
+            '*.utis_code.required'     => 'UTİS kodu daxil edilməlidir (7 rəqəm)',
+            '*.utis_code.size'         => 'UTİS kodu tam 7 simvol olmalıdır',
+            '*.gender.in'              => 'Cins yalnız "male", "female" və ya "other" ola bilər',
+            '*.email.email'            => 'E-poçt düzgün formatda deyil',
+        ];
+    }
+
+    /**
+     * Human-readable attribute names in Azerbaijani
+     */
+    public function customValidationAttributes(): array
+    {
+        return [
+            '*.first_name'      => 'Ad',
+            '*.last_name'       => 'Soyad',
+            '*.date_of_birth'   => 'Doğum tarixi',
+            '*.gender'          => 'Cins',
+            '*.grade_name'      => 'Sinif adı',
+            '*.utis_code'       => 'UTİS kodu',
+            '*.enrollment_date' => 'Qeydiyyat tarixi',
+            '*.email'           => 'E-poçt',
+        ];
+    }
+
+    /**
+     * Capture validation failures
+     */
+    public function onFailure(Failure ...$failures)
+    {
+        foreach ($failures as $failure) {
+            $this->errors[] = [
+                'row' => $failure->row(),
+                'attribute' => $failure->attribute(),
+                'errors' => $failure->errors(),
+                'values' => $failure->values()
+            ];
+        }
     }
 
     /**
@@ -198,5 +261,10 @@ class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
     public function getSuccessCount()
     {
         return $this->successCount;
+    }
+
+    public function getUpdatedCount()
+    {
+        return $this->updatedCount;
     }
 }

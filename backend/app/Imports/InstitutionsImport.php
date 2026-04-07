@@ -140,7 +140,7 @@ class InstitutionsImport implements ToModel, WithBatchInserts, WithChunkReading,
             'parent_name' => 'nullable|string',
             'region_code' => 'nullable|string|max:10',
             'institution_code' => 'nullable|string|max:50',
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|max:20',
             'email' => 'nullable|email',
             'region' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:500',
@@ -148,7 +148,7 @@ class InstitutionsImport implements ToModel, WithBatchInserts, WithChunkReading,
             'staff_count' => 'nullable|integer|min:1',
             'founded_year' => 'nullable|integer|min:1900|max:' . date('Y'),
             'established_date' => 'nullable|date',
-            'utis_code' => 'nullable|string|regex:/^\d{7,10}$/|unique:institutions,utis_code',
+            'utis_code' => 'nullable|digits_between:7,10|unique:institutions,utis_code',
         ];
     }
 

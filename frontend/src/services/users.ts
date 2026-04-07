@@ -410,53 +410,31 @@ class UserService {
     formData.append('file', file);
     formData.append('role_id', roleId);
 
-    const response = await fetch(`${apiClient['baseURL']}/users/bulk/import`, {
-      method: 'POST',
-      headers: {
-        ...apiClient['getHeaders'](),
-        'Content-Type': undefined, // Let the browser set the content type for FormData
-      },
-      body: formData,
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || result.error || 'Import failed');
-    }
-
-    return result;
+    return apiClient.post('/users/bulk/import', formData);
   }
 
   async exportUsersByRole(roleId: string, filters?: any): Promise<Blob> {
-    const response = await fetch(`${apiClient['baseURL']}/users/bulk/export`, {
-      method: 'POST',
-      headers: apiClient['getHeaders'](),
-      body: JSON.stringify({
-        role_id: roleId,
-        filters: filters || {}
-      }),
-    });
+    const response = await apiClient.post<Blob>('/users/bulk/export', {
+      role_id: roleId,
+      filters: filters || {}
+    }, { responseType: 'blob' });
 
-    if (!response.ok) {
-      throw new Error('Export failed');
+    if (!response.data) {
+      throw new Error('Export mapping failed');
     }
 
-    return response.blob();
+    return response.data;
   }
 
   // Legacy methods for backward compatibility with other pages
   async downloadTemplate(userType: 'teachers' | 'students' | 'staff'): Promise<Blob> {
-    const response = await fetch(`${apiClient['baseURL']}/users/bulk/download-template?user_type=${userType}`, {
-      method: 'GET',
-      headers: apiClient['getHeaders'](),
-    });
-
-    if (!response.ok) {
+    const response = await apiClient.get<Blob>('/users/bulk/download-template', { user_type: userType }, { responseType: 'blob' });
+    
+    if (!response.data) {
       throw new Error('Template download failed');
     }
-
-    return response.blob();
+    
+    return response.data;
   }
 
   async importUsers(file: File, userType: 'teachers' | 'students' | 'staff'): Promise<any> {
@@ -464,22 +442,7 @@ class UserService {
     formData.append('file', file);
     formData.append('user_type', userType);
 
-    const response = await fetch(`${apiClient['baseURL']}/users/bulk/import`, {
-      method: 'POST',
-      headers: {
-        ...apiClient['getHeaders'](),
-        'Content-Type': undefined, // Let the browser set the content type for FormData
-      },
-      body: formData,
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || result.error || 'Import failed');
-    }
-
-    return result;
+    return apiClient.post('/users/bulk/import', formData);
   }
 
   async exportUsersByType(userType: 'teachers' | 'students' | 'staff', filters?: any): Promise<Blob> {

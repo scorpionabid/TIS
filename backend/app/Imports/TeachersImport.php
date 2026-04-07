@@ -8,13 +8,17 @@ use App\Models\UserProfile;
 use App\Services\UtisCodeService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\OnEachRow;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
+use Maatwebsite\Excel\Validators\Failure;
+use Maatwebsite\Excel\Row;
 
-class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
+class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation, SkipsOnFailure, SkipsEmptyRows
 {
     protected $institution;
 
@@ -22,101 +26,106 @@ class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
 
     protected $successCount = 0;
 
+    protected $updatedCount = 0;
+
     public function __construct($institution)
     {
         $this->institution = $institution;
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * Process each row
      */
-    public function model(array $row)
+    public function onRow(Row $row)
     {
+        $rowIndex = $row->getIndex();
+        $data = $row->toArray();
+
         try {
-            Log::info('Processing teacher import row:', $row);
-
-            // Validate required fields
-            if (empty($row['first_name']) || empty($row['last_name']) || empty($row['email'])) {
-                Log::warning('Skipping row due to missing required fields:', $row);
-
-                return;
+            // Find existing user by UTIS code (via Profile) or Email
+            $utisCode = ! empty($data['utis_code']) ? trim($data['utis_code']) : null;
+            
+            if (!$utisCode) {
+                // This shouldn't happen due to validation rules, but safe check
+                throw new \Exception('UTİS kod daxil edilməyib');
             }
 
-            // Check email uniqueness
-            if (User::where('email', $row['email'])->exists()) {
-                Log::warning('Skipping row due to duplicate email:', $row);
+            $user = User::whereHas('profile', function($q) use ($utisCode) {
+                    $q->where('utis_code', $utisCode);
+                })
+                ->orWhere('email', $data['email'])
+                ->first();
 
-                return;
-            }
-
-            // Generate username from email
-            $baseUsername = explode('@', $row['email'])[0];
-            $username = $this->generateUniqueUsername($baseUsername);
+            $isUpdate = !!$user;
 
             // Find department if specified
-            $department = null;
-            if (! empty($row['department_name'])) {
-                $department = Department::where('name', $row['department_name'])
+            $departmentId = null;
+            if (! empty($data['department_name'])) {
+                $department = Department::where('name', $data['department_name'])
                     ->where('institution_id', $this->institution->id)
                     ->first();
+                $departmentId = $department ? $department->id : null;
             }
 
-            // Validate position
-            $position = ! empty($row['position']) ? $row['position'] : 'müəllim';
+            // Validate and map position to role
+            $position = ! empty($data['position']) ? $data['position'] : 'müəllim';
             $validPositions = ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat'];
             if (! in_array($position, $validPositions)) {
                 $position = 'müəllim';
             }
 
-            // Create user
-            $user = User::create([
-                'username' => $username,
-                'email' => $row['email'],
-                'password' => Hash::make('temp123'),
-                'institution_id' => $this->institution->id,
-                'department_id' => $department ? $department->id : null,
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]);
+            if ($isUpdate) {
+                // Update existing user
+                $user->update([
+                    'institution_id' => $this->institution->id,
+                    'department_id' => $departmentId ?? $user->department_id,
+                ]);
+                $this->updatedCount++;
+            } else {
+                // Create new user (check if username exists handled by generateUniqueUsername)
+                $baseUsername = explode('@', $data['email'])[0];
+                $username = $this->generateUniqueUsername($baseUsername);
 
-            // Assign role
-            $user->assignRole($position);
-
-            // Generate UTIS code
-            $utisCode = ! empty($row['utis_code']) && strlen($row['utis_code']) === 7
-                ? $row['utis_code']
-                : UtisCodeService::generateUserUtisCode();
-
-            // Validate UTIS code uniqueness
-            if (UserProfile::where('utis_code', $utisCode)->exists()) {
-                $utisCode = UtisCodeService::generateUserUtisCode();
+                $user = User::create([
+                    'username' => $username,
+                    'email' => $data['email'],
+                    'password' => Hash::make('temp123'),
+                    'institution_id' => $this->institution->id,
+                    'department_id' => $departmentId,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]);
+                $this->successCount++;
             }
 
-            // Create user profile
-            $user->profile()->create([
-                'utis_code' => $utisCode,
-                'first_name' => trim($row['first_name']),
-                'last_name' => trim($row['last_name']),
-                'birth_date' => ! empty($row['date_of_birth']) ? $row['date_of_birth'] : null,
-                'gender' => ! empty($row['gender']) ? $row['gender'] : null,
-                'contact_phone' => ! empty($row['phone']) ? $row['phone'] : null,
-                'address' => ! empty($row['address']) ? $row['address'] : '',
-                'education_history' => ! empty($row['education']) ? json_encode([$row['education']]) : null,
-                'employment_history' => ! empty($row['experience']) ? json_encode([$row['experience']]) : null,
-            ]);
+            // Sync Role (Always keep it up to date with file)
+            $user->syncRoles([$position]);
 
-            $this->successCount++;
-            Log::info('Successfully imported teacher:', ['user_id' => $user->id, 'utis_code' => $utisCode]);
+            // Handle Profile
+            $profileData = [
+                'first_name' => trim($data['first_name']),
+                'last_name' => trim($data['last_name']),
+                'birth_date' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
+                'gender' => ! empty($data['gender']) ? $data['gender'] : null,
+                'contact_phone' => ! empty($data['phone']) ? $data['phone'] : null,
+                'address' => ! empty($data['address']) ? $data['address'] : '',
+                'utis_code' => $utisCode
+            ];
 
-            return $user;
+            if ($user->profile) {
+                // Update profile
+                $user->profile->update($profileData);
+            } else {
+                // Create profile
+                $user->profile()->create($profileData);
+            }
+
         } catch (\Exception $e) {
-            Log::error('Error importing teacher:', [
-                'row' => $row,
-                'error' => $e->getMessage(),
-            ]);
-            $this->errors[] = 'Row error: ' . $e->getMessage();
-
-            return;
+            Log::error("Error at row {$rowIndex}: " . $e->getMessage());
+            $this->errors[] = [
+                'row' => $rowIndex,
+                'errors' => ["Sistem xətası: " . $e->getMessage()]
+            ];
         }
     }
 
@@ -126,23 +135,73 @@ class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
     public function rules(): array
     {
         return [
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'nullable|string|max:20',
-            'date_of_birth' => 'nullable|date|before:today',
-            'gender' => 'nullable|in:male,female',
-            'position' => 'nullable|string|in:müəllim,muavin,təşkilatçı,psixoloq,tesarrufat',
-            'department_name' => 'nullable|string',
-            'address' => 'nullable|string|max:500',
-            'education' => 'nullable|string',
-            'experience' => 'nullable|string',
-            'utis_code' => 'nullable|string|size:7|unique:user_profiles,utis_code',
+            '*.first_name'      => 'required|string|max:255',
+            '*.last_name'       => 'required|string|max:255',
+            '*.email'           => 'required|email|max:255',
+            '*.phone'           => 'nullable|max:20',
+            '*.date_of_birth'   => 'nullable|date|before:today',
+            '*.gender'          => 'nullable|in:male,female',
+            '*.position'        => 'nullable|string',
+            '*.department_name' => 'nullable|string',
+            '*.utis_code'       => 'required|digits:7',
         ];
     }
 
     /**
-     * Generate unique username
+     * Custom validation messages in Azerbaijani
+     * Detected automatically by RowValidator via method_exists()
+     */
+    public function customValidationMessages(): array
+    {
+        return [
+            '*.first_name.required'    => 'Ad daxil edilməlidir',
+            '*.last_name.required'     => 'Soyad daxil edilməlidir',
+            '*.email.required'         => 'E-poçt daxil edilməlidir',
+            '*.email.email'            => 'E-poçt düzgün formatda deyil',
+            '*.utis_code.required'     => 'UTİS kodu daxil edilməlidir (7 rəqəm)',
+            '*.utis_code.size'         => 'UTİS kodu tam 7 simvol olmalıdır',
+            '*.date_of_birth.date'     => 'Doğum tarixi düzgün formatda deyil (YYYY-MM-DD)',
+            '*.date_of_birth.before'   => 'Doğum tarixi bu günün tarixindən əvvəl olmalıdır',
+            '*.gender.in'              => 'Cins yalnız "male" və ya "female" ola bilər',
+        ];
+    }
+
+    /**
+     * Human-readable attribute names in Azerbaijani
+     * Detected automatically by RowValidator via method_exists()
+     */
+    public function customValidationAttributes(): array
+    {
+        return [
+            '*.first_name'      => 'Ad',
+            '*.last_name'       => 'Soyad',
+            '*.email'           => 'E-poçt',
+            '*.phone'           => 'Telefon',
+            '*.date_of_birth'   => 'Doğum tarixi',
+            '*.gender'          => 'Cins',
+            '*.position'        => 'Vəzifə',
+            '*.department_name' => 'Şöbə adı',
+            '*.utis_code'       => 'UTİS kodu',
+        ];
+    }
+
+    /**
+     * Capture validation failures
+     */
+    public function onFailure(Failure ...$failures)
+    {
+        foreach ($failures as $failure) {
+            $this->errors[] = [
+                'row' => $failure->row(),
+                'attribute' => $failure->attribute(),
+                'errors' => $failure->errors(),
+                'values' => $failure->values()
+            ];
+        }
+    }
+
+    /**
+     * Generate unique username from email prefix
      */
     private function generateUniqueUsername($baseUsername)
     {
@@ -159,12 +218,12 @@ class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
 
     public function batchSize(): int
     {
-        return 50;
+        return 100;
     }
 
     public function chunkSize(): int
     {
-        return 50;
+        return 100;
     }
 
     public function getErrors()
@@ -175,5 +234,10 @@ class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
     public function getSuccessCount()
     {
         return $this->successCount;
+    }
+
+    public function getUpdatedCount()
+    {
+        return $this->updatedCount;
     }
 }

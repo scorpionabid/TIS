@@ -10,6 +10,9 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
+    /**
+     * Return example rows for teacher roles
+     */
     public function array(): array
     {
         return [
@@ -20,12 +23,12 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
                 '+994701234567',
                 '1985-08-12',
                 'female',
-                'müəllim',
+                'müəllim', // Əsas vəzifə
                 'Riyaziyyat şöbəsi',
                 'Bakı şəhəri, Səbail rayonu',
                 'Ali təhsil - Azərbaycan Dövlət Pedaqoji Universiteti, 2005',
                 '15 il pedaqoji iş stajı',
-                '', // UTIS avtomatik yaradılacaq
+                '1234567', // UTIS kodu (Məcburi)
             ],
             [
                 'Rəşad',
@@ -34,16 +37,47 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
                 '+994551234567',
                 '1980-12-05',
                 'male',
-                'muavin',
+                'muavin', // Direktor müavini kimi müəllim
                 'Tarix şöbəsi',
                 'Bakı şəhəri, Nəsimi rayonu',
                 'Magistr - Bakı Dövlət Universiteti, 2002',
                 '20 il pedaqoji iş stajı',
-                '', // UTIS avtomatik yaradılacaq
+                '2345678', // UTIS kodu (Məcburi)
+            ],
+            [
+                'Zaur',
+                'Hüseynov',
+                'zaur.huseynov@edu.az',
+                '+994503332211',
+                '1982-04-15',
+                'male',
+                'təşkilatçı', // Təşkilatçı rolunda müəllim
+                'Təsviri incəsənət',
+                'Bakı şəhəri, Yasamal rayonu',
+                'Ali təhsil',
+                '12 il staj',
+                '7654321',
+            ],
+            [
+                'Leyla',
+                'Qasımova',
+                'leyla.qasimova@edu.az',
+                '+994557778899',
+                '1990-11-20',
+                'female',
+                'psixoloq', // Məktəb psixoloqu
+                'Psixoloji xidmət',
+                'Bakı şəhəri, Xətai rayonu',
+                'Magistr (Psixologiya)',
+                '8 il staj',
+                '3456789',
             ],
         ];
     }
 
+    /**
+     * Column headers (Technical keys for the importer)
+     */
     public function headings(): array
     {
         return [
@@ -56,19 +90,25 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
             'position',        // Vəzifə (müəllim/muavin/təşkilatçı/psixoloq/tesarrufat)
             'department_name', // Şöbə adı
             'address',         // Ünvan
-            'education',       // Təhsil
-            'experience',      // Təcrübə
-            'utis_code',       // UTİS kodu (7 simvol, boş buraxıla bilər)
+            'education',       // Təhsil məlumatı
+            'experience',      // İş təcrübəsi
+            'utis_code',       // UTİS kodu (7 simvol)
         ];
     }
 
+    /**
+     * Style the header row
+     */
     public function styles(Worksheet $sheet)
     {
         return [
-            1 => ['font' => ['bold' => true, 'size' => 12]],
+            1 => ['font' => ['bold' => true, 'size' => 12], 'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'E9F5FF']]],
         ];
     }
 
+    /**
+     * Set column widths
+     */
     public function columnWidths(): array
     {
         return [

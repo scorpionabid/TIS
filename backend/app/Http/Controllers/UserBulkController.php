@@ -17,6 +17,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Illuminate\Support\Facades\Hash;
 
 class UserBulkController extends BaseController
 {
@@ -211,7 +214,7 @@ class UserBulkController extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'user_type' => 'nullable|string|in:teachers,students,staff',
-                'role_id' => 'nullable|string|exists:roles,name',
+                'role_id' => 'nullable|string',
             ]);
 
             $user = Auth::user();
@@ -245,16 +248,19 @@ class UserBulkController extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'file' => 'required|file|mimes:xlsx,xls|max:10240',
-                'user_type' => 'required|string|in:teachers,students,staff',
+                'user_type' => 'nullable|string|in:teachers,students,staff',
+                'role_id' => 'nullable|string', // This is the role name from frontend
             ]);
 
             $file = $validated['file'];
-            $userType = $validated['user_type'];
+            $roleId = $validated['role_id'] ?? null;
+            $userType = $validated['user_type'] ?? ($roleId ? $this->mapRoleToTemplateType($roleId) : 'staff');
+            
             $user = Auth::user();
             $institution = $user->institution;
 
             if (! $institution && ! $user->hasRole('superadmin')) {
-                return $this->error('User must be associated with an institution', 403);
+                return $this->error('İstifadəçi bir təşkilatla əlaqələndirilməlidir', 403);
             }
 
             $results = [];
@@ -265,6 +271,7 @@ class UserBulkController extends BaseController
 
                 $results = [
                     'created' => $import->getSuccessCount(),
+                    'updated' => $import->getUpdatedCount(),
                     'errors' => $import->getErrors(),
                     'type' => 'teachers',
                 ];
@@ -282,9 +289,21 @@ class UserBulkController extends BaseController
                 $results = $this->processStaffImport($file, $institution);
             }
 
-            $message = "İdxal tamamlandı: {$results['created']} {$userType} əlavə edildi";
-            if (! empty($results['errors'])) {
-                $message .= ', ' . count($results['errors']) . ' xəta baş verdi';
+            $created = $results['created'] ?? 0;
+            $updated = $results['updated'] ?? 0;
+            $errorCount = count($results['errors'] ?? []);
+
+            if ($created === 0 && $updated === 0 && $errorCount > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İdxal uğursuz oldu: Heç bir düzgün qeyd tapılmadı. Zəhmət olmasa UTİS kodlarını yoxlayın.',
+                    'errors' => $results['errors']
+                ], 422);
+            }
+
+            $message = "İdxal tamamlandı: {$created} yaradıldı, {$updated} yeniləndi";
+            if ($errorCount > 0) {
+                $message .= ", {$errorCount} xəta baş verdi";
             }
 
             return $this->success($results, $message);
@@ -298,11 +317,13 @@ class UserBulkController extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
-                'user_type' => 'required|string|in:teachers,students,staff',
+                'user_type' => 'nullable|string|in:teachers,students,staff',
+                'role_id' => 'nullable|string', // Support role name from frontend
                 'filters' => 'nullable|array',
             ]);
 
-            $userType = $validated['user_type'];
+            $roleId = $validated['role_id'] ?? null;
+            $userType = $validated['user_type'] ?? ($roleId ? $this->mapRoleToTemplateType($roleId) : 'staff');
             $filters = $validated['filters'] ?? [];
             $user = Auth::user();
             $institution = $user->institution;
@@ -550,67 +571,128 @@ class UserBulkController extends BaseController
     }
 
     /**
-     * Process staff import
+     * Process staff import using header-based column mapping.
+     * Column order in the Excel file does NOT matter — headers are matched by name.
      */
     private function processStaffImport($file, $institution)
     {
-        $data = Excel::toArray([], $file)[0];
-        $headers = array_shift($data); // Remove header row
+        $rows = Excel::toArray(new \stdClass(), $file)[0];
 
+        if (empty($rows)) {
+            return ['created' => 0, 'updated' => 0, 'errors' => ['Fayl boşdur'], 'type' => 'staff'];
+        }
+
+        // Build header → index map from the first row
+        $headerRow = array_map(fn($h) => trim((string) $h), $rows[0]);
+        $colMap = array_flip($headerRow);
+
+        // Helper: get cell value by header name (returns null if column missing or blank)
+        $get = function (array $row, string $col, ?string $default = null) use ($colMap): ?string {
+            if (! array_key_exists($col, $colMap)) {
+                return $default;
+            }
+            $val = trim((string) ($row[$colMap[$col]] ?? ''));
+            return $val !== '' ? $val : $default;
+        };
+
+        $data = array_slice($rows, 1); // skip header row
         $created = 0;
+        $updated = 0;
         $errors = [];
 
         foreach ($data as $rowIndex => $row) {
             try {
-                if (empty($row[0]) || empty($row[1])) {
+                $firstName = $get($row, 'first_name', '');
+                $lastName  = $get($row, 'last_name', '');
+                $utisCode  = $get($row, 'utis_code', '');
+                $email     = $get($row, 'email', '');
+
+                // Skip completely empty rows silently
+                if (empty($firstName) && empty($lastName) && empty($utisCode)) {
                     continue;
-                } // Skip empty rows
-
-                $username = $this->generateUniqueUsername(strtolower($row[0] . '_' . $row[1]));
-                $email = ! empty($row[2]) ? $row[2] : $username . '@staff.local';
-
-                // Check email uniqueness
-                if (User::where('email', $email)->exists()) {
-                    $email = $username . '_' . time() . '@staff.local';
                 }
 
-                $user = User::create([
-                    'username' => $username,
-                    'email' => $email,
-                    'password' => Hash::make('staff123'),
-                    'institution_id' => $institution->id,
-                    'is_active' => ($row[15] ?? 'active') === 'active',
-                    'email_verified_at' => now(),
-                ]);
+                if (empty($firstName) || empty($lastName)) {
+                    $errors[] = 'Sətir ' . ($rowIndex + 2) . ': Ad və ya soyad daxil edilməyib';
+                    continue;
+                }
 
-                // Assign role based on position
-                $position = strtolower($row[7] ?? 'katib');
-                $role = match ($position) {
-                    'psixoloq' => 'psixoloq',
-                    'tesarrufat', 'təsərrüfat' => 'tesarrufat',
-                    default => 'katib'
-                };
+                if (empty($utisCode)) {
+                    $errors[] = 'Sətir ' . ($rowIndex + 2) . ': UTİS kodu daxil edilməyib';
+                    continue;
+                }
 
-                $user->assignRole($role);
+                // Find existing user by UTIS code (via Profile) or Email
+                $userQuery = User::whereHas('profile', fn ($q) => $q->where('utis_code', $utisCode));
+                if (! empty($email)) {
+                    $userQuery->orWhere('email', $email);
+                }
+                $user = $userQuery->first();
 
-                // Create profile
-                $user->profile()->create([
-                    'first_name' => $row[0],
-                    'last_name' => $row[1],
-                    'contact_phone' => $row[3] ?? null,
-                    'birth_date' => $row[4] ?? null,
-                    'gender' => $row[5] ?? null,
-                    'hire_date' => $row[9] ?? null,
-                    'address' => $row[10] ?? null,
+                $isActive = ($get($row, 'status', 'active') === 'active');
+
+                if ($user) {
+                    $user->update([
+                        'institution_id' => $institution?->id,
+                        'is_active' => $isActive,
+                    ]);
+                    $updated++;
+                } else {
+                    $baseUsername = strtolower($firstName . '_' . $lastName);
+                    $username = $this->generateUniqueUsername($baseUsername);
+
+                    if (empty($email)) {
+                        $email = $username . '@staff.local';
+                    }
+
+                    if (User::where('email', $email)->exists()) {
+                        $email = $username . '_' . time() . '@staff.local';
+                    }
+
+                    $user = User::create([
+                        'username'           => $username,
+                        'email'              => $email,
+                        'password'           => Hash::make($get($row, 'password', 'staff123')),
+                        'institution_id'     => $institution?->id,
+                        'is_active'          => $isActive,
+                        'email_verified_at'  => now(),
+                    ]);
+                    $created++;
+                }
+
+                // Assign role (mapped to actual DB role name)
+                $roleName = $this->mapRoleName($get($row, 'role_id', 'muavin'));
+                if (\Spatie\Permission\Models\Role::where('name', $roleName)->exists()) {
+                    $user->syncRoles([$roleName]);
+                } else {
+                    $user->syncRoles(['muavin']);
+                }
+
+                // Create/Update profile
+                $profileData = [
+                    'first_name'        => $firstName,
+                    'last_name'         => $lastName,
+                    'patronymic'        => $get($row, 'patronymic'),
+                    'contact_phone'     => $get($row, 'contact_phone'),
+                    'birth_date'        => $get($row, 'birth_date'),
+                    'gender'            => $get($row, 'gender'),
+                    'national_id'       => $get($row, 'national_id'),
+                    'address'           => $get($row, 'address'),
                     'emergency_contact' => json_encode([
-                        'name' => $row[11] ?? null,
-                        'phone' => $row[12] ?? null,
-                        'email' => $row[13] ?? null,
+                        'name'  => $get($row, 'emergency_contact_name'),
+                        'phone' => $get($row, 'emergency_contact_phone'),
+                        'email' => $get($row, 'emergency_contact_email'),
                     ]),
-                    'notes' => $row[14] ?? null,
-                ]);
+                    'notes'    => $get($row, 'notes'),
+                    'utis_code' => $utisCode,
+                ];
 
-                $created++;
+                if ($user->profile) {
+                    $user->profile->update($profileData);
+                } else {
+                    $user->profile()->create($profileData);
+                }
+
             } catch (\Exception $e) {
                 $errors[] = 'Sətir ' . ($rowIndex + 2) . ': ' . $e->getMessage();
             }
@@ -618,8 +700,9 @@ class UserBulkController extends BaseController
 
         return [
             'created' => $created,
-            'errors' => $errors,
-            'type' => 'staff',
+            'updated' => $updated,
+            'errors'  => $errors,
+            'type'    => 'staff',
         ];
     }
 
@@ -640,55 +723,105 @@ class UserBulkController extends BaseController
     }
 
     /**
-     * Map role name to template type
+     * Map role name to template type (teachers / students / staff)
      */
     private function mapRoleToTemplateType($roleName): string
     {
-        // Common teacher role names
-        if ($this->isTeacherRole($roleName)) {
-            return 'teachers';
-        }
+        // Direct category names passed from frontend
+        if ($roleName === 'teachers') return 'teachers';
+        if ($roleName === 'students') return 'students';
+        if ($roleName === 'staff')    return 'staff';
 
-        // Common student role names
-        if ($this->isStudentRole($roleName)) {
-            return 'students';
-        }
+        if ($this->isTeacherRole($roleName)) return 'teachers';
+        if ($this->isStudentRole($roleName)) return 'students';
 
-        // Everything else is staff/admin
         return 'staff';
     }
 
     /**
-     * Check if role is teacher-related
+     * Map display/import role names to actual DB role names (spatie/laravel-permission)
+     * All mapped values must match exactly the role names in the roles table.
      */
-    private function isTeacherRole($roleName): bool
+    private function mapRoleName(string $name): string
     {
-        $teacherRoles = ['teacher', 'müəllim', 'muellim', 'educator'];
-        $lowerRoleName = strtolower($roleName);
+        $name = str_replace('İ', 'i', $name);
+        $name = mb_strtolower(trim($name), 'UTF-8');
 
-        foreach ($teacherRoles as $teacherRole) {
-            if (strpos($lowerRoleName, $teacherRole) !== false) {
-                return true;
-            }
-        }
+        $map = [
+            // Müəllim
+            'müəllim'   => 'müəllim',
+            'muellim'   => 'müəllim',
+            'müəllimə'  => 'müəllim',
+            'teacher'   => 'müəllim',
+            'teachers'  => 'müəllim',
 
-        return false;
+            // Şagird
+            'şagird'   => 'şagird',
+            'sagird'   => 'şagird',
+            'student'  => 'şagird',
+            'students' => 'şagird',
+
+            // Region operatoru
+            'region operatoru' => 'regionoperator',
+            'regionoperator'   => 'regionoperator',
+            'operator'         => 'regionoperator',
+
+            // Sektor admini
+            'sektor admini' => 'sektoradmin',
+            'sektoradmin'   => 'sektoradmin',
+
+            // Məktəb müdiri
+            'məktəb admini' => 'schooladmin',
+            'schooladmin'   => 'schooladmin',
+
+            // Məktəbəqədər müdir
+            'məktəbəqədər admin' => 'preschooladmin',
+            'preschooladmin'     => 'preschooladmin',
+
+            // Müavin
+            'müavin'           => 'muavin',
+            'direktor müavini' => 'muavin',
+            'muavin'           => 'muavin',
+
+            // Təşkilatçı
+            'təşkilatçı' => 'təşkilatçı',
+            'teskilatci' => 'təşkilatçı',
+
+            // Təsərrüfat
+            'təsərrüfat müdiri' => 'tesarrufat',
+            'tesarrufat'        => 'tesarrufat',
+            'təsərrüfat'        => 'tesarrufat',
+
+            // Psixoloq
+            'psixoloq'    => 'psixoloq',
+            'psychologist' => 'psixoloq',
+
+            // Region admini
+            'regionadmin'  => 'regionadmin',
+            'region admini' => 'regionadmin',
+
+            // Superadmin
+            'superadmin' => 'superadmin',
+        ];
+
+        return $map[$name] ?? $name;
+    }
+
+    /**
+     * Check if role belongs to the pedagogical/teaching staff category
+     * (uses TeacherTemplateExport / TeachersImport)
+     */
+    private function isTeacherRole(string $roleName): bool
+    {
+        $pedagogicalRoles = ['müəllim', 'muavin', 'psixoloq', 'təşkilatçı', 'tesarrufat'];
+        return in_array($this->mapRoleName($roleName), $pedagogicalRoles, true);
     }
 
     /**
      * Check if role is student-related
      */
-    private function isStudentRole($roleName): bool
+    private function isStudentRole(string $roleName): bool
     {
-        $studentRoles = ['student', 'şagird', 'sagird', 'pupil'];
-        $lowerRoleName = strtolower($roleName);
-
-        foreach ($studentRoles as $studentRole) {
-            if (strpos($lowerRoleName, $studentRole) !== false) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->mapRoleName($roleName) === 'şagird';
     }
 }
