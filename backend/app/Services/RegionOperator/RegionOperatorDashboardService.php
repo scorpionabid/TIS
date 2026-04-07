@@ -570,7 +570,7 @@ class RegionOperatorDashboardService
             'inzibati' => 'İnzibati Şöbəsi',
             'təsərrüfat' => 'Təsərrüfat Şöbəsi',
             'müavin' => 'Müavin Şöbəsi',
-            'ubr' => 'UBR Şöbəsi',
+            'təşkilatçı' => 'Təşkilatçı Şöbəsi',
             'psixoloq' => 'Psixoloji Dəstək Şöbəsi',
             'müəllim' => 'Fənn Müəllimləri Şöbəsi',
             'general' => 'Ümumi Şöbə',

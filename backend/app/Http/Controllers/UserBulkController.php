@@ -336,7 +336,7 @@ class UserBulkController extends BaseController
         }
 
         $query->whereHas('roles', function ($q) {
-            $q->whereIn('name', ['müəllim', 'muavin', 'ubr']);
+            $q->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı']);
         });
 
         // Apply filters

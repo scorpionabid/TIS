@@ -95,7 +95,7 @@ class SchoolStaffDashboardController extends Controller
     {
         $allowedRoles = [
             'deputy' => ['müavin'],
-            'academic_officer' => ['ubr', 'tədris_bilimlər_referenti'],
+            'academic_officer' => ['təşkilatçı'],
             'facility_manager' => ['təsərrüfat_müdiri'],
             'psychologist' => ['psixoloq'],
             'teacher' => ['müəllim'],
@@ -173,7 +173,7 @@ class SchoolStaffDashboardController extends Controller
     {
         $names = [
             'deputy' => 'Müavin',
-            'academic_officer' => 'Tədris-Bilimlər Referenti',
+            'academic_officer' => 'Təşkilatçı',
             'facility_manager' => 'Təsərrüfat Müdiri',
             'psychologist' => 'Psixoloq',
             'teacher' => 'Müəllim',

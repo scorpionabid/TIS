@@ -57,8 +57,8 @@ class RoleSeeder extends Seeder
                 'parent_role' => 'schooladmin',
             ],
             [
-                'name' => 'ubr',
-                'display_name' => 'Tədris-Bilimlər Referenti',
+                'name' => 'təşkilatçı',
+                'display_name' => 'Təşkilatçı',
                 'description' => 'Tədbir planlaması, ekskursiyalar və məktəb fəaliyyətləri',
                 'level' => 6,
                 'parent_role' => 'schooladmin',

@@ -47,7 +47,7 @@ interface Event {
   priority: 'low' | 'medium' | 'high';
 }
 
-export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) => {
+export const TeskilatciDashboard: React.FC<{ className?: string }> = ({ className }) => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch dashboard stats
@@ -56,7 +56,7 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
     isLoading: statsLoading,
     refetch: refetchStats 
   } = useQuery({
-    queryKey: [...schoolAdminKeys.dashboardStats(), 'ubr'],
+    queryKey: [...schoolAdminKeys.dashboardStats(), 'teskilatci'],
     queryFn: () => schoolAdminService.getDashboardStats(),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -173,7 +173,7 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tədbir İdarəetməsi</h1>
           <p className="text-muted-foreground">
-            Tədris-Bilimlər Referenti - Tədbir planlaması və məktəb fəaliyyətləri
+            Təşkilatçı - Tədbir planlaması və məktəb fəaliyyətləri
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -338,10 +338,10 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Badge variant={getPriorityColor(event.priority)} className="text-xs">
+                        <Badge variant={getPriorityColor(event.priority) as any} className="text-xs">
                           {event.priority}
                         </Badge>
-                        <Badge variant={getStatusColor(event.status)} className="text-xs">
+                        <Badge variant={getStatusColor(event.status) as any} className="text-xs">
                           {event.status}
                         </Badge>
                       </div>
@@ -408,27 +408,9 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
             <CardContent>
               <div className="space-y-4">
                 {[
-                  {
-                    name: "Yaradıcılıq Həftəsi 2024",
-                    progress: 75,
-                    deadline: "2024-09-15",
-                    team: 8,
-                    status: "in_progress"
-                  },
-                  {
-                    name: "STEAM Layihəsi",
-                    progress: 45,
-                    deadline: "2024-10-20",
-                    team: 12,
-                    status: "planning"
-                  },
-                  {
-                    name: "Ekoloji Təmizlik Kampaniyası",
-                    progress: 90,
-                    deadline: "2024-08-30",
-                    team: 6,
-                    status: "completing"
-                  }
+                  { name: "Yaradıcılıq Həftəsi 2024", progress: 75, deadline: "2024-09-15", team: 8, status: "in_progress" },
+                  { name: "STEAM Layihəsi", progress: 45, deadline: "2024-10-20", team: 12, status: "planning" },
+                  { name: "Ekoloji Təmizlik Kampaniyası", progress: 90, deadline: "2024-08-30", team: 6, status: "completing" }
                 ].map((project, idx) => (
                   <div key={idx} className="p-4 rounded-lg border hover:shadow-sm transition-shadow">
                     <div className="flex items-start justify-between mb-3">
@@ -438,12 +420,11 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                           Son tarix: {format(new Date(project.deadline), 'dd MMM yyyy', { locale: az })}
                         </p>
                       </div>
-                      <Badge variant={getStatusColor(project.status)}>
+                      <Badge variant={getStatusColor(project.status) as any}>
                         {project.status === 'in_progress' ? 'Davam edir' : 
                          project.status === 'planning' ? 'Planlaşdırılır' : 'Tamamlanır'}
                       </Badge>
                     </div>
-                    
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Tamamlanma</span>
@@ -451,19 +432,14 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                       </div>
                       <Progress value={project.progress} className="h-2" />
                     </div>
-                    
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Users className="h-4 w-4" />
                         <span>{project.team} nəfər komanda</span>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
                       </div>
                     </div>
                   </div>
@@ -482,65 +458,24 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
-                  {
-                    name: "Məktəb Aktı",
-                    type: "room",
-                    availability: 85,
-                    icon: Globe,
-                    bookings: 12
-                  },
-                  {
-                    name: "Laboratoriya",
-                    type: "room",
-                    availability: 60,
-                    icon: BookOpen,
-                    bookings: 8
-                  },
-                  {
-                    name: "İdman Zalı",
-                    type: "room",
-                    availability: 40,
-                    icon: Trophy,
-                    bookings: 15
-                  },
-                  {
-                    name: "Projektor və Avadanlıq",
-                    type: "equipment",
-                    availability: 70,
-                    icon: Camera,
-                    bookings: 6
-                  },
-                  {
-                    name: "Nəqliyyat",
-                    type: "transport",
-                    availability: 90,
-                    icon: Plane,
-                    bookings: 3
-                  },
-                  {
-                    name: "Musiqi Alətləri",
-                    type: "equipment",
-                    availability: 95,
-                    icon: Music,
-                    bookings: 2
-                  }
+                  { name: "Məktəb Aktı", availability: 85, icon: Globe, bookings: 12 },
+                  { name: "Laboratoriya", availability: 60, icon: BookOpen, bookings: 8 },
+                  { name: "İdman Zalı", availability: 40, icon: Trophy, bookings: 15 },
+                  { name: "Projektor və Avadanlıq", availability: 70, icon: Camera, bookings: 6 },
+                  { name: "Nəqliyyat", availability: 90, icon: Plane, bookings: 3 },
+                  { name: "Musiqi Alətləri", availability: 95, icon: Music, bookings: 2 }
                 ].map((resource, idx) => (
                   <Card key={idx} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <resource.icon className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-sm">{resource.name}</h3>
-                            <p className="text-xs text-muted-foreground">
-                              {resource.bookings} rezervasiya
-                            </p>
-                          </div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <resource.icon className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-sm">{resource.name}</h3>
+                          <p className="text-xs text-muted-foreground">{resource.bookings} rezervasiya</p>
                         </div>
                       </div>
-                      
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-muted-foreground">Əlçatanlıq</span>
@@ -548,7 +483,6 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                         </div>
                         <Progress value={resource.availability} className="h-2" />
                       </div>
-                      
                       <Button variant="ghost" size="sm" className="w-full mt-3">
                         <Calendar className="h-4 w-4 mr-2" />
                         Rezerv Et
@@ -576,7 +510,6 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                     <p className="text-sm text-muted-foreground">Tədbir iştirakçı analizi</p>
                   </div>
                 </Button>
-                
                 <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
                   <Trophy className="h-8 w-8" />
                   <div className="text-center">
@@ -584,7 +517,6 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                     <p className="text-sm text-muted-foreground">Qazanılan nailiyyətlər</p>
                   </div>
                 </Button>
-                
                 <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
                   <FileText className="h-8 w-8" />
                   <div className="text-center">
@@ -592,7 +524,6 @@ export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) =>
                     <p className="text-sm text-muted-foreground">Xərc və gəlir hesabatı</p>
                   </div>
                 </Button>
-                
                 <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
                   <CalendarDays className="h-8 w-8" />
                   <div className="text-center">

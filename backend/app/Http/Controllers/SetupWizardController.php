@@ -359,7 +359,7 @@ class SetupWizardController extends Controller
             ['name' => 'Maliyyə Şöbəsi', 'type' => 'maliyyə'],
             ['name' => 'İnzibati Şöbə', 'type' => 'inzibati'],
             ['name' => 'Təsərrüfat Şöbəsi', 'type' => 'təsərrüfat'],
-            ['name' => 'UBR Şöbəsi', 'type' => 'ubr'],
+            ['name' => 'Təşkilatçı Şöbəsi', 'type' => 'təşkilatçı'],
         ];
 
         foreach ($departments as $dept) {

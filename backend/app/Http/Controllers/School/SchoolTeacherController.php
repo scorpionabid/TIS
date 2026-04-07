@@ -57,7 +57,7 @@ class SchoolTeacherController extends Controller
 
         $teachers = $query
             ->whereHas('roles', function ($query) {
-                $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
             })
             ->where('is_active', true)
             ->with(['roles', 'department', 'institution'])
@@ -172,7 +172,7 @@ class SchoolTeacherController extends Controller
             $teacher = User::where('id', $teacherId)
                 ->where('institution_id', $school->id)
                 ->whereHas('roles', function ($query) {
-                    $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                    $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
                 })
                 ->with(['roles', 'department', 'devices'])
                 ->firstOrFail();
@@ -258,7 +258,7 @@ class SchoolTeacherController extends Controller
                 'email' => 'required|email|unique:users,email',
                 'username' => 'required|string|unique:users,username|max:50',
                 'password' => 'required|string|min:8',
-                'role' => 'required|string|in:müəllim,muavin,ubr,psixoloq,tesarrufat',
+                'role' => 'required|string|in:müəllim,muavin,təşkilatçı,psixoloq,tesarrufat',
                 'department_id' => 'nullable|exists:departments,id',
                 'profile' => 'nullable|array',
 
@@ -470,7 +470,7 @@ class SchoolTeacherController extends Controller
             $teacher = User::where('id', $teacherId)
                 ->where('institution_id', $school->id)
                 ->whereHas('roles', function ($query) {
-                    $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                    $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
                 })
                 ->firstOrFail();
 
@@ -479,7 +479,7 @@ class SchoolTeacherController extends Controller
                 'email' => 'sometimes|required|email|unique:users,email,' . $teacherId,
                 'username' => 'sometimes|required|string|unique:users,username,' . $teacherId . '|max:50',
                 'password' => 'nullable|string|min:8',
-                'role' => 'sometimes|string|in:müəllim,muavin,ubr,psixoloq,tesarrufat',
+                'role' => 'sometimes|string|in:müəllim,muavin,təşkilatçı,psixoloq,tesarrufat',
                 'department_id' => 'nullable|exists:departments,id',
                 'is_active' => 'sometimes|boolean',
                 'profile' => 'nullable|array',
@@ -626,7 +626,7 @@ class SchoolTeacherController extends Controller
             // Find teacher
             $query = User::where('id', $teacherId)
                 ->whereHas('roles', function ($query) {
-                    $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                    $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
                 });
 
             // SchoolAdmin can only delete from their institution
@@ -734,7 +734,7 @@ class SchoolTeacherController extends Controller
 
         $query = User::with(['roles', 'profile', 'department'])
             ->whereHas('roles', function ($query) {
-                $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
             });
 
         if (! $user->hasRole('superadmin')) {

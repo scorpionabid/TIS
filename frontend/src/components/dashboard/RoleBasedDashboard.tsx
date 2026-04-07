@@ -16,9 +16,9 @@ const MuavinDashboard = lazy(() =>
     default: module.MuavinDashboard
   }))
 );
-const UBRDashboard = lazy(() => 
-  import('./UBRDashboard').then(module => ({
-    default: module.UBRDashboard
+const TeskilatciDashboard = lazy(() => 
+  import('./TeskilatciDashboard').then(module => ({
+    default: module.TeskilatciDashboard
   }))
 );
 const TesarrufatDashboard = lazy(() => 
@@ -121,10 +121,10 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
         </Suspense>
       );
     
-    case SCHOOL_ROLES.UBR:
+    case SCHOOL_ROLES.TESKILATCI:
       return (
         <Suspense fallback={<DashboardLoader />}>
-          <UBRDashboard className={className} />
+          <TeskilatciDashboard className={className} />
         </Suspense>
       );
     

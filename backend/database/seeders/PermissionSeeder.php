@@ -647,7 +647,7 @@ class PermissionSeeder extends Seeder
                 'links.read',
                 'reports.read',
             ],
-            'ubr' => [
+            'təşkilatçı' => [
                 'events.create', 'events.read', 'events.update', 'events.manage', 'events.register', 'events.cancel',
                 'schedules.read',
                 'grades.read', 'attendance.read',

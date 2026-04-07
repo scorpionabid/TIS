@@ -26,7 +26,7 @@ class Department extends Model
 
         // School-level Departments
         'müavin' => 'Müavin Şöbəsi',
-        'ubr' => 'UBR Şöbəsi',
+        'təşkilatçı' => 'Təşkilatçı Şöbəsi',
         'psixoloq' => 'Psixoloji Dəstək Şöbəsi',
         'müəllim' => 'Fənn Müəllimləri Şöbəsi',
 
@@ -41,7 +41,7 @@ class Department extends Model
     const TYPE_GROUPS = [
         'regional' => ['maliyyə', 'inzibati', 'təsərrüfat', 'general', 'other'],
         'sector' => ['maliyyə', 'inzibati', 'təsərrüfat', 'general', 'other'],
-        'school' => ['müavin', 'ubr', 'təsərrüfat', 'psixoloq', 'müəllim', 'general', 'other'],
+        'school' => ['müavin', 'təşkilatçı', 'təsərrüfat', 'psixoloq', 'müəllim', 'general', 'other'],
         'general' => ['general', 'other'],
     ];
 

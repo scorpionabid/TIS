@@ -213,7 +213,7 @@ class UserUtilityService
                 case 'schooladmin':
                 case 'müəllim':
                 case 'muavin':
-                case 'ubr':
+                case 'təşkilatçı':
                 case 'tesarrufat':
                 case 'psixoloq':
                     // School-level roles should be assigned to schools

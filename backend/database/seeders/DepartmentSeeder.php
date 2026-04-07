@@ -160,9 +160,9 @@ class DepartmentSeeder extends Seeder
                     ],
                 ],
                 [
-                    'name' => 'UBR Şöbəsi',
-                    'short_name' => 'UBR',
-                    'department_type' => 'ubr',
+                    'name' => 'Təşkilatçı Şöbəsi',
+                    'short_name' => 'Təşkilatçı',
+                    'department_type' => 'təşkilatçı',
                     'description' => 'Təhsil tədbirləri və fəaliyyətlərin planlaşdırılması',
                     'functional_scope' => 'Təhsil tədbirləri, təqvim planlaşdırılması, koordinasiya',
                     'capacity' => 2,

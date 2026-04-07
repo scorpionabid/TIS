@@ -119,7 +119,7 @@ class Document extends Model
         'schooladmin' => 20971520,   // 20MB
         'sektoradmin' => 20971520,   // 20MB
         'muavin' => 20971520,        // 20MB
-        'ubr' => 20971520,           // 20MB
+        'təşkilatçı' => 20971520,   // 20MB
         'tesarrufat' => 20971520,    // 20MB
         'psixoloq' => 20971520,      // 20MB
         'müəllim' => 20971520,       // 20MB

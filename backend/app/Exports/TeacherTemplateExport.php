@@ -53,7 +53,7 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
             'phone',           // Telefon
             'date_of_birth',   // Doğum tarixi (YYYY-MM-DD)
             'gender',          // Cins (male/female)
-            'position',        // Vəzifə (müəllim/muavin/ubr/psixoloq/tesarrufat)
+            'position',        // Vəzifə (müəllim/muavin/təşkilatçı/psixoloq/tesarrufat)
             'department_name', // Şöbə adı
             'address',         // Ünvan
             'education',       // Təhsil

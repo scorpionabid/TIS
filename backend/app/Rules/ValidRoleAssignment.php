@@ -15,20 +15,20 @@ class ValidRoleAssignment implements Rule
         'regionadmin' => [
             'regionoperator', 'sektoradmin',
             'schooladmin', 'məktəbadmin',
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'sektoradmin' => [
             'schooladmin', 'məktəbadmin',
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'schooladmin' => [
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'məktəbadmin' => [
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
     ];

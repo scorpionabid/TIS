@@ -12,7 +12,7 @@ class DepartmentFactory extends Factory
 
     public function definition()
     {
-        $types = ['maliyyə', 'inzibati', 'təsərrüfat', 'müəllim', 'psixoloq', 'ubr', 'müavin', 'general'];
+        $types = ['maliyyə', 'inzibati', 'təsərrüfat', 'müəllim', 'psixoloq', 'təşkilatçı', 'müavin', 'general'];
 
         return [
             'name' => $this->faker->company . ' Şöbəsi',

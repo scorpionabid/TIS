@@ -63,7 +63,7 @@ class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
 
             // Validate position
             $position = ! empty($row['position']) ? $row['position'] : 'müəllim';
-            $validPositions = ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat'];
+            $validPositions = ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat'];
             if (! in_array($position, $validPositions)) {
                 $position = 'müəllim';
             }
@@ -132,7 +132,7 @@ class TeachersImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date|before:today',
             'gender' => 'nullable|in:male,female',
-            'position' => 'nullable|string|in:müəllim,muavin,ubr,psixoloq,tesarrufat',
+            'position' => 'nullable|string|in:müəllim,muavin,təşkilatçı,psixoloq,tesarrufat',
             'department_name' => 'nullable|string',
             'address' => 'nullable|string|max:500',
             'education' => 'nullable|string',

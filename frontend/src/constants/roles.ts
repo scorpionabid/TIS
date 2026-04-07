@@ -21,7 +21,7 @@ export const USER_ROLES = {
 export const SCHOOL_ROLES = {
   SCHOOL_ADMIN: "schooladmin",
   MUAVIN: "muavin",
-  UBR: "ubr",
+  TESKILATCI: "təşkilatçı",
   TESARRUFAT: "tesarrufat",
   PSIXOLOQ: "psixoloq",
   MUELLIM: "müəllim",
@@ -46,7 +46,7 @@ export const ROLE_DISPLAY_NAMES: Record<UserRole, string> = {
 export const SCHOOL_ROLE_DISPLAY_NAMES: Record<SchoolRoleType, string> = {
   [SCHOOL_ROLES.SCHOOL_ADMIN]: "Məktəb Direktoru",
   [SCHOOL_ROLES.MUAVIN]: "Müavin (Dərs İdarəetməsi)",
-  [SCHOOL_ROLES.UBR]: "Tədris-Bilimlər Referenti",
+  [SCHOOL_ROLES.TESKILATCI]: "Təşkilatçı",
   [SCHOOL_ROLES.TESARRUFAT]: "Təsərrüfat Müdiri",
   [SCHOOL_ROLES.PSIXOLOQ]: "Məktəb Psixoloquu",
   [SCHOOL_ROLES.MUELLIM]: "Fənn Müəllimi",

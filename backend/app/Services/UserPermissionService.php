@@ -261,20 +261,20 @@ class UserPermissionService extends BaseService
         'regionadmin' => [
             'regionoperator', 'sektoradmin',
             'schooladmin', 'məktəbadmin', 'preschooladmin',
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'sektoradmin' => [
             'schooladmin', 'məktəbadmin', 'preschooladmin',
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'schooladmin' => [
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'məktəbadmin' => [
-            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'muavin', 'təşkilatçı', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
     ];

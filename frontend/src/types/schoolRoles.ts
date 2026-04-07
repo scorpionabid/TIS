@@ -13,7 +13,7 @@ export interface SchoolRole {
 export const SCHOOL_ROLES = {
   SCHOOL_ADMIN: 'schooladmin',
   MUAVIN: 'muavin',
-  UBR: 'ubr', 
+  TESKILATCI: 'təşkilatçı', 
   TESARRUFAT: 'tesarrufat',
   PSIXOLOQ: 'psixoloq',
   MUELLIM: 'müəllim'
@@ -68,10 +68,10 @@ export const SCHOOL_ROLE_HIERARCHY: Record<SchoolRoleType, SchoolRole> = {
     ],
     parent_role: SCHOOL_ROLES.SCHOOL_ADMIN
   },
-  [SCHOOL_ROLES.UBR]: {
-    id: 'ubr',
-    name: 'UBR',
-    display_name: 'Tədris-Bilimlər Referenti',
+  [SCHOOL_ROLES.TESKILATCI]: {
+    id: 'təşkilatçı',
+    name: 'Təşkilatçı',
+    display_name: 'Təşkilatçı',
     description: 'Tədbir planlaması, ekskursiyalar və məktəb fəaliyyətləri',
     hierarchy_level: 2,
     permissions: [
@@ -192,7 +192,7 @@ export const ROLE_DASHBOARD_CONFIGS: Record<SchoolRoleType, RoleDashboardConfig>
     quick_actions: ['create_schedule', 'assign_teacher', 'manage_rooms', 'view_grades'],
     navigation_items: ['dashboard', 'schedules', 'classes', 'teachers', 'rooms', 'assessments']
   },
-  [SCHOOL_ROLES.UBR]: {
+  [SCHOOL_ROLES.TESKILATCI]: {
     primary_widgets: ['event_calendar', 'upcoming_activities', 'participant_stats', 'resource_needs'],
     secondary_widgets: ['event_history', 'budget_tracking', 'feedback_summary'],
     quick_actions: ['create_event', 'plan_activity', 'book_resources', 'send_invitations'],
