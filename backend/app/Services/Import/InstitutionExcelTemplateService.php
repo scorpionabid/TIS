@@ -536,15 +536,15 @@ class InstitutionExcelTemplateService extends BaseService
             // Use real parent institution ID based on level
             if ($institutionLevel == 4) {
                 // For schools (level 4), use a real sector ID (level 3)
-                $sampleParentId = \App\Models\Institution::where('level', 3)->first()?->id ?? '73';
+                $sampleParentId = Institution::where('level', 3)->first()?->id ?? '73';
                 $sampleData['J' . $sampleRow] = $sampleParentId . ' // Sektor ID (örnek: Zaqatala)';
             } elseif ($institutionLevel == 3) {
                 // For sectors (level 3), use a real regional department ID (level 2)
-                $sampleParentId = \App\Models\Institution::where('level', 2)->first()?->id ?? '71';
+                $sampleParentId = Institution::where('level', 2)->first()?->id ?? '71';
                 $sampleData['J' . $sampleRow] = $sampleParentId . ' // Regional İdarə ID';
             } else {
                 // For level 2, use ministry ID (level 1)
-                $sampleParentId = \App\Models\Institution::where('level', 1)->first()?->id ?? '70';
+                $sampleParentId = Institution::where('level', 1)->first()?->id ?? '70';
                 $sampleData['J' . $sampleRow] = $sampleParentId . ' // Nazirlik ID';
             }
         }
@@ -776,7 +776,7 @@ class InstitutionExcelTemplateService extends BaseService
     private function getPotentialParentInstitutions(int $currentLevel): \Illuminate\Support\Collection
     {
         // Get institutions that can be parents (lower level numbers)
-        $institutions = \App\Models\Institution::where('level', '<', $currentLevel)
+        $institutions = Institution::where('level', '<', $currentLevel)
             ->where('is_active', true)
             ->orderBy('level')
             ->orderBy('region_code')

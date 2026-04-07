@@ -104,6 +104,9 @@ export interface ValidationResult {
     valid_percentage: number;
     can_proceed_with_skip: boolean;
   };
+  valid_rows?: any[];
+  invalid_rows?: any[];
+  warnings?: any[];
   suggestions: string[];
   error_groups: Record<string, number>;
   errors: Array<{
