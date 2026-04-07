@@ -397,8 +397,9 @@ class UserCrudService
     protected function applyFilters($query, array $params): void
     {
         if (! empty($params['role'])) {
-            $query->whereHas('roles', function ($q) use ($params) {
-                $q->where('name', $params['role']);
+            $roles = is_array($params['role']) ? $params['role'] : [$params['role']];
+            $query->whereHas('roles', function ($q) use ($roles) {
+                $q->whereIn('name', $roles);
             });
         }
 
@@ -416,7 +417,8 @@ class UserCrudService
 
         if (! empty($params['institution']) || ! empty($params['institution_id'])) {
             $institutionId = $params['institution'] ?? $params['institution_id'];
-            $query->where('institution_id', $institutionId);
+            $institutionIds = is_array($institutionId) ? $institutionId : [$institutionId];
+            $query->whereIn('institution_id', $institutionIds);
         }
 
         if (! empty($params['department'])) {

@@ -77,21 +77,36 @@ const roleLabels: Record<string, string> = {
   user: 'İstifadəçi',
 };
 
+const Highlight = ({ text, highlight }: { text: string; highlight: string }) => {
+  if (!highlight.trim()) {
+    return <span>{text}</span>;
+  }
+  const regex = new RegExp(`(${highlight})`, "gi");
+  const parts = text.split(regex);
+  return (
+    <span>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-yellow-200 rounded-sm px-0.5 text-black">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </span>
+  );
+};
+
 export const UserTable = memo(({ 
   users, 
   onEditUser, 
   onDeleteUser, 
   currentUserRole,
-  isLoading = false 
-}: UserTableProps) => {
+  isLoading = false,
+  searchTerm = ""
+}: UserTableProps & { searchTerm?: string }) => {
   const { isMobile } = useLayout();
-  
-  // Debug log to see the data structure
-  console.log('🔍 UserTable Debug - users data:', users);
-  if (users && users.length > 0) {
-    console.log('🔍 First user structure:', users[0]);
-    console.log('🔍 First user institution:', users[0].institution);
-  }
   
   // Check if user can be edited/deleted based on role hierarchy
   const canModifyUser = useMemo(() => (targetUser: User) => {
@@ -159,13 +174,15 @@ export const UserTable = memo(({
               </div>
               <div className="flex-1 space-y-1">
                 <div className="text-base font-semibold text-foreground">
-                  {getUserDisplayName(user)}
+                  <Highlight text={getUserDisplayName(user)} highlight={searchTerm} />
                 </div>
                 <div className="flex items-center text-xs text-muted-foreground gap-1">
                   <Mail className="h-3 w-3" />
-                  <span>{user.email}</span>
+                  <Highlight text={user.email || ""} highlight={searchTerm} />
                 </div>
-                <div className="text-xs text-muted-foreground">@{user.username}</div>
+                <div className="text-xs text-muted-foreground">
+                  @<Highlight text={user.username || ""} highlight={searchTerm} />
+                </div>
               </div>
             </div>
 
@@ -181,7 +198,7 @@ export const UserTable = memo(({
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <BuildingIcon className="h-4 w-4" />
-                <span>{user.institution?.name || 'Təyin edilməyib'}</span>
+                <span><Highlight text={user.institution?.name || 'Təyin edilməyib'} highlight={searchTerm} /></span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -289,14 +306,14 @@ export const UserTable = memo(({
                   </div>
                   <div>
                     <div className="font-medium text-foreground">
-                      {getUserDisplayName(user)}
+                      <Highlight text={getUserDisplayName(user)} highlight={searchTerm} />
                     </div>
                     <div className="flex items-center text-sm text-muted-foreground mt-1">
                       <Mail className="h-3 w-3 mr-1" />
-                      {user.email}
+                      <Highlight text={user.email || ""} highlight={searchTerm} />
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      @{user.username}
+                      @<Highlight text={user.username || ""} highlight={searchTerm} />
                     </div>
                   </div>
                 </div>
@@ -308,7 +325,7 @@ export const UserTable = memo(({
               </TableCell>
               <TableCell>
                 <div className="text-sm">
-                  {user.institution?.name || 'Təyin edilməyib'}
+                  <Highlight text={user.institution?.name || 'Təyin edilməyib'} highlight={searchTerm} />
                 </div>
                 {user.institution?.type && (
                   <div className="text-xs text-muted-foreground">

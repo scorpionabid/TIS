@@ -16,6 +16,7 @@ import {
   ArrowDown,
   X,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { memo, useMemo } from "react";
 
@@ -43,6 +44,7 @@ export interface UserFiltersProps {
   availableStatuses: string[];
   availableInstitutions: Array<{ id: number; name: string }>;
   onClearFilters: () => void;
+  isLoading?: boolean;
 }
 
 // Role labels for display
@@ -89,6 +91,7 @@ export const UserFilters = memo(
     availableStatuses,
     availableInstitutions,
     onClearFilters,
+    isLoading = false,
   }: UserFiltersProps) => {
     const hasActiveFilters = useMemo(() => {
       return (
@@ -152,14 +155,19 @@ export const UserFilters = memo(
                   onChange={(e) => onSearchChange(e.target.value)}
                   className="pl-10 pr-10 h-11 border-slate-200 focus:border-primary transition-all shadow-sm"
                 />
-                {searchTerm && (
-                  <button
-                    onClick={() => onSearchChange("")}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-slate-100 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                  {isLoading && (
+                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                  )}
+                  {searchTerm && !isLoading && (
+                    <button
+                      onClick={() => onSearchChange("")}
+                      className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             </FilterBar.Field>
 
@@ -257,6 +265,69 @@ export const UserFilters = memo(
             )}
           </FilterBar.Actions>
         </FilterBar>
+
+        {/* Active Filter Chips */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            <span className="text-xs font-semibold text-muted-foreground mr-1">
+              Aktiv filtrlər:
+            </span>
+            {searchTerm && (
+              <Badge variant="outline" className="gap-1 pl-2 pr-1 py-0.5 border-primary/20 bg-primary/5">
+                Axtarış: {searchTerm}
+                <button onClick={() => onSearchChange("")} className="hover:text-primary transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {roleFilter !== "all" && (
+              <Badge variant="outline" className="gap-1 pl-2 pr-1 py-0.5 border-primary/20 bg-primary/5">
+                Rol: {roleLabels[roleFilter] || roleFilter}
+                <button onClick={() => onRoleFilterChange("all")} className="hover:text-primary transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {statusFilter !== "all" && (
+              <Badge variant="outline" className="gap-1 pl-2 pr-1 py-0.5 border-primary/20 bg-primary/5">
+                Status: {statusLabels[statusFilter] || statusFilter}
+                <button onClick={() => onStatusFilterChange("all")} className="hover:text-primary transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {utisCode && (
+              <Badge variant="outline" className="gap-1 pl-2 pr-1 py-0.5 border-primary/20 bg-primary/5">
+                UTİS: {utisCode}
+                <button onClick={() => onUtisCodeChange?.("")} className="hover:text-primary transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {institutionFilter !== "all" && (
+              <Badge variant="outline" className="gap-1 pl-2 pr-1 py-0.5 border-primary/20 bg-primary/5">
+                Müəssisə: {availableInstitutions.find(i => i.id.toString() === institutionFilter)?.name || "Seçilib"}
+                <button onClick={() => onInstitutionFilterChange("all")} className="hover:text-primary transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {(startDate || endDate) && (
+              <Badge variant="outline" className="gap-1 pl-2 pr-1 py-0.5 border-primary/20 bg-primary/5">
+                Tarix: {startDate || "..."} - {endDate || "..."}
+                <button 
+                  onClick={() => {
+                    onStartDateChange?.("");
+                    onEndDateChange?.("");
+                  }} 
+                  className="hover:text-primary transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Advanced Filters Panel */}
         {showAdvanced && (
