@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\Student;
 use Illuminate\Support\Collection;
@@ -23,18 +24,19 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
     protected int $updated = 0;
     protected int $skipped = 0;
 
-    /** Cache of validated school IDs under this region */
-    protected array $validSchoolIds = [];
+    /** Cache of [utis_code => id] for schools under this region */
+    protected array $validSchoolsMap = [];
 
     public function __construct(Institution $region)
     {
         $this->region = $region;
 
-        // Cache valid school IDs upfront (level 4 under this region)
+        // Cache valid schools upfront (level 4 under this region)
         $allChildIds = $region->getAllChildrenIds();
-        $this->validSchoolIds = Institution::whereIn('id', $allChildIds)
+        $this->validSchoolsMap = Institution::whereIn('id', $allChildIds)
             ->where('level', 4)
-            ->pluck('id')
+            ->whereNotNull('utis_code')
+            ->pluck('id', 'utis_code')
             ->toArray();
     }
 
@@ -59,20 +61,20 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
     protected function processRow(array $row, int $rowNum): void
     {
         // ── 1. Required field validation ─────────────────────────────────────
-        $utisCode  = trim($row['utis_code']  ?? '');
-        $firstName = trim($row['first_name'] ?? '');
-        $lastName  = trim($row['last_name']  ?? '');
-        $schoolId  = (int) ($row['school_id']  ?? 0);
-        $gradeLevel = trim($row['grade_level'] ?? '');
-        $className  = trim($row['class_name']  ?? '');
+        $utisCode       = trim($row['utis_code']  ?? '');
+        $firstName      = trim($row['first_name'] ?? '');
+        $lastName       = trim($row['last_name']  ?? '');
+        $schoolUtisCode = trim($row['school_utis_code'] ?? '');
+        $gradeLevel     = (int) ($row['grade_level'] ?? 0);
+        $className      = trim($row['class_name']  ?? '');
 
         $missing = [];
-        if ($utisCode  === '') $missing[] = 'utis_code';
-        if ($firstName === '') $missing[] = 'first_name';
-        if ($lastName  === '') $missing[] = 'last_name';
-        if ($schoolId  === 0)  $missing[] = 'school_id';
-        if ($gradeLevel === '') $missing[] = 'grade_level';
-        if ($className  === '') $missing[] = 'class_name';
+        if ($utisCode       === '') $missing[] = 'utis_code';
+        if ($firstName      === '') $missing[] = 'first_name';
+        if ($lastName       === '') $missing[] = 'last_name';
+        if ($schoolUtisCode === '') $missing[] = 'school_utis_code';
+        if ($gradeLevel     === 0)  $missing[] = 'grade_level';
+        if ($className      === '') $missing[] = 'class_name';
 
         if (! empty($missing)) {
             $this->errors[] = "Sətir {$rowNum}: məcburi sahələr çatışmır — " . implode(', ', $missing);
@@ -81,21 +83,30 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
         }
 
         // ── 2. Validate school belongs to this region ─────────────────────────
-        if (! in_array($schoolId, $this->validSchoolIds)) {
-            $this->errors[] = "Sətir {$rowNum}: school_id={$schoolId} bu regiona aid deyil.";
+        if (! isset($this->validSchoolsMap[$schoolUtisCode])) {
+            $this->errors[] = "Sətir {$rowNum}: Məktəb (UTİS: {$schoolUtisCode}) tapılmadı və ya bu regiona aid deyil.";
             $this->skipped++;
             return;
         }
 
-        // ── 3. Optional fields ───────────────────────────────────────────────
+        $schoolId = $this->validSchoolsMap[$schoolUtisCode];
+
+        // ── 3. Find matching Grade (Sinif) ───────────────────────────────────
+        // We match by class_level and normalized name
+        $grade = Grade::where('institution_id', $schoolId)
+            ->where('class_level', $gradeLevel)
+            ->where('name', mb_strtoupper($className))
+            ->first();
+
+        // ── 4. Optional fields ───────────────────────────────────────────────
         $gender      = in_array($row['gender'] ?? '', ['male', 'female']) ? $row['gender'] : null;
         $birthDate   = ! empty($row['birth_date']) ? $this->parseDate($row['birth_date']) : null;
         $parentName  = trim($row['parent_name']  ?? '') ?: null;
         $parentPhone = trim($row['parent_phone'] ?? '') ?: null;
 
-        // ── 4. Upsert by utis_code ──────────────────────────────────────────
+        // ── 5. Upsert by utis_code ──────────────────────────────────────────
         DB::transaction(function () use (
-            $utisCode, $firstName, $lastName, $schoolId,
+            $utisCode, $firstName, $lastName, $schoolId, $grade,
             $gradeLevel, $className, $gender, $birthDate, $parentName, $parentPhone
         ) {
             $existing = Student::where('utis_code', $utisCode)->first();
@@ -104,6 +115,7 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
                 'first_name'     => $firstName,
                 'last_name'      => $lastName,
                 'institution_id' => $schoolId,
+                'grade_id'       => $grade?->id,
                 'grade_level'    => $gradeLevel,
                 'class_name'     => $className,
                 'gender'         => $gender,
