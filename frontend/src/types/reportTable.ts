@@ -33,6 +33,10 @@ export interface ReportTableColumn {
   // For gps type: precision and validation
   gps_precision?: 'high' | 'medium' | 'low';
   gps_radius?: number; // meters - validate if within radius
+  // For number type: allow "yoxdur" (N/A) as a valid value
+  allow_na?: boolean;
+  // For number type: export 0 values as blank in Excel
+  export_zero_as_blank?: boolean;
 }
 
 // ─── Row Status ───────────────────────────────────────────────────────────────
@@ -258,4 +262,39 @@ export interface TableAnalyticsSummary {
   };
   sectors: AnalyticsSectorStat[];
   non_filling_schools: AnalyticsNonFillingSchool[];
+}
+
+// ─── Self Statistics (for School Admins) ───────────────────────────────────
+
+export interface MyTableStat {
+  id: number;
+  title: string;
+  status: 'not_started' | 'draft' | 'submitted' | 'approved';
+  row_count: number;
+  approved_count: number;
+  rejected_count: number;
+  returned_count: number;
+  penalty: number;
+  bonus: number;
+  final_score: number;
+  rating_percentage: number;
+}
+
+export interface MySchoolStatistics {
+  institution_id: number;
+  institution_name: string;
+  sector_name?: string;
+  tables: MyTableStat[];
+  total_tables: number;
+  filled_tables: number;
+  total_rows_across_all_tables: number;
+  total_approved: number;
+  total_pending: number;
+  total_rejected: number;
+  total_returned: number;
+  total_penalty: number;
+  total_bonus: number;
+  total_points: number;
+  total_final_score: number;
+  avg_rating_percentage: number;
 }

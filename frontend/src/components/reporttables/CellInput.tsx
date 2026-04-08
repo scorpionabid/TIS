@@ -178,6 +178,41 @@ export const CellInput = React.memo(function CellInput({
     );
   }
 
+  if (col.type === 'number' && col.allow_na) {
+    const isNa = value === 'yoxdur';
+    return (
+      <div className="flex gap-1 items-center">
+        <Input
+          ref={inputRef}
+          type="number"
+          inputMode="decimal"
+          value={isNa ? '' : value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          disabled={disabled || isNa}
+          placeholder={col.hint || col.label}
+          className={`h-9 text-sm flex-1 ${error ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
+        />
+        <button
+          type="button"
+          onClick={() => onChange(isNa ? '' : 'yoxdur')}
+          disabled={disabled}
+          className={cn(
+            'h-9 px-2 rounded-md border text-xs whitespace-nowrap transition-colors',
+            disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+            isNa
+              ? 'bg-orange-100 border-orange-300 text-orange-700 font-medium'
+              : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-600'
+          )}
+        >
+          Yoxdur
+        </button>
+      </div>
+    );
+  }
+
   return (
     <Input
       ref={inputRef}

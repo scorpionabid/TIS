@@ -86,9 +86,20 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
                     $value = $tableRow[$column['key']] ?? '';
                     $type = $column['type'] ?? 'text';
 
+                    // "Yoxdur" N/A dəyəri
+                    if ($value === 'yoxdur') {
+                        $excelRow[] = 'Yoxdur';
+                        continue;
+                    }
+
                     if ($value !== '' && $value !== null) {
                         if ($type === 'number' && is_numeric($value)) {
-                            $value = str_contains((string) $value, '.') ? (float) $value : (int) $value;
+                            $numVal = str_contains((string) $value, '.') ? (float) $value : (int) $value;
+                            if ($numVal === 0 && ($column['export_zero_as_blank'] ?? false)) {
+                                $value = '';
+                            } else {
+                                $value = $numVal;
+                            }
                         } elseif ($type === 'date') {
                             try {
                                 $value = ExcelDate::PHPToExcel(Carbon::parse($value));

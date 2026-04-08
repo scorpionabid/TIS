@@ -66,10 +66,13 @@ interface CollapseSignal {
 interface SortableColumnItemProps {
   column: ReportTableColumn;
   index: number;
+  totalColumns: number;
   disabled: boolean;
   onUpdate: (index: number, field: keyof ReportTableColumn, value: unknown) => void;
   onRemove: (index: number) => void;
   onDuplicate: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
   hasErrors: boolean;
   errors?: string[];
   collapseSignal?: CollapseSignal;
@@ -78,10 +81,13 @@ interface SortableColumnItemProps {
 function SortableColumnItem({
   column,
   index,
+  totalColumns,
   disabled,
   onUpdate,
   onRemove,
   onDuplicate,
+  onMoveUp,
+  onMoveDown,
   hasErrors,
   errors,
   collapseSignal,
@@ -113,6 +119,8 @@ function SortableColumnItem({
         onUpdate={onUpdate}
         onRemove={onRemove}
         onDuplicate={() => onDuplicate(index)}
+        onMoveUp={index > 0 ? () => onMoveUp(index) : undefined}
+        onMoveDown={index < totalColumns - 1 ? () => onMoveDown(index) : undefined}
         hasErrors={hasErrors}
         errors={errors}
         collapseSignal={collapseSignal}
@@ -166,6 +174,14 @@ export function Step2Columns({
     queryFn: () => reportTableService.getList({ per_page: 50 }),
     enabled: !isEditing && importPopoverOpen,
   });
+
+  const handleMoveUp = (index: number) => {
+    if (index > 0) reorderColumns(index, index - 1);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index < columns.length - 1) reorderColumns(index, index + 1);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -405,10 +421,13 @@ export function Step2Columns({
                       key={col.key || `col-${idx}`}
                       column={col}
                       index={idx}
+                      totalColumns={columns.length}
                       disabled={!canEditColumns}
                       onUpdate={updateColumn}
                       onRemove={removeColumn}
                       onDuplicate={duplicateColumn}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
                       hasErrors={!!columnErrors?.[idx]}
                       errors={columnErrors?.[idx]}
                       collapseSignal={collapseSignal}

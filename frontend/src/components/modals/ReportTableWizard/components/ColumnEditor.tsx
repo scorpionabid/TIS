@@ -41,6 +41,8 @@ interface ColumnEditorProps {
   onUpdate: (index: number, field: keyof ReportTableColumn, value: unknown) => void;
   onRemove: (index: number) => void;
   onDuplicate?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   hasErrors?: boolean;
   errors?: string[];
   /** External collapse/expand signal from parent (collapse all / expand all) */
@@ -91,6 +93,8 @@ export function ColumnEditor({
   onUpdate,
   onRemove,
   onDuplicate,
+  onMoveUp,
+  onMoveDown,
   hasErrors,
   errors,
   collapseSignal,
@@ -271,6 +275,30 @@ export function ColumnEditor({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1 mt-1 shrink-0">
+          {!disabled && onMoveUp && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-gray-400 hover:text-gray-700"
+              onClick={onMoveUp}
+              title="Yuxarı apar"
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+          )}
+          {!disabled && onMoveDown && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-gray-400 hover:text-gray-700"
+              onClick={onMoveDown}
+              title="Aşağı apar"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+          )}
           {!disabled && (
             <Button
               type="button"
@@ -383,38 +411,64 @@ export function ColumnEditor({
 
             {/* Number constraints */}
             {column.type === 'number' && (
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">Minimum</Label>
-                  <Input
-                    type="number"
-                    value={column.min ?? ''}
-                    onChange={(e) =>
-                      onUpdate(
-                        index,
-                        'min',
-                        e.target.value === '' ? undefined : Number(e.target.value)
-                      )
-                    }
-                    placeholder="0"
-                    className="text-sm h-8"
-                  />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">Minimum</Label>
+                    <Input
+                      type="number"
+                      value={column.min ?? ''}
+                      onChange={(e) =>
+                        onUpdate(
+                          index,
+                          'min',
+                          e.target.value === '' ? undefined : Number(e.target.value)
+                        )
+                      }
+                      placeholder="0"
+                      className="text-sm h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">Maksimum</Label>
+                    <Input
+                      type="number"
+                      value={column.max ?? ''}
+                      onChange={(e) =>
+                        onUpdate(
+                          index,
+                          'max',
+                          e.target.value === '' ? undefined : Number(e.target.value)
+                        )
+                      }
+                      placeholder="9999"
+                      className="text-sm h-8"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">Maksimum</Label>
-                  <Input
-                    type="number"
-                    value={column.max ?? ''}
-                    onChange={(e) =>
-                      onUpdate(
-                        index,
-                        'max',
-                        e.target.value === '' ? undefined : Number(e.target.value)
-                      )
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`allow-na-${index}`}
+                    checked={column.allow_na ?? false}
+                    onCheckedChange={(v) =>
+                      onUpdate(index, 'allow_na', v === true ? true : undefined)
                     }
-                    placeholder="9999"
-                    className="text-sm h-8"
                   />
+                  <Label htmlFor={`allow-na-${index}`} className="text-sm text-gray-600 cursor-pointer">
+                    "Yoxdur" seçiminə icazə ver
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`zero-blank-${index}`}
+                    checked={column.export_zero_as_blank ?? false}
+                    onCheckedChange={(v) =>
+                      onUpdate(index, 'export_zero_as_blank', v === true ? true : undefined)
+                    }
+                  />
+                  <Label htmlFor={`zero-blank-${index}`} className="text-sm text-gray-600 cursor-pointer">
+                    Eksportda sıfırı boş göstər
+                  </Label>
                 </div>
               </div>
             )}

@@ -7,7 +7,6 @@ import { Calendar, Clock, User, BookOpen, MapPin, Download, Filter } from 'lucid
 import { scheduleService } from '@/services/schedule';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScheduleGrid } from '@/components/schedules/ScheduleGrid';
-import { ScheduleListView } from '@/components/schedules/components/ScheduleListView';
 import { Badge } from '@/components/ui/badge';
 
 export default function TeacherSchedule() {
@@ -187,18 +186,34 @@ export default function TeacherSchedule() {
               <p className="text-gray-600">Bu həftə üçün heç bir dərs təyin olunmayıb.</p>
             </div>
           ) : viewMode === 'grid' ? (
-            <ScheduleGrid 
-              schedule={groupedSchedule}
-              timeSlots={getDefaultTimeSlots()}
-              weekDays={weekDays}
-              readonly={true}
+            <ScheduleGrid
+              teacherId={user?.id}
+              readOnly={true}
             />
           ) : (
-            <ScheduleListView 
-              schedule={scheduleSlots}
-              groupBy="day"
-              showActions={false}
-            />
+            <div className="space-y-2">
+              {weekDays.map(day => {
+                const daySlots = groupedSchedule[day.key] || [];
+                if (daySlots.length === 0) return null;
+                return (
+                  <div key={day.key}>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">{day.name}</p>
+                    {daySlots.map((slot, idx) => (
+                      <div key={slot.id || idx} className="flex items-center gap-4 p-3 border rounded-lg mb-1">
+                        <div className="text-sm text-gray-600 min-w-20">
+                          {slot.start_time} - {slot.end_time}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">{slot.subject?.name}</div>
+                          <div className="text-sm text-gray-600">{slot.class?.name}</div>
+                        </div>
+                        {slot.room && <Badge variant="outline">{slot.room.name}</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

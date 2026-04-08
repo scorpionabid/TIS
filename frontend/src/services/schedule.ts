@@ -87,6 +87,7 @@ export interface ScheduleFilters {
   type?: string;
   institution_id?: number;
   academic_year_id?: number;
+  search?: string;
 }
 
 export interface ScheduleStatistics {

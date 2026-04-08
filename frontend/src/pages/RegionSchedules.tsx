@@ -54,8 +54,8 @@ export default function RegionSchedules() {
             });
             return {
               institution,
-              schedules: schedules.data || [],
-              stats: calculateInstitutionStats(schedules.data || [])
+              schedules: schedules.data?.schedules?.data || [],
+              stats: calculateInstitutionStats(schedules.data?.schedules?.data || [])
             };
           } catch {
             return {

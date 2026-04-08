@@ -61,7 +61,7 @@ export const DesktopRow = React.memo(function DesktopRow({
   return (
     <>
       <tr className={`border-b border-gray-200 hover:bg-gray-50 ${statusColor}`}>
-        <td className={`px-2 py-2 text-center text-gray-500${freezeFirstCol ? ' sticky left-0 z-20 bg-white' : ''}`}>
+        <td className={`px-2 py-2 text-gray-500${fixedRowLabel !== null && fixedRowLabel !== undefined ? ' text-left w-44 min-w-[176px]' : ' text-center'}${freezeFirstCol ? ' sticky left-0 z-20 bg-white' : ''}`}>
           {fixedRowLabel ? (
             <span className="text-xs font-medium text-gray-700">{fixedRowLabel}</span>
           ) : (

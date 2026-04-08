@@ -23,6 +23,7 @@ export function validateRow(
     if (!val) return;
 
     if (col.type === 'number') {
+      if (col.allow_na && val === 'yoxdur') return;
       const n = Number(val);
       if (isNaN(n)) { errors[col.key] = 'Yalnız rəqəm'; return; }
       if (col.min !== undefined && n < col.min) { errors[col.key] = `Min: ${col.min}`; return; }

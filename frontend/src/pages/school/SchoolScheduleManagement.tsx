@@ -81,7 +81,7 @@ export default function SchoolScheduleManagement() {
     },
   });
 
-  const schedules = schedulesData?.data || [];
+  const schedules = schedulesData?.data?.schedules?.data || [];
   const stats = statsData?.data || {
     total_schedules: 0,
     active_schedules: 0,

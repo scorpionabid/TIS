@@ -423,7 +423,7 @@ export const EditableTable = React.memo(function EditableTable({
         <table className="min-w-full border border-gray-200 text-sm rounded-lg overflow-hidden">
           <thead>
             <tr className="bg-gray-50">
-              <th className={`px-2 py-3 text-center border-b border-gray-200 w-10 text-gray-500${freezeFirstCol ? ' sticky left-0 z-20 bg-gray-50' : ''}`}>#</th>
+              <th className={`px-2 py-3 text-left border-b border-gray-200 text-gray-500${isStableTable ? ' w-44 min-w-[176px]' : ' w-10 text-center'}${freezeFirstCol ? ' sticky left-0 z-20 bg-gray-50' : ''}`}>{isStableTable ? 'Sətir' : '#'}</th>
               {columns.map((col, colIdx) => (
                 <th
                   key={col.key}
