@@ -179,9 +179,13 @@ export const CellInput = React.memo(function CellInput({
   }
 
   if (col.type === 'number' && col.allow_na) {
-    const isNa = value === 'yoxdur';
+    const naLabels = col.na_labels?.length ? col.na_labels : ['Yoxdur'];
+    // Legacy sentinel 'yoxdur' (lowercase) also counts as N/A
+    const activeLabel = naLabels.includes(value) ? value : value === 'yoxdur' ? 'Yoxdur' : null;
+    const isNa = activeLabel !== null;
+
     return (
-      <div className="flex gap-1 items-center">
+      <div className="flex gap-1 items-center flex-wrap">
         <Input
           ref={inputRef}
           type="number"
@@ -193,22 +197,28 @@ export const CellInput = React.memo(function CellInput({
           onPaste={onPaste}
           disabled={disabled || isNa}
           placeholder={col.hint || col.label}
-          className={`h-9 text-sm flex-1 ${error ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
+          className={`h-9 text-sm flex-1 min-w-[60px] ${error ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
         />
-        <button
-          type="button"
-          onClick={() => onChange(isNa ? '' : 'yoxdur')}
-          disabled={disabled}
-          className={cn(
-            'h-9 px-2 rounded-md border text-xs whitespace-nowrap transition-colors',
-            disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-            isNa
-              ? 'bg-orange-100 border-orange-300 text-orange-700 font-medium'
-              : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-600'
-          )}
-        >
-          Yoxdur
-        </button>
+        {naLabels.map((lbl) => {
+          const active = value === lbl || (lbl === 'Yoxdur' && value === 'yoxdur');
+          return (
+            <button
+              key={lbl}
+              type="button"
+              onClick={() => onChange(active ? '' : lbl)}
+              disabled={disabled}
+              className={cn(
+                'h-9 px-2 rounded-md border text-xs whitespace-nowrap transition-colors',
+                disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+                active
+                  ? 'bg-orange-100 border-orange-300 text-orange-700 font-medium'
+                  : 'border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-600'
+              )}
+            >
+              {lbl}
+            </button>
+          );
+        })}
       </div>
     );
   }

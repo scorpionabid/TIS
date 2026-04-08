@@ -76,19 +76,26 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
                     }
                 }
 
+                // Stabil cədvəldə sətir etiketi, dinamik cədvəldə nömrə
+                $fixedRows = $this->table->fixed_rows ?? [];
+                $rowLabel = ! empty($fixedRows) && isset($fixedRows[$rowIndex])
+                    ? ($fixedRows[$rowIndex]['label'] ?? ($rowIndex + 1))
+                    : $rowIndex + 1;
+
                 $excelRow = [
                     $sectorName,
                     $institutionName,
-                    $rowIndex + 1, // Sətir nömrəsi
+                    $rowLabel,
                 ];
 
                 foreach ($this->columns as $column) {
                     $value = $tableRow[$column['key']] ?? '';
                     $type = $column['type'] ?? 'text';
 
-                    // "Yoxdur" N/A dəyəri
-                    if ($value === 'yoxdur') {
-                        $excelRow[] = 'Yoxdur';
+                    // N/A dəyərləri: na_labels massivi + legacy 'yoxdur' sentinel
+                    $naLabels = array_filter($column['na_labels'] ?? [], fn ($l) => $l !== '' && $l !== null);
+                    if ($value === 'yoxdur' || in_array($value, $naLabels, true)) {
+                        $excelRow[] = $value === 'yoxdur' ? 'Yoxdur' : $value;
                         continue;
                     }
 

@@ -446,17 +446,70 @@ export function ColumnEditor({
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={`allow-na-${index}`}
-                    checked={column.allow_na ?? false}
-                    onCheckedChange={(v) =>
-                      onUpdate(index, 'allow_na', v === true ? true : undefined)
-                    }
-                  />
-                  <Label htmlFor={`allow-na-${index}`} className="text-sm text-gray-600 cursor-pointer">
-                    "Yoxdur" seçiminə icazə ver
-                  </Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`allow-na-${index}`}
+                      checked={column.allow_na ?? false}
+                      onCheckedChange={(v) => {
+                        const enabled = v === true;
+                        onUpdate(index, 'allow_na', enabled ? true : undefined);
+                        if (enabled && !(column.na_labels?.length)) {
+                          onUpdate(index, 'na_labels', ['Yoxdur']);
+                        }
+                        if (!enabled) {
+                          onUpdate(index, 'na_labels', undefined);
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`allow-na-${index}`} className="text-sm text-gray-600 cursor-pointer">
+                      N/A seçiminə icazə ver
+                    </Label>
+                  </div>
+
+                  {column.allow_na && (
+                    <div className="ml-6 space-y-1.5 p-2 bg-orange-50/60 border border-orange-100 rounded-md">
+                      <Label className="text-xs text-orange-700 font-medium block">N/A etiketləri</Label>
+                      {(column.na_labels ?? []).map((lbl, lblIdx) => (
+                        <div key={lblIdx} className="flex gap-1 items-center">
+                          <Input
+                            value={lbl}
+                            onChange={(e) => {
+                              const next = [...(column.na_labels ?? [])];
+                              next[lblIdx] = e.target.value;
+                              onUpdate(index, 'na_labels', next);
+                            }}
+                            placeholder={`Etiket ${lblIdx + 1}`}
+                            className="text-sm h-7 flex-1 bg-white"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={(column.na_labels?.length ?? 0) <= 1}
+                            className="h-7 w-7 p-0 text-red-400 hover:text-red-600 disabled:opacity-30 shrink-0"
+                            onClick={() => {
+                              const next = (column.na_labels ?? []).filter((_, i) => i !== lblIdx);
+                              onUpdate(index, 'na_labels', next);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs h-7 border-dashed border-orange-200 text-orange-600 hover:bg-orange-50"
+                        onClick={() =>
+                          onUpdate(index, 'na_labels', [...(column.na_labels ?? []), ''])
+                        }
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Etiket əlavə et
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox

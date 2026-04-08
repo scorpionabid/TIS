@@ -170,6 +170,11 @@ class ReportTableController extends BaseController
             'columns.*.signature_height' => 'nullable|integer|min:50|max:3000',
             'columns.*.gps_precision' => 'nullable|string|in:high,medium,low',
             'columns.*.gps_radius' => 'nullable|numeric|min:0|max:100000',
+            'columns.*.multiple' => 'nullable|boolean',
+            'columns.*.allow_na' => 'nullable|boolean',
+            'columns.*.na_labels' => 'nullable|array|max:10',
+            'columns.*.na_labels.*' => 'string|max:100',
+            'columns.*.export_zero_as_blank' => 'nullable|boolean',
             'max_rows' => 'nullable|integer|min:1|max:500',
             'fixed_rows' => 'nullable|array',
             'fixed_rows.*.id' => 'required|string|max:64',
@@ -223,6 +228,11 @@ class ReportTableController extends BaseController
             'columns.*.signature_height' => 'nullable|integer|min:50|max:3000',
             'columns.*.gps_precision' => 'nullable|string|in:high,medium,low',
             'columns.*.gps_radius' => 'nullable|numeric|min:0|max:100000',
+            'columns.*.multiple' => 'nullable|boolean',
+            'columns.*.allow_na' => 'nullable|boolean',
+            'columns.*.na_labels' => 'nullable|array|max:10',
+            'columns.*.na_labels.*' => 'string|max:100',
+            'columns.*.export_zero_as_blank' => 'nullable|boolean',
             'max_rows' => 'nullable|integer|min:1|max:500',
             'fixed_rows' => 'nullable|array',
             'fixed_rows.*.id' => 'required|string|max:64',
@@ -796,6 +806,27 @@ class ReportTableController extends BaseController
         }
     }
 
+    /**
+     * GET /api/report-tables/{table}/rejected-schools
+     * Bir cədvəl üçün rədd edilmiş sətirləri olan məktəblərin siyahısı (export üçün).
+     */
+    public function rejectedSchools(ReportTable $table): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user->hasAnyRole(['regionadmin', 'superadmin', 'admin', 'regionoperator', 'sektoradmin'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        try {
+            $data = $this->statisticsService->getRejectedSchools($table, $user);
+
+            return $this->successResponse($data, 'Rədd edilmiş məktəblər siyahısı.');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
     // ─── Formatters ──────────────────────────────────────────────────────────
 
     private function formatTable(ReportTable $table): array
@@ -883,6 +914,7 @@ class ReportTableController extends BaseController
             'not_responded_count' => $notRespondedCount,
             'can_edit' => $table->canEdit(),
             'can_edit_columns' => $table->canEditColumns(),
+            'can_edit_column_content' => $table->canEditColumnContent(),
         ]);
     }
 

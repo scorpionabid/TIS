@@ -95,7 +95,15 @@ class ReportTableService
             }
         }
 
-        $query->orderBy('created_at', 'desc');
+        // Sıralama
+        if (! empty($filters['sort_by']) && $filters['sort_by'] === 'activity') {
+            $query->orderBy('responses_count', 'desc');
+        } elseif (! empty($filters['status']) && $filters['status'] === 'published') {
+            // Statistika və Entry üçün published olanlar aktivliyə görə gəlsin
+            $query->orderBy('responses_count', 'desc');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
 
         return $query->paginate($perPage);
     }
@@ -162,10 +170,35 @@ class ReportTableService
             'fixed_rows' => $data['fixed_rows'] ?? null,
         ], fn ($v) => $v !== null);
 
-        // Sütunlar və fixed_rows yalnız draft-da dəyişdirilə bilər
+        // Sütun yeniləməsi: tam redaktə (draft/cavabsız-published) vs məzmun yeniləməsi
         if (isset($data['columns'])) {
             $this->validateColumns($data['columns']);
-            $updateData['columns'] = $data['columns'];
+
+            if ($table->canEditColumns()) {
+                // Tam redaktə — bütün sütun dəyişikliklərini qəbul et
+                $updateData['columns'] = $data['columns'];
+            } elseif ($table->canEditColumnContent()) {
+                // Cavab olan published cədvəl — yalnız məzmun sahələrini merge et
+                // (key, type, label dəyişdirilmir; allow_na, na_labels, hint, required, min/max yenilənir)
+                $safeFields = ['allow_na', 'na_labels', 'export_zero_as_blank', 'hint', 'required', 'min', 'max', 'min_length', 'max_length', 'multiple'];
+                $existingCols = collect($table->columns ?? [])->keyBy('key');
+                $incoming = collect($data['columns'])->keyBy('key');
+
+                $merged = $existingCols->map(function ($col, $key) use ($incoming, $safeFields) {
+                    if (! $incoming->has($key)) return $col;
+                    $incomingCol = $incoming->get($key);
+                    foreach ($safeFields as $field) {
+                        if (array_key_exists($field, $incomingCol)) {
+                            $col[$field] = $incomingCol[$field];
+                        } else {
+                            unset($col[$field]);
+                        }
+                    }
+                    return $col;
+                })->values()->toArray();
+
+                $updateData['columns'] = $merged;
+            }
         }
 
         if (isset($data['fixed_rows'])) {

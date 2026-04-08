@@ -202,7 +202,7 @@ export function useReportTableWizard(
         title: formData.title,
         description: formData.description || undefined,
         notes: formData.notes || undefined,
-        columns: editingTable?.can_edit_columns ? formData.columns : undefined,
+        columns: (editingTable?.can_edit_columns || editingTable?.can_edit_column_content) ? formData.columns : undefined,
         fixed_rows: editingTable?.can_edit_columns ? (formData.fixed_rows || undefined) : undefined,
         max_rows: formData.max_rows,
         target_institutions: formData.target_institutions,

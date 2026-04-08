@@ -23,7 +23,10 @@ export function validateRow(
     if (!val) return;
 
     if (col.type === 'number') {
-      if (col.allow_na && val === 'yoxdur') return;
+      if (col.allow_na) {
+        const naLabels = (col.na_labels?.length ? col.na_labels : ['Yoxdur']).filter(Boolean);
+        if (naLabels.includes(val) || val === 'yoxdur') return; // legacy 'yoxdur' compat
+      }
       const n = Number(val);
       if (isNaN(n)) { errors[col.key] = 'Yalnız rəqəm'; return; }
       if (col.min !== undefined && n < col.min) { errors[col.key] = `Min: ${col.min}`; return; }

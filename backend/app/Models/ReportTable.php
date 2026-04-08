@@ -177,7 +177,20 @@ class ReportTable extends Model
      */
     public function canEditColumns(): bool
     {
-        return $this->isDraft();
+        // Draft — tam redaktə
+        if ($this->isDraft()) return true;
+        // Published — cavab yoxdursa tam redaktə icazəsi
+        return $this->isPublished() && $this->responses()->count() === 0;
+    }
+
+    /**
+     * Sütun məzmununun (allow_na, na_labels, hint, required, min/max kimi)
+     * dəyişdirilməsinə icazə verir. Quruluş dəyişikliyi (key, tip, əlavə/silmə)
+     * üçün canEditColumns() istifadə olunur.
+     */
+    public function canEditColumnContent(): bool
+    {
+        return $this->isDraft() || $this->isPublished();
     }
 
     /**
@@ -185,7 +198,7 @@ class ReportTable extends Model
      */
     public function canEdit(): bool
     {
-        return $this->isDraft();
+        return $this->isDraft() || $this->isPublished();
     }
 
     /**

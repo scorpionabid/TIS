@@ -33,8 +33,10 @@ export interface ReportTableColumn {
   // For gps type: precision and validation
   gps_precision?: 'high' | 'medium' | 'low';
   gps_radius?: number; // meters - validate if within radius
-  // For number type: allow "yoxdur" (N/A) as a valid value
+  // For number type: allow N/A sentinel values (e.g. "Yoxdur", "Keçirilməyib")
   allow_na?: boolean;
+  // Custom N/A label strings; each stored as cell value when selected
+  na_labels?: string[];
   // For number type: export 0 values as blank in Excel
   export_zero_as_blank?: boolean;
 }
@@ -105,6 +107,7 @@ export interface ReportTable extends BaseEntity {
   not_responded_count?: number; // Göndərməyən məktəblər
   can_edit?: boolean;
   can_edit_columns?: boolean;
+  can_edit_column_content?: boolean;
 }
 
 // ─── Report Table Response ────────────────────────────────────────────────────
