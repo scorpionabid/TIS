@@ -367,6 +367,21 @@ class ReportTableResponseController extends BaseController
      * GET /api/report-tables/school-fill-statistics
      * Bütün məktəblərin cədvəl doldurma statistikası.
      */
+    /**
+     * GET /api/report-tables/my-statistics
+     * Cari məktəbin (istifadəçinin) öz reytinq və bal statistikası.
+     */
+    public function myStatistics(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $this->statisticsService->getMyStatistics($user);
+
+        return response()->json(['data' => $data]);
+    }
+    /**
+     * GET /api/report-tables/school-fill-statistics
+     * Bütün məktəblərin cədvəl doldurma statistikası.
+     */
     public function schoolFillStatistics(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -504,5 +519,85 @@ class ReportTableResponseController extends BaseController
                 'name' => $response->respondent->profile?->full_name ?? $response->respondent->username,
             ] : null,
         ]);
+    }
+
+    /**
+     * GET /api/report-tables/statistics/overall/export
+     * Bütün cədvəllər üzrə ümumi statistikaları Excel formatında export etmək.
+     */
+    public function exportOverallStatistics(Request $request)
+    {
+        $user = $request->user();
+
+        // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator export edə bilər
+        if (! $user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        $data = $this->statisticsService->getSchoolFillStatistics($user);
+
+        // Generate Excel file
+        $exportData = [];
+        $exportData[] = [
+            'Məktəb',
+            'Sektor',
+            'Cəmi Cədvəl',
+            'Doldurulub',
+            'Cəmi Sətir',
+            'Təsdiq',
+            'Rədd',
+            'Bonuslar',
+            'Cərimələr',
+            'Yekun Bal',
+            'Reytinq %'
+        ];
+
+        foreach ($data as $school) {
+            $exportData[] = [
+                $school['institution_name'],
+                $school['sector_name'] ?? 'Sektor yoxdur',
+                $school['total_tables'],
+                $school['filled_tables'],
+                $school['total_rows_across_all_tables'],
+                $school['total_approved'],
+                $school['total_rejected'],
+                $school['total_bonus'],
+                $school['total_penalty'],
+                $school['total_final_score'],
+                $school['avg_rating_percentage'] . '%',
+            ];
+        }
+
+        $filename = 'Umumi_Yekun_Statistika_' . date('Y-m-d') . '.xlsx';
+
+        // Use Laravel Excel package if available, otherwise return CSV
+        if (class_exists('Maatwebsite\Excel\Facades\Excel')) {
+            $export = new class($exportData) implements \Maatwebsite\Excel\Concerns\FromArray
+            {
+                private $data;
+
+                public function __construct($data)
+                {
+                    $this->data = $data;
+                }
+
+                public function array(): array
+                {
+                    return $this->data;
+                }
+            };
+
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
+        }
+
+        // Fallback to CSV
+        $csv = '';
+        foreach ($exportData as $row) {
+            $csv .= implode(',', array_map(fn ($item) => '"' . str_replace('"', '""', $item) . '"', $row)) . "\n";
+        }
+
+        return response($csv)
+            ->header('Content-Type', 'text/csv; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename="' . str_replace('.xlsx', '.csv', $filename) . '"');
     }
 }

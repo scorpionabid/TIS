@@ -189,6 +189,57 @@ function TableCard({
     }
   };
 
+  // Export rejected schools as XLSX
+  const exportRejected = async () => {
+    try {
+      const data = await reportTableService.getRejectedSchools(table.id);
+      if (!data || data.length === 0) {
+        toast.info('Rədd edilmiş məktəb yoxdur');
+        return;
+      }
+      
+      // Create Excel XML content
+      const headers = ['Məktəb', 'Sektor', 'Rədd edilən sətir sayı', 'Status'];
+      const rows = data.map((s: any) => [
+        s.name,
+        s.sector || '-',
+        s.rejected_count?.toString() || '0',
+        s.status || 'Rədd edilib'
+      ]);
+      
+      // Create HTML table for Excel export
+      const htmlTable = `
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${rows.map((r: string[]) => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      `;
+      
+      const blob = new Blob([
+        `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/1999/xhtml">
+          <head>
+            <meta charset="UTF-8"/>
+            <style>table { border-collapse: collapse; } th, td { border: 1px solid #ccc; padding: 8px; text-align: left; } th { background-color: #f0f0f0; font-weight: bold; }</style>
+          </head>
+          <body>${htmlTable}</body>
+        </html>`
+      ], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${table.title}-redd-edilenler.xls`;
+      link.click();
+      
+      toast.success(`${data.length} məktəb Excel formatında yükləndi`);
+    } catch (error) {
+      toast.error('Export zamanı xəta baş verdi');
+    }
+  };
+
   return (
     <div className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow ${isDeleted ? 'opacity-70 border-dashed border-red-200' : ''}`} data-testid="report-table-card">
       <div className="flex items-start justify-between gap-2">
@@ -348,6 +399,12 @@ function TableCard({
                     {canManageAdditionalRows && notResponded > 0 && (
                       <DropdownMenuItem onClick={exportNonResponding}>
                         <Download className="h-4 w-4 mr-2" /> Doldurmayanları export et ({notResponded})
+                      </DropdownMenuItem>
+                    )}
+                    {/* Export rejected schools - RegionAdmin only */}
+                    {canManageAdditionalRows && rejected > 0 && (
+                      <DropdownMenuItem onClick={exportRejected} className="text-red-600">
+                        <Download className="h-4 w-4 mr-2" /> Rədd edilənləri export et ({rejected})
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={() => onConfirm('archive', table)} className="text-orange-600">

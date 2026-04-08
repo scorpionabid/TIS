@@ -28,6 +28,8 @@ import type { ReportTable } from '@/types/reportTable';
 import { cn } from '@/lib/utils';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MyReportTableStatistics } from '@/components/reporttables/MyReportTableStatistics';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -177,35 +179,50 @@ export default function ReportTableEntry() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Table2 className="h-6 w-6 text-emerald-600" />
-          Hesabat Cədvəlləri
-        </h1>
-        <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
-          Aşağıdakı cədvəlləri dolduraraq göndərin.
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">
-            <Building2 className="h-3 w-3" />
-            {userRoleText}
-          </span>
-        </p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <Table2 className="h-6 w-6 text-emerald-600" />
+            Hesabat Cədvəlləri
+          </h1>
+          <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
+            Aşağıdakı cədvəlləri dolduraraq göndərin.
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">
+              <Building2 className="h-3 w-3" />
+              {userRoleText}
+            </span>
+          </p>
+        </div>
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="space-y-4">
-          {[...Array(2)].map((_, i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : tables.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-lg font-medium">Aktiv cədvəl yoxdur</p>
-          <p className="text-sm mt-1">Sizə hələ heç bir hesabat cədvəli təyin edilməyib.</p>
-        </div>
-      ) : (
-        <>
+      <Tabs defaultValue="tables" className="w-full space-y-6">
+        <TabsList className="bg-gray-100/50 p-1 rounded-xl w-fit border border-gray-200">
+          <TabsTrigger value="tables" className="rounded-lg px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Table2 className="h-4 w-4 mr-2" />
+            Cədvəllər
+          </TabsTrigger>
+          <TabsTrigger value="statistics" className="rounded-lg px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Statistika və Reytinq
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tables" className="space-y-6 mt-0">
+          {/* Content */}
+          {isLoading ? (
+            <div className="space-y-4">
+              {[...Array(2)].map((_, i) => (
+                <Skeleton key={i} className="h-64 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : tables.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-lg font-medium">Aktiv cədvəl yoxdur</p>
+              <p className="text-sm mt-1">Sizə hələ heç bir hesabat cədvəli təyin edilməyib.</p>
+            </div>
+          ) : (
+            <>
           {/* Filter + Stats toolbar */}
           <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm mb-4">
             <div className="flex items-center gap-3 flex-wrap">
@@ -527,6 +544,12 @@ export default function ReportTableEntry() {
           />
         </>
       )}
+        </TabsContent>
+
+        <TabsContent value="statistics" className="mt-0">
+          <MyReportTableStatistics />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

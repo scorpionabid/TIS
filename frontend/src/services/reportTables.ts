@@ -13,6 +13,7 @@ import {
   BulkRowSpec,
   BulkRowActionResult,
   TableAnalyticsSummary,
+  MySchoolStatistics,
 } from '../types/reportTable';
 
 type GroupedSectorNode = {
@@ -228,6 +229,12 @@ class ReportTableService extends BaseService<ReportTable> {
   async submitResponse(responseId: number): Promise<ReportTableResponse> {
     const response = await this.post<ReportTableResponse>(`report-table-responses/${responseId}/submit`);
     return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.submitResponse', 'ReportTableService');
+  }
+
+  async getResponse(responseId: number): Promise<ReportTableResponse> {
+    const response = await this.get<ReportTableResponse>(`report-table-responses/${responseId}`);
+    const result = response as unknown as SingleApiResult<ReportTableResponse>;
+    return result.data;
   }
 
   // ─── School: Tək sətir göndər ─────────────────────────────────────────────
@@ -472,6 +479,14 @@ class ReportTableService extends BaseService<ReportTable> {
     return result.data ?? [];
   }
 
+  // ─── Get Rejected Schools (for exporting schools that have rejected rows) ────────────
+
+  async getRejectedSchools(tableId: number): Promise<any[]> {
+    const response = await this.get<{ data: any[] }>(`report-tables/${tableId}/rejected-schools`);
+    const result = response as unknown as { data: any[] };
+    return result.data ?? [];
+  }
+
   // ─── Export Statistics (Excel format) ───────────────────────────────────────
 
   async exportStatistics(tableId: number, title?: string): Promise<void> {
@@ -510,6 +525,48 @@ class ReportTableService extends BaseService<ReportTable> {
     } catch (error: any) {
       throw new Error(error.message || 'Export zamanı xəta baş verdi');
     }
+  }
+
+  async exportOverallStatistics(): Promise<void> {
+    try {
+      const response = await apiClient.get<Blob>(
+        'report-tables/statistics/overall/export',
+        {},
+        { responseType: 'blob' }
+      );
+      
+      let blob: Blob | null = null;
+      if (response && typeof response === 'object') {
+        if ('data' in response && response.data instanceof Blob) {
+          blob = response.data;
+        } else if (response instanceof Blob) {
+          blob = response;
+        }
+      }
+      
+      if (!blob) {
+        throw new Error('Fayl məlumatları alınmadı');
+      }
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Umumi_Yekun_Statistika_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      throw new Error(error.message || 'Export zamanı xəta baş verdi');
+    }
+  }
+
+  // ─── Self Statistics (for School Admins) ───────────────────────────────────
+
+  async getMyStatistics(): Promise<MySchoolStatistics | null> {
+    const response = await this.get<{ data: MySchoolStatistics }>('report-tables/my-statistics');
+    const result = response as unknown as { data: MySchoolStatistics };
+    return result.data ?? null;
   }
 }
 

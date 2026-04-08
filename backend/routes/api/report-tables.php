@@ -20,6 +20,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('report-tables/my', [ReportTableController::class, 'my'])
         ->middleware('permission:report_table_responses.write');
 
+    Route::get('report-tables/my-statistics', [ReportTableResponseController::class, 'myStatistics'])
+        ->middleware('permission:report_table_responses.write');
+
     // Analytics summary endpoint
     // Admin: full analytics (report_tables.read)
     // School: only own institution analytics (report_table_responses.write)
@@ -40,6 +43,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // School Fill Statistics — Bütün məktəblərin cədvəl doldurma statistikası
     Route::get('report-tables/school-fill-statistics', [ReportTableResponseController::class, 'schoolFillStatistics'])
+        ->middleware('permission:report_tables.read');
+
+    // Overall Statistics Export — Bütün cədvəllər üzrə ümumi statistikaları export etmək
+    Route::get('report-tables/statistics/overall/export', [ReportTableResponseController::class, 'exportOverallStatistics'])
         ->middleware('permission:report_tables.read');
 
     // Table Fill Statistics — Bir cədvəl üçün bütün məktəblərin doldurma statistikası
@@ -72,6 +79,8 @@ Route::middleware('permission:report_tables.read')->group(function () {
     Route::get('report-tables/{table}/export/approved', [ReportTableController::class, 'exportApproved']);
     // Doldurmayan məktəbləri əldə etmək (export üçün)
     Route::get('report-tables/{table}/non-responding-schools', [ReportTableController::class, 'nonRespondingSchools']);
+    // Rədd edilmiş məlumatları olan məktəbləri əldə etmək (export üçün)
+    Route::get('report-tables/{table}/rejected-schools', [ReportTableController::class, 'rejectedSchools']);
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Write) ──────────────────────────

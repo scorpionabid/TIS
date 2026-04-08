@@ -55,6 +55,15 @@ class ReportTableStatisticsService
                 'filled_tables' => 0,
                 'not_filled_tables' => 0,
                 'total_rows_across_all_tables' => 0,
+                'total_approved' => 0,
+                'total_pending' => 0,
+                'total_rejected' => 0,
+                'total_returned' => 0,
+                'total_penalty' => 0,
+                'total_bonus' => 0,
+                'total_points' => 0,
+                'total_final_score' => 0,
+                'avg_rating_percentage' => 0,
             ];
 
             foreach ($tables as $table) {
@@ -103,6 +112,35 @@ class ReportTableStatisticsService
                     $schoolData['not_filled_tables']++;
                 }
 
+                $penalty = 0;
+                $bonus = 0;
+
+                if ($response && $rowCount > 0 && $submittedAt) {
+                    // Delay penalty (downscaled): 0.1 point per day
+                    if ($table->deadline && strtotime($submittedAt) > strtotime($table->deadline)) {
+                        $delayDays = (int) ceil((strtotime($submittedAt) - strtotime($table->deadline)) / 86400);
+                        $penalty = $delayDays * 0.1;
+                    }
+
+                    // Speed bonus (downscaled): 0.2 points if submitted 3+ days before deadline
+                    if ($table->deadline && strtotime($submittedAt) < (strtotime($table->deadline) - 3 * 86400)) {
+                        $bonus = 0.2;
+                    }
+                }
+
+                // Table score: max 1.0 point based on approved ratio
+                $tablePoints = $rowCount > 0 ? ($approvedCount / $rowCount) : 0;
+                $tableFinalScore = max(0, $tablePoints - $penalty + $bonus);
+
+                $schoolData['total_approved'] += $approvedCount;
+                $schoolData['total_pending'] += $pendingCount;
+                $schoolData['total_rejected'] += $rejectedCount;
+                $schoolData['total_returned'] += $returnedCount;
+                $schoolData['total_penalty'] += $penalty;
+                $schoolData['total_bonus'] += $bonus;
+                $schoolData['total_points'] += $tablePoints;
+                $schoolData['total_final_score'] += $tableFinalScore;
+
                 $schoolData['tables'][] = [
                     'table_id' => $table->id,
                     'table_title' => $table->title,
@@ -113,13 +151,30 @@ class ReportTableStatisticsService
                     'pending_count' => $pendingCount,
                     'rejected_count' => $rejectedCount,
                     'returned_count' => $returnedCount,
+                    'penalty' => (float) round($penalty, 2),
+                    'bonus' => (float) round($bonus, 2),
+                    'points' => (float) round($tablePoints, 2),
+                    'final_score' => (float) round($tableFinalScore, 2),
                 ];
 
                 $schoolData['total_rows_across_all_tables'] += $rowCount;
             }
 
+            // Global rounding
+            $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
+            $schoolData['total_final_score'] = (float) round($schoolData['total_final_score'], 2);
+            $schoolData['total_penalty'] = (float) round($schoolData['total_penalty'], 2);
+            
+            // Faiz hesablama: (Yekun Bal / Cəmi Cədvəl Sayı) * 100
+            $schoolData['avg_rating_percentage'] = $schoolData['total_tables'] > 0
+                ? (float) round(($schoolData['total_final_score'] / $schoolData['total_tables']) * 100, 1)
+                : 0.0;
+
             $statistics[] = $schoolData;
         }
+
+        // Reytinq balına görə sıralama (DESC)
+        usort($statistics, fn($a, $b) => $b['total_final_score'] <=> $a['total_final_score']);
 
         return $statistics;
     }
@@ -176,7 +231,7 @@ class ReportTableStatisticsService
                 $rowStatuses = $response->row_statuses ?? [];
 
                 foreach ($rowStatuses as $meta) {
-                    $rowStatus = $meta['status'] ?? null;
+                    $rowStatus = is_array($meta) ? ($meta['status'] ?? null) : null;
                     if ($rowStatus === 'approved') {
                         $approvedCount++;
                     } elseif ($rowStatus === 'submitted') {
@@ -201,31 +256,56 @@ class ReportTableStatisticsService
                 $submittedAt = $response->submitted_at;
                 $filledCount++;
             } else {
+                $status = 'not_started';
                 $notFilledCount++;
             }
 
+            // Calculate Rating and Points logic (Weighted)
+            $penalty = 0;
+            $bonus = 0;
+
+            if ($response && $rowCount > 0 && $submittedAt) {
+                // Delay penalty (downscaled): 0.1 per day
+                if ($table->deadline && strtotime($submittedAt) > strtotime($table->deadline)) {
+                    $delayDays = (int) ceil((strtotime($submittedAt) - strtotime($table->deadline)) / 86400);
+                    $penalty = $delayDays * 0.1;
+                }
+
+                // Speed bonus (downscaled): 0.2 points
+                if ($table->deadline && strtotime($submittedAt) < (strtotime($table->deadline) - 3 * 86400)) {
+                    $bonus = 0.2;
+                }
+            }
+
+            // Points: Proportion of approved rows (max 1.0)
+            $points = $rowCount > 0 ? ($approvedCount / $rowCount) : 0;
+            $finalScore = max(0, $points - $penalty + $bonus);
+            
+            $ratingPercentage = $rowCount > 0 ? (float) round(($approvedCount / $rowCount) * 100, 1) : 0.0;
+
             $schools[] = [
                 'institution_id' => $institution->id,
+                'response_id' => $response?->id,
                 'institution_name' => $institution->name,
                 'sector_name' => $institution->parent?->name,
-                'row_count' => $rowCount,
-                'approved_count' => $approvedCount,
-                'pending_count' => $pendingCount,
-                'rejected_count' => $rejectedCount,
-                'returned_count' => $returnedCount,
+                'row_count' => (int) $rowCount,
+                'approved_count' => (int) $approvedCount,
+                'pending_count' => (int) $pendingCount,
+                'rejected_count' => (int) $rejectedCount,
+                'returned_count' => (int) $returnedCount,
+                'points' => (float) round($points, 2),
+                'penalty' => (float) round($penalty, 2),
+                'bonus' => (float) round($bonus, 2),
+                'final_score' => (float) round($finalScore, 2),
+                'rating_percentage' => (float) $ratingPercentage,
                 'status' => $status,
-                'submitted_at' => $submittedAt,
+                'submitted_at' => $submittedAt ? date('c', strtotime($submittedAt)) : null,
                 'is_filled' => $response !== null,
             ];
         }
 
-        usort($schools, function ($a, $b) {
-            if ($a['is_filled'] === $b['is_filled']) {
-                return strcmp($a['institution_name'], $b['institution_name']);
-            }
-
-            return $a['is_filled'] ? 1 : -1;
-        });
+        // Reytinq balına görə sıralama (DESC)
+        usort($schools, fn($a, $b) => $b['final_score'] <=> $a['final_score']);
 
         return [
             'table_id' => $table->id,
@@ -274,5 +354,190 @@ class ReportTableStatisticsService
         }
 
         return $nonRespondingSchools;
+    }
+
+    /**
+     * Bir cədvəl üçün rədd edilmiş (rejected) sətirləri olan məktəblərin siyahısı.
+     */
+    public function getRejectedSchools(ReportTable $table, User $user): array
+    {
+        $allowedInstitutionIds = $this->approvalService->getReviewableInstitutionIds($user);
+
+        if (empty($allowedInstitutionIds)) {
+            return [];
+        }
+
+        $responses = ReportTableResponse::where('report_table_id', $table->id)
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->with(['institution:id,name,parent_id', 'institution.parent:id,name'])
+            ->get();
+
+        $rejectedSchools = [];
+
+        foreach ($responses as $response) {
+            $rowStatuses = $response->row_statuses ?? [];
+            $rejectedCount = 0;
+
+            foreach ($rowStatuses as $meta) {
+                $status = is_array($meta) ? ($meta['status'] ?? null) : null;
+                if ($status === 'rejected') {
+                    $rejectedCount++;
+                }
+            }
+
+            if ($rejectedCount > 0) {
+                $rejectedSchools[] = [
+                    'id' => $response->institution->id,
+                    'name' => $response->institution->name,
+                    'sector' => $response->institution->parent?->name ?? 'Sektorsuz',
+                    'sector_id' => $response->institution->parent_id,
+                    'rejected_count' => $rejectedCount,
+                    'status' => 'Rədd edilib'
+                ];
+            }
+        }
+
+        // Ada görə sıralayırıq
+        usort($rejectedSchools, fn($a, $b) => strcmp($a['name'], $b['name']));
+
+        return $rejectedSchools;
+    }
+
+    /**
+     * Cari istifadəçinin (məktəbin) öz statistikası.
+     */
+    public function getMyStatistics(User $user): array
+    {
+        $institutionId = $user->institution_id;
+        if (!$institutionId) {
+            return [];
+        }
+
+        $tables = ReportTable::where('status', 'published')
+            ->whereNull('deleted_at')
+            ->orderBy('title')
+            ->get();
+
+        $institution = Institution::with(['parent'])->find($institutionId);
+        if (!$institution) {
+            return [];
+        }
+
+        $responses = ReportTableResponse::where('institution_id', $institutionId)
+            ->whereIn('report_table_id', $tables->pluck('id'))
+            ->with(['reportTable'])
+            ->get()
+            ->keyBy('report_table_id');
+
+        $schoolData = [
+            'institution_id' => $institution->id,
+            'institution_name' => $institution->name,
+            'sector_name' => $institution->parent?->name,
+            'tables' => [],
+            'total_tables' => $tables->count(),
+            'filled_tables' => 0,
+            'total_rows_across_all_tables' => 0,
+            'total_approved' => 0,
+            'total_pending' => 0,
+            'total_rejected' => 0,
+            'total_returned' => 0,
+            'total_penalty' => 0,
+            'total_bonus' => 0,
+            'total_points' => 0,
+            'total_final_score' => 0,
+            'avg_rating_percentage' => 0,
+        ];
+
+        foreach ($tables as $table) {
+            $response = $responses[$table->id] ?? null;
+
+            $rowCount = 0;
+            $approvedCount = 0;
+            $pendingCount = 0;
+            $rejectedCount = 0;
+            $returnedCount = 0;
+            $status = 'not_started';
+            
+            if ($response) {
+                $rows = $response->rows ?? [];
+                $rowCount = count($rows);
+                $rowStatuses = $response->row_statuses ?? [];
+
+                foreach ($rowStatuses as $meta) {
+                    $rowStatus = $meta['status'] ?? null;
+                    if ($rowStatus === 'approved') {
+                        $approvedCount++;
+                    } elseif ($rowStatus === 'submitted') {
+                        $pendingCount++;
+                    } elseif ($rowStatus === 'rejected') {
+                        $rejectedCount++;
+                    } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
+                        $returnedCount++;
+                    }
+                }
+
+                if ($rowCount > 0) {
+                    $schoolData['filled_tables']++;
+                    $status = $response->status;
+                }
+            }
+
+            // Bal hesablama (Weighted)
+            $tablePoints = 0;
+            $penalty = 0;
+            $bonus = 0;
+
+            if ($rowCount > 0) {
+                $tablePoints = $approvedCount / $rowCount;
+                
+                // Gecikmə/Bonusu hesabla
+                $submissionDate = $response->submitted_at;
+                if ($submissionDate && $table->deadline) {
+                    $deadline = \Carbon\Carbon::parse($table->deadline);
+                    $submitted = \Carbon\Carbon::parse($submissionDate);
+                    
+                    if ($submitted->gt($deadline)) {
+                        $daysLate = $submitted->diffInDays($deadline);
+                        $penalty = min(0.5, $daysLate * 0.1); 
+                    } elseif ($submitted->lt($deadline->subDays(3))) {
+                        $bonus = 0.2;
+                    }
+                }
+            }
+
+            $finalScore = max(0, $tablePoints - $penalty + $bonus);
+
+            $schoolData['total_rows_across_all_tables'] += $rowCount;
+            $schoolData['total_approved'] += $approvedCount;
+            $schoolData['total_pending'] += $pendingCount;
+            $schoolData['total_rejected'] += $rejectedCount;
+            $schoolData['total_returned'] += $returnedCount;
+            $schoolData['total_penalty'] += $penalty;
+            $schoolData['total_bonus'] += $bonus;
+            $schoolData['total_points'] += $tablePoints;
+            $schoolData['total_final_score'] += $finalScore;
+
+            $schoolData['tables'][] = [
+                'id' => $table->id,
+                'title' => $table->title,
+                'status' => $status,
+                'row_count' => $rowCount,
+                'approved_count' => $approvedCount,
+                'rejected_count' => $rejectedCount,
+                'returned_count' => $returnedCount,
+                'penalty' => $penalty,
+                'bonus' => $bonus,
+                'final_score' => round($finalScore, 2),
+                'rating_percentage' => $rowCount > 0 ? (float)round(($approvedCount / $rowCount) * 100, 1) : 0,
+            ];
+        }
+
+        $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
+        $schoolData['total_final_score'] = (float) round($schoolData['total_final_score'], 2);
+        $schoolData['avg_rating_percentage'] = $schoolData['total_tables'] > 0
+            ? (float) round(($schoolData['total_final_score'] / $schoolData['total_tables']) * 100, 1)
+            : 0.0;
+
+        return $schoolData;
     }
 }
