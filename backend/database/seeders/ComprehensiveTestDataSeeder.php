@@ -159,7 +159,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
-            
+
             // Note: Institution model doesn't seem to have a trashed check here but adding it for robustness if it has trait
             $inst = Institution::withTrashed()->where('code', $instData['code'])->first();
             if ($inst && method_exists($inst, 'trashed') && $inst->trashed()) {

@@ -25,16 +25,16 @@ class RegionStudentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'search'      => 'nullable|string|max:100',
-            'sector_id'   => 'nullable|integer',
-            'school_id'   => 'nullable|integer',
+            'search' => 'nullable|string|max:100',
+            'sector_id' => 'nullable|integer',
+            'school_id' => 'nullable|integer',
             'grade_level' => 'nullable|string|max:10',
-            'class_name'  => 'nullable|string|max:20',
-            'is_active'   => 'nullable|string',
-            'sort_by'     => 'nullable|string|max:50',
-            'sort_order'  => 'nullable|in:asc,desc',
-            'per_page'    => 'nullable|integer|min:10|max:100',
-            'page'        => 'nullable|integer|min:1',
+            'class_name' => 'nullable|string|max:20',
+            'is_active' => 'nullable|string',
+            'sort_by' => 'nullable|string|max:50',
+            'sort_order' => 'nullable|in:asc,desc',
+            'per_page' => 'nullable|integer|min:10|max:100',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         try {
@@ -48,11 +48,11 @@ class RegionStudentController extends Controller
                 'data' => collect($paginator->items())->map(fn ($s) => $this->transformStudent($s)),
                 'pagination' => [
                     'current_page' => $paginator->currentPage(),
-                    'last_page'    => $paginator->lastPage(),
-                    'per_page'     => $paginator->perPage(),
-                    'total'        => $paginator->total(),
-                    'from'         => $paginator->firstItem(),
-                    'to'           => $paginator->lastItem(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
                 ],
                 'statistics' => $result['statistics'],
             ]);
@@ -76,7 +76,7 @@ class RegionStudentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $options,
+                'data' => $options,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -94,7 +94,7 @@ class RegionStudentController extends Controller
     {
         $filename = 'sagird_import_sablonu_' . now()->format('Y-m-d') . '.xlsx';
 
-        return Excel::download(new RegionStudentTemplateExport(), $filename);
+        return Excel::download(new RegionStudentTemplateExport, $filename);
     }
 
     /**
@@ -111,8 +111,8 @@ class RegionStudentController extends Controller
         ini_set('memory_limit', '256M');
 
         try {
-            $region  = $this->resolvePrimaryInstitution();
-            $import  = new RegionStudentsImport($region);
+            $region = $this->resolvePrimaryInstitution();
+            $import = new RegionStudentsImport($region);
 
             Excel::import($import, $request->file('file'));
 
@@ -121,18 +121,18 @@ class RegionStudentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => "İmport tamamlandı: {$result['created']} yaradıldı, {$result['updated']} yeniləndi, {$result['skipped']} keçildi.",
-                'data'    => $result,
+                'data' => $result,
             ]);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             $failures = collect($e->failures())->map(fn ($f) => [
-                'row'     => $f->row(),
-                'column'  => $f->attribute(),
-                'errors'  => $f->errors(),
+                'row' => $f->row(),
+                'column' => $f->attribute(),
+                'errors' => $f->errors(),
             ]);
 
             return response()->json([
-                'success'  => false,
-                'message'  => 'Fayldakı məlumatlar düzgün deyil',
+                'success' => false,
+                'message' => 'Fayldakı məlumatlar düzgün deyil',
                 'failures' => $failures,
             ], 422);
         } catch (\Exception $e) {
@@ -158,24 +158,24 @@ class RegionStudentController extends Controller
             );
 
             $rows = collect($result['data']->items())->map(fn ($s) => [
-                'UTİS Kodu'         => $s->utis_code ?? '',
-                'Ad'                => $s->first_name,
-                'Soyad'             => $s->last_name,
-                'Sinif səviyyəsi'   => $s->grade_level,
-                'Sinif bölməsi'     => $s->class_name,
-                'Cins'              => $s->gender === 'male' ? 'Kişi' : ($s->gender === 'female' ? 'Qadın' : ''),
-                'Doğum tarixi'      => $s->birth_date?->format('Y-m-d') ?? '',
-                'Məktəb'            => $s->institution?->name ?? '',
-                'Sektor'            => $s->institution?->parent?->name ?? '',
-                'Valideyn adı'      => $s->parent_name ?? '',
-                'Valideyn tel'      => $s->parent_phone ?? '',
-                'Status'            => $s->is_active ? 'Aktiv' : 'Qeyri-aktiv',
+                'UTİS Kodu' => $s->utis_code ?? '',
+                'Ad' => $s->first_name,
+                'Soyad' => $s->last_name,
+                'Sinif səviyyəsi' => $s->grade_level,
+                'Sinif bölməsi' => $s->class_name,
+                'Cins' => $s->gender === 'male' ? 'Kişi' : ($s->gender === 'female' ? 'Qadın' : ''),
+                'Doğum tarixi' => $s->birth_date?->format('Y-m-d') ?? '',
+                'Məktəb' => $s->institution?->name ?? '',
+                'Sektor' => $s->institution?->parent?->name ?? '',
+                'Valideyn adı' => $s->parent_name ?? '',
+                'Valideyn tel' => $s->parent_phone ?? '',
+                'Status' => $s->is_active ? 'Aktiv' : 'Qeyri-aktiv',
             ]);
 
             return response()->json([
-                'success'  => true,
-                'data'     => $rows,
-                'total'    => $rows->count(),
+                'success' => true,
+                'data' => $rows,
+                'total' => $rows->count(),
                 'filename' => 'sagirdler_' . now()->format('Y-m-d') . '.xlsx',
             ]);
         } catch (\Exception $e) {
@@ -195,32 +195,32 @@ class RegionStudentController extends Controller
         $sector = $school?->parent;
 
         return [
-            'id'             => $student->id,
-            'utis_code'      => $student->utis_code,
+            'id' => $student->id,
+            'utis_code' => $student->utis_code,
             'student_number' => $student->student_number,
-            'first_name'     => $student->first_name,
-            'last_name'      => $student->last_name,
-            'full_name'      => $student->first_name . ' ' . $student->last_name,
-            'gender'         => $student->gender,
-            'birth_date'     => $student->birth_date?->format('Y-m-d'),
-            'grade_level'    => $student->grade_level,
-            'class_name'     => $student->class_name,
-            'grade'          => $student->grade ? [
-                'id'          => $student->grade->id,
-                'name'        => $student->grade->name,
+            'first_name' => $student->first_name,
+            'last_name' => $student->last_name,
+            'full_name' => $student->first_name . ' ' . $student->last_name,
+            'gender' => $student->gender,
+            'birth_date' => $student->birth_date?->format('Y-m-d'),
+            'grade_level' => $student->grade_level,
+            'class_name' => $student->class_name,
+            'grade' => $student->grade ? [
+                'id' => $student->grade->id,
+                'name' => $student->grade->name,
                 'class_level' => $student->grade->class_level,
             ] : null,
-            'is_active'      => $student->is_active,
-            'school'         => $school ? [
-                'id'   => $school->id,
+            'is_active' => $student->is_active,
+            'school' => $school ? [
+                'id' => $school->id,
                 'name' => $school->name,
             ] : null,
-            'sector'         => $sector ? [
-                'id'   => $sector->id,
+            'sector' => $sector ? [
+                'id' => $sector->id,
                 'name' => $sector->name,
             ] : null,
-            'parent_name'    => $student->parent_name,
-            'parent_phone'   => $student->parent_phone,
+            'parent_name' => $student->parent_name,
+            'parent_phone' => $student->parent_phone,
         ];
     }
 }

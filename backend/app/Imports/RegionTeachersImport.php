@@ -4,13 +4,13 @@ namespace App\Imports;
 
 use App\Models\Institution;
 use App\Models\User;
+use App\Traits\TeacherSubjectMapper;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
-use App\Traits\TeacherSubjectMapper;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
@@ -25,7 +25,7 @@ use Maatwebsite\Excel\Validators\Failure;
  * Imports teachers from Excel file with all required fields
  * Optimized for importing 1000+ teachers efficiently
  */
-class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow, WithEvents
+class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithEvents, WithHeadingRow
 {
     use TeacherSubjectMapper;
 
@@ -36,9 +36,13 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
     protected $updateExisting;
 
     protected static $successCount = 0;
+
     protected static $errorCount = 0;
+
     protected static $skippedCount = 0;
+
     protected static $processedRowsCount = 0;
+
     protected static $existingUtisCodes = [];
 
     protected static $details = [
@@ -135,7 +139,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
                 if ($existingTeacher) {
                     if ($this->skipDuplicates) {
-                        static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . " artıq mövcuddur (keçildi)";
+                        static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur (keçildi)';
 
                         continue;
                     } elseif ($this->updateExisting) {
@@ -145,7 +149,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
                         continue;
                     }
-                    static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . " artıq mövcuddur";
+                    static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur';
                     static::$errorCount++;
 
                     continue;

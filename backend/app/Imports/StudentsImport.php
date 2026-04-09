@@ -6,21 +6,19 @@ use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\StudentEnrollment;
 use App\Models\User;
-use App\Models\UserProfile;
-use App\Services\UtisCodeService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\OnEachRow;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
-use Maatwebsite\Excel\Concerns\SkipsOnFailure;
-use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
-use Maatwebsite\Excel\Validators\Failure;
 use Maatwebsite\Excel\Row;
+use Maatwebsite\Excel\Validators\Failure;
 
-class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation, SkipsOnFailure, SkipsEmptyRows
+class StudentsImport implements OnEachRow, SkipsEmptyRows, SkipsOnFailure, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $institution;
 
@@ -46,18 +44,18 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
         try {
             // Find existing student by UTIS code (via Profile) or Email
             $utisCode = ! empty($data['utis_code']) ? trim($data['utis_code']) : null;
-            
-            if (!$utisCode) {
+
+            if (! $utisCode) {
                 throw new \Exception('UTİS kod daxil edilməyib');
             }
 
-            $user = User::whereHas('profile', function($q) use ($utisCode) {
-                    $q->where('utis_code', $utisCode);
-                })
+            $user = User::whereHas('profile', function ($q) use ($utisCode) {
+                $q->where('utis_code', $utisCode);
+            })
                 ->orWhere('email', $data['email'])
                 ->first();
 
-            $isUpdate = !!$user;
+            $isUpdate = (bool) $user;
 
             // Find grade if specified
             $grade = null;
@@ -91,7 +89,7 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
                     'is_active' => true,
                     'email_verified_at' => now(),
                 ]);
-                
+
                 // Assign student role
                 $user->assignRole('şagird');
                 $this->successCount++;
@@ -134,12 +132,11 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
                     );
                 }
             }
-
         } catch (\Exception $e) {
             Log::error("Error at row {$rowIndex}: " . $e->getMessage());
             $this->errors[] = [
                 'row' => $rowIndex,
-                'errors' => ["Sistem xətası: " . $e->getMessage()]
+                'errors' => ['Sistem xətası: ' . $e->getMessage()],
             ];
         }
     }
@@ -150,14 +147,14 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
     public function rules(): array
     {
         return [
-            '*.first_name'      => 'required|string|max:255',
-            '*.last_name'       => 'required|string|max:255',
-            '*.date_of_birth'   => 'required|date|before:today',
-            '*.gender'          => 'nullable|in:male,female,other',
-            '*.grade_name'      => 'nullable|string',
-            '*.utis_code'       => 'required|digits:7',
+            '*.first_name' => 'required|string|max:255',
+            '*.last_name' => 'required|string|max:255',
+            '*.date_of_birth' => 'required|date|before:today',
+            '*.gender' => 'nullable|in:male,female,other',
+            '*.grade_name' => 'nullable|string',
+            '*.utis_code' => 'required|digits:7',
             '*.enrollment_date' => 'nullable|date',
-            '*.email'           => 'nullable|email|max:255',
+            '*.email' => 'nullable|email|max:255',
         ];
     }
 
@@ -167,15 +164,15 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
     public function customValidationMessages(): array
     {
         return [
-            '*.first_name.required'    => 'Ad daxil edilməlidir',
-            '*.last_name.required'     => 'Soyad daxil edilməlidir',
+            '*.first_name.required' => 'Ad daxil edilməlidir',
+            '*.last_name.required' => 'Soyad daxil edilməlidir',
             '*.date_of_birth.required' => 'Doğum tarixi daxil edilməlidir',
-            '*.date_of_birth.date'     => 'Doğum tarixi düzgün formatda deyil (YYYY-MM-DD)',
-            '*.date_of_birth.before'   => 'Doğum tarixi bu günün tarixindən əvvəl olmalıdır',
-            '*.utis_code.required'     => 'UTİS kodu daxil edilməlidir (7 rəqəm)',
-            '*.utis_code.size'         => 'UTİS kodu tam 7 simvol olmalıdır',
-            '*.gender.in'              => 'Cins yalnız "male", "female" və ya "other" ola bilər',
-            '*.email.email'            => 'E-poçt düzgün formatda deyil',
+            '*.date_of_birth.date' => 'Doğum tarixi düzgün formatda deyil (YYYY-MM-DD)',
+            '*.date_of_birth.before' => 'Doğum tarixi bu günün tarixindən əvvəl olmalıdır',
+            '*.utis_code.required' => 'UTİS kodu daxil edilməlidir (7 rəqəm)',
+            '*.utis_code.size' => 'UTİS kodu tam 7 simvol olmalıdır',
+            '*.gender.in' => 'Cins yalnız "male", "female" və ya "other" ola bilər',
+            '*.email.email' => 'E-poçt düzgün formatda deyil',
         ];
     }
 
@@ -185,14 +182,14 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
     public function customValidationAttributes(): array
     {
         return [
-            '*.first_name'      => 'Ad',
-            '*.last_name'       => 'Soyad',
-            '*.date_of_birth'   => 'Doğum tarixi',
-            '*.gender'          => 'Cins',
-            '*.grade_name'      => 'Sinif adı',
-            '*.utis_code'       => 'UTİS kodu',
+            '*.first_name' => 'Ad',
+            '*.last_name' => 'Soyad',
+            '*.date_of_birth' => 'Doğum tarixi',
+            '*.gender' => 'Cins',
+            '*.grade_name' => 'Sinif adı',
+            '*.utis_code' => 'UTİS kodu',
             '*.enrollment_date' => 'Qeydiyyat tarixi',
-            '*.email'           => 'E-poçt',
+            '*.email' => 'E-poçt',
         ];
     }
 
@@ -206,7 +203,7 @@ class StudentsImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
                 'row' => $failure->row(),
                 'attribute' => $failure->attribute(),
                 'errors' => $failure->errors(),
-                'values' => $failure->values()
+                'values' => $failure->values(),
             ];
         }
     }

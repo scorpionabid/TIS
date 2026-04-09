@@ -100,6 +100,7 @@ class RatingCalculationService
                 'reports_missed' => $reportResult['missed'],
                 'reports_total' => $reportResult['total'],
                 'report_score' => $reportResult['score'],
+                'report_breakdown' => $reportResult['breakdown'], // Added for transparency
             ];
 
             $rating = Rating::updateOrCreate(
@@ -330,11 +331,11 @@ class RatingCalculationService
                 $shift = $grade->teaching_shift ?? '1';
                 $isAfternoon = str_contains($shift, '2');
                 $limitTime = $isAfternoon ? '15:00:00' : '10:00:00';
-                
+
                 $recordedAt = null;
                 if ($record) {
                     $recordedAt = $isAfternoon ? $record->evening_recorded_at : $record->morning_recorded_at;
-                    
+
                     // Fallback to whichever is recorded if shift-specific one is null
                     if (! $recordedAt) {
                         $recordedAt = $record->morning_recorded_at ?? $record->evening_recorded_at;
@@ -343,7 +344,7 @@ class RatingCalculationService
 
                 if ($recordedAt) {
                     $recordTime = Carbon::parse($recordedAt)->format('H:i:s');
-                    
+
                     if ($recordTime <= $limitTime) {
                         $dayOnTime++;
                     } else {
@@ -488,34 +489,105 @@ class RatingCalculationService
             ->orWhereJsonContains('target_institutions', $institutionId)
             ->get();
 
+        $totalScore = 0;
         $onTime = 0;
         $late = 0;
         $missed = 0;
+        $breakdown = [];
 
         foreach ($reportTables as $table) {
-            $deadline = $table->deadline;
-
             $response = ReportTableResponse::where('report_table_id', $table->id)
                 ->where('institution_id', $institutionId)
                 ->first();
 
-            if ($response && $response->status === 'submitted' && $response->submitted_at) {
-                if (! $deadline || $response->submitted_at->lte($deadline)) {
+            $publishedAt = $table->published_at ?? $table->created_at;
+            $tableScore = 0;
+
+            if ($response && $response->isSubmitted() && $response->submitted_at) {
+                $submittedAt = $response->submitted_at;
+
+                // 1. Time Calculation
+                $effectiveStart = $publishedAt->copy();
+                // Weekend adjustment
+                if ($effectiveStart->isWeekend()) {
+                    $effectiveStart = $effectiveStart->next(Carbon::MONDAY)->setTime(9, 0, 0);
+                }
+
+                $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
+                $isLate = $table->deadline && $submittedAt->gt($table->deadline);
+
+                // a. Base & Bonus
+                if ($hoursDiff <= 4 && $hoursDiff >= 0) {
+                    $tableScore += 2; // Base 1 + Bonus 1
+                    $onTime++;
+                } elseif ($hoursDiff <= 24 && $hoursDiff >= 0) {
+                    $tableScore += 1; // Base 1
                     $onTime++;
                 } else {
+                    $tableScore += 1; // Base 1
+                    // b. Lateness Penalty
+                    $daysLate = floor((max(0, $hoursDiff - 24)) / 24);
+                    $latenessPenalty = $daysLate * 0.1;
+                    $tableScore -= $latenessPenalty;
                     $late++;
                 }
-            } elseif ($deadline && $deadline->isPast()) {
+
+                // 2. Quality Penalties (Return/Reject)
+                $rows = $response->rows ?? [];
+                $totalRowsCount = count($rows) ?: 1;
+                $rowStatuses = $response->row_statuses ?? [];
+
+                $returnPenalty = 0;
+                $rejectPenalty = 0;
+                $totalReturns = 0;
+                $totalRejects = 0;
+
+                foreach ($rowStatuses as $idx => $status) {
+                    $returns = $status['total_returned_count'] ?? 0;
+                    $rejects = $status['total_rejected_count'] ?? 0;
+
+                    $totalReturns += $returns;
+                    $totalRejects += $rejects;
+
+                    $returnPenalty += ($returns * 0.15) / $totalRowsCount;
+                    $rejectPenalty += ($rejects * 0.30) / $totalRowsCount;
+                }
+
+                $tableScore -= ($returnPenalty + $rejectPenalty);
+
+                // Floor at 0
+                $tableScore = max(0, $tableScore);
+
+                $breakdown[] = [
+                    'table_id' => $table->id,
+                    'title' => $table->title,
+                    'score' => round($tableScore, 2),
+                    'hours_to_complete' => $hoursDiff,
+                    'returns' => $totalReturns,
+                    'rejects' => $totalRejects,
+                    'penalties' => [
+                        'return' => round($returnPenalty, 2),
+                        'reject' => round($rejectPenalty, 2),
+                        'lateness' => isset($latenessPenalty) ? round($latenessPenalty, 2) : 0,
+                    ],
+                ];
+            } elseif ($table->deadline && $table->deadline->isPast()) {
                 $missed++;
+                $tableScore = 0; // Missed reports get 0 (or -1? The user said "missed is -1" before, but the new formula doesn't explicitly mention missed penalty other than time).
+                // Maintaining historical -1 for missed might be better, but new formula says 1 day -> -0.1 decrement.
+                // Let's assume missed = 0 since it wasn't mentioned in the new list as a flat penalty.
             }
+
+            $totalScore += $tableScore;
         }
 
         return [
-            'score' => $onTime - $late - $missed,
+            'score' => round($totalScore, 2),
             'on_time' => $onTime,
             'late' => $late,
             'missed' => $missed,
             'total' => $reportTables->count(),
+            'breakdown' => $breakdown,
         ];
     }
 

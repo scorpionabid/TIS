@@ -16,10 +16,10 @@ use App\Services\UserBulkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use Illuminate\Support\Facades\Hash;
 
 class UserBulkController extends BaseController
 {
@@ -255,7 +255,7 @@ class UserBulkController extends BaseController
             $file = $validated['file'];
             $roleId = $validated['role_id'] ?? null;
             $userType = $validated['user_type'] ?? ($roleId ? $this->mapRoleToTemplateType($roleId) : 'staff');
-            
+
             $user = Auth::user();
             $institution = $user->institution;
 
@@ -297,7 +297,7 @@ class UserBulkController extends BaseController
                 return response()->json([
                     'success' => false,
                     'message' => 'İdxal uğursuz oldu: Heç bir düzgün qeyd tapılmadı. Zəhmət olmasa UTİS kodlarını yoxlayın.',
-                    'errors' => $results['errors']
+                    'errors' => $results['errors'],
                 ], 422);
             }
 
@@ -576,14 +576,14 @@ class UserBulkController extends BaseController
      */
     private function processStaffImport($file, $institution)
     {
-        $rows = Excel::toArray(new \stdClass(), $file)[0];
+        $rows = Excel::toArray(new \stdClass, $file)[0];
 
         if (empty($rows)) {
             return ['created' => 0, 'updated' => 0, 'errors' => ['Fayl boşdur'], 'type' => 'staff'];
         }
 
         // Build header → index map from the first row
-        $headerRow = array_map(fn($h) => trim((string) $h), $rows[0]);
+        $headerRow = array_map(fn ($h) => trim((string) $h), $rows[0]);
         $colMap = array_flip($headerRow);
 
         // Helper: get cell value by header name (returns null if column missing or blank)
@@ -592,6 +592,7 @@ class UserBulkController extends BaseController
                 return $default;
             }
             $val = trim((string) ($row[$colMap[$col]] ?? ''));
+
             return $val !== '' ? $val : $default;
         };
 
@@ -603,9 +604,9 @@ class UserBulkController extends BaseController
         foreach ($data as $rowIndex => $row) {
             try {
                 $firstName = $get($row, 'first_name', '');
-                $lastName  = $get($row, 'last_name', '');
-                $utisCode  = $get($row, 'utis_code', '');
-                $email     = $get($row, 'email', '');
+                $lastName = $get($row, 'last_name', '');
+                $utisCode = $get($row, 'utis_code', '');
+                $email = $get($row, 'email', '');
 
                 // Skip completely empty rows silently
                 if (empty($firstName) && empty($lastName) && empty($utisCode)) {
@@ -614,11 +615,13 @@ class UserBulkController extends BaseController
 
                 if (empty($firstName) || empty($lastName)) {
                     $errors[] = 'Sətir ' . ($rowIndex + 2) . ': Ad və ya soyad daxil edilməyib';
+
                     continue;
                 }
 
                 if (empty($utisCode)) {
                     $errors[] = 'Sətir ' . ($rowIndex + 2) . ': UTİS kodu daxil edilməyib';
+
                     continue;
                 }
 
@@ -650,12 +653,12 @@ class UserBulkController extends BaseController
                     }
 
                     $user = User::create([
-                        'username'           => $username,
-                        'email'              => $email,
-                        'password'           => Hash::make($get($row, 'password', 'staff123')),
-                        'institution_id'     => $institution?->id,
-                        'is_active'          => $isActive,
-                        'email_verified_at'  => now(),
+                        'username' => $username,
+                        'email' => $email,
+                        'password' => Hash::make($get($row, 'password', 'staff123')),
+                        'institution_id' => $institution?->id,
+                        'is_active' => $isActive,
+                        'email_verified_at' => now(),
                     ]);
                     $created++;
                 }
@@ -670,20 +673,20 @@ class UserBulkController extends BaseController
 
                 // Create/Update profile
                 $profileData = [
-                    'first_name'        => $firstName,
-                    'last_name'         => $lastName,
-                    'patronymic'        => $get($row, 'patronymic'),
-                    'contact_phone'     => $get($row, 'contact_phone'),
-                    'birth_date'        => $get($row, 'birth_date'),
-                    'gender'            => $get($row, 'gender'),
-                    'national_id'       => $get($row, 'national_id'),
-                    'address'           => $get($row, 'address'),
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'patronymic' => $get($row, 'patronymic'),
+                    'contact_phone' => $get($row, 'contact_phone'),
+                    'birth_date' => $get($row, 'birth_date'),
+                    'gender' => $get($row, 'gender'),
+                    'national_id' => $get($row, 'national_id'),
+                    'address' => $get($row, 'address'),
                     'emergency_contact' => json_encode([
-                        'name'  => $get($row, 'emergency_contact_name'),
+                        'name' => $get($row, 'emergency_contact_name'),
                         'phone' => $get($row, 'emergency_contact_phone'),
                         'email' => $get($row, 'emergency_contact_email'),
                     ]),
-                    'notes'    => $get($row, 'notes'),
+                    'notes' => $get($row, 'notes'),
                     'utis_code' => $utisCode,
                 ];
 
@@ -692,7 +695,6 @@ class UserBulkController extends BaseController
                 } else {
                     $user->profile()->create($profileData);
                 }
-
             } catch (\Exception $e) {
                 $errors[] = 'Sətir ' . ($rowIndex + 2) . ': ' . $e->getMessage();
             }
@@ -701,8 +703,8 @@ class UserBulkController extends BaseController
         return [
             'created' => $created,
             'updated' => $updated,
-            'errors'  => $errors,
-            'type'    => 'staff',
+            'errors' => $errors,
+            'type' => 'staff',
         ];
     }
 
@@ -728,12 +730,22 @@ class UserBulkController extends BaseController
     private function mapRoleToTemplateType($roleName): string
     {
         // Direct category names passed from frontend
-        if ($roleName === 'teachers') return 'teachers';
-        if ($roleName === 'students') return 'students';
-        if ($roleName === 'staff')    return 'staff';
+        if ($roleName === 'teachers') {
+            return 'teachers';
+        }
+        if ($roleName === 'students') {
+            return 'students';
+        }
+        if ($roleName === 'staff') {
+            return 'staff';
+        }
 
-        if ($this->isTeacherRole($roleName)) return 'teachers';
-        if ($this->isStudentRole($roleName)) return 'students';
+        if ($this->isTeacherRole($roleName)) {
+            return 'teachers';
+        }
+        if ($this->isStudentRole($roleName)) {
+            return 'students';
+        }
 
         return 'staff';
     }
@@ -749,39 +761,39 @@ class UserBulkController extends BaseController
 
         $map = [
             // Müəllim
-            'müəllim'   => 'müəllim',
-            'muellim'   => 'müəllim',
-            'müəllimə'  => 'müəllim',
-            'teacher'   => 'müəllim',
-            'teachers'  => 'müəllim',
+            'müəllim' => 'müəllim',
+            'muellim' => 'müəllim',
+            'müəllimə' => 'müəllim',
+            'teacher' => 'müəllim',
+            'teachers' => 'müəllim',
 
             // Şagird
-            'şagird'   => 'şagird',
-            'sagird'   => 'şagird',
-            'student'  => 'şagird',
+            'şagird' => 'şagird',
+            'sagird' => 'şagird',
+            'student' => 'şagird',
             'students' => 'şagird',
 
             // Region operatoru
             'region operatoru' => 'regionoperator',
-            'regionoperator'   => 'regionoperator',
-            'operator'         => 'regionoperator',
+            'regionoperator' => 'regionoperator',
+            'operator' => 'regionoperator',
 
             // Sektor admini
             'sektor admini' => 'sektoradmin',
-            'sektoradmin'   => 'sektoradmin',
+            'sektoradmin' => 'sektoradmin',
 
             // Məktəb müdiri
             'məktəb admini' => 'schooladmin',
-            'schooladmin'   => 'schooladmin',
+            'schooladmin' => 'schooladmin',
 
             // Məktəbəqədər müdir
             'məktəbəqədər admin' => 'preschooladmin',
-            'preschooladmin'     => 'preschooladmin',
+            'preschooladmin' => 'preschooladmin',
 
             // Müavin
-            'müavin'           => 'muavin',
+            'müavin' => 'muavin',
             'direktor müavini' => 'muavin',
-            'muavin'           => 'muavin',
+            'muavin' => 'muavin',
 
             // Təşkilatçı
             'təşkilatçı' => 'təşkilatçı',
@@ -789,15 +801,15 @@ class UserBulkController extends BaseController
 
             // Təsərrüfat
             'təsərrüfat müdiri' => 'tesarrufat',
-            'tesarrufat'        => 'tesarrufat',
-            'təsərrüfat'        => 'tesarrufat',
+            'tesarrufat' => 'tesarrufat',
+            'təsərrüfat' => 'tesarrufat',
 
             // Psixoloq
-            'psixoloq'    => 'psixoloq',
+            'psixoloq' => 'psixoloq',
             'psychologist' => 'psixoloq',
 
             // Region admini
-            'regionadmin'  => 'regionadmin',
+            'regionadmin' => 'regionadmin',
             'region admini' => 'regionadmin',
 
             // Superadmin
@@ -814,6 +826,7 @@ class UserBulkController extends BaseController
     private function isTeacherRole(string $roleName): bool
     {
         $pedagogicalRoles = ['müəllim', 'muavin', 'psixoloq', 'təşkilatçı', 'tesarrufat'];
+
         return in_array($this->mapRoleName($roleName), $pedagogicalRoles, true);
     }
 

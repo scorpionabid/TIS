@@ -382,8 +382,8 @@ class TaskCrudController extends BaseTaskController
                 $requestedData = $request->except(['_method', '_token']);
                 $requestedKeys = array_keys($requestedData);
                 $allowedKeys = ['status', 'progress'];
-                
-                if (!empty($requestedKeys) && count(array_diff($requestedKeys, $allowedKeys)) === 0) {
+
+                if (! empty($requestedKeys) && count(array_diff($requestedKeys, $allowedKeys)) === 0) {
                     $canUpdate = true;
                     $isExecutionUpdate = true;
                 }
@@ -438,7 +438,7 @@ class TaskCrudController extends BaseTaskController
                     }
                     $this->assignmentService->updateAssignmentStatus($assignmentId, $assignmentData, $user);
                     $task = $task->fresh(['creator', 'assignee', 'assignedInstitution']);
-                    
+
                     return response()->json([
                         'success' => true,
                         'message' => 'Tapşırıq icrası uğurla yeniləndi.',

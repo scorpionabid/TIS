@@ -17,10 +17,13 @@ class ImportStudentsCsv extends Command
     protected $description = 'CSV faylından şagirdləri UTIS koduna görə import et (upsert)';
 
     private array $schoolMap = [];
-    private array $failed    = [];
+
+    private array $failed = [];
 
     private int $created = 0;
+
     private int $updated = 0;
+
     private int $skipped = 0;
 
     private mixed $uploadedFp = null;
@@ -29,13 +32,14 @@ class ImportStudentsCsv extends Command
     {
         ini_set('memory_limit', '512M');
 
-        $filePath  = $this->argument('file');
+        $filePath = $this->argument('file');
         $chunkSize = (int) $this->option('chunk');
-        $dryRun    = $this->option('dry-run');
-        $dir       = dirname($filePath);
+        $dryRun = $this->option('dry-run');
+        $dir = dirname($filePath);
 
         if (! file_exists($filePath)) {
             $this->error("Fayl tapılmadı: {$filePath}");
+
             return 1;
         }
 
@@ -50,25 +54,30 @@ class ImportStudentsCsv extends Command
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
             $this->error("Fayl açıla bilmədi: {$filePath}");
+
             return 1;
         }
 
         // Headers
         $firstLine = fgets($handle);
         $firstLine = ltrim($firstLine, "\xEF\xBB\xBF");
-        $headers   = str_getcsv(trim($firstLine));
+        $headers = str_getcsv(trim($firstLine));
 
         // uploaded CSV artıq yazılmır — yalnız xətalılar saxlanır
         $this->uploadedFp = null;
 
         $totalRows = 0;
-        $chunk     = [];
+        $chunk = [];
 
         while (($line = fgets($handle)) !== false) {
             $trimmed = trim($line);
-            if ($trimmed === '') continue;
+            if ($trimmed === '') {
+                continue;
+            }
             $row = str_getcsv($trimmed);
-            if (count($row) < 4) continue;
+            if (count($row) < 4) {
+                continue;
+            }
 
             $data = array_combine($headers, array_pad($row, count($headers), ''));
             $chunk[] = $data;
@@ -139,12 +148,15 @@ class ImportStudentsCsv extends Command
 
         foreach ($chunk as $row) {
             $result = $this->prepareRow($row);
-            if ($result === null) continue; // recordFail already called
+            if ($result === null) {
+                continue;
+            } // recordFail already called
 
             [$utisCode, $payload] = $result;
 
             if ($dryRun) {
                 $this->created++;
+
                 // uğurlu sətir — saxlanmır
                 continue;
             }
@@ -153,17 +165,19 @@ class ImportStudentsCsv extends Command
                 $toUpdate[] = ['id' => $existingMap[$utisCode], 'utis_code' => $utisCode] + $payload;
             } else {
                 $toInsert[] = array_merge($payload, [
-                    'utis_code'      => $utisCode,
+                    'utis_code' => $utisCode,
                     'student_number' => $utisCode,
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
             }
 
             // uğurlu sətir — saxlanmır
         }
 
-        if ($dryRun) return;
+        if ($dryRun) {
+            return;
+        }
 
         // Bulk insert
         if (! empty($toInsert)) {
@@ -204,52 +218,66 @@ class ImportStudentsCsv extends Command
      */
     private function prepareRow(array $row): ?array
     {
-        $utisCode       = trim($row['utis_code']        ?? '');
-        $firstName      = trim($row['first_name']       ?? '');
-        $lastName       = trim($row['last_name']        ?? '');
+        $utisCode = trim($row['utis_code'] ?? '');
+        $firstName = trim($row['first_name'] ?? '');
+        $lastName = trim($row['last_name'] ?? '');
         $schoolUtisCode = trim($row['school_utis_code'] ?? '');
-        $gradeLevel     = trim($row['grade_level']      ?? '');
-        $className      = trim($row['class_name']       ?? '');
+        $gradeLevel = trim($row['grade_level'] ?? '');
+        $className = trim($row['class_name'] ?? '');
 
         $missing = [];
-        if ($utisCode       === '') $missing[] = 'utis_code';
-        if ($firstName      === '') $missing[] = 'first_name';
-        if ($lastName       === '') $missing[] = 'last_name';
-        if ($schoolUtisCode === '') $missing[] = 'school_utis_code';
-        if ($gradeLevel     === '') $missing[] = 'grade_level';
-        if ($className      === '') $missing[] = 'class_name';
+        if ($utisCode === '') {
+            $missing[] = 'utis_code';
+        }
+        if ($firstName === '') {
+            $missing[] = 'first_name';
+        }
+        if ($lastName === '') {
+            $missing[] = 'last_name';
+        }
+        if ($schoolUtisCode === '') {
+            $missing[] = 'school_utis_code';
+        }
+        if ($gradeLevel === '') {
+            $missing[] = 'grade_level';
+        }
+        if ($className === '') {
+            $missing[] = 'class_name';
+        }
 
         if (! empty($missing)) {
             $this->recordFail($row, 'Vacib sahə(lər) boşdur: ' . implode(', ', $missing));
+
             return null;
         }
 
         if (! isset($this->schoolMap[$schoolUtisCode])) {
             $this->recordFail($row, "Məktəb tapılmadı (UTIS: {$schoolUtisCode})");
+
             return null;
         }
 
         $rawGender = trim($row['gender'] ?? '');
         $gender = match (mb_strtolower($rawGender)) {
-            'kişi', 'male', 'k', 'm'    => 'male',
+            'kişi', 'male', 'k', 'm' => 'male',
             'qadın', 'female', 'q', 'f' => 'female',
-            default                      => null,
+            default => null,
         };
 
-        $rawDate   = trim($row['birth_date'] ?? '');
+        $rawDate = trim($row['birth_date'] ?? '');
         $birthDate = $rawDate !== '' ? $this->parseDate($rawDate) : null;
 
         $payload = [
-            'first_name'     => $firstName,
-            'last_name'      => $lastName,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'institution_id' => $this->schoolMap[$schoolUtisCode],
-            'grade_level'    => $gradeLevel,
-            'class_name'     => mb_strtoupper($className),
-            'gender'         => $gender,
-            'birth_date'     => $birthDate,
-            'parent_name'    => trim($row['parent_name']  ?? '') ?: null,
-            'parent_phone'   => trim($row['parent_phone'] ?? '') ?: null,
-            'is_active'      => true,
+            'grade_level' => $gradeLevel,
+            'class_name' => mb_strtoupper($className),
+            'gender' => $gender,
+            'birth_date' => $birthDate,
+            'parent_name' => trim($row['parent_name'] ?? '') ?: null,
+            'parent_phone' => trim($row['parent_phone'] ?? '') ?: null,
+            'is_active' => true,
         ];
 
         return [$utisCode, $payload];
@@ -263,12 +291,13 @@ class ImportStudentsCsv extends Command
         if (preg_match('#^\d{4}-\d{2}-\d{2}$#', $value)) {
             return $value;
         }
+
         return null;
     }
 
     private function recordFail(array $row, string $reason): void
     {
-        $this->failed[]  = array_merge($row, ['xeta_sebeb' => $reason]);
+        $this->failed[] = array_merge($row, ['xeta_sebeb' => $reason]);
         $this->skipped++;
     }
 
@@ -278,6 +307,7 @@ class ImportStudentsCsv extends Command
         foreach ($headers as $h) {
             $line[] = $row[$h] ?? '';
         }
+
         return $line;
     }
 }

@@ -4,21 +4,19 @@ namespace App\Imports;
 
 use App\Models\Department;
 use App\Models\User;
-use App\Models\UserProfile;
-use App\Services\UtisCodeService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\OnEachRow;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
-use Maatwebsite\Excel\Concerns\SkipsOnFailure;
-use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
-use Maatwebsite\Excel\Validators\Failure;
 use Maatwebsite\Excel\Row;
+use Maatwebsite\Excel\Validators\Failure;
 
-class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation, SkipsOnFailure, SkipsEmptyRows
+class TeachersImport implements OnEachRow, SkipsEmptyRows, SkipsOnFailure, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $institution;
 
@@ -44,19 +42,19 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
         try {
             // Find existing user by UTIS code (via Profile) or Email
             $utisCode = ! empty($data['utis_code']) ? trim($data['utis_code']) : null;
-            
-            if (!$utisCode) {
+
+            if (! $utisCode) {
                 // This shouldn't happen due to validation rules, but safe check
                 throw new \Exception('UTİS kod daxil edilməyib');
             }
 
-            $user = User::whereHas('profile', function($q) use ($utisCode) {
-                    $q->where('utis_code', $utisCode);
-                })
+            $user = User::whereHas('profile', function ($q) use ($utisCode) {
+                $q->where('utis_code', $utisCode);
+            })
                 ->orWhere('email', $data['email'])
                 ->first();
 
-            $isUpdate = !!$user;
+            $isUpdate = (bool) $user;
 
             // Find department if specified
             $departmentId = null;
@@ -109,7 +107,7 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
                 'gender' => ! empty($data['gender']) ? $data['gender'] : null,
                 'contact_phone' => ! empty($data['phone']) ? $data['phone'] : null,
                 'address' => ! empty($data['address']) ? $data['address'] : '',
-                'utis_code' => $utisCode
+                'utis_code' => $utisCode,
             ];
 
             if ($user->profile) {
@@ -119,12 +117,11 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
                 // Create profile
                 $user->profile()->create($profileData);
             }
-
         } catch (\Exception $e) {
             Log::error("Error at row {$rowIndex}: " . $e->getMessage());
             $this->errors[] = [
                 'row' => $rowIndex,
-                'errors' => ["Sistem xətası: " . $e->getMessage()]
+                'errors' => ['Sistem xətası: ' . $e->getMessage()],
             ];
         }
     }
@@ -135,15 +132,15 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
     public function rules(): array
     {
         return [
-            '*.first_name'      => 'required|string|max:255',
-            '*.last_name'       => 'required|string|max:255',
-            '*.email'           => 'required|email|max:255',
-            '*.phone'           => 'nullable|max:20',
-            '*.date_of_birth'   => 'nullable|date|before:today',
-            '*.gender'          => 'nullable|in:male,female',
-            '*.position'        => 'nullable|string',
+            '*.first_name' => 'required|string|max:255',
+            '*.last_name' => 'required|string|max:255',
+            '*.email' => 'required|email|max:255',
+            '*.phone' => 'nullable|max:20',
+            '*.date_of_birth' => 'nullable|date|before:today',
+            '*.gender' => 'nullable|in:male,female',
+            '*.position' => 'nullable|string',
             '*.department_name' => 'nullable|string',
-            '*.utis_code'       => 'required|digits:7',
+            '*.utis_code' => 'required|digits:7',
         ];
     }
 
@@ -154,15 +151,15 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
     public function customValidationMessages(): array
     {
         return [
-            '*.first_name.required'    => 'Ad daxil edilməlidir',
-            '*.last_name.required'     => 'Soyad daxil edilməlidir',
-            '*.email.required'         => 'E-poçt daxil edilməlidir',
-            '*.email.email'            => 'E-poçt düzgün formatda deyil',
-            '*.utis_code.required'     => 'UTİS kodu daxil edilməlidir (7 rəqəm)',
-            '*.utis_code.size'         => 'UTİS kodu tam 7 simvol olmalıdır',
-            '*.date_of_birth.date'     => 'Doğum tarixi düzgün formatda deyil (YYYY-MM-DD)',
-            '*.date_of_birth.before'   => 'Doğum tarixi bu günün tarixindən əvvəl olmalıdır',
-            '*.gender.in'              => 'Cins yalnız "male" və ya "female" ola bilər',
+            '*.first_name.required' => 'Ad daxil edilməlidir',
+            '*.last_name.required' => 'Soyad daxil edilməlidir',
+            '*.email.required' => 'E-poçt daxil edilməlidir',
+            '*.email.email' => 'E-poçt düzgün formatda deyil',
+            '*.utis_code.required' => 'UTİS kodu daxil edilməlidir (7 rəqəm)',
+            '*.utis_code.size' => 'UTİS kodu tam 7 simvol olmalıdır',
+            '*.date_of_birth.date' => 'Doğum tarixi düzgün formatda deyil (YYYY-MM-DD)',
+            '*.date_of_birth.before' => 'Doğum tarixi bu günün tarixindən əvvəl olmalıdır',
+            '*.gender.in' => 'Cins yalnız "male" və ya "female" ola bilər',
         ];
     }
 
@@ -173,15 +170,15 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
     public function customValidationAttributes(): array
     {
         return [
-            '*.first_name'      => 'Ad',
-            '*.last_name'       => 'Soyad',
-            '*.email'           => 'E-poçt',
-            '*.phone'           => 'Telefon',
-            '*.date_of_birth'   => 'Doğum tarixi',
-            '*.gender'          => 'Cins',
-            '*.position'        => 'Vəzifə',
+            '*.first_name' => 'Ad',
+            '*.last_name' => 'Soyad',
+            '*.email' => 'E-poçt',
+            '*.phone' => 'Telefon',
+            '*.date_of_birth' => 'Doğum tarixi',
+            '*.gender' => 'Cins',
+            '*.position' => 'Vəzifə',
             '*.department_name' => 'Şöbə adı',
-            '*.utis_code'       => 'UTİS kodu',
+            '*.utis_code' => 'UTİS kodu',
         ];
     }
 
@@ -195,7 +192,7 @@ class TeachersImport implements OnEachRow, WithBatchInserts, WithChunkReading, W
                 'row' => $failure->row(),
                 'attribute' => $failure->attribute(),
                 'errors' => $failure->errors(),
-                'values' => $failure->values()
+                'values' => $failure->values(),
             ];
         }
     }

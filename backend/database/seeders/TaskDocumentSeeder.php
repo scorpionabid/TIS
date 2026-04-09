@@ -194,7 +194,7 @@ class TaskDocumentSeeder extends Seeder
             $institution = $institutions->random();
 
             $document = Document::withTrashed()->where('title', $docData['title'])->first();
-            
+
             $data = [
                 'description' => $docData['description'],
                 'original_filename' => $docData['original_filename'],

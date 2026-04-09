@@ -185,7 +185,9 @@ class ReportTableService
                 $incoming = collect($data['columns'])->keyBy('key');
 
                 $merged = $existingCols->map(function ($col, $key) use ($incoming, $safeFields) {
-                    if (! $incoming->has($key)) return $col;
+                    if (! $incoming->has($key)) {
+                        return $col;
+                    }
                     $incomingCol = $incoming->get($key);
                     foreach ($safeFields as $field) {
                         if (array_key_exists($field, $incomingCol)) {
@@ -194,6 +196,7 @@ class ReportTableService
                             unset($col[$field]);
                         }
                     }
+
                     return $col;
                 })->values()->toArray();
 

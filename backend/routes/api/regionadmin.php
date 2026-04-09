@@ -47,11 +47,11 @@ Route::middleware(['auth:sanctum', 'role:regionadmin|superadmin'])
 Route::middleware(['auth:sanctum', 'role:regionadmin|superadmin'])
     ->prefix('regionadmin/students')
     ->group(function () {
-        Route::get('/',                [RegionStudentController::class, 'index']);
-        Route::get('/filter-options',  [RegionStudentController::class, 'filterOptions']);
-        Route::get('/template',        [RegionStudentController::class, 'downloadTemplate']);
-        Route::post('/import',         [RegionStudentController::class, 'import']);
-        Route::get('/export',          [RegionStudentController::class, 'export']);
+        Route::get('/', [RegionStudentController::class, 'index']);
+        Route::get('/filter-options', [RegionStudentController::class, 'filterOptions']);
+        Route::get('/template', [RegionStudentController::class, 'downloadTemplate']);
+        Route::post('/import', [RegionStudentController::class, 'import']);
+        Route::get('/export', [RegionStudentController::class, 'export']);
     });
 
 // Teacher Management for RegionAdmin

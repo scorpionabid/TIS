@@ -8,7 +8,7 @@ class IndexTeacherRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('teachers.read') 
+        return $this->user()->can('teachers.read')
             || $this->user()->hasAnyRole(['superadmin', 'regionadmin']);
     }
 

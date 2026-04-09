@@ -9,9 +9,6 @@ trait TeacherSubjectMapper
 {
     /**
      * Map a subject name (from Excel) to a subject ID in the database.
-     *
-     * @param string|null $subjectName
-     * @return int|null
      */
     protected function mapSubjectNameToId(?string $subjectName): ?int
     {
@@ -24,30 +21,30 @@ trait TeacherSubjectMapper
         // Hardcoded common mappings for performance and fuzzy matching
         // (ID based on the actual DB state captured in research)
         $mapping = [
-            'riyaziyyat'                        => 1,
-            'azərbaycan dili'                   => 2,
-            'azərbaycan dili və ədəbiyyat'      => 2,
-            'azərbaycan dili və ədəbiyyatı'     => 2,
-            'fizika'                            => 3,
-            'kimya'                             => 4,
-            'biologiya'                         => 5,
-            'ingilis dili'                      => 6,
-            'rus dili'                          => 7,
-            'ümumi tarix'                       => 8,
-            'coğrafiya'                         => 9,
-            'informatika'                       => 10,
-            'musiqi'                            => 11,
-            'təsviri incəsənət'                 => 12,
-            'bədən tərbiyəsi'                   => 13,
-            'fiziki tərbiyə'                    => 13,
-            'azərbaycan tarixi'                 => 14,
-            'zəfər tarixi'                      => 15,
-            'fiziki-tərbiyə'                    => 13,
+            'riyaziyyat' => 1,
+            'azərbaycan dili' => 2,
+            'azərbaycan dili və ədəbiyyat' => 2,
+            'azərbaycan dili və ədəbiyyatı' => 2,
+            'fizika' => 3,
+            'kimya' => 4,
+            'biologiya' => 5,
+            'ingilis dili' => 6,
+            'rus dili' => 7,
+            'ümumi tarix' => 8,
+            'coğrafiya' => 9,
+            'informatika' => 10,
+            'musiqi' => 11,
+            'təsviri incəsənət' => 12,
+            'bədən tərbiyəsi' => 13,
+            'fiziki tərbiyə' => 13,
+            'azərbaycan tarixi' => 14,
+            'zəfər tarixi' => 15,
+            'fiziki-tərbiyə' => 13,
             'gənclərin çağırışaqədərki hazırlığı' => 17,
-            'ədəbiyyat'                         => 18,
-            'texnologiya'                       => 19,
-            'həyat bilgisi'                     => 29,
-            'çağırışaqədərki hazırlıq'          => 37,
+            'ədəbiyyat' => 18,
+            'texnologiya' => 19,
+            'həyat bilgisi' => 29,
+            'çağırışaqədərki hazırlıq' => 37,
         ];
 
         if (isset($mapping[$normalized])) {

@@ -12,7 +12,6 @@ trait ResolvesRegionalContext
      * Resolve the primary institution (Region) for the authenticated user.
      * Supports both RegionAdmin (level 2) and SuperAdmin (global).
      *
-     * @return Institution|null
      * @throws \Exception
      */
     protected function resolvePrimaryInstitution(): ?Institution

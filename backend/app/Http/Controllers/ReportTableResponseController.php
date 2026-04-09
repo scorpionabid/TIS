@@ -378,6 +378,7 @@ class ReportTableResponseController extends BaseController
 
         return response()->json(['data' => $data]);
     }
+
     /**
      * GET /api/report-tables/school-fill-statistics
      * Bütün məktəblərin cədvəl doldurma statistikası.
@@ -549,7 +550,7 @@ class ReportTableResponseController extends BaseController
             'Bonuslar',
             'Cərimələr',
             'Yekun Bal',
-            'Reytinq %'
+            'Reytinq %',
         ];
 
         foreach ($data as $school) {

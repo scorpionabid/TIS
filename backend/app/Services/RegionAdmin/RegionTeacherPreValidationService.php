@@ -35,6 +35,7 @@ class RegionTeacherPreValidationService
     protected array $existingEmails = [];
 
     protected array $existingUsernames = [];
+
     protected array $existingUtisCodes = [];
 
     protected array $institutionCache = [];
@@ -127,8 +128,11 @@ class RegionTeacherPreValidationService
 
         // Normalize headings (strip stars, trim, to lower)
         $normalizedHeadings = array_map(function ($h) {
-            if ($h === null) return '';
+            if ($h === null) {
+                return '';
+            }
             $h = str_replace(['*', ' *'], '', $h);
+
             return trim($h);
         }, $rawHeadings);
 
@@ -163,7 +167,7 @@ class RegionTeacherPreValidationService
      */
     protected function loadExcelData(UploadedFile $file): array
     {
-        $data = Excel::toArray(new \stdClass(), $file);
+        $data = Excel::toArray(new \stdClass, $file);
 
         if (empty($data) || empty($data[0])) {
             return [];
@@ -175,8 +179,11 @@ class RegionTeacherPreValidationService
 
         // Normalize headers (strip stars, trim)
         $normalizedHeaders = array_map(function ($h) {
-            if ($h === null) return '';
-            return trim(str_replace(['*', ' *'], '', (string)$h));
+            if ($h === null) {
+                return '';
+            }
+
+            return trim(str_replace(['*', ' *'], '', (string) $h));
         }, $rawHeaders);
 
         // Convert to associative arrays

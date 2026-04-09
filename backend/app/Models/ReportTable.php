@@ -178,7 +178,10 @@ class ReportTable extends Model
     public function canEditColumns(): bool
     {
         // Draft — tam redaktə
-        if ($this->isDraft()) return true;
+        if ($this->isDraft()) {
+            return true;
+        }
+
         // Published — cavab yoxdursa tam redaktə icazəsi
         return $this->isPublished() && $this->responses()->count() === 0;
     }

@@ -9,7 +9,8 @@ class BulkTeacherActionRequest extends FormRequest
     public function authorize(): bool
     {
         $permission = $this->route()->getActionMethod() === 'bulkDelete' ? 'teachers.delete' : 'teachers.update';
-        return $this->user()->can($permission) 
+
+        return $this->user()->can($permission)
             || $this->user()->hasAnyRole(['superadmin', 'regionadmin']);
     }
 

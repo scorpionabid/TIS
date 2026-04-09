@@ -66,7 +66,7 @@ class SchoolTeacherController extends Controller
                     $query->where('institution_id', $targetInstitutionId);
                 },
                 'teacherProfile',
-                'profile'
+                'profile',
             ])
             ->get()
             ->map(function ($teacher) {
@@ -192,7 +192,7 @@ class SchoolTeacherController extends Controller
                         $query->where('institution_id', $school->id);
                     },
                     'teacherProfile',
-                    'profile'
+                    'profile',
                 ])
                 ->firstOrFail();
 

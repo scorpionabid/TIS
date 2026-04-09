@@ -21,7 +21,9 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
     protected array $errors = [];
 
     protected int $created = 0;
+
     protected int $updated = 0;
+
     protected int $skipped = 0;
 
     /** Cache of [utis_code => id] for schools under this region */
@@ -52,7 +54,7 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
                 $this->skipped++;
                 Log::warning("RegionStudentsImport: row {$rowNum} failed", [
                     'error' => $e->getMessage(),
-                    'row'   => $row->toArray(),
+                    'row' => $row->toArray(),
                 ]);
             }
         }
@@ -61,24 +63,37 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
     protected function processRow(array $row, int $rowNum): void
     {
         // ── 1. Required field validation ─────────────────────────────────────
-        $utisCode       = trim($row['utis_code']  ?? '');
-        $firstName      = trim($row['first_name'] ?? '');
-        $lastName       = trim($row['last_name']  ?? '');
+        $utisCode = trim($row['utis_code'] ?? '');
+        $firstName = trim($row['first_name'] ?? '');
+        $lastName = trim($row['last_name'] ?? '');
         $schoolUtisCode = trim($row['school_utis_code'] ?? '');
-        $gradeLevel     = (int) ($row['grade_level'] ?? 0);
-        $className      = trim($row['class_name']  ?? '');
+        $gradeLevel = (int) ($row['grade_level'] ?? 0);
+        $className = trim($row['class_name'] ?? '');
 
         $missing = [];
-        if ($utisCode       === '') $missing[] = 'utis_code';
-        if ($firstName      === '') $missing[] = 'first_name';
-        if ($lastName       === '') $missing[] = 'last_name';
-        if ($schoolUtisCode === '') $missing[] = 'school_utis_code';
-        if ($gradeLevel     === 0)  $missing[] = 'grade_level';
-        if ($className      === '') $missing[] = 'class_name';
+        if ($utisCode === '') {
+            $missing[] = 'utis_code';
+        }
+        if ($firstName === '') {
+            $missing[] = 'first_name';
+        }
+        if ($lastName === '') {
+            $missing[] = 'last_name';
+        }
+        if ($schoolUtisCode === '') {
+            $missing[] = 'school_utis_code';
+        }
+        if ($gradeLevel === 0) {
+            $missing[] = 'grade_level';
+        }
+        if ($className === '') {
+            $missing[] = 'class_name';
+        }
 
         if (! empty($missing)) {
             $this->errors[] = "Sətir {$rowNum}: məcburi sahələr çatışmır — " . implode(', ', $missing);
             $this->skipped++;
+
             return;
         }
 
@@ -86,6 +101,7 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
         if (! isset($this->validSchoolsMap[$schoolUtisCode])) {
             $this->errors[] = "Sətir {$rowNum}: Məktəb (UTİS: {$schoolUtisCode}) tapılmadı və ya bu regiona aid deyil.";
             $this->skipped++;
+
             return;
         }
 
@@ -99,9 +115,9 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
             ->first();
 
         // ── 4. Optional fields ───────────────────────────────────────────────
-        $gender      = in_array($row['gender'] ?? '', ['male', 'female']) ? $row['gender'] : null;
-        $birthDate   = ! empty($row['birth_date']) ? $this->parseDate($row['birth_date']) : null;
-        $parentName  = trim($row['parent_name']  ?? '') ?: null;
+        $gender = in_array($row['gender'] ?? '', ['male', 'female']) ? $row['gender'] : null;
+        $birthDate = ! empty($row['birth_date']) ? $this->parseDate($row['birth_date']) : null;
+        $parentName = trim($row['parent_name'] ?? '') ?: null;
         $parentPhone = trim($row['parent_phone'] ?? '') ?: null;
 
         // ── 5. Upsert by utis_code ──────────────────────────────────────────
@@ -112,17 +128,17 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
             $existing = Student::where('utis_code', $utisCode)->first();
 
             $payload = [
-                'first_name'     => $firstName,
-                'last_name'      => $lastName,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
                 'institution_id' => $schoolId,
-                'grade_id'       => $grade?->id,
-                'grade_level'    => $gradeLevel,
-                'class_name'     => $className,
-                'gender'         => $gender,
-                'birth_date'     => $birthDate,
-                'parent_name'    => $parentName,
-                'parent_phone'   => $parentPhone,
-                'is_active'      => true,
+                'grade_id' => $grade?->id,
+                'grade_level' => $gradeLevel,
+                'class_name' => $className,
+                'gender' => $gender,
+                'birth_date' => $birthDate,
+                'parent_name' => $parentName,
+                'parent_phone' => $parentPhone,
+                'is_active' => true,
             ];
 
             if ($existing) {
@@ -130,7 +146,7 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
                 $this->updated++;
             } else {
                 Student::create(array_merge($payload, [
-                    'utis_code'      => $utisCode,
+                    'utis_code' => $utisCode,
                     'student_number' => $utisCode, // use utis_code as student_number fallback
                 ]));
                 $this->created++;
@@ -167,7 +183,7 @@ class RegionStudentsImport implements ToCollection, WithBatchInserts, WithChunkR
             'created' => $this->created,
             'updated' => $this->updated,
             'skipped' => $this->skipped,
-            'errors'  => $this->errors,
+            'errors' => $this->errors,
         ];
     }
 }

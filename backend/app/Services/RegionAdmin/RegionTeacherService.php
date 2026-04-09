@@ -5,7 +5,6 @@ namespace App\Services\RegionAdmin;
 use App\Models\Institution;
 use App\Models\User;
 use App\Traits\TeacherSubjectMapper;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 

@@ -22,6 +22,7 @@ class MuellimPermissionFixSeeder extends Seeder
 
         if (! $role) {
             $this->command->error('❌ müəllim rolu tapılmadı!');
+
             return;
         }
 

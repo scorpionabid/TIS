@@ -245,7 +245,7 @@ class TaskPermissionService extends BaseService
             $isRegionOperator = $user->hasRole('regionoperator');
             $isSectorOperator = $user->hasRole('sektoroperator');
 
-            if (!$isRegionOperator && !$isSectorOperator) {
+            if (! $isRegionOperator && ! $isSectorOperator) {
                 if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
                     $childIds = $userInstitution->getAllChildrenIds();
                     $q->orWhereIn('assigned_to_institution_id', $childIds);

@@ -1614,7 +1614,7 @@ class RegionalAttendanceService
 
         // Resolve scope to get schools list and date range
         [$startDate, $endDate] = $this->resolveDateRange($filters);
-        if (isset($filters['date']) && !isset($filters['start_date'])) {
+        if (isset($filters['date']) && ! isset($filters['start_date'])) {
             $startDate = $filters['date'];
             $endDate = $filters['date'];
         }
@@ -1628,12 +1628,12 @@ class RegionalAttendanceService
         $end = CarbonImmutable::parse($endDate);
         while ($current->lte($end)) {
             // Include Mondays through Saturdays
-            if (!$current->isSunday()) {
+            if (! $current->isSunday()) {
                 $workdays[] = $current->toDateString();
             }
             $current = $current->addDay();
         }
-        
+
         $standardDaysCount = 0;
         foreach ($workdays as $wd) {
             // Count Mon-Fri days as the standard comparison base
@@ -1687,14 +1687,14 @@ class RegionalAttendanceService
         $submittedCount = 0;
         $onTimeCount = 0;
         $lateCount = 0;
-        
+
         $morningDeadlineTime = '10:00:00';
         $eveningDeadlineTime = '15:00:00';
         $morningDeadline = CarbonImmutable::parse($workdays[0])->setTime(10, 0, 0);
         $eveningDeadline = CarbonImmutable::parse($workdays[0])->setTime(15, 0, 0);
         $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
-        
-        $lastDayInWorkdays = !empty($workdays) ? $workdays[count($workdays) - 1] : null;
+
+        $lastDayInWorkdays = ! empty($workdays) ? $workdays[count($workdays) - 1] : null;
 
         foreach ($scope['schools'] as $school) {
             $instSubmissionsByDate = $submissions->get($school->id, collect());
@@ -1703,17 +1703,17 @@ class RegionalAttendanceService
             $schoolGrades = $allGrades->get($school->id, collect());
             $totalGradesCount = $schoolGrades->count();
             $totalScoreInPeriod = 0;
-            
+
             // For range result summary (speed of last day or earliest day)
             $lastDaySubmissions = $lastDayInWorkdays ? $instSubmissionsByDate->get($lastDayInWorkdays, collect()) : collect();
-            $firstDaySubmissions = !empty($workdays) ? $instSubmissionsByDate->get($workdays[0], collect()) : collect();
-            
+            $firstDaySubmissions = ! empty($workdays) ? $instSubmissionsByDate->get($workdays[0], collect()) : collect();
+
             // We use the last day's submission details for display purposes in the row
             $displaySubmissions = $isMultipleDays ? $lastDaySubmissions : $firstDaySubmissions;
-            
+
             $actualWorkdaysForSchool = 0;
             $isSixDaySchool = false;
-            
+
             // Detect if 6-day school by checking Saturday submissions in the entire date range
             foreach ($workdays as $day) {
                 if (CarbonImmutable::parse($day)->isSaturday()) {
@@ -1726,10 +1726,12 @@ class RegionalAttendanceService
 
             foreach ($workdays as $day) {
                 $isSaturday = CarbonImmutable::parse($day)->isSaturday();
-                
+
                 // If it's a 5-day school, skip Saturday points but also don't count it as a workday
                 if ($isSaturday) {
-                    if (!$isSixDaySchool) continue;
+                    if (! $isSixDaySchool) {
+                        continue;
+                    }
                     // For 6-day schools, Saturday is a penalty-only day, so we don't increment the workday counter (divisor)
                 } else {
                     $actualWorkdaysForSchool++;
@@ -1740,17 +1742,17 @@ class RegionalAttendanceService
 
                 if ($totalGradesCount > 0) {
                     $gradeSubmissionMap = $daySubmissions->keyBy('grade_id');
-                    
+
                     foreach ($schoolGrades as $grade) {
                         $gradeSub = $gradeSubmissionMap->get($grade->id);
                         $shift = $grade->teaching_shift ?? '1';
                         $isAfternoon = str_contains($shift, '2');
                         $limitTime = $isAfternoon ? $eveningDeadlineTime : $morningDeadlineTime;
-                        
+
                         $recordedAt = null;
                         if ($gradeSub) {
                             $recordedAt = $isAfternoon ? $gradeSub->evening_recorded_at : $gradeSub->morning_recorded_at;
-                            if (!$recordedAt) {
+                            if (! $recordedAt) {
                                 $recordedAt = $gradeSub->morning_recorded_at ?? $gradeSub->evening_recorded_at;
                             }
                         }
@@ -1767,7 +1769,7 @@ class RegionalAttendanceService
                         }
                     }
                     $dayScore = ($onTimeCountForScore - $lateCountForScore) / $totalGradesCount;
-                    
+
                     if ($isSaturday && $isSixDaySchool) {
                         // Penalty-only logic for Saturdays: 0 if 100% on-time, negative if any delays
                         // (onTimeCountForScore / totalGradesCount) - 1.0 gives:
@@ -1786,7 +1788,7 @@ class RegionalAttendanceService
                 $averagePerformance = $totalScoreInPeriod / $actualWorkdaysForSchool;
                 // For totals, normalize to the standard 5-day week length in results
                 $finalPeriodScore = $isMultipleDays && $standardDaysCount > 0
-                    ? $averagePerformance * $standardDaysCount 
+                    ? $averagePerformance * $standardDaysCount
                     : $totalScoreInPeriod;
             } else {
                 $finalPeriodScore = 0;
@@ -1864,6 +1866,7 @@ class RegionalAttendanceService
             if ($a['score'] !== $b['score']) {
                 return $b['score'] <=> $a['score'];
             }
+
             return strcmp($a['name'], $b['name']);
         });
 

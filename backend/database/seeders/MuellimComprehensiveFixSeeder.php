@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Institution;
-use App\Models\Subject;
 use App\Models\TeacherProfile;
 use App\Models\User;
 use App\Models\UserProfile;
@@ -71,7 +69,7 @@ class MuellimComprehensiveFixSeeder extends Seeder
         foreach ($teachers as $teacher) {
             $profile = UserProfile::where('user_id', $teacher->id)->first();
 
-            if (!$profile && isset($basicTeachersData[$teacher->email])) {
+            if (! $profile && isset($basicTeachersData[$teacher->email])) {
                 $data = $basicTeachersData[$teacher->email];
                 $profile = UserProfile::create([
                     'user_id' => $teacher->id,
@@ -87,11 +85,17 @@ class MuellimComprehensiveFixSeeder extends Seeder
 
             if ($profile) {
                 $updateData = [];
-                if (empty($teacher->first_name)) $updateData['first_name'] = $profile->first_name;
-                if (empty($teacher->last_name)) $updateData['last_name'] = $profile->last_name;
-                if (empty($teacher->utis_code)) $updateData['utis_code'] = $profile->utis_code;
+                if (empty($teacher->first_name)) {
+                    $updateData['first_name'] = $profile->first_name;
+                }
+                if (empty($teacher->last_name)) {
+                    $updateData['last_name'] = $profile->last_name;
+                }
+                if (empty($teacher->utis_code)) {
+                    $updateData['utis_code'] = $profile->utis_code;
+                }
 
-                if (!empty($updateData)) {
+                if (! empty($updateData)) {
                     $teacher->update($updateData);
                     $syncCount++;
                 }
@@ -140,23 +144,23 @@ class MuellimComprehensiveFixSeeder extends Seeder
         $workplaceCount = 0;
 
         $specialtyToId = [
-            'riyaziyyat'                        => 1,
-            'azərbaycan dili'                   => 2,
-            'azərbaycan dili və ədəbiyyat'      => 2,
-            'azərbaycan dili və ədəbiyyatı'     => 2,
-            'fizika'                            => 3,
-            'kimya'                             => 4,
-            'biologiya'                         => 5,
-            'ingilis dili'                      => 6,
-            'rus dili'                          => 7,
-            'tarix'                             => 14,
-            'coğrafiya'                         => 9,
-            'informatika'                       => 10,
-            'musiqi'                            => 11,
-            'təsviri incəsənət'                 => 12,
-            'fiziki tərbiyə'                    => 16,
-            'fiziki-tərbiyə'                    => 16,
-            'texnologiya'                       => 19,
+            'riyaziyyat' => 1,
+            'azərbaycan dili' => 2,
+            'azərbaycan dili və ədəbiyyat' => 2,
+            'azərbaycan dili və ədəbiyyatı' => 2,
+            'fizika' => 3,
+            'kimya' => 4,
+            'biologiya' => 5,
+            'ingilis dili' => 6,
+            'rus dili' => 7,
+            'tarix' => 14,
+            'coğrafiya' => 9,
+            'informatika' => 10,
+            'musiqi' => 11,
+            'təsviri incəsənət' => 12,
+            'fiziki tərbiyə' => 16,
+            'fiziki-tərbiyə' => 16,
+            'texnologiya' => 19,
         ];
 
         foreach ($teachers as $teacher) {
@@ -216,8 +220,9 @@ class MuellimComprehensiveFixSeeder extends Seeder
         $guard = 'sanctum';
         $role = Role::where('name', 'müəllim')->where('guard_name', $guard)->first();
 
-        if (!$role) {
+        if (! $role) {
             $this->command->error('❌ Role not found!');
+
             return;
         }
 
@@ -231,7 +236,7 @@ class MuellimComprehensiveFixSeeder extends Seeder
 
         foreach ($perms as $pName) {
             $permission = Permission::firstOrCreate(['name' => $pName, 'guard_name' => $guard]);
-            if (!$role->hasPermissionTo($permission)) {
+            if (! $role->hasPermissionTo($permission)) {
                 $role->givePermissionTo($permission);
             }
         }

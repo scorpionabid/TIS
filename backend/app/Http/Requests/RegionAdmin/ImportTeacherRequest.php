@@ -8,7 +8,7 @@ class ImportTeacherRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('teachers.create') 
+        return $this->user()->can('teachers.create')
             || $this->user()->hasAnyRole(['superadmin', 'regionadmin']);
     }
 

@@ -233,7 +233,7 @@ class SchoolStudentController extends Controller
      */
     public function storeSimple(Request $request): JsonResponse
     {
-        $user   = Auth::user();
+        $user = Auth::user();
         $school = $user->institution;
 
         if (! $school) {
@@ -241,22 +241,22 @@ class SchoolStudentController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'utis_code'   => 'nullable|string|max:50|unique:students,utis_code',
-            'first_name'  => 'required|string|max:100',
-            'last_name'   => 'required|string|max:100',
-            'grade_id'    => 'nullable|exists:grades,id',
+            'utis_code' => 'nullable|string|max:50|unique:students,utis_code',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'grade_id' => 'nullable|exists:grades,id',
             'grade_level' => 'required|string|max:10',
-            'class_name'  => 'required|string|max:20',
-            'gender'      => 'nullable|in:male,female',
-            'birth_date'  => 'nullable|date',
+            'class_name' => 'required|string|max:20',
+            'gender' => 'nullable|in:male,female',
+            'birth_date' => 'nullable|date',
             'parent_name' => 'nullable|string|max:255',
-            'parent_phone'=> 'nullable|string|max:30',
+            'parent_phone' => 'nullable|string|max:30',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
                 'message' => $validator->errors()->first(),
             ], 422);
         }
@@ -265,24 +265,24 @@ class SchoolStudentController extends Controller
 
         try {
             $student = \App\Models\Student::create([
-                'utis_code'      => $d['utis_code']    ?? null,
-                'student_number' => $d['utis_code']    ?? 'ST-' . time() . rand(100, 999),
-                'first_name'     => $d['first_name'],
-                'last_name'      => $d['last_name'],
+                'utis_code' => $d['utis_code'] ?? null,
+                'student_number' => $d['utis_code'] ?? 'ST-' . time() . rand(100, 999),
+                'first_name' => $d['first_name'],
+                'last_name' => $d['last_name'],
                 'institution_id' => $school->id,
-                'grade_id'       => $d['grade_id']     ?? null,
-                'grade_level'    => $d['grade_level'],
-                'class_name'     => $d['class_name'],
-                'gender'         => $d['gender']       ?? null,
-                'birth_date'     => $d['birth_date']   ?? null,
-                'parent_name'    => $d['parent_name']  ?? null,
-                'parent_phone'   => $d['parent_phone'] ?? null,
-                'is_active'      => true,
+                'grade_id' => $d['grade_id'] ?? null,
+                'grade_level' => $d['grade_level'],
+                'class_name' => $d['class_name'],
+                'gender' => $d['gender'] ?? null,
+                'birth_date' => $d['birth_date'] ?? null,
+                'parent_name' => $d['parent_name'] ?? null,
+                'parent_phone' => $d['parent_phone'] ?? null,
+                'is_active' => true,
             ]);
 
             return response()->json([
                 'success' => true,
-                'data'    => $student->load('grade'),
+                'data' => $student->load('grade'),
                 'message' => 'Şagird uğurla əlavə edildi',
             ], 201);
         } catch (\Exception $e) {
@@ -299,7 +299,7 @@ class SchoolStudentController extends Controller
      */
     public function updateSimple(Request $request, int $id): JsonResponse
     {
-        $user    = Auth::user();
+        $user = Auth::user();
         $student = \App\Models\Student::find($id);
 
         if (! $student) {
@@ -311,23 +311,23 @@ class SchoolStudentController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'utis_code'   => 'nullable|string|max:50|unique:students,utis_code,' . $id,
-            'first_name'  => 'required|string|max:100',
-            'last_name'   => 'required|string|max:100',
-            'grade_id'    => 'nullable|exists:grades,id',
+            'utis_code' => 'nullable|string|max:50|unique:students,utis_code,' . $id,
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'grade_id' => 'nullable|exists:grades,id',
             'grade_level' => 'required|string|max:10',
-            'class_name'  => 'required|string|max:20',
-            'gender'      => 'nullable|in:male,female',
-            'birth_date'  => 'nullable|date',
+            'class_name' => 'required|string|max:20',
+            'gender' => 'nullable|in:male,female',
+            'birth_date' => 'nullable|date',
             'parent_name' => 'nullable|string|max:255',
-            'parent_phone'=> 'nullable|string|max:30',
-            'is_active'   => 'nullable|boolean',
+            'parent_phone' => 'nullable|string|max:30',
+            'is_active' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
                 'message' => $validator->errors()->first(),
             ], 422);
         }
@@ -337,7 +337,7 @@ class SchoolStudentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $student->fresh()->load('grade'),
+                'data' => $student->fresh()->load('grade'),
                 'message' => 'Şagird yeniləndi',
             ]);
         } catch (\Exception $e) {

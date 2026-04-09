@@ -177,13 +177,13 @@ class BasicDataSeeder extends Seeder
             $user = User::withTrashed()->firstOrCreate(
                 ['username' => $teacher['username']],
                 [
-                    'email'              => $teacher['email'],
-                    'first_name'         => $teacher['first_name'],
-                    'last_name'          => $teacher['last_name'],
-                    'utis_code'          => $teacher['utis_code'],
-                    'password'           => bcrypt('teacher123'),
-                    'email_verified_at'  => now(),
-                    'is_active'          => true,
+                    'email' => $teacher['email'],
+                    'first_name' => $teacher['first_name'],
+                    'last_name' => $teacher['last_name'],
+                    'utis_code' => $teacher['utis_code'],
+                    'password' => bcrypt('teacher123'),
+                    'email_verified_at' => now(),
+                    'is_active' => true,
                 ]
             );
 

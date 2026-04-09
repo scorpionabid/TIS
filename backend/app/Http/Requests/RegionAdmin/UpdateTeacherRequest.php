@@ -8,13 +8,14 @@ class UpdateTeacherRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('teachers.update') 
+        return $this->user()->can('teachers.update')
             || $this->user()->hasAnyRole(['superadmin', 'regionadmin']);
     }
 
     public function rules(): array
     {
         $id = $this->route('id');
+
         return [
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'first_name' => 'sometimes|string|max:255',

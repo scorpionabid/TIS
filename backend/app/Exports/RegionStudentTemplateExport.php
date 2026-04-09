@@ -31,30 +31,30 @@ class RegionStudentTemplateExport implements FromArray, WithColumnWidths, WithHe
     {
         return [
             [
-                'utis_code'        => '1234567890',
-                'first_name'       => 'Əhməd',
-                'last_name'        => 'Məmmədov',
+                'utis_code' => '1234567890',
+                'first_name' => 'Əhməd',
+                'last_name' => 'Məmmədov',
                 'school_utis_code' => '1000001',
-                'school_name'      => 'Bakı ş. 1 saylı məktəb',
-                'grade_level'      => 5,
-                'class_name'       => 'A',
-                'gender'           => 'male',
-                'birth_date'       => '2014-05-15',
-                'parent_name'      => 'Kamran Məmmədov',
-                'parent_phone'     => '+994501234567',
+                'school_name' => 'Bakı ş. 1 saylı məktəb',
+                'grade_level' => 5,
+                'class_name' => 'A',
+                'gender' => 'male',
+                'birth_date' => '2014-05-15',
+                'parent_name' => 'Kamran Məmmədov',
+                'parent_phone' => '+994501234567',
             ],
             [
-                'utis_code'        => '9876543210',
-                'first_name'       => 'Leyla',
-                'last_name'        => 'Həsənova',
+                'utis_code' => '9876543210',
+                'first_name' => 'Leyla',
+                'last_name' => 'Həsənova',
                 'school_utis_code' => '1000001',
-                'school_name'      => 'Bakı ş. 1 saylı məktəb',
-                'grade_level'      => 4,
-                'class_name'       => 'B',
-                'gender'           => 'female',
-                'birth_date'       => '2015-03-20',
-                'parent_name'      => 'Rəna Həsənova',
-                'parent_phone'     => '+994557654321',
+                'school_name' => 'Bakı ş. 1 saylı məktəb',
+                'grade_level' => 4,
+                'class_name' => 'B',
+                'gender' => 'female',
+                'birth_date' => '2015-03-20',
+                'parent_name' => 'Rəna Həsənova',
+                'parent_phone' => '+994557654321',
             ],
         ];
     }
@@ -63,9 +63,9 @@ class RegionStudentTemplateExport implements FromArray, WithColumnWidths, WithHe
     {
         // Header row: bold + light blue background
         $sheet->getStyle('A1:K1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 11],
-            'fill'      => [
-                'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+            'font' => ['bold' => true, 'size' => 11],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'DBEAFE'],
             ],
             'alignment' => ['horizontal' => 'center'],

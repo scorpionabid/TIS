@@ -4,14 +4,15 @@ namespace App\Http\Controllers\RegionAdmin;
 
 use App\Exports\TeacherImportErrorsExport;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\RegionAdmin\{IndexTeacherRequest, StoreTeacherRequest, UpdateTeacherRequest, BulkTeacherActionRequest, ImportTeacherRequest};
-use App\Models\Institution;
-use App\Models\User;
+use App\Http\Requests\RegionAdmin\BulkTeacherActionRequest;
+use App\Http\Requests\RegionAdmin\ImportTeacherRequest;
+use App\Http\Requests\RegionAdmin\IndexTeacherRequest;
+use App\Http\Requests\RegionAdmin\StoreTeacherRequest;
+use App\Http\Requests\RegionAdmin\UpdateTeacherRequest;
 use App\Services\RegionAdmin\RegionTeacherService;
 use App\Traits\ResolvesRegionalContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -140,7 +141,7 @@ class RegionTeacherController extends Controller
             if (is_string($sectorIds)) {
                 $sectorIds = explode(',', $sectorIds);
             }
-            
+
             $schools = $this->teacherService->getRegionSchools($sectorIds, $region);
 
             return response()->json([
@@ -229,7 +230,7 @@ class RegionTeacherController extends Controller
     {
         try {
             $region = $this->resolvePrimaryInstitution();
-            
+
             if (! $this->hasTeacherPermission('teachers.delete')) {
                 return response()->json(['success' => false, 'message' => 'Səlahiyyətiniz yoxdur'], 403);
             }
@@ -275,7 +276,7 @@ class RegionTeacherController extends Controller
     {
         try {
             $region = $this->resolvePrimaryInstitution();
-            
+
             $preValidationService = app(\App\Services\RegionAdmin\RegionTeacherPreValidationService::class);
             $validationResult = $preValidationService->validateFile(
                 $request->file('file'),
@@ -305,7 +306,7 @@ class RegionTeacherController extends Controller
                 $preValidationService = app(\App\Services\RegionAdmin\RegionTeacherPreValidationService::class);
                 $validationResult = $preValidationService->validateFile($request->file('file'), $region);
 
-                if (!$validationResult['success']) {
+                if (! $validationResult['success']) {
                     return response()->json($validationResult, 400);
                 }
 
@@ -379,7 +380,7 @@ class RegionTeacherController extends Controller
     {
         try {
             $region = $this->resolvePrimaryInstitution();
-            
+
             while (ob_get_level() > 0) {
                 ob_end_clean();
             }

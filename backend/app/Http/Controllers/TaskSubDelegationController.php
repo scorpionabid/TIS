@@ -132,7 +132,7 @@ class TaskSubDelegationController
             $isAssignee = \App\Models\TaskAssignment::where('task_id', $task->id)
                 ->where('assigned_user_id', Auth::id())
                 ->exists();
-            if (!$isAssignee && $task->assigned_to !== Auth::id()) {
+            if (! $isAssignee && $task->assigned_to !== Auth::id()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Səlahiyyətiniz yoxdur.',

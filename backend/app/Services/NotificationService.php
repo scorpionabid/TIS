@@ -8,7 +8,6 @@ use App\Models\NotificationTemplate;
 use App\Models\Survey;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\TaskPermissionService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -576,12 +575,12 @@ class NotificationService
 
             $overdueCount = Task::where('deadline', '<', now())
                 ->whereNotIn('status', ['completed', 'cancelled']);
-            
+
             $user = User::find($userId);
             if ($user) {
                 $this->permissionService->applyTaskAccessControl($overdueCount, $user);
             }
-            
+
             $overdueTotal = $overdueCount->count();
 
             return [

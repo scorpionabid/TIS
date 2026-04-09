@@ -96,6 +96,7 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
                     $naLabels = array_filter($column['na_labels'] ?? [], fn ($l) => $l !== '' && $l !== null);
                     if ($value === 'yoxdur' || in_array($value, $naLabels, true)) {
                         $excelRow[] = $value === 'yoxdur' ? 'Yoxdur' : $value;
+
                         continue;
                     }
 
