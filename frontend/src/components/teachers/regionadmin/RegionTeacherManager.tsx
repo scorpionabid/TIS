@@ -444,7 +444,7 @@ export const RegionTeacherManager: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <div className="font-medium">
-                          {teacher.profile?.first_name} {teacher.profile?.last_name}
+                          {teacher.profile?.first_name || teacher.first_name} {teacher.profile?.last_name || teacher.last_name}
                         </div>
                       </TableCell>
                       <TableCell>{teacher.email}</TableCell>
@@ -491,7 +491,7 @@ export const RegionTeacherManager: React.FC = () => {
                             <DropdownMenuItem
                               className="text-red-600"
                               onClick={() => {
-                                if (confirm(`${teacher.profile?.first_name} ${teacher.profile?.last_name} müəllimini silmək istədiyinizə əminsiniz?`)) {
+                                if (confirm(`${teacher.profile?.first_name || teacher.first_name} ${teacher.profile?.last_name || teacher.last_name} müəllimini silmək istədiyinizə əminsiniz?`)) {
                                   // TODO: Implement single delete
                                 }
                               }}

@@ -69,8 +69,8 @@ class SchoolTeacherController extends Controller
                 return [
                     'id' => $teacher->id,
                     'employee_id' => $teacher->username, // Using username as employee_id
-                    'first_name' => $profile->first_name ?? '',
-                    'last_name' => $profile->last_name ?? '',
+                    'first_name' => ($profile->first_name ?? null) ?: ($teacher->first_name ?? ''),
+                    'last_name' => ($profile->last_name ?? null) ?: ($teacher->last_name ?? ''),
                     'name' => $teacher->name,
                     'email' => $teacher->email,
                     'phone' => $profile->contact_phone ?? '',
@@ -185,8 +185,8 @@ class SchoolTeacherController extends Controller
                 'name' => $teacher->name,
                 'email' => $teacher->email,
                 'profile' => $profile ? [
-                    'first_name' => $profile->first_name,
-                    'last_name' => $profile->last_name,
+                    'first_name' => ($profile->first_name ?? null) ?: ($teacher->first_name ?? ''),
+                    'last_name' => ($profile->last_name ?? null) ?: ($teacher->last_name ?? ''),
                     'contact_phone' => $profile->contact_phone,
                     'birth_date' => $profile->birth_date,
                     'hire_date' => $profile->hire_date,
