@@ -61,6 +61,8 @@ docker-compose.override.yml
 *.sqlite-journal
 database-backups/*.sqlite
 database-backups/*.dump
+docker/postgres/backups/*.sql.gz
+docker/postgres/backups/latest_dev_backup.sql.gz
 
 # Development database snapshots (local only)
 backend/database/snapshots/dev_snapshot.sql
