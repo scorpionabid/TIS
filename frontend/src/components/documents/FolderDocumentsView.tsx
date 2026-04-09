@@ -169,7 +169,17 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
 
   const canDelete = (document: Document) => {
     if (!user) return false;
-    return document.user_id === user.id;
+
+    // Ownership check: supports both user_id (frontend legacy) and uploaded_by (backend standard)
+    const ownerId = document.uploaded_by || document.user_id;
+    const isOwner = ownerId === user.id;
+
+    // Role check: superadmins can delete any document
+    const userRoles = (user as any)?.roles || [];
+    const userRole = (user as any)?.role;
+    const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
+
+    return isOwner || isSuperAdmin;
   };
 
   const filteredDocuments = useMemo(() => {
