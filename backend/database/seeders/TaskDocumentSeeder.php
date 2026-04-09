@@ -148,7 +148,7 @@ class TaskDocumentSeeder extends Seeder
                 'mime_type' => 'application/pdf',
                 'file_size' => 1024 * 500, // 500KB
                 'file_type' => 'document',
-                'category' => 'official',
+                'category' => 'administrative',
                 'access_level' => 'institution',
             ],
             [
@@ -171,8 +171,8 @@ class TaskDocumentSeeder extends Seeder
                 'file_extension' => 'xlsx',
                 'mime_type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'file_size' => 1024 * 128, // 128KB
-                'file_type' => 'spreadsheet',
-                'category' => 'template',
+                'file_type' => 'excel',
+                'category' => 'administrative',
                 'access_level' => 'public',
             ],
             [
@@ -193,9 +193,9 @@ class TaskDocumentSeeder extends Seeder
             $user = $users->random();
             $institution = $institutions->random();
 
-            Document::firstOrCreate([
-                'title' => $docData['title'],
-            ], [
+            $document = Document::withTrashed()->where('title', $docData['title'])->first();
+            
+            $data = [
                 'description' => $docData['description'],
                 'original_filename' => $docData['original_filename'],
                 'stored_filename' => $docData['stored_filename'],
@@ -213,7 +213,16 @@ class TaskDocumentSeeder extends Seeder
                 'is_public' => $docData['access_level'] === 'public',
                 'is_downloadable' => true,
                 'is_viewable_online' => true,
-            ]);
+            ];
+
+            if ($document) {
+                if ($document->deleted_at !== null) {
+                    $document->restore();
+                }
+                $document->update($data);
+            } else {
+                Document::create(array_merge(['title' => $docData['title']], $data));
+            }
         }
     }
 }

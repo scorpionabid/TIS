@@ -1,20 +1,22 @@
 #!/bin/bash
-# ATİS - Sürətli DB Restore
-# Son auto backup-dan və ya seçilmiş fayldan bərpa edir
+# ATİS - Universal DB Restore Script
+# Həm .sql, həm də .sql.gz fayllarını dəstəkləyir.
+# Bərpa öncəsi bazanı təmizləyir (drop/create).
 
 set -e
 
+# Rənglər
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; BLUE='\033[0;34m'; NC='\033[0m'
 print_status()  { echo -e "${BLUE}🔄 $1${NC}"; }
 print_success() { echo -e "${GREEN}✅ $1${NC}"; }
 print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 print_error()   { echo -e "${RED}❌ $1${NC}"; }
 
-SNAPSHOT_DIR="backend/database/snapshots"
+BACKUP_DIR="docker/postgres/backups"
+DB_NAME="atis_dev"
+DB_USER="atis_dev_user"
 
-echo ""
-echo -e "${BLUE}📥 ATİS DB Restore${NC}"
-echo ""
+echo -e "${BLUE}📥 ATİS DB Restore Service${NC}"
 
 # Docker yoxla
 if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^atis_postgres$'; then
@@ -22,29 +24,25 @@ if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^atis_postgres$'; th
     exit 1
 fi
 
-# Fayl seç
+# Fayl seçimi
 if [ -n "$1" ]; then
     RESTORE_FILE="$1"
 else
-    # Ən son auto backup-ı tap
-    LATEST=$(ls -1t "$SNAPSHOT_DIR"/auto_*.sql 2>/dev/null | head -1)
-    MANUAL=$(ls -1t "$SNAPSHOT_DIR"/dev_snapshot.sql 2>/dev/null | head -1)
-
-    if [ -z "$LATEST" ] && [ -z "$MANUAL" ]; then
-        print_error "Snapshot tapılmadı: $SNAPSHOT_DIR"
-        echo "Backup götürmək üçün: ./backup_dev_snapshot.sh"
+    # Ən son backup faylını tap (latest prefix-i olan və ya ən yeni)
+    LATEST=$(ls -1t "$BACKUP_DIR"/*.sql* 2>/dev/null | head -1)
+    
+    if [ -z "$LATEST" ]; then
+        print_error "Backup faylı tapılmadı: $BACKUP_DIR"
         exit 1
     fi
 
-    echo "Mövcud backup-lar:"
-    ls -1t "$SNAPSHOT_DIR"/*.sql 2>/dev/null | head -10 | nl -w2 -s'. '
+    echo "Mövcud backup qovluğu: $BACKUP_DIR"
+    ls -1t "$BACKUP_DIR"/*.sql* 2>/dev/null | head -5 | nl -w2 -s'. '
     echo ""
-
-    # Ən yeni olan seçilir (auto > manual)
-    RESTORE_FILE="${LATEST:-$MANUAL}"
-    print_warning "Seçilən (ən son): $RESTORE_FILE"
-    echo ""
-    read -p "Davam et? (y/N): " -n 1 -r; echo
+    
+    RESTORE_FILE="$LATEST"
+    print_warning "Seçilən fayl: $RESTORE_FILE"
+    read -p "Bazanı təmizləyib bərpa edək? (y/N): " -n 1 -r; echo
     [[ ! $REPLY =~ ^[Yy]$ ]] && { print_warning "Ləğv edildi."; exit 0; }
 fi
 
@@ -53,24 +51,30 @@ if [ ! -f "$RESTORE_FILE" ]; then
     exit 1
 fi
 
+# Bazanı təmizlə (Clean state)
+print_status "Baza təmizlənir (Drop and Recreate)..."
+docker exec atis_postgres psql -U $DB_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
+docker exec atis_postgres dropdb --if-exists -U $DB_USER $DB_NAME
+docker exec atis_postgres createdb -U $DB_USER $DB_NAME
+
+# Restore prosesi
 SIZE=$(du -h "$RESTORE_FILE" | cut -f1)
-print_status "Restore başlayır: $RESTORE_FILE ($SIZE)"
+print_status "Bərpa başlayır: $RESTORE_FILE ($SIZE)"
 
-docker exec -i atis_postgres psql \
-    -U atis_dev_user -d atis_dev \
-    < "$RESTORE_FILE" > /dev/null 2>&1
+if [[ "$RESTORE_FILE" == *.gz ]]; then
+    # Ziplənmiş fayl üçün
+    gunzip -c "$RESTORE_FILE" | docker exec -i atis_postgres psql -U $DB_USER -d $DB_NAME > /dev/null 2>&1
+else
+    # Normal SQL üçün
+    docker exec -i atis_postgres psql -U $DB_USER -d $DB_NAME < "$RESTORE_FILE" > /dev/null 2>&1
+fi
 
-# Core seeders (superadmin + permissions)
-print_status "Core seeders çalışdırılır..."
-docker exec atis_backend php artisan db:seed --class=RoleSeeder --force > /dev/null 2>&1
-docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force > /dev/null 2>&1
-docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force > /dev/null 2>&1
-docker exec atis_backend php artisan permission:cache-reset > /dev/null 2>&1
+# Cache-ləri təmizlə
+print_status "Laravel cache-ləri təmizlənir..."
+docker exec atis_backend php artisan cache:clear >/dev/null 2>&1 || true
+docker exec atis_backend php artisan permission:cache-reset >/dev/null 2>&1 || true
 
-echo ""
-print_success "=== RESTORE TAMAMLANDI ==="
-USERS=$(docker exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM users;" | tr -d ' \n')
-STUDENTS=$(docker exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM students;" | tr -d ' \n' 2>/dev/null || echo "?")
-echo "  Users: $USERS | Students: $STUDENTS"
-echo "  Giriş: superadmin / admin123"
+print_success "=== BƏRPA UĞURLA TAMAMLANDI ==="
+USERS=$(docker exec atis_postgres psql -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM users;" | tr -d ' \n')
+echo "  Bərpa olunan istifadəçi sayı: $USERS"
 echo ""

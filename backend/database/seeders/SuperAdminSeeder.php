@@ -15,7 +15,7 @@ class SuperAdminSeeder extends Seeder
     public function run(): void
     {
         // Create or update the superadmin user
-        $superadmin = User::firstOrCreate(
+        $superadmin = User::withTrashed()->firstOrCreate(
             ['username' => 'superadmin'],
             [
                 'email' => 'superadmin@atis.az',
@@ -26,6 +26,10 @@ class SuperAdminSeeder extends Seeder
                 'last_name' => 'Admin',
             ]
         );
+
+        if ($superadmin->trashed()) {
+            $superadmin->restore();
+        }
 
         // Ensure user is active (in case it already existed)
         $superadmin->update([

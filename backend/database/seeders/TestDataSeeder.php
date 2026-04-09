@@ -254,7 +254,7 @@ class TestDataSeeder extends Seeder
             }
 
             // Create user
-            $user = User::firstOrCreate(
+            $user = User::withTrashed()->firstOrCreate(
                 ['email' => $userData['email']],
                 [
                     'name' => $userData['name'],
@@ -266,6 +266,10 @@ class TestDataSeeder extends Seeder
                     'last_login_at' => $userData['is_active'] ? Carbon::now()->subDays(rand(1, 30)) : null,
                 ]
             );
+
+            if ($user->trashed()) {
+                $user->restore();
+            }
 
             // Assign role
             if (! $user->hasRole($role)) {
@@ -343,7 +347,7 @@ class TestDataSeeder extends Seeder
         ];
 
         foreach ($testInstitutions as $instData) {
-            $institution = Institution::firstOrCreate(
+            $institution = Institution::withTrashed()->firstOrCreate(
                 ['code' => $instData['code']],
                 [
                     'name' => $instData['name'],
@@ -361,6 +365,10 @@ class TestDataSeeder extends Seeder
                     'established_date' => Carbon::now()->subYears(rand(5, 20)),
                 ]
             );
+
+            if ($institution->trashed()) {
+                $institution->restore();
+            }
 
             $this->createdInstitutions[] = $institution;
             $this->command->info("✅ Created institution: {$instData['name']}");

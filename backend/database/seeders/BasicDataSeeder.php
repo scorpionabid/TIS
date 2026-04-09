@@ -114,7 +114,7 @@ class BasicDataSeeder extends Seeder
         ];
 
         foreach ($regionAdmins as $admin) {
-            $user = User::firstOrCreate(
+            $user = User::withTrashed()->firstOrCreate(
                 ['username' => $admin['username']],
                 [
                     'email' => $admin['email'],
@@ -123,6 +123,10 @@ class BasicDataSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
+
+            if ($user->trashed()) {
+                $user->restore();
+            }
 
             $role = Role::findByName($admin['role']);
             if ($role && ! $user->hasRole($role)) {
@@ -140,7 +144,7 @@ class BasicDataSeeder extends Seeder
 
         foreach ($schoolAdmins as $admin) {
             $password = isset($admin['password']) ? $admin['password'] : 'admin123';
-            $user = User::firstOrCreate(
+            $user = User::withTrashed()->firstOrCreate(
                 ['username' => $admin['username']],
                 [
                     'email' => $admin['email'],
@@ -149,6 +153,10 @@ class BasicDataSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
+
+            if ($user->trashed()) {
+                $user->restore();
+            }
 
             $role = Role::findByName($admin['role']);
             if ($role && ! $user->hasRole($role)) {
@@ -166,7 +174,7 @@ class BasicDataSeeder extends Seeder
         ];
 
         foreach ($teachers as $teacher) {
-            $user = User::firstOrCreate(
+            $user = User::withTrashed()->firstOrCreate(
                 ['username' => $teacher['username']],
                 [
                     'email'              => $teacher['email'],
@@ -178,6 +186,10 @@ class BasicDataSeeder extends Seeder
                     'is_active'          => true,
                 ]
             );
+
+            if ($user->trashed()) {
+                $user->restore();
+            }
 
             $role = Role::findByName($teacher['role']);
             if ($role && ! $user->hasRole($role)) {

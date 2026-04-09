@@ -98,7 +98,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 continue;
             }
 
-            $user = User::firstOrCreate(
+            $user = User::withTrashed()->firstOrCreate(
                 ['email' => $userData['email']],
                 [
                     'name' => $userData['name'],
@@ -108,6 +108,10 @@ class ComprehensiveTestDataSeeder extends Seeder
                     'email_verified_at' => now(),
                 ]
             );
+
+            if ($user->trashed()) {
+                $user->restore();
+            }
 
             if (! $user->hasRole($role)) {
                 $user->assignRole($role);
@@ -143,7 +147,7 @@ class ComprehensiveTestDataSeeder extends Seeder
         ];
 
         foreach ($additionalInstitutions as $instData) {
-            Institution::firstOrCreate(
+            Institution::withTrashed()->firstOrCreate(
                 ['code' => $instData['code']],
                 [
                     'name' => $instData['name'],
@@ -155,6 +159,12 @@ class ComprehensiveTestDataSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
+            
+            // Note: Institution model doesn't seem to have a trashed check here but adding it for robustness if it has trait
+            $inst = Institution::withTrashed()->where('code', $instData['code'])->first();
+            if ($inst && method_exists($inst, 'trashed') && $inst->trashed()) {
+                $inst->restore();
+            }
 
             $this->command->info("✅ Created institution: {$instData['name']}");
         }
