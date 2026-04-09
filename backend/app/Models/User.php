@@ -139,6 +139,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's teacher profile (alternative profile table).
+     */
+    public function teacherProfile(): HasOne
+    {
+        return $this->hasOne(TeacherProfile::class);
+    }
+
+    /**
+     * Get the teacher workplaces for this user.
+     */
+    public function teacherWorkplaces(): HasMany
+    {
+        return $this->hasMany(TeacherWorkplace::class);
+    }
+
+    /**
      * Get the surveys created by this user.
      */
     public function createdSurveys(): HasMany

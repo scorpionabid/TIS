@@ -47,48 +47,56 @@ class SchoolTeacherController extends Controller
             return response()->json(['error' => 'Müəssisə ID təyin edilməyib'], 400);
         }
 
-        // Get users with teacher roles in this school with their profiles
-        $query = User::query();
-
-        // Filter by institution if available
-        if ($targetInstitutionId) {
-            $query->where('institution_id', $targetInstitutionId);
-        }
+        // Get users with teacher roles who have a workplace entry in this school
+        $query = User::query()
+            ->where('is_active', true)
+            ->whereHas('teacherWorkplaces', function ($query) use ($targetInstitutionId) {
+                $query->where('institution_id', $targetInstitutionId);
+            });
 
         $teachers = $query
             ->whereHas('roles', function ($query) {
-                $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
+                $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat', 'teacher']);
             })
-            ->where('is_active', true)
-            ->with(['roles', 'department', 'institution'])
+            ->with([
+                'roles',
+                'department',
+                'institution',
+                'teacherWorkplaces' => function ($query) use ($targetInstitutionId) {
+                    $query->where('institution_id', $targetInstitutionId);
+                },
+                'teacherProfile',
+                'profile'
+            ])
             ->get()
             ->map(function ($teacher) {
-                // Get profile if exists
-                $profile = UserProfile::where('user_id', $teacher->id)->first();
+                $user_profile = $teacher->profile;
+                $teacher_profile = $teacher->teacherProfile;
+                $workplace = $teacher->teacherWorkplaces->first();
 
                 return [
                     'id' => $teacher->id,
-                    'employee_id' => $teacher->username, // Using username as employee_id
-                    'first_name' => ($profile->first_name ?? null) ?: ($teacher->first_name ?? ''),
-                    'last_name' => ($profile->last_name ?? null) ?: ($teacher->last_name ?? ''),
+                    'employee_id' => $teacher->username,
+                    'first_name' => $teacher->first_name ?: ($user_profile->first_name ?? ($teacher_profile->first_name ?? '')),
+                    'last_name' => $teacher->last_name ?: ($user_profile->last_name ?? ($teacher_profile->last_name ?? '')),
                     'name' => $teacher->name,
                     'email' => $teacher->email,
-                    'phone' => $profile->contact_phone ?? '',
+                    'phone' => $user_profile->contact_phone ?? ($teacher_profile->phone ?? ''),
                     'department' => $teacher->department->name ?? '',
                     'institution' => $teacher->institution->name ?? '',
-                    'workplace_type' => $profile->workplace_type ?? 'primary',
+                    'workplace_type' => $workplace->workplace_priority ?? ($user_profile->workplace_type ?? 'primary'),
                     'position' => $teacher->roles->first()->name ?? '',
-                    'position_type' => $profile->position_type ?? null,
-                    'employment_status' => $profile->employment_status ?? null,
-                    'specialty' => $profile->specialty ?? null,
-                    'assessment_score' => $profile->assessment_score ?? null,
-                    'hire_date' => $profile->hire_date ?? null,
-                    'birth_date' => $profile->birth_date ?? null,
-                    'address' => $profile->address ?? '',
-                    'emergency_contact' => $profile->emergency_contact ?? '',
-                    'qualifications' => $profile->qualifications ?? [],
-                    'subjects' => $profile->subjects ?? [],
-                    'salary' => $profile->salary ?? null,
+                    'position_type' => $workplace->position_type ?? ($user_profile->position_type ?? null),
+                    'employment_status' => $workplace->employment_type ?? ($user_profile->employment_status ?? null),
+                    'specialty' => $teacher_profile->specialization ?? ($user_profile->specialty ?? null),
+                    'assessment_score' => $user_profile->assessment_score ?? null,
+                    'hire_date' => $workplace->start_date ?? ($user_profile->hire_date ?? null),
+                    'birth_date' => $user_profile->birth_date ?? null,
+                    'address' => $user_profile->address ?? ($teacher_profile->address ?? ''),
+                    'emergency_contact' => $user_profile->emergency_contact ?? ($teacher_profile->emergency_contact_phone ?? ''),
+                    'qualifications' => $user_profile->qualifications ?? ($teacher_profile->qualifications ?? []),
+                    'subjects' => $workplace->subjects ?? ($user_profile->subjects ?? ($teacher_profile->subject ? [$teacher_profile->subject] : [])),
+                    'salary' => $workplace->salary_amount ?? ($user_profile->salary ?? null),
                     'is_active' => $teacher->is_active,
                     'last_login_at' => $teacher->last_login_at,
                     'created_at' => $teacher->created_at,
@@ -170,32 +178,45 @@ class SchoolTeacherController extends Controller
             }
 
             $teacher = User::where('id', $teacherId)
-                ->where('institution_id', $school->id)
-                ->whereHas('roles', function ($query) {
-                    $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
+                ->whereHas('teacherWorkplaces', function ($query) use ($school) {
+                    $query->where('institution_id', $school->id);
                 })
-                ->with(['roles', 'department', 'devices'])
+                ->whereHas('roles', function ($query) {
+                    $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat', 'teacher']);
+                })
+                ->with([
+                    'roles',
+                    'department',
+                    'devices',
+                    'teacherWorkplaces' => function ($query) use ($school) {
+                        $query->where('institution_id', $school->id);
+                    },
+                    'teacherProfile',
+                    'profile'
+                ])
                 ->firstOrFail();
 
-            $profile = UserProfile::where('user_id', $teacher->id)->first();
+            $user_profile = $teacher->profile;
+            $teacher_profile = $teacher->teacherProfile;
+            $workplace = $teacher->teacherWorkplaces->first();
 
             $teacherData = [
                 'id' => $teacher->id,
                 'employee_id' => $teacher->username,
                 'name' => $teacher->name,
                 'email' => $teacher->email,
-                'profile' => $profile ? [
-                    'first_name' => ($profile->first_name ?? null) ?: ($teacher->first_name ?? ''),
-                    'last_name' => ($profile->last_name ?? null) ?: ($teacher->last_name ?? ''),
-                    'contact_phone' => $profile->contact_phone,
-                    'birth_date' => $profile->birth_date,
-                    'hire_date' => $profile->hire_date,
-                    'address' => $profile->address,
-                    'emergency_contact' => $profile->emergency_contact,
-                    'qualifications' => $profile->qualifications ?? [],
-                    'subjects' => $profile->subjects ?? [],
-                    'salary' => $profile->salary,
-                    'notes' => $profile->notes,
+                'profile' => $user_profile ? [
+                    'first_name' => ($user_profile->first_name ?? null) ?: ($teacher->first_name ?? ''),
+                    'last_name' => ($user_profile->last_name ?? null) ?: ($teacher->last_name ?? ''),
+                    'contact_phone' => $user_profile->contact_phone,
+                    'birth_date' => $user_profile->birth_date,
+                    'hire_date' => $user_profile->hire_date,
+                    'address' => $user_profile->address,
+                    'emergency_contact' => $user_profile->emergency_contact,
+                    'qualifications' => $user_profile->qualifications ?? [],
+                    'subjects' => $user_profile->subjects ?? [],
+                    'salary' => $user_profile->salary,
+                    'notes' => $user_profile->notes,
                 ] : null,
                 'department' => $teacher->department ? [
                     'id' => $teacher->department->id,
@@ -685,7 +706,7 @@ class SchoolTeacherController extends Controller
                 ->whereHas('roles', function ($roleQuery) use ($role) {
                     $roleQuery->where('name', $role);
                 })
-                ->with(['roles', 'profile']);
+                ->with(['roles', 'profile', 'grades']);
 
             // If excluding specific grade, get teachers not assigned to that grade
             if ($excludeGradeId) {
@@ -700,7 +721,7 @@ class SchoolTeacherController extends Controller
                     'full_name' => $teacher->profile->full_name ?? $teacher->name,
                     'email' => $teacher->email,
                     'is_available' => true, // For now, assume all are available
-                    'current_grade' => $teacher->grades()->first()?->name ?? null,
+                    'current_grade' => $teacher->grades->first()?->name ?? null,
                 ];
             });
 
