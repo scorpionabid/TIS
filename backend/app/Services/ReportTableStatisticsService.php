@@ -89,11 +89,10 @@ class ReportTableStatisticsService
                             $approvedCount++;
                         } elseif ($rowStatus === 'submitted') {
                             $pendingCount++;
-                        } elseif ($rowStatus === 'rejected') {
-                            $rejectedCount++;
-                        } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
-                            $returnedCount++;
                         }
+                        // Cumulative counters — sum across all rows
+                        $rejectedCount += $meta['total_rejected_count'] ?? 0;
+                        $returnedCount += $meta['total_returned_count'] ?? 0;
                     }
 
                     if ($rowCount === 0) {
@@ -115,17 +114,15 @@ class ReportTableStatisticsService
                 $penalty = 0;
                 $bonus = 0;
 
-                if ($response && $rowCount > 0 && $submittedAt) {
-                    // Delay penalty (downscaled): 0.1 point per day
-                    if ($table->deadline && strtotime($submittedAt) > strtotime($table->deadline)) {
-                        $delayDays = (int) ceil((strtotime($submittedAt) - strtotime($table->deadline)) / 86400);
-                        $penalty = $delayDays * 0.1;
-                    }
+                if ($response && $rowCount > 0) {
+                    // Cumulative rejection/return penalties (flat per event, not proportional)
+                    $penalty += $rejectedCount * 0.3;
+                    $penalty += $returnedCount * 0.15;
+                }
 
-                    // Speed bonus (downscaled): 0.2 points if submitted 3+ days before deadline
-                    if ($table->deadline && strtotime($submittedAt) < (strtotime($table->deadline) - 3 * 86400)) {
-                        $bonus = 0.2;
-                    }
+                if ($response && $rowCount > 0 && $submittedAt) {
+                    [$bonus, $timePenalty] = $this->calcTimingScore($submittedAt, $table);
+                    $penalty += $timePenalty;
                 }
 
                 // Table score: max 1.0 point based on approved ratio
@@ -139,14 +136,15 @@ class ReportTableStatisticsService
                 $schoolData['total_penalty'] += $penalty;
                 $schoolData['total_bonus'] += $bonus;
                 $schoolData['total_points'] += $tablePoints;
-                $schoolData['total_final_score'] += $tableFinalScore;
 
                 $schoolData['tables'][] = [
                     'table_id' => $table->id,
                     'table_title' => $table->title,
                     'row_count' => $rowCount,
                     'status' => $status,
-                    'submitted_at' => $submittedAt,
+                    'submitted_at' => $submittedAt instanceof \Carbon\Carbon
+                        ? $submittedAt->toISOString()
+                        : ($submittedAt ? (string) $submittedAt : null),
                     'approved_count' => $approvedCount,
                     'pending_count' => $pendingCount,
                     'rejected_count' => $rejectedCount,
@@ -160,14 +158,23 @@ class ReportTableStatisticsService
                 $schoolData['total_rows_across_all_tables'] += $rowCount;
             }
 
-            // Global rounding
+            // Sətir sayına görə çəkili yekun bal
+            $totalRows = $schoolData['total_rows_across_all_tables'];
+            $weightedSum = 0.0;
+            foreach ($schoolData['tables'] as $t) {
+                $weightedSum += $t['final_score'] * $t['row_count'];
+            }
+            $schoolData['total_final_score'] = $totalRows > 0
+                ? (float) round($weightedSum / $totalRows, 4)
+                : 0.0;
+
             $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
-            $schoolData['total_final_score'] = (float) round($schoolData['total_final_score'], 2);
             $schoolData['total_penalty'] = (float) round($schoolData['total_penalty'], 2);
-            
-            // Faiz hesablama: (Yekun Bal / Cəmi Cədvəl Sayı) * 100
-            $schoolData['avg_rating_percentage'] = $schoolData['total_tables'] > 0
-                ? (float) round(($schoolData['total_final_score'] / $schoolData['total_tables']) * 100, 1)
+
+            // Faiz: sətir çəkili approved nisbəti (bonus/cərimə daxil deyil, 0-100 arasında)
+            $totalRowsForPct = $schoolData['total_rows_across_all_tables'];
+            $schoolData['avg_rating_percentage'] = $totalRowsForPct > 0
+                ? (float) round(($schoolData['total_approved'] / $totalRowsForPct) * 100, 1)
                 : 0.0;
 
             $statistics[] = $schoolData;
@@ -175,6 +182,11 @@ class ReportTableStatisticsService
 
         // Reytinq balına görə sıralama (DESC)
         usort($statistics, fn($a, $b) => $b['total_final_score'] <=> $a['total_final_score']);
+
+        foreach ($statistics as $i => &$item) {
+            $item['rank'] = $i + 1;
+        }
+        unset($item);
 
         return $statistics;
     }
@@ -236,10 +248,11 @@ class ReportTableStatisticsService
                         $approvedCount++;
                     } elseif ($rowStatus === 'submitted') {
                         $pendingCount++;
-                    } elseif ($rowStatus === 'rejected') {
-                        $rejectedCount++;
-                    } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
-                        $returnedCount++;
+                    }
+                    // Cumulative counters — sum across all rows
+                    if (is_array($meta)) {
+                        $rejectedCount += $meta['total_rejected_count'] ?? 0;
+                        $returnedCount += $meta['total_returned_count'] ?? 0;
                     }
                 }
 
@@ -260,21 +273,19 @@ class ReportTableStatisticsService
                 $notFilledCount++;
             }
 
-            // Calculate Rating and Points logic (Weighted)
+            // Calculate Rating and Points logic
             $penalty = 0;
             $bonus = 0;
 
-            if ($response && $rowCount > 0 && $submittedAt) {
-                // Delay penalty (downscaled): 0.1 per day
-                if ($table->deadline && strtotime($submittedAt) > strtotime($table->deadline)) {
-                    $delayDays = (int) ceil((strtotime($submittedAt) - strtotime($table->deadline)) / 86400);
-                    $penalty = $delayDays * 0.1;
-                }
+            if ($response && $rowCount > 0) {
+                // Cumulative rejection/return penalties (flat per event)
+                $penalty += $rejectedCount * 0.3;
+                $penalty += $returnedCount * 0.15;
+            }
 
-                // Speed bonus (downscaled): 0.2 points
-                if ($table->deadline && strtotime($submittedAt) < (strtotime($table->deadline) - 3 * 86400)) {
-                    $bonus = 0.2;
-                }
+            if ($response && $rowCount > 0 && $submittedAt) {
+                [$bonus, $timePenalty] = $this->calcTimingScore($submittedAt, $table);
+                $penalty += $timePenalty;
             }
 
             // Points: Proportion of approved rows (max 1.0)
@@ -306,6 +317,11 @@ class ReportTableStatisticsService
 
         // Reytinq balına görə sıralama (DESC)
         usort($schools, fn($a, $b) => $b['final_score'] <=> $a['final_score']);
+
+        foreach ($schools as $i => &$school) {
+            $school['rank'] = $i + 1;
+        }
+        unset($school);
 
         return [
             'table_id' => $table->id,
@@ -354,6 +370,133 @@ class ReportTableStatisticsService
         }
 
         return $nonRespondingSchools;
+    }
+
+    // ─── Private Helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Göndərmə tarixinə əsasən bonus və timing cəriməsi hesablayır.
+     *
+     * Qaydalar:
+     *   • published_at-dan ≤ 1 saat sonra → +1.0 bonus
+     *   • published_at-dan > 1 gün sonra  → (gün−1) × 0.10 cərimə
+     *   • deadline-dan sonra              → +0.25 sabit cərimə
+     *
+     * @return array{0: float, 1: float}  [bonus, penalty]
+     */
+    private function calcTimingScore(string|\Carbon\Carbon|\DateTimeInterface $submittedAt, ReportTable $table): array
+    {
+        $submitted = $submittedAt instanceof \Carbon\Carbon
+            ? $submittedAt
+            : \Carbon\Carbon::parse($submittedAt);
+        $bonus = 0.0;
+        $penalty = 0.0;
+
+        // Qayda 1: Sürət bonusu — published_at-dan 1 saat ərzində
+        if ($table->published_at) {
+            $hoursSincePublish = $table->published_at->diffInSeconds($submitted, false);
+            if ($hoursSincePublish >= 0 && $hoursSincePublish <= 3600) {
+                $bonus = 1.0;
+            }
+
+            // Qayda 2: Gecikmiş başlanğıc — published_at-dan 1 gündən sonra
+            $daysSincePublish = $table->published_at->diffInDays($submitted, false);
+            if ($daysSincePublish > 1) {
+                $penalty += (int) floor($daysSincePublish - 1) * 0.10;
+            }
+        }
+
+        // Qayda 3: Son tarix cəriməsi — sabit 0.25
+        if ($table->deadline && $submitted->gt($table->deadline)) {
+            $penalty += 0.25;
+        }
+
+        return [$bonus, $penalty];
+    }
+
+    /**
+     * Verilmiş institution ID siyahısı arasında institutionId-nin sırasını hesablayır.
+     * Eyni bal düsturu tətbiq olunur (rejected/returned cərimə + deadline/bonus).
+     */
+    private function computeRanks(int $institutionId, \Illuminate\Support\Collection $tables, array $siblingIds): int
+    {
+        $allIds = array_unique(array_merge([$institutionId], $siblingIds));
+        $tableIds = $tables->pluck('id');
+
+        $allResponses = ReportTableResponse::whereIn('institution_id', $allIds)
+            ->whereIn('report_table_id', $tableIds)
+            ->get()
+            ->groupBy('institution_id');
+
+        $scores = [];
+        foreach ($allIds as $instId) {
+            $instResponses = $allResponses[$instId] ?? collect();
+            $weightedSum = 0.0;
+            $totalRows = 0;
+
+            foreach ($tables as $table) {
+                $resp = $instResponses->firstWhere('report_table_id', $table->id);
+                if (! $resp) {
+                    continue;
+                }
+
+                $rows = $resp->rows ?? [];
+                $rowCount = count($rows);
+                if ($rowCount === 0) {
+                    continue;
+                }
+
+                $approved = 0;
+                $rejected = 0;
+                $returned = 0;
+
+                foreach ($resp->row_statuses ?? [] as $meta) {
+                    if (!is_array($meta)) {
+                        continue;
+                    }
+                    if (($meta['status'] ?? null) === 'approved') {
+                        $approved++;
+                    }
+                    // Cumulative counters
+                    $rejected += $meta['total_rejected_count'] ?? 0;
+                    $returned += $meta['total_returned_count'] ?? 0;
+                }
+
+                $points = $approved / $rowCount;
+                // Flat per-event penalties
+                $penalty = $rejected * 0.3 + $returned * 0.15;
+                $bonus = 0.0;
+
+                if ($resp->submitted_at) {
+                    $submittedStr = $resp->submitted_at instanceof \Carbon\Carbon
+                        ? $resp->submitted_at->toISOString()
+                        : (string) $resp->submitted_at;
+                    [$timingBonus, $timePenalty] = $this->calcTimingScore($submittedStr, $table);
+                    $bonus = $timingBonus;
+                    $penalty += $timePenalty;
+                }
+
+                $tableScore = max(0.0, $points - $penalty + $bonus);
+                // Sətir sayına görə çəkili cəm
+                $weightedSum += $tableScore * $rowCount;
+                $totalRows += $rowCount;
+            }
+
+            $scores[] = [
+                'id' => $instId,
+                'score' => $totalRows > 0 ? $weightedSum / $totalRows : 0.0,
+            ];
+        }
+
+        usort($scores, fn ($a, $b) => $b['score'] <=> $a['score']);
+
+        foreach ($scores as $i => $item) {
+            if ($item['id'] === $institutionId) {
+                return $i + 1;
+            }
+        }
+
+        return 1;
     }
 
     /**
@@ -418,7 +561,7 @@ class ReportTableStatisticsService
             ->orderBy('title')
             ->get();
 
-        $institution = Institution::with(['parent'])->find($institutionId);
+        $institution = Institution::with(['parent.parent'])->find($institutionId);
         if (!$institution) {
             return [];
         }
@@ -469,11 +612,10 @@ class ReportTableStatisticsService
                         $approvedCount++;
                     } elseif ($rowStatus === 'submitted') {
                         $pendingCount++;
-                    } elseif ($rowStatus === 'rejected') {
-                        $rejectedCount++;
-                    } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
-                        $returnedCount++;
                     }
+                    // Cumulative counters — sum across all rows
+                    $rejectedCount += $meta['total_rejected_count'] ?? 0;
+                    $returnedCount += $meta['total_returned_count'] ?? 0;
                 }
 
                 if ($rowCount > 0) {
@@ -482,26 +624,28 @@ class ReportTableStatisticsService
                 }
             }
 
-            // Bal hesablama (Weighted)
+            // Bal hesablama
             $tablePoints = 0;
             $penalty = 0;
             $bonus = 0;
 
             if ($rowCount > 0) {
                 $tablePoints = $approvedCount / $rowCount;
-                
-                // Gecikmə/Bonusu hesabla
-                $submissionDate = $response->submitted_at;
-                if ($submissionDate && $table->deadline) {
-                    $deadline = \Carbon\Carbon::parse($table->deadline);
-                    $submitted = \Carbon\Carbon::parse($submissionDate);
-                    
-                    if ($submitted->gt($deadline)) {
-                        $daysLate = $submitted->diffInDays($deadline);
-                        $penalty = min(0.5, $daysLate * 0.1); 
-                    } elseif ($submitted->lt($deadline->subDays(3))) {
-                        $bonus = 0.2;
-                    }
+
+                // Cumulative rejection/return penalties (flat per event)
+                $penalty += $rejectedCount * 0.3;
+                $penalty += $returnedCount * 0.15;
+
+                // Zamanlama bonusu/cəriməsi
+                $submissionDate = $response?->submitted_at;
+                if ($submissionDate) {
+                    [$bonus, $timePenalty] = $this->calcTimingScore(
+                        $submissionDate instanceof \Carbon\Carbon
+                            ? $submissionDate->toISOString()
+                            : (string) $submissionDate,
+                        $table
+                    );
+                    $penalty += $timePenalty;
                 }
             }
 
@@ -515,7 +659,6 @@ class ReportTableStatisticsService
             $schoolData['total_penalty'] += $penalty;
             $schoolData['total_bonus'] += $bonus;
             $schoolData['total_points'] += $tablePoints;
-            $schoolData['total_final_score'] += $finalScore;
 
             $schoolData['tables'][] = [
                 'id' => $table->id,
@@ -532,11 +675,48 @@ class ReportTableStatisticsService
             ];
         }
 
-        $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
-        $schoolData['total_final_score'] = (float) round($schoolData['total_final_score'], 2);
-        $schoolData['avg_rating_percentage'] = $schoolData['total_tables'] > 0
-            ? (float) round(($schoolData['total_final_score'] / $schoolData['total_tables']) * 100, 1)
+        // Sətir sayına görə çəkili yekun bal
+        $totalRows = $schoolData['total_rows_across_all_tables'];
+        $weightedSum = 0.0;
+        foreach ($schoolData['tables'] as $t) {
+            $weightedSum += $t['final_score'] * $t['row_count'];
+        }
+        $schoolData['total_final_score'] = $totalRows > 0
+            ? (float) round($weightedSum / $totalRows, 4)
             : 0.0;
+
+        $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
+        // Faiz: sətir çəkili approved nisbəti (bonus/cərimə daxil deyil, 0-100 arasında)
+        $schoolData['avg_rating_percentage'] = $totalRows > 0
+            ? (float) round(($schoolData['total_approved'] / $totalRows) * 100, 1)
+            : 0.0;
+
+        // Sector və region üzrə sıra hesablaması
+        $sectorId = $institution->parent_id;
+        $regionId = $institution->parent?->parent_id;
+
+        $rankInSector = null;
+        $totalSectorSchools = null;
+        $rankInRegion = null;
+        $totalRegionSchools = null;
+
+        if ($sectorId) {
+            $sectorIds = Institution::where('parent_id', $sectorId)->pluck('id')->toArray();
+            $totalSectorSchools = count($sectorIds);
+            $rankInSector = $this->computeRanks($institutionId, $tables, $sectorIds);
+        }
+
+        if ($regionId) {
+            $sectorChildIds = Institution::where('parent_id', $regionId)->pluck('id')->toArray();
+            $regionSchoolIds = Institution::whereIn('parent_id', $sectorChildIds)->pluck('id')->toArray();
+            $totalRegionSchools = count($regionSchoolIds);
+            $rankInRegion = $this->computeRanks($institutionId, $tables, $regionSchoolIds);
+        }
+
+        $schoolData['rank_in_sector'] = $rankInSector;
+        $schoolData['total_sector_schools'] = $totalSectorSchools;
+        $schoolData['rank_in_region'] = $rankInRegion;
+        $schoolData['total_region_schools'] = $totalRegionSchools;
 
         return $schoolData;
     }

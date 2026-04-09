@@ -168,7 +168,7 @@ export function ExcelCreateRow({
       {/* Collapsed State - Düymə */}
       {!isExpanded && (
         <tr className="border-t-2 border-primary/20 bg-muted/20 hover:bg-muted/40 transition-colors">
-          <td colSpan={100} className="px-4 py-3">
+          <td colSpan={13} className="px-4 py-3">
             <Button
               variant="ghost"
               className={cn(
@@ -258,7 +258,10 @@ export function ExcelCreateRow({
             Gözləyir
           </td>
 
-          {/* 6. Məsul Şəxs (Axtarışlı Multi-select) */}
+          {/* 6. Təyin edən (Boş xana) */}
+          <td className="px-2 py-3 w-[140px]"></td>
+
+          {/* 7. Məsul Şəxs (Axtarışlı Multi-select) */}
           <td className="px-2 py-3 w-[200px]">
             <Popover>
               <PopoverTrigger asChild>
@@ -330,7 +333,13 @@ export function ExcelCreateRow({
           </td>
 
 
-          {/* deadline_progress sütunu: tarix + saat inputları birlikdə */}
+          {/* 8. Yönləndirilib (Boş xana) */}
+          <td className="px-2 py-3 w-[160px]"></td>
+
+          {/* 9. Yaranma Tarixi (Boş xana) */}
+          <td className="px-2 py-3 w-[140px]"></td>
+
+          {/* 10. Son Tarix / Vaxt sütunu: tarix + saat inputları birlikdə */}
           <td className="px-2 py-3 w-[150px]">
             <div className="flex flex-col gap-1">
               <Input

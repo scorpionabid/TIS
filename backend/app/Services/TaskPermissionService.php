@@ -157,15 +157,8 @@ class TaskPermissionService extends BaseService
             return false;
         }
 
-        // Institution admins can update assignments in their scope
+        // Region admins can update assignments in their scope
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            $childIds = $userInstitution->getAllChildrenIds();
-
-            return in_array($assignment->institution_id, $childIds);
-        }
-
-        // Region operators can update assignments in their scope (same as regionadmin)
-        if ($user->hasRole('regionoperator') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
 
             return in_array($assignment->institution_id, $childIds);
@@ -247,19 +240,24 @@ class TaskPermissionService extends BaseService
             // Tasks created by user
             $q->where('created_by', $user->id);
 
-            if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-                $childIds = $userInstitution->getAllChildrenIds();
-                $q->orWhereIn('assigned_to_institution_id', $childIds);
-                $this->appendTargetInstitutionFilterToQuery($q, $childIds);
-            } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-                $childIds = $userInstitution->getAllChildrenIds();
-                $q->orWhereIn('assigned_to_institution_id', $childIds);
-                $this->appendTargetInstitutionFilterToQuery($q, $childIds);
-            } elseif ($user->hasRole('schooladmin')) {
-                // Schooladmin yalnız özünə birbaşa təyin olunmuş tapşırıqları görə bilər
-                // Müəssisə səviyyəli tapşırıqları görməməlidir
-                // $q->orWhere('assigned_to_institution_id', $userInstitution->id);
-                // $q->orWhereJsonContains('target_institutions', $userInstitution->id);
+            // Strict block for operators: if they are an operator, they do NOT get the broad region/sector view
+            // even if they accidentally have overlapping roles.
+            $isRegionOperator = $user->hasRole('regionoperator');
+            $isSectorOperator = $user->hasRole('sektoroperator');
+
+            if (!$isRegionOperator && !$isSectorOperator) {
+                if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
+                    $childIds = $userInstitution->getAllChildrenIds();
+                    $q->orWhereIn('assigned_to_institution_id', $childIds);
+                    $this->appendTargetInstitutionFilterToQuery($q, $childIds);
+                } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
+                    $childIds = $userInstitution->getAllChildrenIds();
+                    $q->orWhereIn('assigned_to_institution_id', $childIds);
+                    $this->appendTargetInstitutionFilterToQuery($q, $childIds);
+                } elseif ($user->hasRole('schooladmin')) {
+                    // Schooladmin can only see tasks directly assigned to them or their institution
+                    $q->orWhere('assigned_to_institution_id', $userInstitution->id);
+                }
             }
 
             // Tasks directly assigned to user
@@ -492,7 +490,7 @@ class TaskPermissionService extends BaseService
      */
     public function canCreateHierarchicalTask($user): bool
     {
-        return $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin']);
+        return $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'regionoperator']);
     }
 
     /**

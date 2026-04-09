@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Loader2, ChevronLeft, ChevronRight, BarChart2, X, Users } from "lucide-react";
+import { AlertTriangle, Loader2, ChevronLeft, ChevronRight, BarChart2, List, CheckSquare, CalendarDays, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { CreateTaskData, Task, UpdateTaskData, taskService, CreateSubDelegationRequest } from "@/services/tasks";
@@ -8,10 +8,9 @@ import { TasksHeader } from "@/components/tasks/TasksHeader";
 import { ExcelTaskTable } from "@/components/tasks/excel-view/ExcelTaskTable";
 import { TaskModals } from "@/components/tasks/TaskModals";
 import { MultiDelegationModal } from "@/components/tasks/MultiDelegationModal";
-import { SubDelegationTracker } from "@/components/tasks/SubDelegationTracker";
 import { TaskFilterState, useTaskFilters } from "@/hooks/tasks/useTaskFilters";
-import { useTaskPermissions } from "@/hooks/tasks/useTaskPermissions";
-import { useTasksData } from "@/hooks/tasks/useTasksData";
+import { useTaskPermissions, TaskTabValue } from "@/hooks/tasks/useTaskPermissions";
+import { useTasksData, SortField } from "@/hooks/tasks/useTasksData";
 import { useTaskModals } from "@/hooks/tasks/useTaskModals";
 import { useAssignableUsers } from "@/hooks/tasks/useAssignableUsers";
 import { useTaskMutations } from "@/hooks/tasks/useTaskMutations";
@@ -19,12 +18,11 @@ import { normalizeCreatePayload } from "@/utils/taskActions";
 import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TaskViewToggle, TaskViewMode } from "@/components/tasks/TaskViewToggle";
-import { TaskKanbanView } from "@/components/tasks/TaskKanbanView";
+import { TaskViewMode } from "@/components/tasks/TaskViewToggle";
 import { TaskStatsWidget } from "@/components/tasks/TaskStatsWidget";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AssignedTasksTab } from "@/components/tasks/tabs/AssignedTasksTab";
-import { MyDelegationsTab } from "@/components/tasks/tabs/MyDelegationsTab";
+import { TaskStatisticsTab } from "@/components/tasks/tabs/TaskStatisticsTab";
+import { TaskCompletionModal } from "@/components/tasks/dialogs/TaskCompletionModal";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
@@ -46,15 +44,6 @@ export default function Tasks() {
     localStorage.setItem("tasks-view-mode", mode);
   }, []);
 
-  // Persist charts visibility
-  const handleToggleCharts = useCallback(() => {
-    setShowCharts((prev) => {
-      const newValue = !prev;
-      localStorage.setItem("tasks-show-charts", String(newValue));
-      return newValue;
-    });
-  }, []);
-
   const {
     searchTerm,
     setSearchTerm,
@@ -62,30 +51,26 @@ export default function Tasks() {
     setStatusFilter,
     priorityFilter,
     setPriorityFilter,
-    categoryFilter,
-    setCategoryFilter,
+    sourceFilter,
+    setSourceFilter,
     deadlineFilter,
     setDeadlineFilter,
+    institutionLevel,
+    setInstitutionLevel,
+    dateRange,
+    setDateRange,
     isFiltering,
     clearFilters,
   } = useTaskFilters();
 
   const handleApplyFilterPreset = (preset: Partial<TaskFilterState>) => {
-    if (preset.searchTerm !== undefined) {
-      setSearchTerm(preset.searchTerm);
-    }
-    if (preset.statusFilter !== undefined) {
-      setStatusFilter(preset.statusFilter);
-    }
-    if (preset.priorityFilter !== undefined) {
-      setPriorityFilter(preset.priorityFilter);
-    }
-    if (preset.categoryFilter !== undefined) {
-      setCategoryFilter(preset.categoryFilter);
-    }
-    if (preset.deadlineFilter !== undefined) {
-      setDeadlineFilter(preset.deadlineFilter);
-    }
+    if (preset.searchTerm !== undefined) setSearchTerm(preset.searchTerm);
+    if (preset.statusFilter !== undefined) setStatusFilter(preset.statusFilter);
+    if (preset.priorityFilter !== undefined) setPriorityFilter(preset.priorityFilter);
+    if (preset.sourceFilter !== undefined) setSourceFilter(preset.sourceFilter);
+    if (preset.deadlineFilter !== undefined) setDeadlineFilter(preset.deadlineFilter);
+    if (preset.institutionLevel !== undefined) setInstitutionLevel(preset.institutionLevel);
+    if (preset.dateRange !== undefined) setDateRange(preset.dateRange);
   };
 
   const permissions = useTaskPermissions(currentUser);
@@ -96,10 +81,9 @@ export default function Tasks() {
     setActiveTab,
     currentTabLabel,
     showCreateButton,
-    canSeeRegionTab,
-    canSeeSectorTab,
     canEditTaskItem,
     canDeleteTaskItem,
+    currentUserRole,
   } = permissions;
   
   const location = useLocation();
@@ -130,9 +114,9 @@ export default function Tasks() {
     currentUser,
     activeTab,
     hasAccess,
-    canSeeRegionTab,
-    canSeeSectorTab,
-    filters: { searchTerm, statusFilter, priorityFilter, categoryFilter, deadlineFilter },
+    canSeeRegionTab: true, // Not used strictly anymore inside the hook query
+    canSeeSectorTab: true,
+    filters: { searchTerm, statusFilter, priorityFilter, sourceFilter, deadlineFilter, institutionLevel },
   });
 
   const {
@@ -150,7 +134,12 @@ export default function Tasks() {
     perPage,
     setPage,
     setPerPage,
+    assignedTasks,
   } = tasksData;
+
+  // Statistika tabı üçün tarix aralığı filtri
+  const [statsStartDate, setStatsStartDate] = useState('');
+  const [statsEndDate, setStatsEndDate] = useState('');
 
   const {
     isTaskModalOpen,
@@ -162,24 +151,22 @@ export default function Tasks() {
     taskToDelete,
     openDeleteModal,
     closeDeleteModal,
-    isDetailDrawerOpen,
-    detailTaskId,
-    detailTaskPreview,
-    openDetailsDrawer,
-    handleDetailDrawerChange,
   } = useTaskModals();
 
-  // Use new centralized hooks for fetching users (lower-level users only)
+  // Use new centralized hooks for fetching users
   const { users: availableUsers } = useAssignableUsers({
     perPage: 200,
     enabled: hasAccess,
-    originScope: activeTab === 'region' ? 'region' : activeTab === 'sector' ? 'sector' : null,
+    originScope: activeTab === 'created' ? 'region' : null,
   });
 
   // Sub-delegation state
   const [isDelegationModalOpen, setIsDelegationModalOpen] = useState(false);
   const [selectedTaskForDelegation, setSelectedTaskForDelegation] = useState<Task | null>(null);
-  const [subDelegations, setSubDelegations] = useState<any[]>([]);
+
+  // Completion modal state
+  const [taskToComplete, setTaskToComplete] = useState<number | null>(null);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
 
   // Delegation handlers
   const handleOpenDelegationModal = (task: Task) => {
@@ -201,41 +188,53 @@ export default function Tasks() {
         title: 'Yönləndirmə uğurlu',
         description: `${data.delegations.length} nəfərə yönləndirmə edildi`,
       });
-      
-      // Refresh tasks and delegations
       await refreshTasks();
-      if (selectedTaskForDelegation.id) {
-        const delegations = await taskService.getSubDelegations(selectedTaskForDelegation.id);
-        setSubDelegations(delegations);
-      }
     } catch (error) {
       console.error('Delegation error:', error);
       throw error;
     }
   };
 
-  // Load sub-delegations for a task
-  const loadSubDelegations = async (taskId: number) => {
-    try {
-      const delegations = await taskService.getSubDelegations(taskId);
-      setSubDelegations(delegations);
-    } catch (error) {
-      console.error('Error loading sub-delegations:', error);
-      setSubDelegations([]);
-    }
-  };
-
   const { createTask, updateTask, deleteTask } = useTaskMutations();
 
-  // Handle status change for Kanban view
-  const handleStatusChange = useCallback(async (taskId: number, newStatus: Task["status"]) => {
+  // Actual status change execution
+  const executeStatusChange = useCallback(async (taskId: number, newStatus: Task["status"], completionData?: { resolution: string; notes: string }) => {
     try {
-      await updateTask.mutateAsync({ id: taskId, data: { status: newStatus } });
+      if (activeTab === 'assigned') {
+        // For assigned tab: update assignment status, not task directly
+        const task = tasks.find(t => t.id === taskId);
+        const assignmentId = task?.user_assignment?.id;
+        if (!assignmentId) {
+          toast({
+            title: "Xəta baş verdi",
+            description: "Tapşırıq təyinatı tapılmadı.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const payload: Parameters<typeof taskService.updateAssignmentStatus>[1] = { 
+          status: newStatus,
+          ...(newStatus === 'in_progress' && { progress: 25 }),
+          ...(newStatus === 'completed' && { progress: 100 }),
+        };
+
+        if (completionData) {
+          payload.completion_data = { resolution: completionData.resolution };
+          if (completionData.notes) {
+            payload.completion_notes = completionData.notes;
+          }
+        }
+
+        await taskService.updateAssignmentStatus(assignmentId, payload);
+        await refreshTasks();
+      } else {
+        await updateTask.mutateAsync({ id: taskId, data: { status: newStatus } });
+      }
       toast({
         title: "Status yeniləndi",
         description: "Tapşırıq statusu uğurla dəyişdirildi.",
       });
-      await refreshTasks();
     } catch (error) {
       console.error("[Tasks] Status change failed", error);
       toast({
@@ -245,11 +244,31 @@ export default function Tasks() {
       });
       throw error;
     }
-  }, [updateTask, refreshTasks, toast]);
+  }, [updateTask, toast, activeTab, tasks, refreshTasks]);
+
+  // Handle status change for task rows and Kanban view
+  const handleStatusChange = useCallback(async (taskId: number, newStatus: Task["status"]) => {
+    if (newStatus === 'completed' && activeTab === 'assigned') {
+      setTaskToComplete(taskId);
+      return;
+    }
+    await executeStatusChange(taskId, newStatus);
+  }, [executeStatusChange, activeTab]);
+
+  const handleConfirmCompletion = async (data: { resolution: string; notes: string }) => {
+    if (!taskToComplete) return;
+    setIsCompletingTask(true);
+    try {
+      await executeStatusChange(taskToComplete, 'completed', data);
+      setTaskToComplete(null);
+    } catch (error) {
+      // Error is handled inside executeStatusChange
+    } finally {
+      setIsCompletingTask(false);
+    }
+  };
 
   usePrefetchTaskFormData(null, showCreateButton);
-  usePrefetchTaskFormData("region", showCreateButton && canSeeRegionTab);
-  usePrefetchTaskFormData("sector", showCreateButton && canSeeSectorTab);
 
   // Auto-refresh tasks every minute
   useEffect(() => {
@@ -276,7 +295,7 @@ export default function Tasks() {
     if (!task && !showCreateButton) {
       toast({
         title: "İcazə yoxdur",
-        description: "Bu tabda yeni tapşırıq yaratmaq səlahiyyətiniz yoxdur.",
+        description: "Yeni tapşırıq yaratmaq səlahiyyətiniz yoxdur.",
         variant: "destructive",
       });
       return;
@@ -290,24 +309,13 @@ export default function Tasks() {
         updateSelectedTask(freshTask);
       } catch (modalError) {
         console.error("[Tasks] Tapşırıq detalları yenilənmədi", modalError);
-        toast({
-          title: "Detallar alınmadı",
-          description:
-            modalError instanceof Error ? modalError.message : "Tapşırıq məlumatları yenilənə bilmədi.",
-          variant: "destructive",
-        });
       }
     }
   };
 
   const handleSave = async (formData: CreateTaskData) => {
-    const payload = normalizeCreatePayload(formData, { activeTab });
+    const payload = normalizeCreatePayload(formData, { activeTab: activeTab === 'created' ? 'region' : null });
     const isUpdate = Boolean(selectedTask);
-
-    console.log("[Tasks] Save əməliyyatı başladı", {
-      mode: isUpdate ? "update" : "create",
-      payload,
-    });
 
     try {
       if (isUpdate && selectedTask) {
@@ -319,62 +327,30 @@ export default function Tasks() {
           deadline: payload.deadline,
           notes: payload.notes,
         };
-
         await updateTask.mutateAsync({ id: selectedTask.id, data: updatePayload });
-        toast({
-          title: "Tapşırıq yeniləndi",
-          description: "Tapşırıq məlumatları uğurla yeniləndi.",
-        });
       } else {
         await createTask.mutateAsync(payload);
-        toast({
-          title: "Tapşırıq əlavə edildi",
-          description: "Yeni tapşırıq uğurla yaradıldı.",
-        });
+        if (availableTabs.some((tab) => tab.value === "created")) {
+          setActiveTab("created");
+        }
       }
-
-      await refreshTasks();
       closeTaskModal();
     } catch (saveError) {
       console.error("[Tasks] Save əməliyyatı alınmadı", saveError);
-      toast({
-        title: "Xəta baş verdi",
-        description: saveError instanceof Error ? saveError.message : "Əməliyyat zamanı problem yarandı.",
-        variant: "destructive",
-      });
-      throw saveError;
     }
   };
 
   const handleTaskCreated = async () => {
-    console.log('[Tasks] Yeni tapşırıq yaradıldı, cədvəl yenilənir...');
     await refreshTasks();
   };
 
   const handleDeleteConfirm = async (task: Task | null, deleteType: "soft" | "hard") => {
     if (!task) return;
-
-    console.log("[Tasks] Silmə əməliyyatı başladı", {
-      taskId: task.id,
-      deleteType,
-    });
-
     try {
       await deleteTask.mutateAsync(task.id);
-      toast({
-        title: "Tapşırıq silindi",
-        description: deleteType === "hard" ? "Tapşırıq sistemdən tam silindi." : "Tapşırıq uğurla silindi.",
-      });
-      await refreshTasks();
+      toast({ title: "Tapşırıq silindi" });
     } catch (deleteError) {
       console.error("[Tasks] Silmə əməliyyatında xəta", deleteError);
-      toast({
-        title: "Silinə bilmədi",
-        description:
-          deleteError instanceof Error ? deleteError.message : "Tapşırıq silinərkən xəta baş verdi.",
-        variant: "destructive",
-      });
-      throw deleteError;
     }
   };
 
@@ -392,10 +368,12 @@ export default function Tasks() {
         onStatusFilterChange={setStatusFilter}
         priorityFilter={priorityFilter}
         onPriorityFilterChange={setPriorityFilter}
-        categoryFilter={categoryFilter}
-        onCategoryFilterChange={setCategoryFilter}
+        sourceFilter={sourceFilter}
+        onSourceFilterChange={setSourceFilter}
         deadlineFilter={deadlineFilter}
         onDeadlineFilterChange={setDeadlineFilter}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
         tasksCount={pagination?.total ?? stats.total}
         isFiltering={isFiltering}
         onClearFilters={clearFilters}
@@ -403,72 +381,120 @@ export default function Tasks() {
         disabled={isFetching}
       />
 
-      {/* Enhanced Stats with Charts - Only for region/sector tabs */}
-      {!["assigned", "delegations"].includes(activeTab) && (
-        <Collapsible open={showCharts} onOpenChange={setShowCharts}>
-          <div className="flex items-center justify-between">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <BarChart2 className="h-4 w-4" />
-                {showCharts ? "Statistikanı gizlə" : "Statistikanı göstər"}
-              </Button>
-            </CollapsibleTrigger>
-            <div className="flex items-center gap-2">
-              <TaskViewToggle
-                value={viewMode}
-                onChange={handleViewModeChange}
-                showCalendar={false}
-                showAnalytics={false}
-                disabled={isFetching}
-              />
+      {/* Enhanced Statistics Tab */}
+      {activeTab === "statistics" ? (
+        <div className="space-y-4">
+          {/* Tarix aralığı filtri */}
+          <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+              <CalendarDays className="h-4 w-4" />
+              Tarix aralığı:
             </div>
+            <input
+              type="date"
+              value={statsStartDate}
+              onChange={e => setStatsStartDate(e.target.value)}
+              className="h-8 px-3 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+            <span className="text-slate-400 text-sm">—</span>
+            <input
+              type="date"
+              value={statsEndDate}
+              onChange={e => setStatsEndDate(e.target.value)}
+              className="h-8 px-3 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+            {(statsStartDate || statsEndDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setStatsStartDate(''); setStatsEndDate(''); }}
+                className="h-8 px-2 text-xs text-slate-500 hover:text-slate-700"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Sıfırla
+              </Button>
+            )}
           </div>
-          <CollapsibleContent className="mt-4">
-            <TaskStatsWidget stats={stats} showCharts={true} />
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
-      {/* Conditional View Rendering */}
-      {viewMode === "kanban" ? (
-        <TaskKanbanView
-          tasks={tasks}
-          onViewTask={(task) => openDetailsDrawer(task)}
-          onEditTask={handleOpenModal}
-          onDeleteTask={(task) => openDeleteModal(task)}
-          onStatusChange={handleStatusChange}
-          canEditTaskItem={canEditTaskItem}
-          canDeleteTaskItem={canDeleteTaskItem}
-          isLoading={isFetching}
-        />
-      ) : activeTab === "assigned" ? (
-        <AssignedTasksTab />
-      ) : activeTab === "delegations" ? (
-        <MyDelegationsTab />
+          <TaskStatisticsTab
+            stats={stats}
+            tasks={tasks}
+            assignedTasks={assignedTasks}
+            availableUsers={availableUsers}
+            currentUser={currentUser}
+            startDate={statsStartDate || undefined}
+            endDate={statsEndDate || undefined}
+          />
+        </div>
       ) : (
-        /* Excel Task Table */
-        <ExcelTaskTable
-          tasks={tasks}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-          onViewTask={(task) => openDetailsDrawer(task)}
-          onEditTask={handleOpenModal}
-          onDeleteTask={(task) => openDeleteModal(task)}
-          canEditTaskItem={canEditTaskItem}
-          canDeleteTaskItem={canDeleteTaskItem}
-          showCreateButton={showCreateButton}
-          page={page}
-          perPage={perPage}
-          availableUsers={availableUsers}
-          onRefresh={refreshTasks}
-          onTaskCreated={handleTaskCreated}
-          originScope={activeTab as "region" | "sector"}
-        />
+        <>
+          {/* Hierarchical Filter Buttons - Only for Created tab and admins */}
+          {activeTab === "created" && ["superadmin", "regionadmin", "sektoradmin"].includes(currentUserRole || "") && (
+            <div className="flex items-center gap-2 pb-2">
+              <Button 
+                variant={institutionLevel === 'all' ? 'default' : 'outline'} 
+                size="sm" 
+                onClick={() => setInstitutionLevel('all')}
+                className="rounded-full h-8 text-xs px-4"
+              >
+                Hamısı
+              </Button>
+              <Button 
+                variant={institutionLevel === 'region' ? 'default' : 'outline'} 
+                size="sm" 
+                onClick={() => setInstitutionLevel('region')}
+                className="rounded-full h-8 text-xs px-4"
+              >
+                Region
+              </Button>
+              <Button 
+                variant={institutionLevel === 'sector' ? 'default' : 'outline'} 
+                size="sm" 
+                onClick={() => setInstitutionLevel('sector')}
+                className="rounded-full h-8 text-xs px-4"
+              >
+                Sektor
+              </Button>
+              <Button 
+                variant={institutionLevel === 'school' ? 'default' : 'outline'} 
+                size="sm" 
+                onClick={() => setInstitutionLevel('school')}
+                className="rounded-full h-8 text-xs px-4"
+              >
+                Məktəb
+              </Button>
+            </div>
+          )}
+
+          {/* Excel Task Table */}
+          <ExcelTaskTable
+            tasks={tasks}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+            onViewTask={handleOpenModal}
+            onEditTask={handleOpenModal}
+            onDeleteTask={(task) => openDeleteModal(task)}
+            canEditTaskItem={canEditTaskItem}
+            canDeleteTaskItem={canDeleteTaskItem}
+            showCreateButton={showCreateButton && activeTab !== 'assigned'}
+            page={page}
+            perPage={perPage}
+            availableUsers={availableUsers}
+            onRefresh={refreshTasks}
+            onTaskCreated={handleTaskCreated}
+            originScope={activeTab === 'assigned' ? null : 'region'}
+            onDelegate={handleOpenDelegationModal}
+            currentUserId={currentUser?.id}
+            statistics={stats}
+            isLoadingStats={isFetching}
+            isAssignedTab={activeTab === 'assigned'}
+            onStatusChange={handleStatusChange}
+          />
+        </>
       )}
 
-      {/* Pagination - Only show for table view in region/sector tabs */}
-      {viewMode === "table" && !["assigned", "delegations"].includes(activeTab) && pagination && pagination.total > 0 && (
+      {/* Pagination */}
+      {viewMode === "table" && activeTab !== "statistics" && pagination && pagination.total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Səhifədə:</span>
@@ -502,13 +528,13 @@ export default function Tasks() {
               Əvvəlki
             </Button>
             <span className="text-sm text-muted-foreground px-2">
-              Səhifə {page} / {pagination.last_page || Math.ceil(pagination.total / perPage)}
+              Səhifə {page} / {pagination.total_pages || Math.ceil(pagination.total / perPage)}
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage(page + 1)}
-              disabled={page >= (pagination.last_page || Math.ceil(pagination.total / perPage)) || isFetching}
+              disabled={page >= (pagination.total_pages || Math.ceil(pagination.total / perPage)) || isFetching}
             >
               Sonrakı
               <ChevronRight className="h-4 w-4 ml-1" />
@@ -522,15 +548,11 @@ export default function Tasks() {
         selectedTask={selectedTask}
         onCloseTaskModal={closeTaskModal}
         onSaveTask={handleSave}
-        originScope={activeTab}
+        originScope={activeTab === 'created' ? 'region' : null}
         isDeleteModalOpen={isDeleteModalOpen}
         taskToDelete={taskToDelete}
         onCloseDeleteModal={closeDeleteModal}
         onConfirmDelete={(task, deleteType) => handleDeleteConfirm(task, deleteType)}
-        isDetailDrawerOpen={isDetailDrawerOpen}
-        detailTaskId={detailTaskId}
-        detailTaskPreview={detailTaskPreview}
-        onDetailDrawerChange={handleDetailDrawerChange}
       />
 
       {/* Multi-Delegation Modal */}
@@ -540,6 +562,13 @@ export default function Tasks() {
         taskId={selectedTaskForDelegation?.id || 0}
         availableUsers={availableUsers}
         onDelegate={handleDelegate}
+      />
+
+      <TaskCompletionModal
+        isOpen={taskToComplete !== null}
+        onClose={() => setTaskToComplete(null)}
+        onConfirm={handleConfirmCompletion}
+        isLoading={isCompletingTask}
       />
     </div>
   );

@@ -44,7 +44,29 @@ class TaskSubDelegationController
      */
     public function store(CreateSubDelegationsRequest $request, Task $task): JsonResponse
     {
-        $this->authorize('update', $task);
+        $user = Auth::user();
+        $permissionService = app(\App\Services\TaskPermissionService::class);
+
+        // Auto-promote pending assignment to in_progress so delegation can proceed
+        $pendingAssignment = $task->assignments()
+            ->where('assigned_user_id', $user->id)
+            ->where('assignment_status', 'pending')
+            ->first();
+
+        if ($pendingAssignment) {
+            $pendingAssignment->update([
+                'assignment_status' => 'in_progress',
+                'updated_by' => $user->id,
+            ]);
+            $task->refresh();
+        }
+
+        if (! $permissionService->canUserDelegateTask($task, $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
+            ], 403);
+        }
 
         $validated = $request->validated();
 
@@ -104,7 +126,19 @@ class TaskSubDelegationController
         Task $task,
         TaskSubDelegation $delegation
     ): JsonResponse {
-        $this->authorize('update', $task);
+        $permissionService = app(\App\Services\TaskPermissionService::class);
+        if (! $permissionService->canUserUpdateTask($task, Auth::user())) {
+            // Also allow the assignee or parent assignee to update status
+            $isAssignee = \App\Models\TaskAssignment::where('task_id', $task->id)
+                ->where('assigned_user_id', Auth::id())
+                ->exists();
+            if (!$isAssignee && $task->assigned_to !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Səlahiyyətiniz yoxdur.',
+                ], 403);
+            }
+        }
 
         if ($delegation->task_id !== $task->id) {
             return response()->json([

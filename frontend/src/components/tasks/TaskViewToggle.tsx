@@ -7,10 +7,10 @@
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Table2, LayoutGrid, Calendar, BarChart3 } from "lucide-react";
+import { Table2, Calendar, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type TaskViewMode = "table" | "kanban" | "calendar" | "analytics";
+export type TaskViewMode = "table" | "calendar" | "analytics";
 
 interface TaskViewToggleProps {
   value: TaskViewMode;
@@ -27,12 +27,6 @@ const viewModes = [
     label: "Cədvəl",
     icon: Table2,
     description: "Excel-style cədvəl görünüşü",
-  },
-  {
-    value: "kanban" as const,
-    label: "Kanban",
-    icon: LayoutGrid,
-    description: "Status əsaslı lövhə görünüşü",
   },
   {
     value: "calendar" as const,

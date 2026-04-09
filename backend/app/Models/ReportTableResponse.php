@@ -82,10 +82,14 @@ class ReportTableResponse extends Model
     public function submitRow(int $rowIndex, int $userId): void
     {
         $statuses = $this->row_statuses ?? [];
+        $existing = $statuses[$rowIndex] ?? [];
         $statuses[$rowIndex] = [
             'status' => 'submitted',
             'submitted_by' => $userId,
             'submitted_at' => now()->toISOString(),
+            // Cumulative penalty counters — never reset on resubmission
+            'total_rejected_count' => $existing['total_rejected_count'] ?? 0,
+            'total_returned_count' => $existing['total_returned_count'] ?? 0,
         ];
         $this->update(['row_statuses' => $statuses]);
     }
@@ -97,6 +101,7 @@ class ReportTableResponse extends Model
             'status' => 'approved',
             'approved_by' => $userId,
             'approved_at' => now()->toISOString(),
+            // Counters preserved via array_merge
         ]);
         $this->update(['row_statuses' => $statuses]);
     }
@@ -104,11 +109,14 @@ class ReportTableResponse extends Model
     public function rejectRow(int $rowIndex, int $userId, string $reason): void
     {
         $statuses = $this->row_statuses ?? [];
-        $statuses[$rowIndex] = array_merge($statuses[$rowIndex] ?? [], [
+        $existing = $statuses[$rowIndex] ?? [];
+        $statuses[$rowIndex] = array_merge($existing, [
             'status' => 'rejected',
             'rejected_by' => $userId,
             'rejected_at' => now()->toISOString(),
             'rejection_reason' => $reason,
+            // Increment cumulative rejection counter
+            'total_rejected_count' => ($existing['total_rejected_count'] ?? 0) + 1,
         ]);
         $this->update(['row_statuses' => $statuses]);
     }
@@ -116,7 +124,13 @@ class ReportTableResponse extends Model
     public function returnRowToDraft(int $rowIndex): void
     {
         $statuses = $this->row_statuses ?? [];
-        $statuses[$rowIndex] = ['status' => 'draft'];
+        $existing = $statuses[$rowIndex] ?? [];
+        $statuses[$rowIndex] = [
+            'status' => 'draft',
+            // Increment cumulative return counter, preserve rejection counter
+            'total_rejected_count' => $existing['total_rejected_count'] ?? 0,
+            'total_returned_count' => ($existing['total_returned_count'] ?? 0) + 1,
+        ];
         $this->update(['row_statuses' => $statuses]);
     }
 

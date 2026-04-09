@@ -17,7 +17,7 @@ class TaskCrudController extends BaseTaskController
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'per_page' => 'nullable|integer|min:1|max:100',
+            'per_page' => 'nullable|integer|min:1|max:1000',
             'status' => 'nullable|string|in:pending,in_progress,review,completed,cancelled',
             'priority' => 'nullable|string|in:low,medium,high,urgent',
             'assigned_to' => 'nullable|integer|exists:users,id',
@@ -34,18 +34,21 @@ class TaskCrudController extends BaseTaskController
         try {
             // Optimized query with selective eager loading
             $query = Task::with([
-                'creator:id,first_name,last_name,email',
-                'assignee:id,first_name,last_name',
+                'creator:id,first_name,last_name,email,username',
+                'assignee:id,first_name,last_name,username',
                 'assignedInstitution:id,name,type',
                 'approver:id,first_name,last_name',
+                'subDelegations' => function ($query) {
+                    $query->select('id', 'task_id', 'delegated_to_user_id', 'status', 'progress')
+                        ->with('delegatedToUser:id,first_name,last_name');
+                },
                 'assignments' => function ($query) {
-                    $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress', 'assignment_metadata')
+                    $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress', 'assignment_metadata', 'due_date')
                         ->with([
-                            'assignedUser:id,first_name,last_name',
+                            'assignedUser:id,first_name,last_name,username',
                             'institution:id,name',
                         ])
-                        ->latest()
-                        ->limit(10); // Limit assignments to avoid memory issues
+                        ->latest();
                 },
             ])
                 ->withCount(['assignments', 'comments', 'progressLogs'])
@@ -55,16 +58,28 @@ class TaskCrudController extends BaseTaskController
 
             $this->applyFilters($query, $request);
 
-            // Calculate statistics on filtered query BEFORE pagination
-            $statisticsQuery = clone $query;
+            // Operators should only see tasks THEY created in this list view (which maps to 'Mənim Tapşırıqlarım' / Created tab)
+            // Their assigned tasks are handled separately in getAssignedToCurrentUser.
+            $isRegionOperator = $user->hasRole('regionoperator');
+            $isSectorOperator = $user->hasRole('sektoroperator');
+            if ($isRegionOperator || $isSectorOperator) {
+                $query->where('created_by', $user->id);
+            }
+
+            // Calculate statistics on filtered query BEFORE pagination (single aggregate query)
+            $statsRow = (clone $query)->withoutEagerLoads()->select(\DB::raw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN deadline < NOW() AND status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) as overdue
+            "))->first();
             $statistics = [
-                'total' => $statisticsQuery->count(),
-                'pending' => (clone $query)->where('status', 'pending')->count(),
-                'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
-                'completed' => (clone $query)->where('status', 'completed')->count(),
-                'overdue' => (clone $query)->where('deadline', '<', now())
-                    ->whereNotIn('status', ['completed', 'cancelled'])
-                    ->count(),
+                'total' => (int) ($statsRow->total ?? 0),
+                'pending' => (int) ($statsRow->pending ?? 0),
+                'in_progress' => (int) ($statsRow->in_progress ?? 0),
+                'completed' => (int) ($statsRow->completed ?? 0),
+                'overdue' => (int) ($statsRow->overdue ?? 0),
             ];
 
             // Apply sorting
@@ -73,7 +88,7 @@ class TaskCrudController extends BaseTaskController
 
             if ($sortBy === 'status') {
                 $query->orderByRaw("
-                    CASE 
+                    CASE
                         WHEN status = 'pending' THEN 1
                         WHEN status = 'in_progress' THEN 2
                         WHEN status = 'review' THEN 3
@@ -115,7 +130,7 @@ class TaskCrudController extends BaseTaskController
     public function getAssignedToCurrentUser(Request $request): JsonResponse
     {
         $request->validate([
-            'per_page' => 'nullable|integer|min:1|max:100',
+            'per_page' => 'nullable|integer|min:1|max:1000',
             'status' => 'nullable|string|in:pending,in_progress,review,completed,cancelled',
             'priority' => 'nullable|string|in:low,medium,high,urgent',
             'search' => 'nullable|string|max:255',
@@ -134,8 +149,9 @@ class TaskCrudController extends BaseTaskController
                 'assignee',
                 'assignedInstitution',
                 'approver',
-                'assignments.assignedUser',
-                'assignments.institution',
+                'assignments.assignedUser:id,first_name,last_name,username',
+                'assignments.institution:id,name',
+                'subDelegations.delegatedToUser',
             ])
                 ->where(function ($assignedQuery) use ($user) {
                     $assignedQuery
@@ -154,16 +170,20 @@ class TaskCrudController extends BaseTaskController
 
             $this->applyFilters($query, $request);
 
-            // Calculate statistics on filtered query BEFORE pagination
-            $statisticsQuery = clone $query;
+            // Calculate statistics on filtered query BEFORE pagination (single aggregate query)
+            $statsRow = (clone $query)->withoutEagerLoads()->select(\DB::raw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN deadline < NOW() AND status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) as overdue
+            "))->first();
             $statistics = [
-                'total' => $statisticsQuery->count(),
-                'pending' => (clone $query)->where('status', 'pending')->count(),
-                'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
-                'completed' => (clone $query)->where('status', 'completed')->count(),
-                'overdue' => (clone $query)->where('deadline', '<', now())
-                    ->whereNotIn('status', ['completed', 'cancelled'])
-                    ->count(),
+                'total' => (int) ($statsRow->total ?? 0),
+                'pending' => (int) ($statsRow->pending ?? 0),
+                'in_progress' => (int) ($statsRow->in_progress ?? 0),
+                'completed' => (int) ($statsRow->completed ?? 0),
+                'overdue' => (int) ($statsRow->overdue ?? 0),
             ];
 
             // Apply sorting
@@ -172,7 +192,7 @@ class TaskCrudController extends BaseTaskController
 
             if ($sortBy === 'status') {
                 $query->orderByRaw("
-                    CASE 
+                    CASE
                         WHEN status = 'pending' THEN 1
                         WHEN status = 'in_progress' THEN 2
                         WHEN status = 'review' THEN 3
@@ -348,7 +368,29 @@ class TaskCrudController extends BaseTaskController
     {
         $user = Auth::user();
 
-        if (! $this->permissionService->canUserUpdateTask($task, $user)) {
+        $canUpdate = $this->permissionService->canUserUpdateTask($task, $user);
+
+        $isExecutionUpdate = false;
+
+        if (! $canUpdate) {
+            // Assignees are allowed to update ONLY the status and progress of tasks assigned to them
+            $isAssignee = ($task->assigned_to === $user->id) || \App\Models\TaskAssignment::where('task_id', $task->id)
+                ->where('assigned_user_id', $user->id)
+                ->exists();
+
+            if ($isAssignee) {
+                $requestedData = $request->except(['_method', '_token']);
+                $requestedKeys = array_keys($requestedData);
+                $allowedKeys = ['status', 'progress'];
+                
+                if (!empty($requestedKeys) && count(array_diff($requestedKeys, $allowedKeys)) === 0) {
+                    $canUpdate = true;
+                    $isExecutionUpdate = true;
+                }
+            }
+        }
+
+        if (! $canUpdate) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığı yeniləməyə icazəniz yoxdur.',
@@ -381,6 +423,30 @@ class TaskCrudController extends BaseTaskController
         ]);
 
         try {
+            if ($isExecutionUpdate) {
+                $assignmentId = \App\Models\TaskAssignment::where('task_id', $task->id)
+                    ->where('assigned_user_id', $user->id)
+                    ->value('id');
+
+                if ($assignmentId) {
+                    $assignmentData = [];
+                    if ($request->has('status')) {
+                        $assignmentData['status'] = $request->status;
+                    }
+                    if ($request->has('progress')) {
+                        $assignmentData['progress'] = $request->progress;
+                    }
+                    $this->assignmentService->updateAssignmentStatus($assignmentId, $assignmentData, $user);
+                    $task = $task->fresh(['creator', 'assignee', 'assignedInstitution']);
+                    
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Tapşırıq icrası uğurla yeniləndi.',
+                        'data' => $task,
+                    ]);
+                }
+            }
+
             // Capture old values before update
             $oldValues = $task->only([
                 'title', 'description', 'category', 'source', 'priority',

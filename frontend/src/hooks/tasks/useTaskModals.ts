@@ -8,10 +8,6 @@ export function useTaskModals() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
-  const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
-  const [detailTaskId, setDetailTaskId] = useState<number | null>(null);
-  const [detailTaskPreview, setDetailTaskPreview] = useState<Task | null>(null);
-
   const openTaskModal = useCallback((task?: Task | null) => {
     setSelectedTask(task ?? null);
     setIsTaskModalOpen(true);
@@ -32,20 +28,6 @@ export function useTaskModals() {
     setTaskToDelete(null);
   }, []);
 
-  const openDetailsDrawer = useCallback((task: Task) => {
-    setDetailTaskId(task.id);
-    setDetailTaskPreview(task);
-    setIsDetailDrawerOpen(true);
-  }, []);
-
-  const handleDetailDrawerChange = useCallback((open: boolean) => {
-    setIsDetailDrawerOpen(open);
-    if (!open) {
-      setDetailTaskId(null);
-      setDetailTaskPreview(null);
-    }
-  }, []);
-
   const updateSelectedTask = useCallback((task: Task | null) => {
     setSelectedTask(task);
   }, []);
@@ -60,10 +42,5 @@ export function useTaskModals() {
     taskToDelete,
     openDeleteModal,
     closeDeleteModal,
-    isDetailDrawerOpen,
-    detailTaskId,
-    detailTaskPreview,
-    openDetailsDrawer,
-    handleDetailDrawerChange,
   };
 }

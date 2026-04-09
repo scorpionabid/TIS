@@ -300,4 +300,8 @@ export interface MySchoolStatistics {
   total_points: number;
   total_final_score: number;
   avg_rating_percentage: number;
+  rank_in_sector?: number | null;
+  total_sector_schools?: number | null;
+  rank_in_region?: number | null;
+  total_region_schools?: number | null;
 }

@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Search, X } from "lucide-react";
-import { categoryLabels, priorityLabels, statusLabels } from "@/components/tasks/config/taskFormFields";
+import { sourceLabels, priorityLabels, statusLabels } from "@/components/tasks/config/taskFormFields";
 import type { TaskTab, TaskTabValue } from "@/hooks/tasks/useTaskPermissions";
 import type { TaskFilterState } from "@/hooks/tasks/useTaskFilters";
 
@@ -29,10 +29,12 @@ type TasksHeaderProps = {
   onStatusFilterChange: (value: string) => void;
   priorityFilter: string;
   onPriorityFilterChange: (value: string) => void;
-  categoryFilter: string;
-  onCategoryFilterChange: (value: string) => void;
+  sourceFilter: string;
+  onSourceFilterChange: (value: string) => void;
   deadlineFilter: string;
   onDeadlineFilterChange: (value: string) => void;
+  dateRange: string;
+  onDateRangeChange: (value: string) => void;
   tasksCount: number;
   isFiltering: boolean;
   onClearFilters: () => void;
@@ -52,10 +54,12 @@ export function TasksHeader({
   onStatusFilterChange,
   priorityFilter,
   onPriorityFilterChange,
-  categoryFilter,
-  onCategoryFilterChange,
+  sourceFilter,
+  onSourceFilterChange,
   deadlineFilter,
   onDeadlineFilterChange,
+  dateRange,
+  onDateRangeChange,
   tasksCount,
   isFiltering,
   onClearFilters,
@@ -120,11 +124,11 @@ export function TasksHeader({
       });
     }
 
-    if (categoryFilter !== "all") {
+    if (sourceFilter !== "all") {
       filters.push({
-        key: "category",
-        label: `Kateqoriya: ${categoryLabels[categoryFilter] ?? categoryFilter}`,
-        onRemove: () => onCategoryFilterChange("all"),
+        key: "source",
+        label: `Mənbə: ${sourceLabels[sourceFilter] ?? sourceFilter}`,
+        onRemove: () => onSourceFilterChange("all"),
       });
     }
 
@@ -136,13 +140,24 @@ export function TasksHeader({
       });
     }
 
+    if (dateRange !== "all") {
+      const rangeMap: Record<string, string> = { week: "Bu həftə", month: "Bu ay" };
+      filters.push({
+        key: "dateRange",
+        label: `Zaman: ${rangeMap[dateRange] ?? dateRange}`,
+        onRemove: () => onDateRangeChange("all"),
+      });
+    }
+
     return filters;
   }, [
-    categoryFilter,
+    sourceFilter,
     deadlineFilter,
     deadlineLabelMap,
-    onCategoryFilterChange,
+    onSourceFilterChange,
     onDeadlineFilterChange,
+    dateRange,
+    onDateRangeChange,
     onPriorityFilterChange,
     onSearchChange,
     onStatusFilterChange,
@@ -175,7 +190,7 @@ export function TasksHeader({
         </Tabs>
       )}
 
-      {!["assigned", "delegations"].includes(activeTab) && (
+      {!["statistics", "delegations"].includes(activeTab) && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="relative w-full sm:w-[250px]">
@@ -217,13 +232,13 @@ export function TasksHeader({
               </SelectContent>
             </Select>
 
-            <Select value={categoryFilter} onValueChange={onCategoryFilterChange} disabled={disabled}>
+            <Select value={sourceFilter} onValueChange={onSourceFilterChange} disabled={disabled}>
               <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Kateqoriya" />
+                <SelectValue placeholder="Daxil olduğu yer" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Bütün kateqoriyalar</SelectItem>
-                {Object.entries(categoryLabels).map(([key, label]) => (
+                <SelectItem value="all">Bütün mənbələr</SelectItem>
+                {Object.entries(sourceLabels).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
                     {label}
                   </SelectItem>
@@ -239,6 +254,17 @@ export function TasksHeader({
                 <SelectItem value="all">Bütün tarixlər</SelectItem>
                 <SelectItem value="overdue">Gecikmiş</SelectItem>
                 <SelectItem value="upcoming">Yaxınlaşan</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={dateRange} onValueChange={onDateRangeChange} disabled={disabled}>
+              <SelectTrigger className="w-full sm:w-[130px]">
+                <SelectValue placeholder="Dövr" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Hamısı</SelectItem>
+                <SelectItem value="week">Bu həftə</SelectItem>
+                <SelectItem value="month">Bu ay</SelectItem>
               </SelectContent>
             </Select>
           </div>

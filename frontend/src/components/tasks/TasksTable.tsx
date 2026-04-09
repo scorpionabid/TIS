@@ -37,6 +37,9 @@ import {
   Shield,
   BookOpen,
   Loader2,
+  PlayCircle,
+  CheckCircle2,
+  Share2,
 } from "lucide-react";
 import React from "react";
 import { cn } from "@/lib/utils";
@@ -61,6 +64,9 @@ type TasksTableProps = {
   canDeleteTaskItem: (task: Task) => boolean;
   showCreateButton: boolean;
   onCreateTask: () => void;
+  isAssignedTab?: boolean;
+  onStatusChange?: (taskId: number, newStatus: Task["status"]) => void;
+  onDelegate?: (task: Task) => void;
   pagination?: PaginationMeta | null;
   page: number;
   perPage: number;
@@ -167,6 +173,9 @@ export function TasksTable({
   canDeleteTaskItem,
   showCreateButton,
   onCreateTask,
+  isAssignedTab,
+  onStatusChange,
+  onDelegate,
   pagination,
   page,
   perPage,
@@ -390,11 +399,31 @@ export function TasksTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onViewTask(task)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ətraflı bax
-                      </DropdownMenuItem>
-                      {canEditTaskItem(task) && (
+                      {!isAssignedTab && (
+                        <DropdownMenuItem onClick={() => onViewTask(task)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ətraflı bax
+                        </DropdownMenuItem>
+                      )}
+                      {isAssignedTab && onStatusChange && (
+                        <DropdownMenuItem onClick={() => onStatusChange(task.id, 'in_progress')}>
+                          <PlayCircle className="h-4 w-4 mr-2 text-indigo-500" />
+                          İcraya götür
+                        </DropdownMenuItem>
+                      )}
+                      {isAssignedTab && onStatusChange && (
+                        <DropdownMenuItem onClick={() => onStatusChange(task.id, 'completed')}>
+                          <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                          Tamamla
+                        </DropdownMenuItem>
+                      )}
+                      {isAssignedTab && onDelegate && (
+                        <DropdownMenuItem onClick={() => onDelegate(task)}>
+                          <Share2 className="h-4 w-4 mr-2 text-blue-500" />
+                          Yönləndir
+                        </DropdownMenuItem>
+                      )}
+                      {canEditTaskItem(task) && !isAssignedTab && (
                         <DropdownMenuItem onClick={() => onEditTask(task)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Redaktə et

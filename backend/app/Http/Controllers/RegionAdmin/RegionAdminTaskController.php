@@ -30,7 +30,7 @@ class RegionAdminTaskController extends Controller
             'status' => 'nullable|string|in:pending,in_progress,review,completed,cancelled',
             'priority' => 'nullable|string|in:low,medium,high,urgent',
             'category' => 'nullable|string|in:report,maintenance,event,audit,instruction,other',
-            'per_page' => 'nullable|integer|min:1|max:100',
+            'per_page' => 'nullable|integer|min:1|max:1000',
             'search' => 'nullable|string|max:255',
         ]);
 

@@ -4,7 +4,7 @@ import { User } from "@/types/user";
 import { getTaskOrigin } from "@/utils/taskActions";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 
-export type TaskTabValue = "region" | "sector" | "assigned" | "delegations";
+export type TaskTabValue = "assigned" | "created" | "statistics";
 export type TaskTab = { value: TaskTabValue; label: string };
 
 type UseTaskPermissionsResult = {
@@ -27,7 +27,10 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
   const moduleAccess = useModuleAccess('tasks');
   const normalizedRole = useMemo(() => {
     if (!currentUser?.role) return null;
-    return currentUser.role.toString().toLowerCase();
+    const roleVal = currentUser.role;
+    if (Array.isArray(roleVal)) return roleVal[0]?.toString().toLowerCase() || null;
+    if (typeof roleVal === 'object' && roleVal !== null) return (roleVal as any).name?.toString().toLowerCase() || null;
+    return roleVal.toString().toLowerCase();
   }, [currentUser?.role]);
 
   const hasAccess = moduleAccess.canView;
@@ -43,26 +46,35 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
     () =>
       (
         [
-          canSeeRegionTab && { value: "region" as const, label: "Regional Tapşırıqlar" },
-          canSeeSectorTab && { value: "sector" as const, label: "Sektor Tapşırıqları" },
-          hasAccess && { value: "assigned" as const, label: "Təyin olunmuş" },
-          hasAccess && normalizedRole !== "schooladmin" && { value: "delegations" as const, label: "Yönləndirilmiş" },
+          hasAccess && { value: "assigned" as const, label: "Təyin edilənlər" },
+          hasAccess && { value: "created" as const, label: "Mənim Tapşırıqlarım" },
+          hasAccess && { value: "statistics" as const, label: "Statistika" },
         ].filter(Boolean) as TaskTab[]
       ),
-    [canSeeRegionTab, canSeeSectorTab, hasAccess, normalizedRole]
+    [hasAccess]
   );
 
-  const [activeTab, setActiveTab] = useState<TaskTabValue>("region");
+  const initialTab = useMemo(() => {
+    if (normalizedRole === "regionadmin") return "created";
+    return "assigned";
+  }, [normalizedRole]);
+
+  const [activeTab, setActiveTab] = useState<TaskTabValue>(initialTab);
 
   useEffect(() => {
     if (availableTabs.length === 0) return;
     setActiveTab((prev) => {
+      // Keep current tab if it's still available
       if (availableTabs.some((tab) => tab.value === prev)) {
         return prev;
       }
-      return availableTabs[0]?.value ?? "region";
+      // Otherwise fallback to initial role-based default or first available
+      if (availableTabs.some((tab) => tab.value === initialTab)) {
+        return initialTab;
+      }
+      return availableTabs[0]?.value ?? "assigned";
     });
-  }, [availableTabs]);
+  }, [availableTabs, initialTab]);
 
   const regionOperatorCanCreate =
     normalizedRole === 'regionoperator' && moduleAccess.canCreate;
@@ -85,9 +97,7 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
         (normalizedRole === 'regionoperator' && moduleAccess.canEdit))
   );
 
-  const showCreateButton =
-    (activeTab === "region" && canCreateRegionTask) ||
-    (activeTab === "sector" && canCreateSectorTask);
+  const showCreateButton = moduleAccess.canCreate;
 
   const currentTabLabel = availableTabs.find((tab) => tab.value === activeTab)?.label ?? "";
 
@@ -99,6 +109,11 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
 
       if (task.created_by === currentUser?.id) {
         return true;
+      }
+
+      // Operators cannot edit any tasks except their own (created by them)
+      if (normalizedRole === "regionoperator" || normalizedRole === "sektoroperator") {
+        return false;
       }
 
       const origin = getTaskOrigin(task);
@@ -124,6 +139,12 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
       if (task.created_by === currentUser?.id) {
         return true;
       }
+      
+      // Operators cannot delete any tasks except their own (created by them)
+      if (normalizedRole === "regionoperator" || normalizedRole === "sektoroperator") {
+        return false;
+      }
+      
       return moduleAccess.canDelete;
     },
     [currentUser?.id, normalizedRole, moduleAccess.canDelete]

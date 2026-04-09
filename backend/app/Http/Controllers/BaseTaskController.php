@@ -110,6 +110,10 @@ abstract class BaseTaskController extends Controller
             $query->byCategory($request->category);
         }
 
+        if ($request->source) {
+            $query->bySource($request->source);
+        }
+
         if ($request->assigned_to) {
             $query->assignedTo($request->assigned_to);
         }
@@ -132,10 +136,6 @@ abstract class BaseTaskController extends Controller
                     });
                     // Also include tasks where target_roles contains 'regionoperator'
                     $q->orWhereJsonContains('target_roles', 'regionoperator');
-                    // Also include tasks with assignments for current user (specific tasks)
-                    $q->orWhereHas('assignments', function ($assignmentQuery) {
-                        $assignmentQuery->where('assigned_user_id', auth()->id());
-                    });
                 }
 
                 if ($originScope === 'sector') {
@@ -146,10 +146,6 @@ abstract class BaseTaskController extends Controller
                     });
                     // Also include tasks where target_roles contains 'sektoradmin'
                     $q->orWhereJsonContains('target_roles', 'sektoradmin');
-                    // Also include tasks with assignments for current user (specific tasks)
-                    $q->orWhereHas('assignments', function ($assignmentQuery) {
-                        $assignmentQuery->where('assigned_user_id', auth()->id());
-                    });
                 }
             });
         }
@@ -161,6 +157,16 @@ abstract class BaseTaskController extends Controller
             });
         }
 
+        if ($request->institution_level) {
+            $levelMap = ['region' => 2, 'sector' => 3, 'school' => 4];
+            $level = $levelMap[$request->institution_level] ?? null;
+            if ($level) {
+                $query->whereHas('assignedInstitution', function ($q) use ($level) {
+                    $q->where('level', $level);
+                });
+            }
+        }
+
         if ($request->deadline_filter) {
             switch ($request->deadline_filter) {
                 case 'approaching':
@@ -168,6 +174,17 @@ abstract class BaseTaskController extends Controller
                     break;
                 case 'overdue':
                     $query->overdue();
+                    break;
+            }
+        }
+
+        if ($request->date_range) {
+            switch ($request->date_range) {
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]);
                     break;
             }
         }
@@ -182,12 +199,27 @@ abstract class BaseTaskController extends Controller
             'assignments.assignedUser',
             'assignments.institution',
             'assignedInstitution',
+            'subDelegations.delegatedToUser',
         ]);
 
         $task->setAttribute(
             'user_assignment',
             $this->prepareUserAssignmentPayload($task, $user, $institutionId)
         );
+
+        // Explicitly set subDelegations as camelCase for frontend compatibility
+        $task->setAttribute('subDelegations', $task->subDelegations->map(function ($sd) {
+            return [
+                'id' => $sd->id,
+                'status' => $sd->status,
+                'progress' => $sd->progress,
+                'deadline' => optional($sd->deadline)->toISOString(),
+                'delegatedToUser' => $sd->delegatedToUser ? [
+                    'id' => $sd->delegatedToUser->id,
+                    'name' => $sd->delegatedToUser->name,
+                ] : null,
+            ];
+        })->values()->toArray());
 
         return $task;
     }

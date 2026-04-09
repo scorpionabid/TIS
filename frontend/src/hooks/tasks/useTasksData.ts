@@ -9,7 +9,7 @@ export type SortField = "title" | "category" | "priority" | "status" | "deadline
 export type SortDirection = "asc" | "desc";
 
 const DEFAULT_PAGE_SIZE = 25;
-const TASKS_REFETCH_INTERVAL_MS = 10000;
+const TASKS_REFETCH_INTERVAL_MS = 60_000;
 
 type UseTasksDataParams = {
   currentUser: User | null;
@@ -34,8 +34,10 @@ export function useTasksData({
   const [perPage, setPerPageState] = useState(DEFAULT_PAGE_SIZE);
   const queryClient = useQueryClient();
 
-  const scope = activeTab === "region" ? "region" : "sector";
-  const hasScopeAccess = scope === "region" ? canSeeRegionTab : canSeeSectorTab;
+  const isAssignedTab = activeTab === "assigned";
+  const isCreatedTab = activeTab === "created";
+  const isStatisticsTab = activeTab === "statistics";
+  const hasScopeAccess = true; // Roles are handled by backend permissions
 
   // All sorting is now done on the server-side
   const serverSortableFields: Partial<Record<SortField, string>> = {
@@ -44,15 +46,20 @@ export function useTasksData({
     deadline: "deadline",
     priority: "priority",
     status: "status",
-    assignee: "title", // Map assignee to title for backward compatibility (backend doesn't support assignee sorting yet)
+    assignee: "title", // Map assignee to title for backward compatibility
   };
 
   const queryFilters = useMemo(() => {
     const nextFilters: Record<string, unknown> = {
-      origin_scope: scope,
       page,
-      per_page: perPage,
+      per_page: activeTab === 'statistics' ? 1000 : perPage,
     };
+
+    if (isCreatedTab) {
+      if (filters.institutionLevel !== "all") {
+        nextFilters.institution_level = filters.institutionLevel;
+      }
+    }
 
     // All fields are now server-sortable
     const apiSortField = serverSortableFields[sortField] || sortField;
@@ -68,39 +75,55 @@ export function useTasksData({
     if (filters.priorityFilter !== "all") {
       nextFilters.priority = filters.priorityFilter;
     }
-    if (filters.categoryFilter !== "all") {
-      nextFilters.category = filters.categoryFilter;
+    if (filters.sourceFilter !== "all") {
+      nextFilters.source = filters.sourceFilter;
     }
     if (filters.deadlineFilter !== "all") {
       nextFilters.deadline_filter =
         filters.deadlineFilter === "overdue" ? "overdue" : "approaching";
     }
+    if (filters.dateRange !== "all") {
+      nextFilters.date_range = filters.dateRange;
+    }
 
     return nextFilters;
   }, [
-    filters.categoryFilter,
+    filters.sourceFilter,
     filters.priorityFilter,
     filters.searchTerm,
     filters.statusFilter,
+    filters.institutionLevel,
     page,
     perPage,
-    scope,
+    activeTab,
     sortDirection,
     sortField,
   ]);
 
   const queryKey = useMemo(
-    () => ["tasks", scope, currentUser?.institution?.id ?? "global", queryFilters],
-    [currentUser?.institution?.id, queryFilters, scope]
+    () => ["tasks", activeTab, currentUser?.institution?.id ?? "global", queryFilters],
+    [currentUser?.institution?.id, queryFilters, activeTab]
   );
 
   const tasksQuery = useQuery<TasksListResponse, Error>({
     queryKey,
-    queryFn: () => taskService.getAllWithStatistics(queryFilters),
+    queryFn: () => isAssignedTab
+      ? taskService.getAssignedToMe(queryFilters)
+      : taskService.getAllWithStatistics(queryFilters),
     enabled: hasAccess && hasScopeAccess,
     refetchOnWindowFocus: true,
     refetchInterval: hasAccess && hasScopeAccess ? TASKS_REFETCH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
+    placeholderData: (previous) => previous,
+  });
+
+  // Statistics tab üçün ayrıca assigned tasks query
+  // (RegionOperator-a təyin edilmiş tapşırıqları statistikada göstərmək üçün)
+  const assignedForStatsQuery = useQuery<TasksListResponse, Error>({
+    queryKey: ["tasks", "assigned-for-stats", currentUser?.id],
+    queryFn: () => taskService.getAssignedToMe({ page: 1, per_page: 1000 }),
+    enabled: hasAccess && isStatisticsTab,
+    refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
   });
 
@@ -153,14 +176,18 @@ export function useTasksData({
   );
 
   const refreshTasks = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ["tasks", scope], exact: false });
-    await queryClient.refetchQueries({ queryKey: ["tasks", scope], exact: false });
-  }, [queryClient, scope]);
+    await queryClient.invalidateQueries({ queryKey: ["tasks", activeTab], exact: false });
+    await queryClient.refetchQueries({ queryKey: ["tasks", activeTab], exact: false });
+  }, [queryClient, activeTab]);
 
   const handlePerPageChange = useCallback((value: number) => {
     setPerPageState(value);
     setPage(1);
   }, []);
+
+  const assignedTasks: Task[] = Array.isArray(assignedForStatsQuery.data?.data)
+    ? assignedForStatsQuery.data.data
+    : [];
 
   return {
     tasks,
@@ -178,5 +205,6 @@ export function useTasksData({
     setPage,
     setPerPage: handlePerPageChange,
     pagination,
+    assignedTasks,
   };
 }

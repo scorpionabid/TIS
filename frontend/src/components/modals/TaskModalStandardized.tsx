@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Users, Trash2, Undo2 } from 'lucide-react';
+import { Users, Trash2, Undo2, LayoutDashboard, Calendar, Settings, FileText, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import { BaseModal } from '@/components/common/BaseModal';
 import { FormField } from '@/components/forms/FormBuilder';
@@ -47,7 +47,7 @@ interface TaskModalStandardizedProps {
   onClose: () => void;
   task?: Task | null;
   onSave: (data: CreateTaskData) => Promise<void>;
-  originScope?: 'region' | 'sector' | null;
+  originScope?: string | null;
 }
 
 /**
@@ -98,7 +98,9 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     const baseValues = prepareTaskDefaultValues(task);
 
     if (!isEditMode && originScope) {
-      baseValues.target_scope = originScope === 'region' ? 'regional' : 'sector';
+      if (originScope === 'region') baseValues.target_scope = 'regional';
+      else if (originScope === 'sector') baseValues.target_scope = 'sector';
+      else baseValues.target_scope = 'specific';
     }
 
     return baseValues;
@@ -181,7 +183,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     creationContextLoading: contextLoading,
     isLoading,
   } = useTaskFormData({
-    originScope: effectiveOriginScope ?? null,
+    originScope: (effectiveOriginScope === 'region' || effectiveOriginScope === 'sector') ? effectiveOriginScope : null,
     enabled: open,
   });
 
@@ -192,11 +194,8 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       sector: ['sektoradmin', 'schooladmin'],
     };
 
-    if (!effectiveOriginScope) {
-      return roles;
-    }
-
-    const scopeRoles = scopeRoleMap[effectiveOriginScope] ?? [];
+    const scope = effectiveOriginScope as 'region' | 'sector';
+    const scopeRoles = scopeRoleMap[scope] ?? [];
     const filtered = roles.filter((role) => scopeRoles.includes(role));
 
     if (filtered.length > 0) {
@@ -223,51 +222,63 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   const baseBasicFields = React.useMemo<FormField[]>(() => {
     const fields: FormField[] = [];
 
-    if (showDraftPrompt) {
-      fields.push(
-        createField('__draft_banner', '', 'custom', {
-          className: 'md:col-span-2',
-          render: () => (
-            <Alert className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <AlertTitle>Yarımçıq tapşırıq tapıldı</AlertTitle>
-                  <AlertDescription>
-                    Əvvəlki yarımçıq tapşırıq məlumatlarını bərpa etmək istəyirsiniz?
-                  </AlertDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={handleDiscardDraft}>
-                    <Trash2 className="mr-1 h-3.5 w-3.5" />
-                    Sil
-                  </Button>
-                  <Button size="sm" onClick={handleRestoreDraft}>
-                    <Undo2 className="mr-1 h-3.5 w-3.5" />
-                    Davam et
-                  </Button>
-                </div>
-              </div>
-            </Alert>
-          ),
-        })
-      );
-    }
-
     fields.push(
+      createField('__section_core', '', 'custom', {
+        className: 'md:col-span-2 mb-2 mt-4',
+        render: () => (
+          <div className="flex items-center gap-2 border-b pb-2 text-slate-800">
+            <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+              <FileText className="h-4 w-4" />
+            </div>
+            <h3 className="font-bold text-sm uppercase tracking-wide">Əsas Məlumatlar</h3>
+          </div>
+        )
+      }),
       createField('title', 'Tapşırıq başlığı', 'text', {
         required: true,
         placeholder: taskFormPlaceholders.title,
         validation: commonValidations.required,
-        className: 'md:col-span-2'
+        className: 'md:col-span-2 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all'
+      }),
+      createField('description', 'Tapşırıq təsviri', 'textarea', {
+        required: true,
+        placeholder: taskFormPlaceholders.description,
+        rows: 4,
+        validation: commonValidations.required,
+        className: 'md:col-span-2 shadow-sm'
+      }),
+      createField('__section_timing', '', 'custom', {
+        className: 'md:col-span-2 mb-2 mt-6',
+        render: () => (
+          <div className="flex items-center gap-2 border-b pb-2 text-slate-800">
+            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <h3 className="font-bold text-sm uppercase tracking-wide">Planlaşdırma və Prioritet</h3>
+          </div>
+        )
       }),
       createField('priority', 'Prioritet', 'select', {
         required: true,
-        options: priorityOptions,
+        options: priorityOptions as any,
         placeholder: taskFormPlaceholders.priority,
         validation: commonValidations.required,
+        className: 'shadow-sm'
       }),
       createField('deadline', 'Son tarix', 'date', {
         placeholder: taskFormPlaceholders.deadline,
+        className: 'shadow-sm'
+      }),
+      createField('__section_people', '', 'custom', {
+        className: 'md:col-span-2 mb-2 mt-6',
+        render: () => (
+          <div className="flex items-center gap-2 border-b pb-2 text-slate-800">
+            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+              <Users className="h-4 w-4" />
+            </div>
+            <h3 className="font-bold text-sm uppercase tracking-wide">İcraçılar</h3>
+          </div>
+        )
       }),
       createField('assigned_user_ids', 'Məsul şəxslər', 'custom', {
         required: true,
@@ -275,21 +286,16 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
         className: 'md:col-span-2',
         validation: z.array(z.string()).min(1, taskValidationMessages.assignedUsersRequired),
         render: ({ field: formField }) => (
-          <ResponsibleUserSelector
-            value={Array.isArray(formField.value) ? formField.value : []}
-            onChange={(ids) => formField.onChange(ids)}
-            originScope={effectiveOriginScope}
-            allowedRoles={allowedTargetRoles}
-            disabled={contextLoading}
-          />
+          <div className="bg-slate-50/50 rounded-xl p-1 border border-slate-100">
+            <ResponsibleUserSelector
+              value={Array.isArray(formField.value) ? formField.value : []}
+              onChange={(ids) => formField.onChange(ids)}
+              originScope={(effectiveOriginScope === 'region' || effectiveOriginScope === 'sector') ? effectiveOriginScope : null}
+              allowedRoles={allowedTargetRoles}
+              disabled={contextLoading}
+            />
+          </div>
         ),
-      }),
-      createField('description', 'Tapşırıq təsviri', 'textarea', {
-        required: true,
-        placeholder: taskFormPlaceholders.description,
-        rows: 4,
-        validation: commonValidations.required,
-        className: 'md:col-span-2'
       }),
     );
 
@@ -319,21 +325,31 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       defaultValue: null,
       render: () => null,
     }),
-    // Optional additional fields
-    createField('notes', 'Əlavə qeydlər (isteğe bağlı)', 'textarea', {
+    createField('__section_settings', '', 'custom', {
+      className: 'md:col-span-2 mb-2 mt-6',
+      render: () => (
+        <div className="flex items-center gap-2 border-b pb-2 text-slate-800">
+          <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+            <Settings className="h-4 w-4" />
+          </div>
+          <h3 className="font-bold text-sm uppercase tracking-wide">Nizamlamalar və Qeydlər</h3>
+        </div>
+      )
+    }),
+    createField('notes', 'Əlavə qeydlər', 'textarea', {
       placeholder: taskFormPlaceholders.notes,
-      rows: 3,
-      className: 'md:col-span-2'
+      rows: 2,
+      className: 'md:col-span-2 shadow-sm'
     }),
     createField('requires_approval', 'Təsdiq tələb olunur', 'checkbox', {
       placeholder: taskFormPlaceholders.requiresApproval,
       defaultValue: false,
-      className: 'md:col-span-2'
+      className: 'md:col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-100'
     }),
-    createField('assignment_notes', 'Tapşırıq üzrə qeyd (isteğe bağlı)', 'textarea', {
+    createField('assignment_notes', 'Tapşırıq üzrə qeyd', 'textarea', {
       placeholder: taskFormPlaceholders.assignmentNotes,
-      rows: 3,
-      className: 'md:col-span-2'
+      rows: 2,
+      className: 'md:col-span-2 shadow-sm'
     }),
   ], [baseBasicFields]);
 
@@ -370,7 +386,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       const transformedData = transformTaskDataForAPI(data);
 
       if (!isEditMode && originScope) {
-        transformedData.origin_scope = originScope;
+        transformedData.origin_scope = (originScope === 'region' || originScope === 'sector') ? originScope : 'sector';
         if (!transformedData.target_scope || transformedData.target_scope === 'specific') {
           transformedData.target_scope = originScope === 'region' ? 'regional' : 'sector';
         }
@@ -386,7 +402,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
         mode: isEditMode ? 'update' : 'create',
         taskId: task?.id,
         data: sanitizeTaskDataForLogging(transformedData)
-      });
+      } as any);
 
       await onSave(transformedData);
 
@@ -434,7 +450,8 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       defaultValues={defaultFormValues}
       onSubmit={handleSubmit}
         submitLabel={isEditMode ? 'Yenilə' : 'Yarat'}
-        maxWidth="4xl"
+        submitIcon={<CheckCircle2 className="mr-2 h-4 w-4" />}
+        maxWidth="3xl"
         columns={2}
         onFormInstance={handleFormInstance}
         onValuesChange={handleFormValuesChange}

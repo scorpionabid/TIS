@@ -30,7 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Eye, Edit, Trash2, Clock, AlertTriangle, CheckCircle2, Calendar } from 'lucide-react';
+import { Eye, Edit, Trash2, Clock, AlertTriangle, CheckCircle2, Calendar, Share2, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Helper function to format user names
@@ -64,6 +64,10 @@ interface ExcelTaskRowProps {
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: (taskId: number) => void;
+  onDelegate: (task: Task) => void;
+  currentUserId?: number;
+  isAssignedTab?: boolean;
+  onStatusChange?: (taskId: number, newStatus: Task["status"]) => void;
 }
 
 export function ExcelTaskRow({
@@ -79,6 +83,10 @@ export function ExcelTaskRow({
   isSelectionMode = false,
   isSelected = false,
   onToggleSelection,
+  onDelegate,
+  currentUserId,
+  isAssignedTab,
+  onStatusChange,
 }: ExcelTaskRowProps) {
   const { startEdit, saveEdit, cancelEdit, isEditing, isSaving } = editContext;
 
@@ -256,12 +264,28 @@ export function ExcelTaskRow({
           <Badge
             variant="outline"
             className={cn(
-              'px-2 py-0.5 text-[10px] font-medium border uppercase tracking-wider',
-              getStatusColor(task.status)
+              'px-2 py-0.5 text-[10px] font-bold border-0 rounded-md uppercase tracking-wider',
+              task.status === 'completed' && 'bg-emerald-100 text-emerald-700',
+              task.status === 'in_progress' && 'bg-blue-100 text-blue-700',
+              task.status === 'pending' && 'bg-amber-100 text-amber-700',
+              task.status === 'review' && 'bg-purple-100 text-purple-700',
+              task.status === 'cancelled' && 'bg-slate-100 text-slate-600',
             )}
           >
             {statusLabels[task.status] || task.status}
           </Badge>
+        </div>
+      </td>
+
+      {/* Təyin edən (Creator) */}
+      <td className="px-2 py-1">
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-200">
+            {task.creator?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
+          </div>
+          <span className="text-xs font-medium text-slate-700 truncate max-w-[100px]">
+            {formatUserName(task.creator?.name || '-')}
+          </span>
         </div>
       </td>
 
@@ -276,6 +300,40 @@ export function ExcelTaskRow({
           onCancel={cancelEdit}
           placeholder="Məsul şəxs seçin"
         />
+      </td>
+
+      {/* Yönləndirilib (Delegated To) */}
+      <td className="px-2 py-1">
+        <div className="flex flex-wrap gap-1 max-w-[150px]">
+          {task.subDelegations && task.subDelegations.length > 0 ? (
+            task.subDelegations.slice(0, 2).map((sd, i) => (
+              <Badge 
+                key={i} 
+                variant="outline" 
+                className="text-[9px] px-1 py-0 bg-blue-50/50 text-blue-600 border-blue-100"
+              >
+                {formatUserName(sd.delegatedToUser?.name || '??')}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-[10px] text-muted-foreground italic">Yoxdur</span>
+          )}
+          {task.subDelegations && task.subDelegations.length > 2 && (
+            <span className="text-[9px] text-muted-foreground">+{task.subDelegations.length - 2}</span>
+          )}
+        </div>
+      </td>
+
+      {/* Yaranma Tarixi (Created At) */}
+      <td className="px-2 py-1">
+        <div className="flex flex-col items-center">
+          <span className="text-[11px] font-medium text-slate-600">
+            {task.created_at ? new Date(task.created_at).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}
+          </span>
+          <span className="text-[9px] text-muted-foreground">
+            {task.created_at ? new Date(task.created_at).toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' }) : ''}
+          </span>
+        </div>
       </td>
 
       {/* deadline_progress: progress bar + hover tooltip with date info + inline edit */}
@@ -407,15 +465,44 @@ export function ExcelTaskRow({
       {/* Actions */}
       <td className="px-2 py-1">
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => onView(task)}
-            title="Ətraflı bax"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+
+          
+          {isAssignedTab && onStatusChange && ['pending', 'accepted'].includes(task.user_assignment?.status ?? '') && task.user_assignment?.can_update && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50"
+              onClick={() => onStatusChange(task.id, 'in_progress')}
+              title="İcraya götür"
+            >
+              <PlayCircle className="h-4 w-4" />
+            </Button>
+          )}
+
+          {isAssignedTab && onStatusChange && task.user_assignment?.status === 'in_progress' && task.user_assignment?.can_update && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"
+              onClick={() => onStatusChange(task.id, 'completed')}
+              title="Tamamla"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+            </Button>
+          )}
+
+          {isAssignedTab && onDelegate && task.user_assignment?.can_delegate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+              onClick={() => onDelegate(task)}
+              title="Yönləndir"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          )}
+
           {canEdit && (
             <Button
               variant="ghost"

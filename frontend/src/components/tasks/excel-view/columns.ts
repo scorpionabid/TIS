@@ -48,6 +48,14 @@ export const excelColumns: ExcelColumn[] = [
     type: 'readonly',
   },
   {
+    id: 'created_by_user',
+    label: 'Təyin edən',
+    width: 'w-[140px]',
+    sortable: true,
+    editable: false,
+    type: 'readonly',
+  },
+  {
     id: 'assignees',
     label: 'Məsul Şəxs',
     width: 'w-[200px]',
@@ -55,9 +63,22 @@ export const excelColumns: ExcelColumn[] = [
     editable: true,
     type: 'multiselect',
   },
-  // description column removed by user request
-  // started_at is hidden from UI (set by backend)
-  // deadline & deadline_time hidden - shown in progress bar tooltip
+  {
+    id: 'delegated_to',
+    label: 'Yönləndirilib',
+    width: 'w-[160px]',
+    sortable: false,
+    editable: false,
+    type: 'readonly',
+  },
+  {
+    id: 'created_at',
+    label: 'Yaranma Tarixi',
+    width: 'w-[140px]',
+    sortable: true,
+    editable: false,
+    type: 'readonly',
+  },
   {
     id: 'deadline_progress',
     label: 'Son Tarix / Vaxt',

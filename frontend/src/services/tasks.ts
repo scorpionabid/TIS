@@ -90,6 +90,15 @@ export interface Task extends BaseEntity {
     } | null;
   }>;
   user_assignment?: UserAssignmentSummary | null;
+  subDelegations?: Array<{
+    id: number;
+    delegatedToUser?: {
+      id: number;
+      name: string;
+    };
+    status: string;
+    progress: number;
+  }>;
 }
 
 export type AssignmentStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'delegated' | 'rejected';
@@ -440,9 +449,39 @@ class TaskService extends BaseService<Task> {
     };
   }
 
-  async getAssignedToMe(filters?: TaskFilters) {
-    const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-to-me`, filters, { cache: false });
-    return response as any; // PaginatedResponse
+  async getAssignedToMe(filters?: TaskFilters): Promise<TasksListResponse> {
+    const response = await apiClient.get<unknown>(`${this.baseEndpoint}/assigned-to-me`, filters, { cache: false });
+    const axiosPayload = (response as { data?: unknown })?.data;
+    const payload =
+      axiosPayload && typeof axiosPayload === 'object' && 'success' in (axiosPayload as object)
+        ? axiosPayload as Record<string, unknown>
+        : response as Record<string, unknown>;
+
+    const rawData = payload?.data;
+    const data: Task[] = Array.isArray(rawData)
+      ? rawData
+      : Array.isArray((rawData as { data?: unknown })?.data)
+        ? (rawData as { data: Task[] }).data
+        : [];
+
+    const meta = payload?.meta as Record<string, unknown> | undefined;
+    const pagination = meta && typeof meta === 'object'
+      ? {
+          current_page: Number(meta.current_page ?? 1),
+          per_page: Number(meta.per_page ?? data.length),
+          total: Number(meta.total ?? data.length),
+          total_pages: Number(meta.last_page ?? 1),
+        }
+      : {
+          current_page: 1,
+          per_page: data.length,
+          total: data.length,
+          total_pages: 1,
+        };
+
+    const statistics = payload?.statistics as TasksListStatistics | undefined;
+
+    return { data, pagination, statistics };
   }
 
   async updateAssignmentStatus(

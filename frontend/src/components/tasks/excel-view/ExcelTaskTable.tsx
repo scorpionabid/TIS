@@ -15,7 +15,8 @@ import { ExcelTaskRow } from './ExcelTaskRow';
 import { ExcelCreateRow } from './ExcelCreateRow';
 import { BulkEditToolbar } from './BulkEditToolbar';
 import { CellPosition, ColumnId } from './types';
-import { ArrowUp, ArrowDown, ArrowUpDown, CheckSquare } from 'lucide-react';
+import { TaskSummaryHeader } from '../TaskSummaryHeader';
+import { LayoutGrid, List, BarChart2, ArrowUp, ArrowDown, ArrowUpDown, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,12 @@ interface ExcelTaskTableProps {
   onRefresh?: () => Promise<void>;
   onTaskCreated: () => Promise<void>;
   originScope: 'region' | 'sector' | null;
+  onDelegate: (task: Task) => void;
+  currentUserId?: number;
+  statistics?: any;
+  isLoadingStats?: boolean;
+  isAssignedTab?: boolean;
+  onStatusChange?: (taskId: number, newStatus: Task["status"]) => void;
 }
 
 export function ExcelTaskTable({
@@ -57,10 +64,17 @@ export function ExcelTaskTable({
   onRefresh,
   onTaskCreated,
   originScope,
+  onDelegate,
+  currentUserId,
+  statistics,
+  isLoadingStats,
+  isAssignedTab,
+  onStatusChange,
 }: ExcelTaskTableProps) {
   const { toast } = useToast();
   const editContext = useInlineEdit();
   const [currentCell, setCurrentCell] = useState<CellPosition | null>(null);
+  const [showStats, setShowStats] = useState(true);
 
   // Bulk edit functionality
   const bulkEditContext = useBulkEdit({ tasks, onRefresh });
@@ -124,6 +138,8 @@ export function ExcelTaskTable({
     started_at: 'deadline', // Map to deadline for now
     deadline: 'deadline',
     progress: 'title', // No direct sort for progress
+    created_at: 'created_at',
+    created_by_user: 'created_by',
   };
 
   // Handle bulk update with toast notifications
@@ -160,20 +176,42 @@ export function ExcelTaskTable({
         />
       )}
 
-      {/* Action Bar - shown when tasks are selected */}
+      <div className="flex items-center justify-between p-3 border-b bg-muted/5">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowStats(!showStats)}
+            className="text-xs font-semibold text-muted-foreground gap-2 hover:bg-slate-100"
+          >
+            <BarChart2 className="h-4 w-4" />
+            {showStats ? 'Statistikanı gizlə' : 'Statistikanı göstər'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="p-4 bg-muted/5">
+        <TaskSummaryHeader 
+          statistics={statistics} 
+          isLoading={isLoadingStats} 
+          isVisible={showStats}
+          onToggleVisibility={() => setShowStats(!showStats)}
+        />
+      </div>
+
       {bulkEditContext.selectedCount > 0 && !bulkEditContext.isSelectionMode && (
-        <div className="flex items-center justify-between p-2 border-b bg-muted/20">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between p-2 border-b bg-indigo-50/30">
+          <div className="flex items-center gap-2 px-2">
+            <span className="text-xs font-medium text-indigo-600">
               {bulkEditContext.selectedCount} tapşırıq seçildi
             </span>
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={bulkEditContext.enterSelectionMode}
-              className="gap-2"
+              className="h-7 text-[10px] border-indigo-200 text-indigo-600 hover:bg-indigo-50"
             >
-              <CheckSquare className="h-4 w-4" />
+              <CheckSquare className="h-3 w-3 mr-1" />
               Toplu Əməliyyat
             </Button>
           </div>
@@ -244,6 +282,10 @@ export function ExcelTaskTable({
                 isSelectionMode={true}
                 isSelected={bulkEditContext.selectedIds.has(task.id)}
                 onToggleSelection={bulkEditContext.toggleSelection}
+                onDelegate={onDelegate}
+                currentUserId={currentUserId}
+                isAssignedTab={isAssignedTab}
+                onStatusChange={onStatusChange}
               />
             ))
           )}

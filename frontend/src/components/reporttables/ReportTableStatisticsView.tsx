@@ -76,6 +76,7 @@ interface SchoolStat {
   bonus?: number;
   final_score?: number;
   rating_percentage?: number;
+  rank?: number;
   // Overall fields
   total_tables?: number;
   filled_tables?: number;
@@ -177,7 +178,7 @@ export function ReportTableStatisticsView() {
           await reportTableService.exportStatistics(table.id, table.title);
         }
       }
-    } catch (error: any) {}
+    } catch (_) { /* silent */ }
   };
 
   const getStatusBadge = (status: string) => {
@@ -414,6 +415,7 @@ export function ReportTableStatisticsView() {
                   <Table className="relative">
                     <TableHeader className="bg-white sticky top-0 z-20 shadow-[0_1px_0_rgba(0,0,0,0.05)]">
                       <TableRow>
+                        <TableHead className="w-[40px] text-center bg-white text-gray-400">#</TableHead>
                         <TableHead className="w-[300px] bg-white">Məktəb / Sektor</TableHead>
                         <TableHead className="bg-white">{isOverall ? 'Doldurma' : 'Status'}</TableHead>
                         <TableHead className="text-center bg-white">{isOverall ? 'Cəmi Sətir' : 'Sətir'}</TableHead>
@@ -425,20 +427,32 @@ export function ReportTableStatisticsView() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredSchools.map((school) => {
+                      {filteredSchools.map((school, idx) => {
                         const rowCount = isOverall ? school.total_rows_across_all_tables : school.row_count;
                         const approved = isOverall ? school.total_approved : school.approved_count;
                         const rejected = isOverall ? school.total_rejected : school.rejected_count;
                         const returned = isOverall ? school.total_returned : school.returned_count;
                         const failCount = (rejected ?? 0) + (returned ?? 0);
-                        
+
                         const bonus = isOverall ? school.total_bonus : school.bonus;
                         const penalty = isOverall ? school.total_penalty : school.penalty;
                         const score = isOverall ? school.total_final_score : school.final_score;
                         const percentage = isOverall ? school.avg_rating_percentage : school.rating_percentage;
+                        const rank = school.rank ?? idx + 1;
 
                         return (
                           <TableRow key={school.institution_id} className={(isOverall ? false : !school.is_filled) ? 'bg-gray-50/30' : ''}>
+                            <TableCell className="text-center w-[40px]">
+                              {rank === 1 ? (
+                                <span className="text-yellow-500 font-black text-sm">🥇</span>
+                              ) : rank === 2 ? (
+                                <span className="text-gray-400 font-black text-sm">🥈</span>
+                              ) : rank === 3 ? (
+                                <span className="text-amber-600 font-black text-sm">🥉</span>
+                              ) : (
+                                <span className="text-gray-400 font-mono text-xs font-bold">{rank}</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-semibold text-sm text-gray-800 leading-tight">{school.institution_name}</span>
@@ -525,7 +539,7 @@ export function ReportTableStatisticsView() {
                       })}
                       {filteredSchools.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={isOverall ? 7 : 8} className="h-40 text-center text-gray-400">
+                          <TableCell colSpan={isOverall ? 8 : 9} className="h-40 text-center text-gray-400">
                              Nəticə tapılmadı
                           </TableCell>
                         </TableRow>

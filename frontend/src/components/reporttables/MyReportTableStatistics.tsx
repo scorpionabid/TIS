@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
-  BarChart3, 
+import {
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  BarChart3,
   Trophy,
   Target,
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   Info,
   History,
   TrendingDown,
+  Medal,
 } from 'lucide-react';
 import { reportTableService } from '@/services/reportTables';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -75,11 +76,19 @@ export function MyReportTableStatistics() {
     return 'text-red-600';
   };
 
+  const getRankDisplay = (rank: number | null | undefined, total: number | null | undefined) => {
+    if (!rank || !total) return null;
+    if (rank === 1) return { label: `${rank} / ${total}`, color: 'text-yellow-600', bg: 'bg-yellow-50', ring: 'ring-yellow-200' };
+    if (rank === 2) return { label: `${rank} / ${total}`, color: 'text-gray-500', bg: 'bg-gray-50', ring: 'ring-gray-200' };
+    if (rank === 3) return { label: `${rank} / ${total}`, color: 'text-amber-700', bg: 'bg-amber-50', ring: 'ring-amber-200' };
+    return { label: `${rank} / ${total}`, color: 'text-blue-600', bg: 'bg-blue-50', ring: 'ring-blue-200' };
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-none shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Card className="border-none shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white col-span-2 sm:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-emerald-100 flex items-center gap-2">
               <Trophy className="h-4 w-4" />
@@ -135,9 +144,59 @@ export function MyReportTableStatistics() {
               <div className="w-px h-8 bg-gray-100" />
               <div className="text-2xl font-bold text-emerald-500">+{stats.total_bonus}</div>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Gecikmə və sürət xalları</p>
+            <p className="text-xs text-gray-400 mt-1">Gecikmə, rədd, geri, sürət</p>
           </CardContent>
         </Card>
+
+        {/* Sector rank */}
+        {(() => {
+          const r = getRankDisplay(stats.rank_in_sector, stats.total_sector_schools);
+          return (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                  <Medal className="h-4 w-4 text-indigo-500" />
+                  Sektor üzrə yer
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {r ? (
+                  <>
+                    <div className={`text-3xl font-bold ${r.color}`}>{r.label}</div>
+                    <p className="text-xs text-gray-400 mt-1">Sektordakı məktəblər arasında</p>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-400 mt-1">Məlumat yoxdur</div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {/* Region rank */}
+        {(() => {
+          const r = getRankDisplay(stats.rank_in_region, stats.total_region_schools);
+          return (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                  <Medal className="h-4 w-4 text-purple-500" />
+                  Region üzrə yer
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {r ? (
+                  <>
+                    <div className={`text-3xl font-bold ${r.color}`}>{r.label}</div>
+                    <p className="text-xs text-gray-400 mt-1">Regiondakı məktəblər arasında</p>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-400 mt-1">Məlumat yoxdur</div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Detailed Table */}

@@ -4,16 +4,20 @@ export type TaskFilterState = {
   searchTerm: string;
   statusFilter: string;
   priorityFilter: string;
-  categoryFilter: string;
+  sourceFilter: string;
   deadlineFilter: string;
+  institutionLevel: string;
+  dateRange: string;
 };
 
 const DEFAULT_FILTERS: TaskFilterState = {
   searchTerm: "",
   statusFilter: "all",
   priorityFilter: "all",
-  categoryFilter: "all",
+  sourceFilter: "all",
   deadlineFilter: "all",
+  institutionLevel: "all",
+  dateRange: "all",
 };
 
 export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
@@ -22,33 +26,41 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
   const [searchTerm, setSearchTerm] = useState(mergedInitialState.searchTerm);
   const [statusFilter, setStatusFilter] = useState(mergedInitialState.statusFilter);
   const [priorityFilter, setPriorityFilter] = useState(mergedInitialState.priorityFilter);
-  const [categoryFilter, setCategoryFilter] = useState(mergedInitialState.categoryFilter);
+  const [sourceFilter, setSourceFilter] = useState(mergedInitialState.sourceFilter);
   const [deadlineFilter, setDeadlineFilter] = useState(mergedInitialState.deadlineFilter);
+  const [institutionLevel, setInstitutionLevel] = useState(mergedInitialState.institutionLevel);
+  const [dateRange, setDateRange] = useState(mergedInitialState.dateRange);
 
   const isFiltering = useMemo(() => {
     return (
       Boolean(searchTerm) ||
       statusFilter !== "all" ||
       priorityFilter !== "all" ||
-      categoryFilter !== "all" ||
-      deadlineFilter !== "all"
+      sourceFilter !== "all" ||
+      deadlineFilter !== "all" ||
+      institutionLevel !== "all" ||
+      dateRange !== "all"
     );
-  }, [searchTerm, statusFilter, priorityFilter, categoryFilter, deadlineFilter]);
+  }, [searchTerm, statusFilter, priorityFilter, sourceFilter, deadlineFilter, institutionLevel, dateRange]);
 
   const clearFilters = useCallback(() => {
     setSearchTerm(DEFAULT_FILTERS.searchTerm);
     setStatusFilter(DEFAULT_FILTERS.statusFilter);
     setPriorityFilter(DEFAULT_FILTERS.priorityFilter);
-    setCategoryFilter(DEFAULT_FILTERS.categoryFilter);
+    setSourceFilter(DEFAULT_FILTERS.sourceFilter);
     setDeadlineFilter(DEFAULT_FILTERS.deadlineFilter);
+    setInstitutionLevel(DEFAULT_FILTERS.institutionLevel);
+    setDateRange(DEFAULT_FILTERS.dateRange);
   }, []);
 
   const filters: TaskFilterState = {
     searchTerm,
     statusFilter,
     priorityFilter,
-    categoryFilter,
+    sourceFilter,
     deadlineFilter,
+    institutionLevel,
+    dateRange,
   };
 
   return {
@@ -56,9 +68,10 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
     setSearchTerm,
     setStatusFilter,
     setPriorityFilter,
-    setCategoryFilter,
-    deadlineFilter,
+    setSourceFilter,
     setDeadlineFilter,
+    setInstitutionLevel,
+    setDateRange,
     isFiltering,
     clearFilters,
   };

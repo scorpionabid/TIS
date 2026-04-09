@@ -366,6 +366,14 @@ class Task extends Model
     }
 
     /**
+     * Scope: Filter by source
+     */
+    public function scopeBySource(Builder $query, string $source): Builder
+    {
+        return $query->where('source', $source);
+    }
+
+    /**
      * Scope: Filter by assigned user
      */
     public function scopeAssignedTo(Builder $query, int $userId): Builder
