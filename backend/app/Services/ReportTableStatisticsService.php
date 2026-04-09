@@ -39,7 +39,7 @@ class ReportTableStatisticsService
 
         $responses = ReportTableResponse::whereIn('institution_id', $allowedInstitutionIds)
             ->whereIn('report_table_id', $tables->pluck('id'))
-            ->with(['reportTable'])
+            ->with(['reportTable', 'respondent.profile'])
             ->get()
             ->keyBy(fn ($r) => "{$r->institution_id}:{$r->report_table_id}");
 
@@ -62,6 +62,7 @@ class ReportTableStatisticsService
                 'total_penalty' => 0,
                 'total_bonus' => 0,
                 'total_points' => 0,
+                'submitted_count' => 0,
                 'total_final_score' => 0,
                 'avg_rating_percentage' => 0,
             ];
@@ -107,27 +108,47 @@ class ReportTableStatisticsService
 
                     $submittedAt = $response->submitted_at;
                     $schoolData['filled_tables']++;
+                    if ($submittedAt) {
+                        $schoolData['submitted_count']++;
+                    }
                 } else {
                     $schoolData['not_filled_tables']++;
                 }
 
+                $publishedAt = $table->published_at ?? $table->created_at;
+                $effectiveStart = $publishedAt->copy();
+                if ($effectiveStart->isWeekend()) {
+                    $effectiveStart = $effectiveStart->next(\Carbon\Carbon::MONDAY)->setTime(9, 0, 0);
+                }
+
                 $penalty = 0;
                 $bonus = 0;
-
-                if ($response && $rowCount > 0) {
-                    // Cumulative rejection/return penalties (flat per event, not proportional)
-                    $penalty += $rejectedCount * 0.3;
-                    $penalty += $returnedCount * 0.15;
-                }
+                $points = 0;
 
                 if ($response && $rowCount > 0 && $submittedAt) {
-                    [$bonus, $timePenalty] = $this->calcTimingScore($submittedAt, $table);
-                    $penalty += $timePenalty;
+                    $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
+
+                    // Base Points
+                    $points = 1;
+
+                    // Timing Bonus
+                    if ($hoursDiff <= 4 && $hoursDiff >= 0) {
+                        $bonus = 1;
+                    }
+
+                    // Timing Penalty
+                    if ($hoursDiff > 24) {
+                        $daysLate = floor(($hoursDiff - 24) / 24);
+                        $penalty += $daysLate * 0.1;
+                    }
+
+                    // Quality Penalties (Proportional)
+                    $returnPenalty = ($returnedCount * 0.15) / $rowCount;
+                    $rejectPenalty = ($rejectedCount * 0.30) / $rowCount;
+                    $penalty += ($returnPenalty + $rejectPenalty);
                 }
 
-                // Table score: max 1.0 point based on approved ratio
-                $tablePoints = $rowCount > 0 ? ($approvedCount / $rowCount) : 0;
-                $tableFinalScore = max(0, $tablePoints - $penalty + $bonus);
+                $tableFinalScore = max(0, $points + $bonus - $penalty);
 
                 $schoolData['total_approved'] += $approvedCount;
                 $schoolData['total_pending'] += $pendingCount;
@@ -135,13 +156,14 @@ class ReportTableStatisticsService
                 $schoolData['total_returned'] += $returnedCount;
                 $schoolData['total_penalty'] += $penalty;
                 $schoolData['total_bonus'] += $bonus;
-                $schoolData['total_points'] += $tablePoints;
+                $schoolData['total_points'] += $points;
 
                 $schoolData['tables'][] = [
                     'table_id' => $table->id,
                     'table_title' => $table->title,
                     'row_count' => $rowCount,
                     'status' => $status,
+                    'is_submitted' => $submittedAt !== null,
                     'submitted_at' => $submittedAt instanceof \Carbon\Carbon
                         ? $submittedAt->toISOString()
                         : ($submittedAt ? (string) $submittedAt : null),
@@ -151,22 +173,20 @@ class ReportTableStatisticsService
                     'returned_count' => $returnedCount,
                     'penalty' => (float) round($penalty, 2),
                     'bonus' => (float) round($bonus, 2),
-                    'points' => (float) round($tablePoints, 2),
+                    'points' => (float) round($points, 2),
                     'final_score' => (float) round($tableFinalScore, 2),
+                    'respondent_name' => $response ? ($response->respondent ? ($response->respondent->profile?->full_name ?? $response->respondent->name ?? $response->respondent->username) : null) : null,
                 ];
 
                 $schoolData['total_rows_across_all_tables'] += $rowCount;
             }
 
-            // Sətir sayına görə çəkili yekun bal
-            $totalRows = $schoolData['total_rows_across_all_tables'];
-            $weightedSum = 0.0;
+            // Cədvəllər üzrə Yekun Bal (Bütün cədvəllərin cəmi)
+            $totalFinalScoreSum = 0.0;
             foreach ($schoolData['tables'] as $t) {
-                $weightedSum += $t['final_score'] * $t['row_count'];
+                $totalFinalScoreSum += $t['final_score'];
             }
-            $schoolData['total_final_score'] = $totalRows > 0
-                ? (float) round($weightedSum / $totalRows, 4)
-                : 0.0;
+            $schoolData['total_final_score'] = (float) round($totalFinalScoreSum, 2);
 
             $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
             $schoolData['total_penalty'] = (float) round($schoolData['total_penalty'], 2);
@@ -181,7 +201,7 @@ class ReportTableStatisticsService
         }
 
         // Reytinq balına görə sıralama (DESC)
-        usort($statistics, fn($a, $b) => $b['total_final_score'] <=> $a['total_final_score']);
+        usort($statistics, fn ($a, $b) => $b['total_final_score'] <=> $a['total_final_score']);
 
         foreach ($statistics as $i => &$item) {
             $item['rank'] = $i + 1;
@@ -273,25 +293,43 @@ class ReportTableStatisticsService
                 $notFilledCount++;
             }
 
-            // Calculate Rating and Points logic
+            // Calculate Rating based on new formula
+            $publishedAt = $table->published_at ?? $table->created_at;
+            $effectiveStart = $publishedAt->copy();
+            if ($effectiveStart->isWeekend()) {
+                $effectiveStart = $effectiveStart->next(\Carbon\Carbon::MONDAY)->setTime(9, 0, 0);
+            }
+
             $penalty = 0;
             $bonus = 0;
-
-            if ($response && $rowCount > 0) {
-                // Cumulative rejection/return penalties (flat per event)
-                $penalty += $rejectedCount * 0.3;
-                $penalty += $returnedCount * 0.15;
-            }
+            $points = 0;
 
             if ($response && $rowCount > 0 && $submittedAt) {
-                [$bonus, $timePenalty] = $this->calcTimingScore($submittedAt, $table);
-                $penalty += $timePenalty;
+                $submittedAtCarbon = \Carbon\Carbon::parse($submittedAt);
+                $hoursDiff = $effectiveStart->diffInHours($submittedAtCarbon, false);
+
+                // Base Points
+                $points = 1;
+
+                // Timing Bonus
+                if ($hoursDiff <= 4 && $hoursDiff >= 0) {
+                    $bonus = 1;
+                }
+
+                // Timing Penalty
+                if ($hoursDiff > 24) {
+                    $daysLate = floor(($hoursDiff - 24) / 24);
+                    $penalty += $daysLate * 0.1;
+                }
+
+                // Quality Penalties (Proportional)
+                $returnPenalty = ($returnedCount * 0.15) / $rowCount;
+                $rejectPenalty = ($rejectedCount * 0.30) / $rowCount;
+                $penalty += ($returnPenalty + $rejectPenalty);
             }
 
-            // Points: Proportion of approved rows (max 1.0)
-            $points = $rowCount > 0 ? ($approvedCount / $rowCount) : 0;
-            $finalScore = max(0, $points - $penalty + $bonus);
-            
+            $finalScore = max(0, $points + $bonus - $penalty);
+
             $ratingPercentage = $rowCount > 0 ? (float) round(($approvedCount / $rowCount) * 100, 1) : 0.0;
 
             $schools[] = [
@@ -316,7 +354,7 @@ class ReportTableStatisticsService
         }
 
         // Reytinq balına görə sıralama (DESC)
-        usort($schools, fn($a, $b) => $b['final_score'] <=> $a['final_score']);
+        usort($schools, fn ($a, $b) => $b['final_score'] <=> $a['final_score']);
 
         foreach ($schools as $i => &$school) {
             $school['rank'] = $i + 1;
@@ -382,7 +420,7 @@ class ReportTableStatisticsService
      *   • published_at-dan > 1 gün sonra  → (gün−1) × 0.10 cərimə
      *   • deadline-dan sonra              → +0.25 sabit cərimə
      *
-     * @return array{0: float, 1: float}  [bonus, penalty]
+     * @return array{0: float, 1: float} [bonus, penalty]
      */
     private function calcTimingScore(string|\Carbon\Carbon|\DateTimeInterface $submittedAt, ReportTable $table): array
     {
@@ -451,7 +489,7 @@ class ReportTableStatisticsService
                 $returned = 0;
 
                 foreach ($resp->row_statuses ?? [] as $meta) {
-                    if (!is_array($meta)) {
+                    if (! is_array($meta)) {
                         continue;
                     }
                     if (($meta['status'] ?? null) === 'approved') {
@@ -462,21 +500,33 @@ class ReportTableStatisticsService
                     $returned += $meta['total_returned_count'] ?? 0;
                 }
 
-                $points = $approved / $rowCount;
-                // Flat per-event penalties
-                $penalty = $rejected * 0.3 + $returned * 0.15;
-                $bonus = 0.0;
-
-                if ($resp->submitted_at) {
-                    $submittedStr = $resp->submitted_at instanceof \Carbon\Carbon
-                        ? $resp->submitted_at->toISOString()
-                        : (string) $resp->submitted_at;
-                    [$timingBonus, $timePenalty] = $this->calcTimingScore($submittedStr, $table);
-                    $bonus = $timingBonus;
-                    $penalty += $timePenalty;
+                $publishedAt = $table->published_at ?? $table->created_at;
+                $effectiveStart = $publishedAt->copy();
+                if ($effectiveStart->isWeekend()) {
+                    $effectiveStart = $effectiveStart->next(\Carbon\Carbon::MONDAY)->setTime(9, 0, 0);
                 }
 
-                $tableScore = max(0.0, $points - $penalty + $bonus);
+                $points = 0;
+                $penalty = 0;
+
+                if ($resp->submitted_at && $rowCount > 0) {
+                    $submittedAt = \Carbon\Carbon::parse($resp->submitted_at);
+                    $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
+
+                    if ($hoursDiff <= 4 && $hoursDiff >= 0) {
+                        $points = 2;
+                    } elseif ($hoursDiff <= 24 && $hoursDiff >= 0) {
+                        $points = 1;
+                    } else {
+                        $points = 1;
+                        $daysLate = floor((max(0, $hoursDiff - 24)) / 24);
+                        $penalty += $daysLate * 0.1;
+                    }
+
+                    $penalty += ($returned * 0.15 + $rejected * 0.30) / $rowCount;
+                }
+
+                $tableScore = max(0.0, $points - $penalty);
                 // Sətir sayına görə çəkili cəm
                 $weightedSum += $tableScore * $rowCount;
                 $totalRows += $rowCount;
@@ -535,13 +585,13 @@ class ReportTableStatisticsService
                     'sector' => $response->institution->parent?->name ?? 'Sektorsuz',
                     'sector_id' => $response->institution->parent_id,
                     'rejected_count' => $rejectedCount,
-                    'status' => 'Rədd edilib'
+                    'status' => 'Rədd edilib',
                 ];
             }
         }
 
         // Ada görə sıralayırıq
-        usort($rejectedSchools, fn($a, $b) => strcmp($a['name'], $b['name']));
+        usort($rejectedSchools, fn ($a, $b) => strcmp($a['name'], $b['name']));
 
         return $rejectedSchools;
     }
@@ -552,7 +602,7 @@ class ReportTableStatisticsService
     public function getMyStatistics(User $user): array
     {
         $institutionId = $user->institution_id;
-        if (!$institutionId) {
+        if (! $institutionId) {
             return [];
         }
 
@@ -562,7 +612,7 @@ class ReportTableStatisticsService
             ->get();
 
         $institution = Institution::with(['parent.parent'])->find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return [];
         }
 
@@ -600,7 +650,7 @@ class ReportTableStatisticsService
             $rejectedCount = 0;
             $returnedCount = 0;
             $status = 'not_started';
-            
+
             if ($response) {
                 $rows = $response->rows ?? [];
                 $rowCount = count($rows);
@@ -625,31 +675,34 @@ class ReportTableStatisticsService
             }
 
             // Bal hesablama
-            $tablePoints = 0;
+            $publishedAt = $table->published_at ?? $table->created_at;
+            $effectiveStart = $publishedAt->copy();
+            if ($effectiveStart->isWeekend()) {
+                $effectiveStart = $effectiveStart->next(\Carbon\Carbon::MONDAY)->setTime(9, 0, 0);
+            }
+
+            $points = 0;
             $penalty = 0;
             $bonus = 0;
 
-            if ($rowCount > 0) {
-                $tablePoints = $approvedCount / $rowCount;
+            if ($rowCount > 0 && $response && $response->submitted_at) {
+                $submittedAt = \Carbon\Carbon::parse($response->submitted_at);
+                $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
 
-                // Cumulative rejection/return penalties (flat per event)
-                $penalty += $rejectedCount * 0.3;
-                $penalty += $returnedCount * 0.15;
-
-                // Zamanlama bonusu/cəriməsi
-                $submissionDate = $response?->submitted_at;
-                if ($submissionDate) {
-                    [$bonus, $timePenalty] = $this->calcTimingScore(
-                        $submissionDate instanceof \Carbon\Carbon
-                            ? $submissionDate->toISOString()
-                            : (string) $submissionDate,
-                        $table
-                    );
-                    $penalty += $timePenalty;
+                if ($hoursDiff <= 4 && $hoursDiff >= 0) {
+                    $points = 2;
+                } elseif ($hoursDiff <= 24 && $hoursDiff >= 0) {
+                    $points = 1;
+                } else {
+                    $points = 1;
+                    $daysLate = floor((max(0, $hoursDiff - 24)) / 24);
+                    $penalty += $daysLate * 0.1;
                 }
+
+                $penalty += ($returnedCount * 0.15 + $rejectedCount * 0.30) / $rowCount;
             }
 
-            $finalScore = max(0, $tablePoints - $penalty + $bonus);
+            $finalScore = max(0, $points - $penalty);
 
             $schoolData['total_rows_across_all_tables'] += $rowCount;
             $schoolData['total_approved'] += $approvedCount;
@@ -658,7 +711,7 @@ class ReportTableStatisticsService
             $schoolData['total_returned'] += $returnedCount;
             $schoolData['total_penalty'] += $penalty;
             $schoolData['total_bonus'] += $bonus;
-            $schoolData['total_points'] += $tablePoints;
+            $schoolData['total_points'] += $points;
 
             $schoolData['tables'][] = [
                 'id' => $table->id,
@@ -671,7 +724,7 @@ class ReportTableStatisticsService
                 'penalty' => $penalty,
                 'bonus' => $bonus,
                 'final_score' => round($finalScore, 2),
-                'rating_percentage' => $rowCount > 0 ? (float)round(($approvedCount / $rowCount) * 100, 1) : 0,
+                'rating_percentage' => $rowCount > 0 ? (float) round(($approvedCount / $rowCount) * 100, 1) : 0,
             ];
         }
 

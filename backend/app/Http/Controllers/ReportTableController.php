@@ -69,12 +69,19 @@ class ReportTableController extends BaseController
             $rowStatsByTableId = [];
             if ($institutionId && $tables->isNotEmpty()) {
                 $responses = ReportTableResponse::query()
+                    ->with(['respondent.profile'])
                     ->where('institution_id', $institutionId)
                     ->whereIn('report_table_id', $tables->pluck('id')->all())
-                    ->get(['id', 'report_table_id', 'status', 'row_statuses']);
+                    ->get(['id', 'report_table_id', 'respondent_id', 'status', 'row_statuses']);
+
+                $respondentNameByTableId = [];
 
                 foreach ($responses as $response) {
                     $statusesByTableId[$response->report_table_id] = $response->status;
+
+                    // Add respondent name
+                    $respondentNameByTableId[$response->report_table_id] = $response->respondent ?
+                        ($response->respondent->profile?->full_name ?? $response->respondent->name ?? $response->respondent->username) : null;
 
                     // Calculate detailed row stats
                     $rowStatuses = $response->row_statuses ?? [];
@@ -111,10 +118,11 @@ class ReportTableController extends BaseController
                 }
             }
 
-            $formatted = $tables->map(function ($table) use ($statusesByTableId, $rowStatsByTableId) {
+            $formatted = $tables->map(function ($table) use ($statusesByTableId, $rowStatsByTableId, $respondentNameByTableId) {
                 return array_merge($this->formatTable($table), [
                     'my_response_status' => $statusesByTableId[$table->id] ?? null,
                     'my_response_row_stats' => $rowStatsByTableId[$table->id] ?? ['total' => 0, 'completed' => 0],
+                    'my_response_respondent_name' => $respondentNameByTableId[$table->id] ?? null,
                 ]);
             });
 

@@ -92,6 +92,7 @@ interface SchoolStat {
   status: 'not_started' | 'draft' | 'pending' | 'partial' | 'completed';
   submitted_at?: string;
   is_filled?: boolean;
+  respondent_name?: string | null;
 }
 
 export function ReportTableStatisticsView() {
@@ -209,14 +210,17 @@ export function ReportTableStatisticsView() {
   const kpis = useMemo(() => {
     if (isOverall) {
       const total = schoolStats.length;
-      const fullyFilled = schoolStats.filter(s => s.filled_tables === s.total_tables).length;
+      const started = schoolStats.filter(s => s.filled_tables! > 0).length;
+      const totalPossibleResponses = total * (schoolStats[0]?.total_tables ?? 0);
+      const actualSubmittedResponses = schoolStats.reduce((acc, s) => acc + (s.submitted_count || 0), 0);
+      
       return {
         total,
-        filled: fullyFilled,
-        notFilled: total - fullyFilled,
-        percent: total > 0 ? Math.round((fullyFilled / total) * 100) : 0,
+        filled: started,
+        notFilled: total - started,
+        percent: totalPossibleResponses > 0 ? Math.round((actualSubmittedResponses / totalPossibleResponses) * 100) : 0,
         labelTitle: 'Məktəblər',
-        labelFilled: 'Hamısını doldurub'
+        labelFilled: 'Hesabata başlayan'
       };
     } else if (tableStats) {
       return {
@@ -418,6 +422,7 @@ export function ReportTableStatisticsView() {
                         <TableHead className="w-[40px] text-center bg-white text-gray-400">#</TableHead>
                         <TableHead className="w-[300px] bg-white">Məktəb / Sektor</TableHead>
                         <TableHead className="bg-white">{isOverall ? 'Doldurma' : 'Status'}</TableHead>
+                        <TableHead className="bg-white">Hazırladı</TableHead>
                         <TableHead className="text-center bg-white">{isOverall ? 'Cəmi Sətir' : 'Sətir'}</TableHead>
                         <TableHead className="text-center bg-white">Təsdiq</TableHead>
                         <TableHead className="text-center text-red-600 bg-white font-bold">Rədd/Geri</TableHead>
@@ -462,10 +467,16 @@ export function ReportTableStatisticsView() {
                             <TableCell>
                               {isOverall ? (
                                 <div className="text-xs">
-                                  <span className="font-bold text-indigo-600">{school.filled_tables}</span>
+                                  <span className="font-bold text-indigo-600">{school.submitted_count ?? 0}</span>
                                   <span className="text-gray-400"> / {school.total_tables}</span>
+                                  {school.filled_tables! > (school.submitted_count ?? 0) && (
+                                    <span className="text-[9px] text-amber-500 ml-1">({school.filled_tables! - (school.submitted_count ?? 0)} qaralama)</span>
+                                  )}
                                 </div>
                               ) : getStatusBadge(school.status)}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-gray-600 font-medium">{school.respondent_name || '-'}</span>
                             </TableCell>
                             <TableCell className="text-center font-medium font-mono text-xs">{rowCount ?? 0}</TableCell>
                             <TableCell className="text-center">
@@ -539,7 +550,7 @@ export function ReportTableStatisticsView() {
                       })}
                       {filteredSchools.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={isOverall ? 8 : 9} className="h-40 text-center text-gray-400">
+                          <TableCell colSpan={isOverall ? 9 : 10} className="h-40 text-center text-gray-400">
                              Nəticə tapılmadı
                           </TableCell>
                         </TableRow>

@@ -30,6 +30,7 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MyReportTableStatistics } from '@/components/reporttables/MyReportTableStatistics';
+import { RatingCalculationInfo } from '@/components/reporttables/RatingCalculationInfo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ export default function ReportTableEntry() {
   const [open, setOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [activeTab, setActiveTab] = useState('tables');
 
   const tableEntryRef = useRef<import('@/components/reporttables/TableEntryCard').TableEntryCardHandle | null>(null);
   const [entryMeta, setEntryMeta] = useState<{
@@ -62,7 +64,7 @@ export default function ReportTableEntry() {
     isSaving: boolean;
   } | null>(null);
 
-  const { isSektorAdmin, isSchoolAdmin, currentUser } = useRoleCheck();
+  const { isSektorAdmin, isSchoolAdmin, isSchoolUser, currentUser } = useRoleCheck();
 
   const { data, isLoading } = useQuery({
     queryKey: ['report-tables-my'],
@@ -195,17 +197,23 @@ export default function ReportTableEntry() {
         </div>
       </div>
 
-      <Tabs defaultValue="tables" className="w-full space-y-6">
-        <TabsList className="bg-gray-100/50 p-1 rounded-xl w-fit border border-gray-200">
-          <TabsTrigger value="tables" className="rounded-lg px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <Table2 className="h-4 w-4 mr-2" />
-            Cədvəllər
-          </TabsTrigger>
-          <TabsTrigger value="statistics" className="rounded-lg px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Statistika və Reytinq
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <TabsList className="bg-gray-100/50 p-1 rounded-xl w-fit border border-gray-200">
+            <TabsTrigger value="tables" className="rounded-lg px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Table2 className="h-4 w-4 mr-2" />
+              Cədvəllər
+            </TabsTrigger>
+            <TabsTrigger value="statistics" className="rounded-lg px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Statistika və Reytinq
+            </TabsTrigger>
+          </TabsList>
+
+          {activeTab === 'statistics' && (
+            <RatingCalculationInfo />
+          )}
+        </div>
 
         <TabsContent value="tables" className="space-y-6 mt-0">
           {/* Content */}

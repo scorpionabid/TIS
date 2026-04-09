@@ -98,6 +98,7 @@ export interface ReportTable extends BaseEntity {
     id: number;
     name: string;
   };
+  my_response_respondent_name?: string | null;
   // Computed
   responses_count?: number;
   responses_submitted_count?: number;
@@ -281,6 +282,7 @@ export interface MyTableStat {
   bonus: number;
   final_score: number;
   rating_percentage: number;
+  respondent_name?: string | null;
 }
 
 export interface MySchoolStatistics {

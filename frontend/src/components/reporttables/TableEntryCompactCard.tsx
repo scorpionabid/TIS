@@ -199,9 +199,21 @@ export function TableEntryCompactCard({ table, isSelected, onClick }: TableEntry
         </div>
       )}
 
+      {table.creator && (
+        <div className="flex items-center gap-2 mb-2 text-[10px] font-medium border-t border-gray-50 pt-2 opacity-80">
+          <div className="text-gray-400 whitespace-nowrap">
+            Müəllif: <span className="text-gray-600 font-semibold">{table.creator.name}</span>
+          </div>
+          <span className="text-gray-200">|</span>
+          <div className="text-[9px] text-gray-300 font-normal whitespace-nowrap">
+            {new Date(table.created_at).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </div>
+        </div>
+      )}
+
       {/* Footer - Status & Deadline */}
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 mt-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
           {isCompleted ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
               <CheckCircle className="h-3.5 w-3.5" />

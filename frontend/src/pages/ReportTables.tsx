@@ -57,6 +57,7 @@ import { ReportTableApprovalQueue } from '@/components/reporttables/ReportTableA
 import { ReportTableApprovalGroupedView } from '@/components/reporttables/ReportTableApprovalGroupedView';
 import { ReportTableReadyGroupedView } from '@/components/reporttables/ReportTableReadyGroupedView';
 import { ReportTableStatisticsView } from '@/components/reporttables/ReportTableStatisticsView';
+import { RatingCalculationInfo } from '@/components/reporttables/RatingCalculationInfo';
 import { ReportTableReadyView } from '@/components/reporttables/ReportTableReadyView';
 import { MasterTableView } from '@/components/reporttables/MasterTableView';
 import { TableTemplates } from '@/components/reporttables/TableTemplates';
@@ -310,19 +311,34 @@ function TableCard({
             </div>
           )}
 
+          {table.creator && (
+            <div className="flex items-center gap-2 mt-3 pb-2 border-b border-gray-50 font-medium text-[10px]">
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <span className="text-gray-400 font-normal">Müəllif:</span>
+                <span className="text-gray-600 font-semibold">{table.creator.name}</span>
+              </div>
+              <span className="text-gray-200">|</span>
+              <div className="text-[9px] text-gray-400 font-normal whitespace-nowrap">
+                {new Date(table.created_at).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </div>
+            </div>
+          )}
+
           {/* Meta info and Additional rows indicator - SINGLE LINE */}
-          <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-gray-400">
-            <span>{table.columns?.length ?? 0} sütun</span>
-            <span>·</span>
-            <span>Maks. {table.max_rows} sətir</span>
-            {canManageAdditionalRows && table.status === 'published' && (
-              <>
-                <span>·</span>
-                <span className={table.allow_additional_rows_after_confirmation ? 'text-emerald-600' : 'text-gray-500'}>
-                  {table.allow_additional_rows_after_confirmation ? 'Əlavə sətir açıq' : 'Əlavə sətir bağlı'}
-                </span>
-              </>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-2 text-[10px] text-gray-400">
+            <div className="flex items-center gap-2">
+              <span>{table.columns?.length ?? 0} sütun</span>
+              <span>·</span>
+              <span>Maks. {table.max_rows} sətir</span>
+              {canManageAdditionalRows && table.status === 'published' && (
+                <>
+                  <span>·</span>
+                  <span className={table.allow_additional_rows_after_confirmation ? 'text-emerald-600' : 'text-gray-500'}>
+                    {table.allow_additional_rows_after_confirmation ? 'Əlavə sətir açıq' : 'Əlavə sətir bağlı'}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -520,7 +536,7 @@ const CONFIRM_CONFIG: Record<ConfirmActionType, {
 
 export default function ReportTables() {
   const queryClient = useQueryClient();
-  const { isSuperAdmin, hasPermission } = useRoleCheck();
+  const { isSuperAdmin, isSchoolUser, hasPermission } = useRoleCheck();
   const canReview = hasPermission('report_table_responses.review');
   const canViewMaster = hasPermission('report_tables.view_all');
   const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates' | 'statistics'>('tables');
@@ -780,6 +796,10 @@ export default function ReportTables() {
               </Button>
             )}
           </div>
+          
+          {isSchoolUser && viewMode === 'statistics' && (
+            <RatingCalculationInfo />
+          )}
         </div>
       </div>
 
