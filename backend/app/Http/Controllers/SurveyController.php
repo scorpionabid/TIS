@@ -897,8 +897,12 @@ class SurveyController extends BaseController
 
                     $survey->response_status_detail = $normalizedStatus;
                     $survey->approval_status = $response->approvalRequest->current_status ?? null;
+                    $survey->progress_percentage = $response->progress_percentage ?? 0;
+                    $survey->is_complete = (bool)($response->is_complete ?? false);
                 } else {
                     $survey->response_status = 'not_started';
+                    $survey->progress_percentage = 0;
+                    $survey->is_complete = false;
                 }
 
                 // Add deadline status information
@@ -930,7 +934,7 @@ class SurveyController extends BaseController
             $user = $request->user();
             $perPage = $request->get('per_page', 20);
 
-            $responses = \App\Models\SurveyResponse::where('respondent_id', $user->id)
+            $responses = SurveyResponse::where('respondent_id', $user->id)
                 ->with(['survey' => function ($q) {
                     $q->select('id', 'title', 'description', 'end_date', 'current_questions_count');
                 }])
