@@ -2,17 +2,45 @@
   "mcpServers": {
     "filesystem": {
       "type": "stdio",
-      "command": "mcp-server-filesystem",
+      "command": "/Users/home/.nvm/versions/node/v22.14.0/bin/mcp-server-filesystem",
       "args": [
         "/Users/home/Desktop/ATİS"
       ],
-      "env": {}
+      "env": {
+        "PATH": "/Users/home/.nvm/versions/node/v22.14.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
     },
     "memory": {
       "type": "stdio",
-      "command": "mcp-server-memory",
+      "command": "/Users/home/.nvm/versions/node/v22.14.0/bin/mcp-server-memory",
       "args": [],
-      "env": {}
+      "env": {
+        "PATH": "/Users/home/.nvm/versions/node/v22.14.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "/usr/local/bin/npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://atis_prod_user:Pqan1xlUez1lRskN8X1koC2JS@localhost:5434/atis_production"
+      ],
+      "env": {
+        "PATH": "/Users/home/.nvm/versions/node/v22.14.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "/usr/local/bin/npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE",
+        "PATH": "/Users/home/.nvm/versions/node/v22.14.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
     }
   }
 }

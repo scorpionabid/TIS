@@ -281,3 +281,6 @@ backup_dev_snapshot.bat
 
 # PostgreSQL init scripts istisna — *.sql qaydası bunlara tətbiq edilməməlidir
 !postgres-init/*.sql
+
+# Documentation (Obsidian Vault - Local Only)
+docs/vault/

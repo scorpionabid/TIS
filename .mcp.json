@@ -13,6 +13,16 @@
       "command": "mcp-server-memory",
       "args": [],
       "env": {}
+    },
+    "obsidian": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "obsidian-mcp",
+        "/Users/home/Desktop/apps.nosync/TIS_LOCAL/docs/vault"
+      ],
+      "env": {}
     }
   }
 }
