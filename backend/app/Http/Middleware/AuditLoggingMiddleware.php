@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AuditLog;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
@@ -151,8 +152,9 @@ class AuditLoggingMiddleware
                 Log::info('AUDIT: User action', $auditData);
         }
 
-        // Store in database for critical actions
-        if (in_array($logLevel, ['emergency', 'alert', 'critical', 'error'])) {
+        // Store in database for critical actions or write operations
+        if (in_array($logLevel, ['emergency', 'alert', 'critical', 'error', 'notice']) || 
+            in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
             $this->storeAuditInDatabase($auditData);
         }
     }
@@ -298,14 +300,27 @@ class AuditLoggingMiddleware
     private function storeAuditInDatabase(array $auditData): void
     {
         try {
-            // This would typically insert into an audit_logs table
-            // For now, we'll log to a separate audit file
-            Log::channel('audit')->critical('CRITICAL_AUDIT', $auditData);
+            $context = $auditData['context'] ?? [];
+            
+            AuditLog::createAudit([
+                'user_id' => $context['user_id'] ?? null,
+                'event' => strtolower(str_replace(' ', '_', $auditData['action'])),
+                'url' => $auditData['url'] ?? null,
+                'ip_address' => $auditData['ip_address'] ?? null,
+                'user_agent' => $auditData['user_agent'] ?? null,
+                'institution_id' => $context['institution_id'] ?? null,
+                'new_values' => $auditData['request_data'] ?? null,
+                'old_values' => null, // Generic middleware doesn't easily capture old state
+                'tags' => isset($context['user_role']) ? [$context['user_role']] : [],
+            ]);
+
+            // Also log to file for redundancy
+            Log::channel('audit')->info('AUDIT_STORED_IN_DB', ['action' => $auditData['action']]);
         } catch (\Exception $e) {
-            // Fallback to default log if audit logging fails
-            Log::error('Failed to store audit log', [
+            // Fallback to error log if database logging fails
+            Log::error('Failed to store audit log in database', [
                 'error' => $e->getMessage(),
-                'audit_data' => $auditData,
+                'action' => $auditData['action'] ?? 'unknown',
             ]);
         }
     }

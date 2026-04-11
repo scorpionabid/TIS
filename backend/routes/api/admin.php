@@ -302,6 +302,7 @@ Route::prefix('audit-logs')->middleware('role_or_permission:superadmin|regionadm
     Route::get('/activities', [\App\Http\Controllers\AuditLogController::class, 'activities']);
     Route::get('/summary', [\App\Http\Controllers\AuditLogController::class, 'summary']);
     Route::get('/event-types', [\App\Http\Controllers\AuditLogController::class, 'eventTypes']);
+    Route::get('/auditable-types', [\App\Http\Controllers\AuditLogController::class, 'auditableTypes']);
 });
 
 // Academic years management

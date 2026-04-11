@@ -240,6 +240,30 @@ class InstitutionCRUDController extends Controller
     }
 
     /**
+     * Search institutions by name or code.
+     */
+    public function search(string $query): JsonResponse
+    {
+        $user = Auth::user();
+        $baseQuery = Institution::query()
+            ->where(function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                    ->orWhere('institution_code', 'like', "%{$query}%")
+                    ->orWhere('short_name', 'like', "%{$query}%");
+            });
+
+        $this->applyAccessControl($baseQuery, $user);
+
+        $results = $baseQuery->limit(20)
+            ->get(['id', 'name', 'institution_code', 'type']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $results
+        ]);
+    }
+
+    /**
      * Store a newly created institution in storage.
      */
     public function store(Request $request): JsonResponse

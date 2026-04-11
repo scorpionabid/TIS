@@ -58,6 +58,17 @@ export interface AuditLogFilters {
   page?: number;
 }
 
+export interface WrappedPaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
 export interface AuditSummary {
   today: number;
   this_week: number;
@@ -67,14 +78,14 @@ export interface AuditSummary {
 }
 
 const auditLogService = {
-  async getLogs(filters?: AuditLogFilters): Promise<PaginatedResponse<AuditLogEntry>> {
+  async getLogs(filters?: AuditLogFilters): Promise<WrappedPaginatedResponse<AuditLogEntry>> {
     const response = await apiClient.get<AuditLogEntry[]>('/audit-logs', filters);
-    return response as PaginatedResponse<AuditLogEntry>;
+    return response as unknown as WrappedPaginatedResponse<AuditLogEntry>;
   },
 
-  async getActivities(filters?: AuditLogFilters): Promise<PaginatedResponse<ActivityLogEntry>> {
+  async getActivities(filters?: AuditLogFilters): Promise<WrappedPaginatedResponse<ActivityLogEntry>> {
     const response = await apiClient.get<ActivityLogEntry[]>('/audit-logs/activities', filters);
-    return response as PaginatedResponse<ActivityLogEntry>;
+    return response as unknown as WrappedPaginatedResponse<ActivityLogEntry>;
   },
 
   async getSummary(): Promise<AuditSummary> {
@@ -84,6 +95,11 @@ const auditLogService = {
 
   async getEventTypes(): Promise<string[]> {
     const response = await apiClient.get<string[]>('/audit-logs/event-types');
+    return (response as { data: string[] }).data ?? [];
+  },
+
+  async getAuditableTypes(): Promise<string[]> {
+    const response = await apiClient.get<string[]>('/audit-logs/auditable-types');
     return (response as { data: string[] }).data ?? [];
   },
 };

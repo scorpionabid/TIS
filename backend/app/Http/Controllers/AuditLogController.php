@@ -11,18 +11,20 @@ class AuditLogController extends Controller
 {
     /**
      * List audit logs with filtering and pagination.
-     * SuperAdmin sees all logs; RegionAdmin sees logs for their institution hierarchy.
+     * superadmin sees all logs; RegionAdmin sees logs for their institution hierarchy.
      */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         $perPage = min((int) $request->get('per_page', 25), 100);
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
 
         $query = AuditLog::with(['user:id,first_name,last_name,username,email', 'institution:id,name'])
-            ->orderBy('created_at', 'desc');
+            ->orderBy($sortBy, $sortDirection);
 
         // Institution hierarchy data isolation
-        if (! $user->hasRole('SuperAdmin')) {
+        if (! $user->hasRole('superadmin')) {
             $query->where('institution_id', $user->institution_id);
         }
 
@@ -39,7 +41,7 @@ class AuditLogController extends Controller
             $query->where('auditable_type', $request->auditable_type);
         }
 
-        if ($request->filled('institution_id') && $user->hasRole('SuperAdmin')) {
+        if ($request->filled('institution_id') && $user->hasRole('superadmin')) {
             $query->where('institution_id', $request->institution_id);
         }
 
@@ -56,7 +58,8 @@ class AuditLogController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('event', 'like', "%{$search}%")
                     ->orWhere('url', 'like', "%{$search}%")
-                    ->orWhere('ip_address', 'like', "%{$search}%");
+                    ->orWhere('ip_address', 'like', "%{$search}%")
+                    ->orWhere('auditable_type', 'like', "%{$search}%");
             });
         }
 
@@ -85,7 +88,7 @@ class AuditLogController extends Controller
         $query = ActivityLog::with(['user:id,first_name,last_name,username'])
             ->orderBy('created_at', 'desc');
 
-        if (! $user->hasRole('SuperAdmin')) {
+        if (! $user->hasRole('superadmin')) {
             $query->where('institution_id', $user->institution_id);
         }
 
@@ -129,7 +132,7 @@ class AuditLogController extends Controller
         $auditBase = AuditLog::query();
         $activityBase = ActivityLog::query();
 
-        if (! $user->hasRole('SuperAdmin')) {
+        if (! $user->hasRole('superadmin')) {
             $auditBase->where('institution_id', $user->institution_id);
             $activityBase->where('institution_id', $user->institution_id);
         }
@@ -169,12 +172,35 @@ class AuditLogController extends Controller
 
         $query = AuditLog::select('event')->distinct();
 
-        if (! $user->hasRole('SuperAdmin')) {
+        if (! $user->hasRole('superadmin')) {
             $query->where('institution_id', $user->institution_id);
         }
 
         $events = $query->orderBy('event')->pluck('event');
 
         return response()->json(['success' => true, 'data' => $events]);
+    }
+
+    /**
+     * Distinct auditable types for filter dropdown.
+     */
+    public function auditableTypes(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $query = AuditLog::select('auditable_type')->distinct();
+
+        if (! $user->hasRole('superadmin')) {
+            $query->where('institution_id', $user->institution_id);
+        }
+
+        $types = $query->whereNotNull('auditable_type')
+            ->orderBy('auditable_type')
+            ->pluck('auditable_type')
+            ->map(function ($type) {
+                return $type; // Raw value, frontend will handle formatting
+            });
+
+        return response()->json(['success' => true, 'data' => $types]);
     }
 }

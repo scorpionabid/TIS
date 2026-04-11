@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Institution\InstitutionBulkController;
 use App\Http\Controllers\Institution\InstitutionCRUDController;
+use App\Http\Requests\InstitutionDeleteRequest;
 use App\Models\Institution;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -95,7 +96,7 @@ class InstitutionController extends Controller
     /**
      * Proxy to InstitutionCRUDController@destroy (model binding version)
      */
-    public function destroy(Request $request, Institution $institution): JsonResponse
+    public function destroy(InstitutionDeleteRequest $request, Institution $institution): JsonResponse
     {
         return $this->crudController->destroy($request, $institution->id);
     }
@@ -103,7 +104,7 @@ class InstitutionController extends Controller
     /**
      * Proxy to InstitutionCRUDController@destroy (ID version for soft-deleted institutions)
      */
-    public function destroyById(Request $request, $id): JsonResponse
+    public function destroyById(InstitutionDeleteRequest $request, $id): JsonResponse
     {
         return $this->crudController->destroy($request, $id);
     }
@@ -146,6 +147,14 @@ class InstitutionController extends Controller
     public function forceDelete($id): JsonResponse
     {
         return $this->bulkController->forceDelete($id);
+    }
+
+    /**
+     * Proxy to InstitutionCRUDController@search
+     */
+    public function search(string $query): JsonResponse
+    {
+        return $this->crudController->search($query);
     }
 
     /**
