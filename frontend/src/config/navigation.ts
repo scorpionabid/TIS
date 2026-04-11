@@ -580,72 +580,6 @@ export const improvedNavigationConfig: MenuGroup[] = [
     ],
   },
 
-  // 🏫 Məktəb İdarəetməsi (Sadələşdirilmiş)
-  {
-    id: "school-management",
-    label: "Məktəb İdarəsi",
-    panel: "work",
-    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
-    items: [
-      {
-        id: "my-classes",
-        label: "Mənim Siniflərim",
-        path: "/teacher/classes",
-        icon: School,
-        roles: [USER_ROLES.MUELLIM],
-        description: "Müəllimin təyin edildiyi siniflər",
-      },
-      {
-        id: "students",
-        label: "Şagirdlər",
-        path: "/students",
-        icon: Users,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-      },
-      {
-        id: "teachers",
-        label: "Müəllimlər",
-        path: "/school/teachers",
-        icon: GraduationCap,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-      },
-      {
-        id: "classes",
-        label: "Siniflər",
-        path: "/school/classes",
-        icon: Building2,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-      },
-      {
-        id: "school-students",
-        label: "Şagirdlər",
-        path: "/school/students",
-        icon: Users,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-      },
-      // ─── Məktəbəqədər İdarəetmə ─────────────────────────────────────────
-      {
-        id: "preschool-groups",
-        label: "Qruplar (MB)",
-        path: "/preschool/groups",
-        icon: Baby,
-        description: "Məktəbəqədər qrupların idarəsi",
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-        permissions: ["preschool.groups.manage"],
-        permissionMatch: "any",
-      },
-      {
-        id: "preschool-attendance-entry",
-        label: "MB Davamiyyəti",
-        path: "/preschool/attendance",
-        icon: ClipboardCheck,
-        description: "Məktəbəqədər davamiyyət qeydiyyatı",
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-        permissions: ["preschool.attendance.write"],
-        permissionMatch: "any",
-      },
-    ],
-  },
 
   // 🏛️ Sektor İdarəetməsi
   {
@@ -902,6 +836,67 @@ export const improvedNavigationConfig: MenuGroup[] = [
       },
     ],
   },
+
+  // 🏫 Məktəb İdarəetməsi (Sadələşdirilmiş)
+  {
+    id: "school-management",
+    label: "Məktəb İdarəsi",
+    panel: "management",
+    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+    items: [
+      {
+        id: "my-classes",
+        label: "Mənim Siniflərim",
+        path: "/teacher/classes",
+        icon: School,
+        roles: [USER_ROLES.MUELLIM],
+        description: "Müəllimin təyin edildiyi siniflər",
+      },
+      {
+        id: "students",
+        label: "Şagirdlər",
+        path: "/students",
+        icon: Users,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+      },
+      {
+        id: "teachers",
+        label: "Müəllimlər",
+        path: "/school/teachers",
+        icon: GraduationCap,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+      },
+      {
+        id: "classes",
+        label: "Siniflər",
+        path: "/school/classes",
+        icon: Building2,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+      },
+      // ─── Məktəbəqədər İdarəetmə ─────────────────────────────────────────
+      {
+        id: "preschool-groups",
+        label: "Qruplar (MB)",
+        path: "/preschool/groups",
+        icon: Baby,
+        description: "Məktəbəqədər qrupların idarəsi",
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+        permissions: ["preschool.groups.manage"],
+        permissionMatch: "any",
+      },
+      {
+        id: "preschool-attendance-entry",
+        label: "MB Davamiyyəti",
+        path: "/preschool/attendance",
+        icon: ClipboardCheck,
+        description: "Məktəbəqədər davamiyyət qeydiyyatı",
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+        permissions: ["preschool.attendance.write"],
+        permissionMatch: "any",
+      },
+    ],
+  },
+
 
   // 📈 Hesabat və Analitika
   {

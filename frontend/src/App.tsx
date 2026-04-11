@@ -1299,21 +1299,6 @@ const App = () => {
                         </LazyWrapper>
                       }
                     />
-                    <Route
-                      path="school/students"
-                      element={
-                        <LazyWrapper>
-                          <RoleProtectedRoute
-                            allowedRoles={[
-                              USER_ROLES.SUPERADMIN,
-                              USER_ROLES.SCHOOLADMIN,
-                            ]}
-                          >
-                            <SchoolStudents />
-                          </RoleProtectedRoute>
-                        </LazyWrapper>
-                      }
-                    />
                     {/* Preschool Routes */}
                     <Route
                       path="preschool/groups"
