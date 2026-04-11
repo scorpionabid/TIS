@@ -28,10 +28,34 @@ export interface PerformanceHealth {
 }
 
 export interface PerformanceTrend {
-  timestamp: string;
-  response_time_ms: number;
-  memory_usage: number;
-  cpu_usage: number;
+  hour: string;
+  metrics: {
+    avg_response_time: number;
+    max_response_time: number;
+    total_requests: number;
+    error_count: number;
+    avg_query_count: number;
+    avg_memory_usage: number;
+  };
+}
+
+export interface PerformanceReport {
+  period: {
+    start: string;
+    end: string;
+  };
+  summary: {
+    total_requests: number;
+    avg_response_time: number;
+    error_rate: number;
+    uptime: string;
+  };
+  top_slow_endpoints: Array<{
+    endpoint: string;
+    avg_time: number;
+    count: number;
+  }>;
+  recommendations: string[];
 }
 
 interface PerformanceMetricsResponse {
@@ -47,6 +71,11 @@ interface PerformanceHealthResponse {
 interface PerformanceTrendsResponse {
   success: boolean;
   data: PerformanceTrend[];
+}
+
+interface PerformanceReportResponse {
+  success: boolean;
+  data: PerformanceReport;
 }
 
 class PerformanceService {
@@ -67,6 +96,16 @@ class PerformanceService {
   async getTrends(): Promise<PerformanceTrend[]> {
     const response = await apiClient.get<PerformanceTrend[]>(`${this.baseUrl}/trends`);
     const typed = response as unknown as PerformanceTrendsResponse;
+    return typed.data;
+  }
+
+  async getReport(startDate?: string, endDate?: string): Promise<PerformanceReport> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    const response = await apiClient.get<PerformanceReport>(`${this.baseUrl}/report?${params.toString()}`);
+    const typed = response as unknown as PerformanceReportResponse;
     return typed.data;
   }
 }
