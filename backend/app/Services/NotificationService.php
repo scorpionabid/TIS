@@ -578,7 +578,17 @@ class NotificationService
 
             $user = User::find($userId);
             if ($user) {
-                $this->permissionService->applyTaskAccessControl($overdueCount, $user);
+                if ($user->hasRole('superadmin')) {
+                    // For SuperAdmin personal sidebar, only show their own overdue tasks
+                    $overdueCount->where(function ($q) use ($user) {
+                        $q->where('created_by', $user->id)
+                            ->orWhereHas('assignments', function ($sq) use ($user) {
+                                $sq->where('assigned_user_id', $user->id);
+                            });
+                    });
+                } else {
+                    $this->permissionService->applyTaskAccessControl($overdueCount, $user);
+                }
             }
 
             $overdueTotal = $overdueCount->count();

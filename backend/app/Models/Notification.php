@@ -148,36 +148,36 @@ class Notification extends Model
             return $query->whereRaw('1 = 0'); // No access if user not found
         }
 
-        // SuperAdmin sees all notifications (no filtering)
-        if ($user->hasRole('superadmin')) {
-            return $query; // No restrictions for superadmin
-        }
+        $userRoles = $user->roles->pluck('name')->toArray();
 
-        // For other roles, apply institutional hierarchy filtering
-        return $query->where(function ($q) use ($userId, $user) {
+        return $query->where(function ($q) use ($userId, $user, $userRoles) {
             // Basic user targeting (direct notifications)
             $q->where('user_id', $userId)
                 ->orWhereJsonContains('target_users', $userId);
 
-            // Add institutional scope filtering
-            $userInstitutionId = $user->institution_id;
-            $userRoles = $user->roles->pluck('name')->toArray();
+            // Add role-based targeting
+            foreach ($userRoles as $role) {
+                $q->orWhereJsonContains('target_roles', $role);
+            }
 
+            // SuperAdmin skip institutional hierarchy filtering
+            if ($user->hasRole('superadmin')) {
+                return;
+            }
+
+            // For other roles, apply institutional hierarchy filtering
+            $userInstitutionId = $user->institution_id;
             if (! $userInstitutionId) {
-                // No institutional filtering if user has no institution
-                return $q;
+                return;
             }
 
             $userInstitution = $user->institution;
 
             if (in_array('regionadmin', $userRoles)) {
-                // RegionAdmin sees notifications for their region and all child institutions
                 $this->applyRegionAdminFilter($q, $userInstitution);
             } elseif (in_array('sektoradmin', $userRoles)) {
-                // SektorAdmin sees notifications for their sector and all child schools
                 $this->applySektorAdminFilter($q, $userInstitution);
             } elseif (in_array('schooladmin', $userRoles) || in_array('teacher', $userRoles)) {
-                // SchoolAdmin and Teacher see only their school's notifications
                 $this->applySchoolFilter($q, $userInstitutionId);
             }
         });
