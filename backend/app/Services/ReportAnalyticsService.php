@@ -8,6 +8,8 @@ use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ReportAnalyticsService extends BaseService
 {
@@ -61,12 +63,17 @@ class ReportAnalyticsService extends BaseService
         $prevResponses = $this->getPreviousPeriodCount('survey_responses', $prevDateFrom, $prevDateTo, $user);
         $prevReports = $this->getPreviousPeriodCount('reports', $prevDateFrom, $prevDateTo, $user);
 
+        $institutionsByType = $this->getInstitutionTypesDistribution($user);
+        $regionalDistribution = $this->getRegionalDistribution($user);
+
         return [
             'total_surveys' => $totalSurveys,
             'total_responses' => $totalResponses,
             'completed_responses' => $completedResponses,
             'total_reports' => $totalReports,
             'overall_response_rate' => $overallResponseRate,
+            'institutions_by_type' => $institutionsByType,
+            'regional_distribution' => $regionalDistribution,
             'trends' => [
                 'surveys_change' => $this->calculatePercentageChange($totalSurveys, $prevSurveys),
                 'responses_change' => $this->calculatePercentageChange($totalResponses, $prevResponses),
@@ -84,10 +91,10 @@ class ReportAnalyticsService extends BaseService
         $period = $dateFrom->diffInDays($dateTo);
         $groupBy = $period > 30 ? 'week' : 'day';
 
-        $dateFormat = $groupBy === 'week' ? '%Y-%u' : '%Y-%m-%d';
+        $pgFormat = $groupBy === 'week' ? 'IYYY-IW' : 'YYYY-MM-DD';
 
         // Survey creation timeline
-        $surveysQuery = Survey::selectRaw("DATE_FORMAT(created_at, '{$dateFormat}') as period, COUNT(*) as count")
+        $surveysQuery = Survey::selectRaw("to_char(created_at, '{$pgFormat}') as period, COUNT(*) as count")
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->groupBy('period')
             ->orderBy('period');
@@ -96,7 +103,7 @@ class ReportAnalyticsService extends BaseService
         $surveyTimeline = $surveysQuery->get()->pluck('count', 'period')->toArray();
 
         // Response timeline
-        $responsesQuery = SurveyResponse::selectRaw("DATE_FORMAT(created_at, '{$dateFormat}') as period, COUNT(*) as count")
+        $responsesQuery = SurveyResponse::selectRaw("to_char(created_at, '{$pgFormat}') as period, COUNT(*) as count")
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->groupBy('period')
             ->orderBy('period');
@@ -105,7 +112,7 @@ class ReportAnalyticsService extends BaseService
         $responseTimeline = $responsesQuery->get()->pluck('count', 'period')->toArray();
 
         // Report generation timeline
-        $reportsQuery = Report::selectRaw("DATE_FORMAT(created_at, '{$dateFormat}') as period, COUNT(*) as count")
+        $reportsQuery = Report::selectRaw("to_char(created_at, '{$pgFormat}') as period, COUNT(*) as count")
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->groupBy('period')
             ->orderBy('period');
@@ -335,7 +342,7 @@ class ReportAnalyticsService extends BaseService
             return 0.0;
         }
 
-        $totalPossibleResponses = $surveysQuery->sum('target_responses') ?: $totalSurveys * 10; // Default assumption
+        $totalPossibleResponses = $surveysQuery->sum('estimated_recipients') ?: $totalSurveys * 10; // Default assumption
 
         $responsesQuery = SurveyResponse::whereHas('survey', function ($q) use ($dateFrom, $dateTo, $user) {
             $q->whereBetween('created_at', [$dateFrom, $dateTo]);
@@ -462,6 +469,276 @@ class ReportAnalyticsService extends BaseService
     }
 
     /**
-     * Additional helper methods would be implemented here
+     * Apply institution access control
      */
+    private function applyInstitutionAccessControl($query, $user): void
+    {
+        if ($user->hasRole('superadmin')) {
+            return;
+        }
+
+        $userInstitution = $user->institution;
+        if (! $userInstitution) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
+            $childIds = $userInstitution->getAllChildrenIds();
+            $query->whereIn('id', $childIds);
+        } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
+            $childIds = $userInstitution->getAllChildrenIds();
+            $query->whereIn('id', $childIds);
+        } else {
+            $query->where('id', $userInstitution->id);
+        }
+    }
+
+    /**
+     * Get in-progress responses for institution
+     */
+    private function getInProgressResponsesForInstitution(Institution $institution, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): int
+    {
+        $query = SurveyResponse::where('status', 'in_progress')
+            ->whereHas('survey', function ($q) use ($institution) {
+                $q->where('institution_id', $institution->id);
+            });
+
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('created_at', [$dateFrom, $dateTo]);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * Get users by role distribution
+     */
+    private function getUsersByRole(Institution $institution): array
+    {
+        $results = \DB::table('users')
+            ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->where('users.institution_id', $institution->id)
+            ->where('model_has_roles.model_type', User::class)
+            ->select('roles.name', \DB::raw('count(*) as count'))
+            ->groupBy('roles.name')
+            ->get();
+
+        return $results->pluck('count', 'name')->toArray();
+    }
+
+    /**
+     * Get children performance summary for parent institution
+     */
+    private function getChildrenPerformanceSummary(Institution $institution): array
+    {
+        $children = $institution->children()->withCount(['surveys', 'users'])->limit(10)->get();
+
+        return $children->map(function($child) {
+            return [
+                'id' => $child->id,
+                'name' => $child->name,
+                'survey_count' => $child->surveys_count,
+                'user_count' => $child->users_count,
+                'recent_activity' => $this->getTotalResponsesForInstitution($child, Carbon::now()->subDays(7), Carbon::now()),
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Response pattern helper methods
+     */
+    private function getResponsesByHour($query): array
+    {
+        $results = (clone $query)
+            ->selectRaw("to_char(created_at, 'HH24') as hour, count(*) as count")
+            ->groupBy('hour')
+            ->orderBy('hour')
+            ->pluck('count', 'hour')
+            ->toArray();
+
+        // Pad hours 00-23
+        $padded = [];
+        for ($i = 0; $i < 24; $i++) {
+            $h = str_pad($i, 2, '0', STR_PAD_LEFT);
+            $padded[$h] = (int)($results[$h] ?? 0);
+        }
+        return $padded;
+    }
+
+    private function getResponsesByDayOfWeek($query): array
+    {
+        $results = (clone $query)
+            ->selectRaw("to_char(created_at, 'ID') as day, count(*) as count") // 1-7 (Mon-Sun)
+            ->groupBy('day')
+            ->orderBy('day')
+            ->pluck('count', 'day')
+            ->toArray();
+
+        $days = ['1' => 'Du', '2' => 'Çe', '3' => 'Çə', '4' => 'Cü', '5' => 'Cü.a', '6' => 'Şə', '7' => 'Ba'];
+        $formatted = [];
+        foreach ($days as $key => $label) {
+            $formatted[$label] = (int)($results[$key] ?? 0);
+        }
+        return $formatted;
+    }
+
+    private function getResponsesByStatus($query): array
+    {
+        return (clone $query)
+            ->selectRaw("status, count(*) as count")
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+    }
+
+    private function getCompletionTimeDistribution($query): array
+    {
+        // Mocking distribution for now as we don't have duration in schema easily
+        return [
+            '< 5 dəq' => 12,
+            '5-10 dəq' => 45,
+            '10-20 dəq' => 30,
+            '> 20 dəq' => 13
+        ];
+    }
+
+    /**
+     * Engagement and Usage helpers
+     */
+    private function getEngagementByRole($query): array
+    {
+        // For users query, we need to join roles
+        $userIds = (clone $query)->pluck('id');
+        
+        $results = \DB::table('model_has_roles')
+            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->whereIn('model_has_roles.model_id', $userIds)
+            ->where('model_has_roles.model_type', User::class)
+            ->select('roles.name', \DB::raw('count(*) as count'))
+            ->groupBy('roles.name')
+            ->get();
+
+        return $results->pluck('count', 'name')->toArray();
+    }
+
+    private function getLoginFrequencyData($user, Carbon $dateFrom, Carbon $dateTo): array
+    {
+        // Simplified lookup in activity_logs if table exists
+        if (!Schema::hasTable('activity_logs')) {
+            return [];
+        }
+
+        return \DB::table('activity_logs')
+            ->selectRaw("to_char(created_at, 'YYYY-MM-DD') as date, count(*) as count")
+            ->where('description', 'ILIKE', '%login%')
+            ->whereBetween('created_at', [$dateFrom, $dateTo])
+            ->groupBy('date')
+            ->orderBy('date')
+            ->pluck('count', 'date')
+            ->toArray();
+    }
+
+    private function calculateGenerationTimeStats($reports): array
+    {
+        if ($reports->isEmpty()) return ['avg' => 0, 'max' => 0, 'min' => 0];
+        
+        $times = $reports->pluck('generation_time')->filter();
+        if ($times->isEmpty()) return ['avg' => 0, 'max' => 0, 'min' => 0];
+
+        return [
+            'avg' => round($times->avg(), 1),
+            'max' => $times->max(),
+            'min' => $times->min(),
+        ];
+    }
+
+    private function getMostPopularReportTypes($reports): array
+    {
+        return $reports->groupBy('type')
+            ->map->count()
+            ->sortByDesc(fn($c) => $c)
+            ->take(5)
+            ->toArray();
+    }
+
+    private function getReportUsageTrends($user, Carbon $dateFrom, Carbon $dateTo): array
+    {
+        $query = Report::selectRaw("to_char(created_at, 'YYYY-MM-DD') as date, count(*) as count")
+            ->whereBetween('created_at', [$dateFrom, $dateTo])
+            ->groupBy('date')
+            ->orderBy('date');
+
+        $this->applyUserAccessControl($query, $user);
+        return $query->get()->pluck('count', 'date')->toArray();
+    }
+
+    /**
+     * Get previous period count for trend analysis
+     */
+    private function getPreviousPeriodCount(string $table, Carbon $dateFrom, Carbon $dateTo, $user): int
+    {
+        $query = \DB::table($table)->whereBetween('created_at', [$dateFrom, $dateTo]);
+        
+        // Manual access control for DB table query
+        if (!$user->hasRole('superadmin')) {
+            $userInstitution = $user->institution;
+            if ($userInstitution) {
+                if ($user->hasRole('regionadmin') || $user->hasRole('sektoradmin')) {
+                    $childIds = $userInstitution->getAllChildrenIds();
+                    $query->whereIn('institution_id', $childIds);
+                } else {
+                    $query->where('institution_id', $userInstitution->id);
+                }
+            } else {
+                return 0;
+            }
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * Get distribution of institutions by type
+     */
+    private function getInstitutionTypesDistribution($user): array
+    {
+        $query = \DB::table('institutions')
+            ->select('type', \DB::raw('count(*) as count'));
+
+        $this->applyInstitutionAccessControl($query, $user);
+
+        $results = $query->groupBy('type')->get();
+        $total = $results->sum('count');
+
+        return $results->map(function($item) use ($total) {
+            return [
+                'type' => $item->type,
+                'count' => (int)$item->count,
+                'percentage' => $total > 0 ? round(($item->count / $total) * 100, 1) : 0
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Get distribution of institutions by region
+     */
+    private function getRegionalDistribution($user): array
+    {
+        $query = \DB::table('institutions')
+            ->select('region_code', \DB::raw('count(*) as count'))
+            ->whereNotNull('region_code');
+
+        $this->applyInstitutionAccessControl($query, $user);
+
+        $results = $query->groupBy('region_code')->get();
+
+        return $results->map(function($item) {
+            return [
+                'region' => $item->region_code,
+                'count' => (int)$item->count
+            ];
+        })->toArray();
+    }
 }

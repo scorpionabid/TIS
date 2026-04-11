@@ -17,6 +17,7 @@ use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserControllerRefactored as UserController;
 use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\API\SystemAnalyticsController;
+use App\Http\Controllers\API\ReportsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -313,6 +314,15 @@ Route::prefix('analytics')->middleware('role_or_permission:superadmin|regionadmi
     Route::get('/surveys', [SystemAnalyticsController::class, 'getSurveyAnalytics']);
     Route::get('/performance', [SystemAnalyticsController::class, 'getPerformanceAnalytics']);
     Route::get('/realtime', [SystemAnalyticsController::class, 'getRealtimeMetrics']);
+});
+
+// System Reports (SuperAdmin + RegionAdmin)
+Route::prefix('reports')->middleware('role_or_permission:superadmin|regionadmin')->group(function () {
+    Route::get('/overview', [ReportsController::class, 'getOverview']);
+    Route::get('/institutional-performance', [ReportsController::class, 'getInstitutionalPerformance']);
+    Route::get('/user-activity', [ReportsController::class, 'getUserActivity']);
+    Route::get('/survey-analytics', [ReportsController::class, 'getSurveyAnalytics']);
+    Route::post('/export', [ReportsController::class, 'exportReport']);
 });
 
 // Academic years management

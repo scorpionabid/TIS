@@ -46,6 +46,23 @@ import { az } from "date-fns/locale";
 import { useRoleCheck } from "@/hooks/useRoleCheck";
 import { USER_ROLES } from "@/constants/roles";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+} from "recharts";
 
 export default function Reports() {
   const { currentUser, hasAnyRole } = useRoleCheck();
@@ -171,6 +188,25 @@ export default function Reports() {
       enabled: selectedReportType === "user_activity" && hasAccess,
       staleTime: 1000 * 60 * 5,
     });
+
+  // Load survey analytics report
+  const { data: surveyResponse, isLoading: surveyLoading } = useQuery({
+    queryKey: [
+      currentUser?.role === USER_ROLES.SEKTORADMIN
+        ? "sektor-reports-survey"
+        : "reports-survey",
+      filters,
+      currentUser?.role,
+    ],
+    queryFn: () => {
+      if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+        return reportsService.getSektorSurveyAnalytics(filters);
+      }
+      return reportsService.getSurveyAnalytics(filters);
+    },
+    enabled: selectedReportType === "survey" && hasAccess,
+    staleTime: 1000 * 60 * 5,
+  });
 
   // Security check - hierarchical access to reports based on roles
   if (!hasAccess) {
@@ -482,28 +518,27 @@ export default function Reports() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {(overviewStats?.user_statistics?.users_by_role || []).map(
-                  (role, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between"
+              <div className="h-[300px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={overviewStats?.user_statistics?.users_by_role || []}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="count"
+                      nameKey="role"
                     >
-                      <span className="font-medium">{role.role}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 bg-secondary rounded-full h-2">
-                          <div
-                            className="h-2 rounded-full bg-primary"
-                            style={{ width: `${role.percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-muted-foreground w-12">
-                          {role.count}
-                        </span>
-                      </div>
-                    </div>
-                  ),
-                )}
+                      {(overviewStats?.user_statistics?.users_by_role || []).map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"][index % 5]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -516,29 +551,50 @@ export default function Reports() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {(
-                  overviewStats?.institution_statistics?.institutions_by_type ||
-                  []
-                ).map((type, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between"
+              <div className="h-[300px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={overviewStats?.institution_statistics?.institutions_by_type || []}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
                   >
-                    <span className="font-medium">{type.type}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-secondary rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full bg-secondary"
-                          style={{ width: `${type.percentage}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm text-muted-foreground w-12">
-                        {type.count}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="type" type="category" width={100} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#8884d8" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Activity Trends */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Sistem Aktivlik Trendləri</CardTitle>
+              <CardDescription>Son dövr üzrə ümumi aktivlik nisbəti</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={overviewStats?.growth_trends?.activity_trends || []}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="activity_count" stroke="#8884d8" fillOpacity={1} fill="url(#colorActivity)" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -615,6 +671,83 @@ export default function Reports() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedReportType === "survey" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sorğu Analitikası Hesabatı</CardTitle>
+            <CardDescription>
+              Cari dövr üzrə sorğu nəticələri və iştirak dərəcəsi
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {surveyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Sorğu analitikası yüklənir...</span>
+              </div>
+            ) : (surveyResponse?.data || []).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Sorğu məlumatı tapılmadı
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {(surveyResponse?.data || []).slice(0, 4).map((survey: any) => (
+                    <Card key={survey.id || survey.survey_id} className="border shadow-none">
+                      <CardHeader className="pb-2 text-xs font-semibold uppercase text-muted-foreground">
+                        {survey.status}
+                      </CardHeader>
+                      <CardContent>
+                        <h4 className="font-bold mb-2 truncate">{survey.title || survey.survey_title}</h4>
+                        <div className="flex justify-between items-center mb-1 text-xs">
+                          <span>Dərəcə: {survey.completion_rate}%</span>
+                          <span>{survey.responses || survey.total_responses} cavab</span>
+                        </div>
+                        <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-primary h-full" 
+                            style={{ width: `${survey.completion_rate}%` }}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sorğu Başlığı</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-center">Cavab Sayı</TableHead>
+                        <TableHead className="text-center">Tamamlanma %</TableHead>
+                        <TableHead className="text-center">Tarix</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(surveyResponse?.data || []).map((survey: any) => (
+                        <TableRow key={survey.id || survey.survey_id}>
+                          <TableCell className="font-medium truncate max-w-[200px]">{survey.title || survey.survey_title}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="capitalize">
+                              {survey.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">{survey.responses || survey.total_responses}</TableCell>
+                          <TableCell className="text-center font-semibold text-primary">{survey.completion_rate}%</TableCell>
+                          <TableCell className="text-center text-xs text-muted-foreground">{survey.created_at}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </CardContent>
