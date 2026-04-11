@@ -316,6 +316,16 @@ Route::prefix('academic-years')->middleware('permission:institutions.read')->gro
     Route::post('/{academicYear}/activate', [App\Http\Controllers\AcademicYearController::class, 'activate'])->middleware('permission:institutions.write');
 });
 
+// Academic calendars management
+Route::prefix('academic-calendars')->middleware('permission:institutions.read')->group(function () {
+    Route::get('/', [App\Http\Controllers\AcademicCalendarController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\AcademicCalendarController::class, 'store'])->middleware('permission:institutions.write');
+    Route::get('/{academicCalendar}', [App\Http\Controllers\AcademicCalendarController::class, 'show']);
+    Route::put('/{academicCalendar}', [App\Http\Controllers\AcademicCalendarController::class, 'update'])->middleware('permission:institutions.write');
+    Route::delete('/{academicCalendar}', [App\Http\Controllers\AcademicCalendarController::class, 'destroy'])->middleware('permission:institutions.write');
+    Route::post('/{academicCalendar}/toggle-date', [App\Http\Controllers\AcademicCalendarController::class, 'toggleDate'])->middleware('permission:institutions.write');
+});
+
 // Subjects management
 Route::prefix('subjects')->group(function () {
     // Read operations - available to all authorized roles including RegionOperator

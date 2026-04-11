@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Calendar, CheckCircle, AlertTriangle, Power, CalendarPlus } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, CheckCircle, AlertTriangle, Power, CalendarPlus, Loader2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { academicYearService, AcademicYear } from '@/services/academicYears';
 import { useToast } from '@/hooks/use-toast';
 import { AcademicYearModal } from '@/components/modals/AcademicYearModal';
-import { User } from '@/contexts/AuthContext';
+import { User } from '@/types/user';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AcademicCalendarTab } from './AcademicCalendarTab';
 import { format, parseISO } from 'date-fns';
 import { az } from 'date-fns/locale';
 
@@ -26,9 +28,9 @@ const DEFAULT_BASE_YEAR = '2025-2026';
 
 export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
   currentUser,
-  title = 'Təhsil İlləri İdarəetməsi',
+  title = 'Təhsil İllərinin İdarəedilməsi',
   description = 'Təhsil illərini idarə edin, yeni il yaradın və mövcudları redaktə edin',
-  enableAutoGeneration = false,
+  enableAutoGeneration = true,
   baseYearName = DEFAULT_BASE_YEAR,
   futureYearCount = 5,
   queryKey = ['academic-years-management'],
@@ -83,7 +85,7 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
     },
   });
 
-  const ensureFutureYearsMutation = useMutation({
+  const generateFutureYearsMutation = useMutation({
     mutationFn: () => academicYearService.generateFutureYears(baseYearName, futureYearCount),
     onSuccess: (response) => {
       toast({
@@ -129,18 +131,8 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
     setSelectedYear(null);
   };
 
-  const handleEnsureFutureYears = () => {
-    ensureFutureYearsMutation.mutate();
-  };
-
-  const handleActivateDefaultYear = () => {
-    const defaultYear = yearsResponse?.data?.find((year) => year.name === baseYearName);
-
-    if (defaultYear) {
-      handleActivate(defaultYear);
-    } else {
-      handleEnsureFutureYears();
-    }
+  const handleAddNextYears = () => {
+    generateFutureYearsMutation.mutate();
   };
 
   const formatDate = (dateString: string) => {
@@ -152,11 +144,7 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
   };
 
   const allYears = yearsResponse?.data || [];
-  const years = allYears.filter(year => {
-    // Show only years from 2025-2026 onwards
-    // year.name is typically "2024-2025", "2025-2026", etc.
-    return year.name >= '2025-2026';
-  });
+  const years = allYears.filter(year => year.name >= '2025-2026');
 
   if (!currentUser) {
     return null;
@@ -187,203 +175,210 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{title}</h1>
-          <p className="text-muted-foreground">{description}</p>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent">
+            Tədris İllərinin İdarəedilməsi
+          </h1>
+          <p className="text-muted-foreground mt-1 text-base">
+            Sistem üzrə akademik illəri və tədris təqvimini tənzimləyin.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           {enableAutoGeneration && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleActivateDefaultYear}
-                disabled={activateMutation.isPending}
-                className="gap-2"
-              >
-                <Power className="h-4 w-4" />
-                {baseYearName} aktiv et
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleEnsureFutureYears}
-                disabled={ensureFutureYearsMutation.isPending}
-                className="gap-2"
-              >
-                <CalendarPlus className="h-4 w-4" />
-                Növbəti {futureYearCount} ili əlavə et
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              onClick={handleAddNextYears}
+              disabled={generateFutureYearsMutation.isPending}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
+            >
+              {generateFutureYearsMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarPlus className="mr-2 h-4 w-4" />
+              )}
+              Növbəti 5 ili əlavə et
+            </Button>
           )}
-          <Button onClick={handleCreate} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Yeni Təhsil İli
+          <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700 shadow-md">
+            <Plus className="mr-2 h-4 w-4" /> Yeni Tədris İli
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-500/10 to-purple-500/5 shadow-md hover:shadow-lg transition-all duration-300">
-          <div className="absolute top-0 right-0 p-3 opacity-10">
-            <Calendar className="h-16 w-16" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold tracking-tight">Cəmi Təhsil İlləri</CardTitle>
-            <Calendar className="h-4 w-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-indigo-700">{years.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Sistemdə qeydiyyatda olan</p>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="years" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-8 bg-slate-100/50 p-1 border border-slate-200">
+          <TabsTrigger value="years" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">İllər siyahısı</TabsTrigger>
+          <TabsTrigger value="calendar" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Tədris Təqvimi</TabsTrigger>
+        </TabsList>
 
-        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-green-500/10 to-emerald-500/5 shadow-md hover:shadow-lg transition-all duration-300">
-          <div className="absolute top-0 right-0 p-3 opacity-10">
-            <CheckCircle className="h-16 w-16" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold tracking-tight">Aktiv Təhsil İli</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-700">{years.filter((year) => year.is_active).length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Hal-hazırda tətbiq edilən</p>
-          </CardContent>
-        </Card>
+        <TabsContent value="years" className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-500/10 to-purple-500/5 shadow-md hover:shadow-lg transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Calendar className="h-16 w-16" />
+              </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-semibold tracking-tight">Cəmi Təhsil İlləri</CardTitle>
+                <Calendar className="h-4 w-4 text-indigo-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-indigo-700">{years.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Sistemdə qeydiyyatda olan</p>
+              </CardContent>
+            </Card>
 
-        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-blue-500/10 to-cyan-500/5 shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
-          <div className="absolute top-0 right-0 p-3 opacity-10">
-            <Calendar className="h-16 w-16" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold tracking-tight">Cari Təhsil İli</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-blue-700 truncate">
-              {years.find((year) => year.is_active)?.name || 'Təyin edilməyib'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Sistem üzrə əsas il</p>
-          </CardContent>
-        </Card>
+            <Card className="relative overflow-hidden border-none bg-gradient-to-br from-green-500/10 to-emerald-500/5 shadow-md hover:shadow-lg transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <CheckCircle className="h-16 w-16" />
+              </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-semibold tracking-tight">Aktiv Təhsil İli</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-700">{years.filter((year) => year.is_active).length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Hal-hazırda tətbiq edilən</p>
+              </CardContent>
+            </Card>
 
-        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-amber-500/10 to-orange-500/5 shadow-md hover:shadow-lg transition-all duration-300">
-          <div className="absolute top-0 right-0 p-3 opacity-10">
-            <Power className="h-16 w-16" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold tracking-tight">Gələcək İllər</CardTitle>
-            <CalendarPlus className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-700">
-              {years.filter((year) => !year.is_active && new Date(year.start_date) > new Date()).length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Planlaşdırılmış növbəti illər</p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="relative overflow-hidden border-none bg-gradient-to-br from-blue-500/10 to-cyan-500/5 shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Calendar className="h-16 w-16" />
+              </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-semibold tracking-tight">Cari Təhsil İli</CardTitle>
+                <Calendar className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-blue-700 truncate">
+                  {years.find((year) => year.is_active)?.name || 'Təyin edilməyib'}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Sistem üzrə əsas il</p>
+              </CardContent>
+            </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Təhsil İlləri Siyahısı</CardTitle>
-          <CardDescription>Mövcud təhsil illərini idarə edin və yenilərini yaradın</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {years.length === 0 ? (
-            <div className="text-center py-8">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Təhsil ili yoxdur</h3>
-              <p className="text-muted-foreground mb-4">
-                Yeni təhsil ili yaratmaq üçün "Yeni Təhsil İli" düyməsinə klikləyin
-              </p>
-              <Button onClick={handleCreate}>
-                <Plus className="h-4 w-4 mr-2" />
-                Yeni Təhsil İli Yarat
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Adı</TableHead>
-                  <TableHead>Başlama Tarixi</TableHead>
-                  <TableHead>Bitmə Tarixi</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Yaradılma Tarixi</TableHead>
-                  <TableHead className="text-right">Əməliyyatlar</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {years.map((year) => (
-                  <TableRow key={year.id} className={year.is_active ? 'bg-blue-50/30' : ''}>
-                    <TableCell className="font-semibold">
-                      <div className="flex items-center gap-2">
-                        {year.name}
-                        {year.is_active && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] uppercase font-bold py-0 h-4">
-                            Cari İl
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(year.start_date)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(year.end_date)}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={year.is_active ? 'default' : 'secondary'}
-                        className={year.is_active ? 'bg-green-500 hover:bg-green-600 shadow-sm' : 'bg-slate-100 text-slate-500'}
-                      >
-                        {year.is_active ? 'Aktiv' : 'Qeyri-aktiv'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground italic">
-                      {year.created_at ? formatDate(year.created_at) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {!year.is_active && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleActivate(year)}
-                            disabled={activateMutation.isPending}
-                            title="Aktiv et"
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
+            <Card className="relative overflow-hidden border-none bg-gradient-to-br from-amber-500/10 to-orange-500/5 shadow-md hover:shadow-lg transition-all duration-300">
+              <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Power className="h-16 w-16" />
+              </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-semibold tracking-tight">Gələcək İllər</CardTitle>
+                <CalendarPlus className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-700">
+                  {years.filter((year) => !year.is_active && new Date(year.start_date) > new Date()).length}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Planlaşdırılmış növbəti illər</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Təhsil İlləri Siyahısı</CardTitle>
+              <CardDescription>Mövcud təhsil illərini idarə edin və yenilərini yaradın</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {years.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Təhsil ili yoxdur</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Yeni təhsil ili yaratmaq üçün "Yeni Təhsil İli" düyməsinə klikləyin
+                  </p>
+                  <Button onClick={handleCreate}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Yeni Təhsil İli Yarat
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Adı</TableHead>
+                      <TableHead>Başlama Tarixi</TableHead>
+                      <TableHead>Bitmə Tarixi</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Yaradılma Tarixi</TableHead>
+                      <TableHead className="text-right">Əməliyyatlar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {years.map((year) => (
+                      <TableRow key={year.id} className={year.is_active ? 'bg-blue-50/30' : ''}>
+                        <TableCell className="font-semibold">
+                          <div className="flex items-center gap-2">
+                            {year.name}
+                            {year.is_active && (
+                              <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] uppercase font-bold py-0 h-4">
+                                Cari İl
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(year.start_date)}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(year.end_date)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={year.is_active ? 'default' : 'secondary'}
+                            className={year.is_active ? 'bg-green-500 hover:bg-green-600 shadow-sm' : 'bg-slate-100 text-slate-500'}
                           >
-                            <Power className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => handleEdit(year)}
-                          title="Redaktə et"
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(year)}
-                          disabled={deleteMutation.isPending || year.is_active}
-                          title="Sil"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                            {year.is_active ? 'Aktiv' : 'Qeyri-aktiv'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground italic">
+                          {year.created_at ? formatDate(year.created_at) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {!year.is_active && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleActivate(year)}
+                                disabled={activateMutation.isPending}
+                                title="Aktiv et"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
+                              >
+                                <Power className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleEdit(year)}
+                              title="Redaktə et"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDelete(year)}
+                              disabled={deleteMutation.isPending || year.is_active}
+                              title="Sil"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 disabled:opacity-30"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="calendar" className="animate-in fade-in slide-in-from-top-4 duration-300">
+          <AcademicCalendarTab activeYear={years.find(y => y.is_active)} />
+        </TabsContent>
+      </Tabs>
 
       <AcademicYearModal open={isModalOpen} onClose={handleModalClose} currentUser={currentUser} editingYear={selectedYear} />
     </div>
