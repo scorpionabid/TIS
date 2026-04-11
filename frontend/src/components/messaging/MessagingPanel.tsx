@@ -117,51 +117,51 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="right"
-        className="w-[95vw] sm:w-full sm:max-w-4xl lg:max-w-5xl p-0 flex flex-col bg-background shadow-2xl border-l border-border/40"
+        className="w-[95vw] sm:w-full sm:max-w-4xl lg:max-w-5xl p-0 flex flex-col bg-background/95 backdrop-blur-xl shadow-2xl border-l border-white/10 dark:border-white/5"
       >
         {/* Header - Modern Design */}
-        <SheetHeader className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-white to-gray-50/50 space-y-0 flex-shrink-0">
-          <div className="flex items-center gap-3">
+        <SheetHeader className="flex-row items-center justify-between px-6 py-5 border-b border-gray-100/50 bg-white/40 dark:bg-black/20 backdrop-blur-sm space-y-0 flex-shrink-0 z-10">
+          <div className="flex items-center gap-4">
             {/* Back button for mobile thread/compose view */}
             {mobileView !== 'list' && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 sm:hidden rounded-full hover:bg-gray-100"
+                className="h-10 w-10 sm:hidden rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                 onClick={handleBackToList}
               >
-                <ArrowLeft className="h-5 w-5 text-gray-600" />
+                <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <span className="sr-only">Geri</span>
               </Button>
             )}
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#0059E1] to-[#003d99] flex items-center justify-center shadow-md">
-                <MessageSquare className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#0059E1] via-[#004dc4] to-[#003d99] flex items-center justify-center shadow-[0_4px_12px_rgba(0,89,225,0.3)] ring-1 ring-white/20">
+                <MessageSquare className="h-6 w-6 text-white" />
               </div>
               <div>
-                <SheetTitle className="text-base font-bold text-gray-900">
+                <SheetTitle className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
                   {isComposing && mobileView === 'compose' ? 'Yeni mesaj' : 'Mesajlar'}
                 </SheetTitle>
-                <p className="text-xs text-gray-500">Mesajlaşma mərkəzi</p>
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest opacity-80">Mesajlaşma mərkəzi</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {!isComposing && (
               <Button
                 variant="default"
                 size="sm"
                 onClick={handleNewMessage}
-                className="h-9 text-xs gap-2 bg-[#0059E1] hover:bg-blue-700 rounded-lg shadow-sm"
+                className="h-10 px-4 text-xs font-bold gap-2 bg-[#0059E1] hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition-all rounded-xl shadow-[0_4px_12px_rgba(0,89,225,0.2)]"
               >
                 <Plus className="h-4 w-4" />
                 Yeni mesaj
               </Button>
             )}
             <SheetClose asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-gray-100">
-                <X className="h-5 w-5 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                 <span className="sr-only">Bağla</span>
               </Button>
             </SheetClose>
@@ -174,14 +174,14 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
           {isComposing ? (
             <div className="flex-1 flex flex-col overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white">
               {/* Compose Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                    <Send className="h-5 w-5 text-white" />
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100/50 bg-white/60 dark:bg-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-4">
+                  <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.3)] ring-1 ring-white/20">
+                    <Send className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">Yeni mesaj</h3>
-                    <p className="text-xs text-gray-500">Mesajınızı yazın və göndərin</p>
+                    <h3 className="text-lg font-extrabold text-gray-900 dark:text-white leading-tight">Yeni mesaj</h3>
+                    <p className="text-[11px] font-medium text-gray-500 uppercase tracking-widest opacity-80">Mesajınızı yazın və göndərin</p>
                   </div>
                 </div>
                 <Button
@@ -191,7 +191,7 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
                     setIsComposing(false);
                     setMobileView('list');
                   }}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-xl"
                 >
                   Ləğv et
                 </Button>

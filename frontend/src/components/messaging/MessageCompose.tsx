@@ -85,15 +85,15 @@ export function MessageCompose({
   const canSend = body.trim().length > 0 && !sendMessage.isPending;
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Reply preview */}
+    <div className="flex flex-col gap-3 px-2 sm:px-4 py-2 sm:py-4 bg-[#f0f2f5] dark:bg-[#111b21] border-t border-gray-200 dark:border-white/5">
+      {/* Reply preview - WhatsApp style floating bubble */}
       {replyTo && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-muted/60 rounded-md border-l-2 border-primary">
+        <div className="flex items-start gap-4 px-4 py-3 bg-white dark:bg-[#1f2c33] rounded-2xl border-l-[6px] border-[#0059E1] shadow-lg animate-in slide-in-from-bottom-2">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-primary">
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#0059E1] mb-1">
               Cavab: {replyTo.sender.name}
             </p>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 font-medium">
               {replyTo.body}
             </p>
           </div>
@@ -101,48 +101,60 @@ export function MessageCompose({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 flex-shrink-0"
+              className="h-8 w-8 flex-shrink-0 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
               onClick={onReplyCancel}
             >
-              <X className="h-3 w-3" />
+              <X className="h-5 w-5 text-gray-400" />
               <span className="sr-only">Ləğv et</span>
             </Button>
           )}
         </div>
       )}
 
-      {/* Input row */}
-      <div className="flex items-end gap-2 relative group">
-        <Textarea
-          ref={textareaRef}
-          value={body}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Mesaj yazın... (Göndərmək üçün Enter)"
-          rows={1}
-          className={cn(
-            'flex-1 resize-none min-h-[44px] max-h-[160px] text-sm py-3 px-4',
-            'rounded-2xl border-input/40 bg-muted/40 transition-all duration-200',
-            'focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary/50 focus-visible:shadow-[0_0_15px_rgba(var(--primary),0.05)]'
-          )}
-          disabled={sendMessage.isPending}
-        />
+      {/* Input Row - Modern Ergo Layout */}
+      <div className="flex items-end gap-2.5 relative group">
+        <div className="flex-1 relative">
+          <Textarea
+            ref={textareaRef}
+            value={body}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Mesaj yazın..."
+            rows={1}
+            className={cn(
+              'w-full resize-none min-h-[48px] max-h-[160px] text-[15px] font-medium py-3 px-5',
+              'rounded-[1.5rem] border-none bg-white dark:bg-[#2a3942] text-gray-900 dark:text-gray-100 shadow-sm transition-all duration-300',
+              'placeholder:text-gray-400 focus-visible:ring-0 focus-visible:shadow-md'
+            )}
+            disabled={sendMessage.isPending}
+          />
+        </div>
+        
         <Button
           onClick={handleSend}
           disabled={!canSend}
           size="icon"
           className={cn(
-            'h-11 w-11 flex-shrink-0 rounded-full transition-all duration-200',
-            canSend ? 'bg-primary hover:bg-primary/90 hover:scale-105 shadow-sm' : 'opacity-50'
+            'h-12 w-12 flex-shrink-0 rounded-full transition-all duration-300 shadow-lg',
+            canSend 
+              ? 'bg-[#0059E1] hover:bg-[#004dc4] scale-100 active:scale-90 text-white shadow-blue-500/30' 
+              : 'bg-gray-300 dark:bg-white/10 opacity-50 grayscale scale-95'
           )}
         >
-          <Send className="h-4 w-4" />
+          <Send className={cn("h-5 w-5 transition-transform duration-500", canSend && "translate-x-0.5")} />
           <span className="sr-only">Göndər</span>
         </Button>
       </div>
 
       {sendMessage.isPending && (
-        <p className="text-xs text-muted-foreground text-right mr-12 animate-pulse">Göndərilir...</p>
+        <div className="flex items-center justify-center gap-2 mt-1">
+           <div className="flex gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0059E1] animate-bounce [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0059E1] animate-bounce [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0059E1] animate-bounce" />
+           </div>
+           <p className="text-[10px] font-black uppercase tracking-widest text-[#0059E1] opacity-70">Mesaj göndərilir...</p>
+        </div>
       )}
     </div>
   );

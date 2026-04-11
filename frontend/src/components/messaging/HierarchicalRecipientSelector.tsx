@@ -95,14 +95,15 @@ export function HierarchicalRecipientSelector({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Axtarış */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      {/* Search Header - WhatsApp Style */}
+      <div className="relative group px-1">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-all duration-300" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Ad, müəssisə və ya rol axtar..."
-          className="pl-8 h-9 text-sm"
+          placeholder="Kontakt axtarın (Ad, vəzifə...)"
+          autoFocus
+          className="pl-12 h-12 text-[15px] bg-gray-100/50 dark:bg-white/5 border-transparent rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/30 transition-all duration-300"
         />
       </div>
 
@@ -179,30 +180,30 @@ export function HierarchicalRecipientSelector({
       ) : (
         /* RegionAdmin / RegionOperator: tabs (istifadəçilər + müəssisələr) */
         <Tabs value={activeTab} onValueChange={(t) => { setActiveTab(t); if (t === 'institutions') setRoleFilter('all'); }} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-8">
-            <TabsTrigger value="users" className="text-xs">
-              <Users className="h-3 w-3 mr-1.5" />
+          <TabsList className="grid w-full grid-cols-2 h-11 bg-gray-100/80 dark:bg-white/5 p-1.5 rounded-2xl ring-1 ring-black/5 dark:ring-white/5">
+            <TabsTrigger value="users" className="text-xs font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:shadow-md transition-all">
+              <Users className="h-3.5 w-3.5 mr-2" />
               İstifadəçilər
             </TabsTrigger>
-            <TabsTrigger value="institutions" className="text-xs">
-              <Building2 className="h-3 w-3 mr-1.5" />
+            <TabsTrigger value="institutions" className="text-xs font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:shadow-md transition-all">
+              <Building2 className="h-3.5 w-3.5 mr-2" />
               Müəssisələr
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-2">
-            {/* Rol filtri — sektoradmin vs schooladmin */}
-            <div className="flex gap-1 mb-2 flex-wrap">
+            {/* Rol filtri - Minimalist pill style */}
+            <div className="flex gap-2 mb-3 flex-wrap">
               {(['all', 'sektoradmin', 'schooladmin'] as RoleFilter[]).map((f) => (
                 <button
                   key={f}
                   type="button"
                   onClick={() => setRoleFilter(f)}
                   className={cn(
-                    'px-2 py-0.5 text-[10px] rounded-full border transition-colors',
+                    'px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full border transition-all duration-300',
                     roleFilter === f
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border text-muted-foreground hover:bg-muted'
+                      ? 'bg-[#0059E1] text-white border-[#0059E1] shadow-lg shadow-blue-500/20'
+                      : 'border-gray-200 dark:border-white/10 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 bg-white dark:bg-transparent'
                   )}
                 >
                   {f === 'all' ? 'Hamısı' : getRoleDisplayName(f as UserRole)}
@@ -315,24 +316,25 @@ function UserItem({
       type="button"
       onClick={onToggle}
       className={cn(
-        'flex items-center gap-2 p-2 rounded-md hover:bg-accent text-left transition-colors w-full',
-        isSelected && 'bg-accent'
+        'flex items-center gap-4 p-3.5 rounded-[1.25rem] text-left transition-all duration-300 group relative',
+        isSelected ? 'bg-blue-500/5 dark:bg-white/5 ring-1 ring-blue-500/20' : 'hover:bg-gray-50 dark:hover:bg-white/5'
       )}
     >
-      {/* Visual-only checkbox — Shadcn Checkbox öz <button>-unu render edir,
-          nested button yaratmaması üçün div indicator istifadə edirik */}
-      <div
-        className={cn(
-          'h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
-          isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+      <div className="relative">
+        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-white/10 dark:to-transparent flex items-center justify-center text-blue-600 dark:text-blue-400 font-black text-sm uppercase shadow-sm">
+          {user.name.charAt(0)}
+        </div>
+        {isSelected && (
+          <div className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-blue-500 border-2 border-white dark:border-gray-900 flex items-center justify-center shadow-lg animate-in zoom-in">
+             <Check className="h-3 w-3 text-white" strokeWidth={4} />
+          </div>
         )}
-      >
-        {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
       </div>
+
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{user.name}</p>
-        <p className="text-[10px] text-muted-foreground truncate">
-          {user.institution_name} • {getRoleDisplayName(user.role as UserRole)}
+        <p className={cn("text-[15px] transition-colors leading-tight", isSelected ? "font-black text-blue-600 dark:text-blue-400" : "font-bold text-gray-900 dark:text-white")}>{user.name}</p>
+        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tighter opacity-60 truncate mt-0.5">
+          {user.institution_name}
         </p>
       </div>
       <RoleBadge role={user.role} />
