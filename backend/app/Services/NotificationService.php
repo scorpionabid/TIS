@@ -8,6 +8,7 @@ use App\Models\NotificationTemplate;
 use App\Models\Survey;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\InstitutionNotificationHelper;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -15,9 +16,14 @@ class NotificationService
 {
     protected TaskPermissionService $permissionService;
 
-    public function __construct(TaskPermissionService $permissionService)
-    {
+    protected InstitutionNotificationHelper $institutionHelper;
+
+    public function __construct(
+        TaskPermissionService $permissionService,
+        InstitutionNotificationHelper $institutionHelper
+    ) {
         $this->permissionService = $permissionService;
+        $this->institutionHelper = $institutionHelper;
     }
 
     /**
@@ -201,7 +207,7 @@ class NotificationService
             if (isset($recipients['institutions'])) {
                 // Expand institution IDs to user IDs using hierarchy
                 $targetRoles = $recipients['target_roles'] ?? null;
-                $institutionUserIds = InstitutionNotificationHelper::expandInstitutionsToUsers(
+                $institutionUserIds = $this->institutionHelper->doExpandInstitutionsToUsers(
                     $recipients['institutions'],
                     $targetRoles
                 );
@@ -465,6 +471,7 @@ class NotificationService
      */
     public function processScheduledNotifications(): int
     {
+        /** @var \Illuminate\Database\Eloquent\Collection<\App\Models\Notification> $notifications */
         $notifications = Notification::readyToSend()->get();
         $processed = 0;
 
@@ -573,25 +580,26 @@ class NotificationService
                 ")
                 ->pluck('cnt', 'page_key');
 
-            $overdueCount = Task::where('deadline', '<', now())
+            /** @var \Illuminate\Database\Eloquent\Builder $overdueQuery */
+            $overdueQuery = Task::where('deadline', '<', now())
                 ->whereNotIn('status', ['completed', 'cancelled']);
 
             $user = User::find($userId);
             if ($user) {
                 if ($user->hasRole('superadmin')) {
                     // For SuperAdmin personal sidebar, only show their own overdue tasks
-                    $overdueCount->where(function ($q) use ($user) {
+                    $overdueQuery->where(function ($q) use ($user) {
                         $q->where('created_by', $user->id)
                             ->orWhereHas('assignments', function ($sq) use ($user) {
                                 $sq->where('assigned_user_id', $user->id);
                             });
                     });
                 } else {
-                    $this->permissionService->applyTaskAccessControl($overdueCount, $user);
+                    $this->permissionService->applyTaskAccessControl($overdueQuery, $user);
                 }
             }
 
-            $overdueTotal = $overdueCount->count();
+            $overdueTotal = $overdueQuery->count();
 
             return [
                 'tasks' => $overdueTotal, // Replaced with overdue tasks count
@@ -871,7 +879,7 @@ class NotificationService
                 'schooladmin', 'məktəbadmin', 'müəllim',
             ]);
 
-            $targetUserIds = InstitutionNotificationHelper::expandInstitutionsToUsers(
+            $targetUserIds = $this->institutionHelper->doExpandInstitutionsToUsers(
                 $task->target_institutions ?? [],
                 $taskRoles,
                 false
