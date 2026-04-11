@@ -23,6 +23,7 @@ class IndexTeacherRequest extends FormRequest
             'position_type' => 'nullable|string',
             'employment_status' => 'nullable|string',
             'is_active' => 'nullable|boolean',
+            'subject_id' => 'nullable|integer|exists:subjects,id',
             'search' => 'nullable|string|max:255',
             'sort_by' => 'nullable|string|in:name,email,created_at',
             'sort_order' => 'nullable|string|in:asc,desc',

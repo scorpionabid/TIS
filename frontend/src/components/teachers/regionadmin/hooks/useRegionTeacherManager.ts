@@ -15,6 +15,7 @@ import {
   type RegionTeacherCreateInput,
   type RegionTeacherUpdateInput,
 } from '@/services/teachers';
+import { subjectService } from '@/services/subjects';
 import type { EnhancedTeacherProfile } from '@/types/teacher';
 import type { PaginationMeta } from '@/types/api';
 
@@ -63,6 +64,14 @@ export const useRegionTeacherManager = () => {
     ),
     enabled: isRegionAdmin,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Fetch subjects
+  const subjectsQuery = useQuery({
+    queryKey: ['subjects-all'],
+    queryFn: () => subjectService.getAll(),
+    enabled: isRegionAdmin,
+    staleTime: 1000 * 60 * 30, // 30 minutes
   });
 
   // Fetch teachers with filters
@@ -203,8 +212,25 @@ export const useRegionTeacherManager = () => {
 
   // Helper: Update filters
   const updateFilters = useCallback((newFilters: Partial<RegionTeacherFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters, page: 1 })); // Reset to page 1 on filter change
+    setFilters(prev => ({
+      ...prev,
+      ...newFilters,
+      page: newFilters.page !== undefined ? newFilters.page : 1,
+    }));
   }, []);
+
+  // Helper: Clear all filters
+  const clearFilters = useCallback(() => {
+    setFilters({
+      page: 1,
+      per_page: 20,
+    });
+    setSelectedSectorIds([]);
+    toast({
+      title: 'Filtrlər təmizləndi',
+      description: 'Bütün axtarış meyarları sıfırlandı.',
+    });
+  }, [toast]);
 
   // Helper: Update sector selection and reload schools
   const updateSectorSelection = useCallback((sectorIds: number[]) => {
@@ -267,6 +293,7 @@ export const useRegionTeacherManager = () => {
     // Data
     sectors: sectorsQuery.data || [],
     schools: schoolsQuery.data || [],
+    subjects: subjectsQuery.data || [],
     teachers: teachersQuery.data?.data || [],
     statistics: teachersQuery.data?.statistics,
     pagination: teachersQuery.data?.pagination,
@@ -280,6 +307,7 @@ export const useRegionTeacherManager = () => {
     // Filters
     filters,
     updateFilters,
+    clearFilters,
     selectedSectorIds,
     updateSectorSelection,
 

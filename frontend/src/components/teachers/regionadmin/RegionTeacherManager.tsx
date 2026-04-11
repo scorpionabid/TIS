@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useRegionTeacherManager } from './hooks/useRegionTeacherManager';
+import { TablePagination } from '@/components/common/TablePagination';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,12 @@ import {
   Plus,
   MoreVertical,
   Edit,
+  Filter,
+  RotateCcw,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
+import { POSITION_TYPE_LABELS, EMPLOYMENT_STATUS_LABELS } from '@/types/teacher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,24 +56,7 @@ import type { EnhancedTeacherProfile } from '@/types/teacher';
 import { RegionTeacherFormModal } from './RegionTeacherFormModal';
 import { type RegionTeacherCreateInput } from '@/services/teachers';
 
-// Position type labels
-const POSITION_TYPE_LABELS: Record<string, string> = {
-  direktor: 'Direktor',
-  direktor_muavini_tedris: 'Dir. Müavini (Tədris)',
-  direktor_muavini_inzibati: 'Dir. Müavini (İnzibati)',
-  müəllim: 'Müəllim',
-  'muəllim': 'Müəllim', // Alternative spelling
-  psixoloq: 'Psixoloq',
-  kitabxanaçı: 'Kitabxanaçı',
-};
 
-// Employment status labels
-const EMPLOYMENT_STATUS_LABELS: Record<string, string> = {
-  full_time: 'Tam ştat',
-  part_time: 'Natamam ştat',
-  contract: 'Müqavilə',
-  temporary: 'Müvəqqəti',
-};
 
 export const RegionTeacherManager: React.FC = () => {
   // Modal state
@@ -98,6 +87,9 @@ export const RegionTeacherManager: React.FC = () => {
     isExporting,
     createTeacher,
     updateTeacher,
+    pagination,
+    subjects,
+    clearFilters,
     isSavingTeacher,
   } = useRegionTeacherManager();
 
@@ -262,89 +254,195 @@ export const RegionTeacherManager: React.FC = () => {
       )}
 
       {/* Filters */}
-      <Card>
+      <Card className="border-slate-200 shadow-sm">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-slate-500" />
+              <h3 className="font-semibold text-slate-700">Filtrlər</h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearFilters}
+              className="text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Filtrləri təmizlə
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Müəllim adı, email..."
-                value={filters.search || ''}
-                onChange={(e) => updateFilters({ search: e.target.value })}
-                className="pl-10"
-              />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Axtarış</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Müəllim adı, email..."
+                  value={filters.search || ''}
+                  onChange={(e) => updateFilters({ search: e.target.value })}
+                  className="pl-10 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20"
+                />
+              </div>
             </div>
 
             {/* Sector Filter */}
-            <Select
-              value={selectedSectorIds[0]?.toString() || 'all'}
-              onValueChange={(value) => {
-                if (value === 'all') {
-                  updateSectorSelection([]);
-                } else {
-                  updateSectorSelection([parseInt(value)]);
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sektor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün sektorlar</SelectItem>
-                {sectors.map((sector) => (
-                  <SelectItem key={sector.id} value={sector.id.toString()}>
-                    {sector.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Sektor</label>
+              <Select
+                value={selectedSectorIds[0]?.toString() || 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    updateSectorSelection([]);
+                  } else {
+                    updateSectorSelection([parseInt(value)]);
+                  }
+                }}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder="Bütün sektorlar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün sektorlar</SelectItem>
+                  {sectors.map((sector) => (
+                    <SelectItem key={sector.id} value={sector.id.toString()}>
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* School Filter */}
-            <Select
-              value={filters.school_ids?.[0]?.toString() || 'all'}
-              onValueChange={(value) => {
-                if (value === 'all') {
-                  updateFilters({ school_ids: [] });
-                } else {
-                  updateFilters({ school_ids: [parseInt(value)] });
-                }
-              }}
-              disabled={schools.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Məktəb" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün məktəblər</SelectItem>
-                {schools.map((school) => (
-                  <SelectItem key={school.id} value={school.id.toString()}>
-                    {school.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Müəssisə</label>
+              <Select
+                value={filters.school_ids?.[0]?.toString() || 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    updateFilters({ school_ids: [] });
+                  } else {
+                    updateFilters({ school_ids: [parseInt(value)] });
+                  }
+                }}
+                disabled={schools.length === 0}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder={schools.length === 0 ? "Sektor seçin" : "Bütün məktəblər"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün məktəblər</SelectItem>
+                  {schools.map((school) => (
+                    <SelectItem key={school.id} value={school.id.toString()}>
+                      {school.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Subject Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Fənn</label>
+              <Select
+                value={filters.subject_id?.toString() || 'all'}
+                onValueChange={(value) => {
+                  updateFilters({ subject_id: value === 'all' ? undefined : parseInt(value) });
+                }}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <div className="flex items-center">
+                    <GraduationCap className="h-4 w-4 mr-2 text-slate-400" />
+                    <SelectValue placeholder="Bütün fənlər" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün fənlər</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Position Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Vəzifə</label>
+              <Select
+                value={filters.position_type || 'all'}
+                onValueChange={(value) => {
+                  updateFilters({ position_type: value === 'all' ? undefined : value });
+                }}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <div className="flex items-center">
+                    <Briefcase className="h-4 w-4 mr-2 text-slate-400" />
+                    <SelectValue placeholder="Bütün vəzifələr" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün vəzifələr</SelectItem>
+                  {Object.entries(POSITION_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Employment Status Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">İş Statusu</label>
+              <Select
+                value={filters.employment_status || 'all'}
+                onValueChange={(value) => {
+                  updateFilters({ employment_status: value === 'all' ? undefined : value });
+                }}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <div className="flex items-center">
+                    <UserCheck className="h-4 w-4 mr-2 text-slate-400" />
+                    <SelectValue placeholder="Bütün statuslar" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün statuslar</SelectItem>
+                  {Object.entries(EMPLOYMENT_STATUS_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Status Filter */}
-            <Select
-              value={filters.is_active?.toString() || 'all'}
-              onValueChange={(value) => {
-                if (value === 'all') {
-                  updateFilters({ is_active: undefined });
-                } else {
-                  updateFilters({ is_active: value === 'true' });
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Hamısı</SelectItem>
-                <SelectItem value="true">Aktiv</SelectItem>
-                <SelectItem value="false">Qeyri-aktiv</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Hesab Statusu</label>
+              <Select
+                value={filters.is_active?.toString() || 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    updateFilters({ is_active: undefined });
+                  } else {
+                    updateFilters({ is_active: value === 'true' });
+                  }
+                }}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder="Hesab statusu" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün hesablar</SelectItem>
+                  <SelectItem value="true">Aktiv hesablar</SelectItem>
+                  <SelectItem value="false">Qeyri-aktiv hesablar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -509,6 +607,21 @@ export const RegionTeacherManager: React.FC = () => {
             </Table>
           )}
         </CardContent>
+
+        {/* Pagination Section */}
+        {pagination && pagination.total_pages > 1 && (
+          <div className="px-6 border-t border-slate-100 bg-slate-50/30">
+            <TablePagination
+              currentPage={pagination.current_page}
+              totalPages={pagination.total_pages}
+              totalItems={pagination.total}
+              itemsPerPage={pagination.per_page}
+              onPageChange={(page) => updateFilters({ page })}
+              onItemsPerPageChange={(perPage) => updateFilters({ per_page: perPage, page: 1 })}
+              isLoading={isLoadingTeachers}
+            />
+          </div>
+        )}
       </Card>
 
       {/* Debug info */}

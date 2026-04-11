@@ -9,6 +9,7 @@ export interface RegionTeacherFilters extends PaginationParams {
   sector_ids?: number[];
   school_ids?: number[];
   department_id?: number;
+  subject_id?: number;
   position_type?: string;
   employment_status?: string;
   is_active?: boolean;

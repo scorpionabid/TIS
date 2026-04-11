@@ -155,6 +155,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the subjects taught by this user.
+     */
+    public function teacherSubjects(): HasMany
+    {
+        return $this->hasMany(TeacherSubject::class, 'teacher_id');
+    }
+
+    /**
      * Get the surveys created by this user.
      */
     public function createdSurveys(): HasMany

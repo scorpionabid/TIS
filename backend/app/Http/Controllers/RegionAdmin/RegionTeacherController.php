@@ -42,6 +42,7 @@ class RegionTeacherController extends Controller
                 'pagination' => [
                     'current_page' => $result['data']->currentPage(),
                     'last_page' => $result['data']->lastPage(),
+                    'total_pages' => $result['data']->lastPage(),
                     'per_page' => $result['data']->perPage(),
                     'total' => $result['data']->total(),
                     'from' => $result['data']->firstItem(),

@@ -79,6 +79,14 @@ class RegionTeacherService
             $query->whereIn('institution_id', $schoolIds);
         }
 
+        // Subject filter
+        if (! empty($filters['subject_id'])) {
+            $query->whereHas('teacherSubjects', function ($q) use ($filters) {
+                $q->where('subject_id', $filters['subject_id'])
+                  ->where('is_active', true);
+            });
+        }
+
         // Department filter
         if (! empty($filters['department_id'])) {
             $query->where('department_id', $filters['department_id']);
