@@ -58,8 +58,9 @@ export const AcademicYearModal: React.FC<AcademicYearModalProps> = ({
         notes: (editingYear.metadata as any)?.notes || '',
       });
     } else if (open && !editingYear) {
-      // Reset form for new academic year
-      const currentYear = new Date().getFullYear();
+      // Reset form for new academic year - ensure it's at least 2025
+      const actualYear = new Date().getFullYear();
+      const currentYear = Math.max(actualYear, 2025);
       const nextYear = currentYear + 1;
       
       setFormData({

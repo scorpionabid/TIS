@@ -151,7 +151,12 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
     }
   };
 
-  const years = yearsResponse?.data || [];
+  const allYears = yearsResponse?.data || [];
+  const years = allYears.filter(year => {
+    // Show only years from 2025-2026 onwards
+    // year.name is typically "2024-2025", "2025-2026", etc.
+    return year.name >= '2025-2026';
+  });
 
   if (!currentUser) {
     return null;
@@ -219,46 +224,64 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-500/10 to-purple-500/5 shadow-md hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 p-3 opacity-10">
+            <Calendar className="h-16 w-16" />
+          </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cəmi Təhsil İlləri</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold tracking-tight">Cəmi Təhsil İlləri</CardTitle>
+            <Calendar className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{years.length}</div>
+            <div className="text-3xl font-bold text-indigo-700">{years.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Sistemdə qeydiyyatda olan</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-green-500/10 to-emerald-500/5 shadow-md hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 p-3 opacity-10">
+            <CheckCircle className="h-16 w-16" />
+          </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktiv Təhsil İli</CardTitle>
+            <CardTitle className="text-sm font-semibold tracking-tight">Aktiv Təhsil İli</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{years.filter((year) => year.is_active).length}</div>
+            <div className="text-3xl font-bold text-green-700">{years.filter((year) => year.is_active).length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Hal-hazırda tətbiq edilən</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-blue-500/10 to-cyan-500/5 shadow-md hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
+          <div className="absolute top-0 right-0 p-3 opacity-10">
+            <Calendar className="h-16 w-16" />
+          </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cari Təhsil İli</CardTitle>
+            <CardTitle className="text-sm font-semibold tracking-tight">Cari Təhsil İli</CardTitle>
             <Calendar className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-sm font-medium">
-              {years.find((year) => year.is_active)?.name || 'Yoxdur'}
+            <div className="text-xl font-bold text-blue-700 truncate">
+              {years.find((year) => year.is_active)?.name || 'Təyin edilməyib'}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">Sistem üzrə əsas il</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-amber-500/10 to-orange-500/5 shadow-md hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 p-3 opacity-10">
+            <Power className="h-16 w-16" />
+          </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Keçmiş İllər</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold tracking-tight">Gələcək İllər</CardTitle>
+            <CalendarPlus className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{years.filter((year) => !year.is_active).length}</div>
+            <div className="text-3xl font-bold text-amber-700">
+              {years.filter((year) => !year.is_active && new Date(year.start_date) > new Date()).length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Planlaşdırılmış növbəti illər</p>
           </CardContent>
         </Card>
       </div>
@@ -295,43 +318,62 @@ export const AcademicYearManager: React.FC<AcademicYearManagerProps> = ({
               </TableHeader>
               <TableBody>
                 {years.map((year) => (
-                  <TableRow key={year.id}>
-                    <TableCell className="font-medium">{year.name}</TableCell>
-                    <TableCell>{formatDate(year.start_date)}</TableCell>
-                    <TableCell>{formatDate(year.end_date)}</TableCell>
+                  <TableRow key={year.id} className={year.is_active ? 'bg-blue-50/30' : ''}>
+                    <TableCell className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        {year.name}
+                        {year.is_active && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] uppercase font-bold py-0 h-4">
+                            Cari İl
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(year.start_date)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(year.end_date)}</TableCell>
                     <TableCell>
                       <Badge
                         variant={year.is_active ? 'default' : 'secondary'}
-                        className={year.is_active ? 'bg-green-500 hover:bg-green-600' : ''}
+                        className={year.is_active ? 'bg-green-500 hover:bg-green-600 shadow-sm' : 'bg-slate-100 text-slate-500'}
                       >
                         {year.is_active ? 'Aktiv' : 'Qeyri-aktiv'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{year.created_at ? formatDate(year.created_at) : '-'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground italic">
+                      {year.created_at ? formatDate(year.created_at) : '-'}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {!year.is_active && (
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             onClick={() => handleActivate(year)}
                             disabled={activateMutation.isPending}
-                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            title="Aktiv et"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
                           >
-                            <Power className="h-3 w-3" />
+                            <Power className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(year)}>
-                          <Edit className="h-3 w-3" />
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => handleEdit(year)}
+                          title="Redaktə et"
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => handleDelete(year)}
                           disabled={deleteMutation.isPending || year.is_active}
-                          className="text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Sil"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 disabled:opacity-30"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
