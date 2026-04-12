@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class ProjectService extends BaseService
 {
@@ -30,7 +31,8 @@ class ProjectService extends BaseService
     public function getProjectsForUser(User $user): Collection
     {
         // Admin roles (RegionAdmin, SectorAdmin, etc.) can see all projects
-        if ($user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin'])) {
+        // Note: regionoperator and sektoradmin are intentionally excluded from 'see-all' to respect assignment-based privacy
+        if ($user->hasAnyRole(['regionadmin', 'admin', 'superadmin'])) {
             return Project::with(['creator', 'employees'])
                 ->withCount(['activities as total_comments' => function ($query) {
                     $query->join('project_activity_comments', 'project_activities.id', '=', 'project_activity_comments.project_activity_id');
@@ -38,9 +40,13 @@ class ProjectService extends BaseService
                 ->latest()->get();
         }
 
-        // Regular employees can only see assigned projects
-        return Project::whereHas('assignments', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+        // Regular employees can see projects where they are assigned OR have assigned activities
+        return Project::where(function ($query) use ($user) {
+            $query->whereHas('assignments', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->orWhereHas('activities.assignedEmployees', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })->orWhere('created_by', $user->id);
         })->with(['creator', 'employees'])->withCount('activities')->latest()->get();
     }
 
@@ -88,7 +94,13 @@ class ProjectService extends BaseService
     {
         return DB::transaction(function () use ($id, $data) {
             $project = Project::findOrFail($id);
-            $project->update($data);
+            
+            // Extract only the fields that are in the fillable array
+            $projectData = collect($data)->only([
+                'name', 'description', 'start_date', 'end_date', 'total_goal', 'status'
+            ])->toArray();
+            
+            $project->update($projectData);
 
             if (isset($data['employee_ids']) && is_array($data['employee_ids'])) {
                 // Sync employees: remove old ones, add new ones
@@ -107,33 +119,122 @@ class ProjectService extends BaseService
     }
 
     /**
-     * Add activity to a project
+     * Batch update multiple activities.
+     */
+    public function batchUpdateActivities(array $activityIds, array $data, User $user): void
+    {
+        $activities = \App\Models\ProjectActivity::whereIn('id', $activityIds)->get();
+
+        foreach ($activities as $activity) {
+            if (!$this->canEditActivity($activity, $user)) {
+                continue; // Skip if no permission
+            }
+
+            // Update only allowed fields
+            $allowedFields = ['status', 'priority', 'start_date', 'end_date', 'category', 'budget', 'parent_id'];
+            $updateData = array_intersect_key($data, array_flip($allowedFields));
+            
+            if (!empty($updateData)) {
+                $activity->update($updateData);
+                $this->logActivityAction($activity->id, 'updated', 'Toplu yenilənmə ilə dəyişdirildi', $user->id);
+            }
+
+            // Handle batch assignment if employee_ids provided
+            if (isset($data['employee_ids'])) {
+                $activity->assignedEmployees()->sync($data['employee_ids']);
+            }
+        }
+    }
+
+    /**
+     * Get workload statistics for employees across all projects the user can see.
+     */
+    public function getWorkloadStats(User $user): array
+    {
+        $projects = $this->getProjectsForUser($user);
+        $projectIds = $projects->pluck('id');
+
+        if ($projectIds->isEmpty()) {
+            return [];
+        }
+
+        // Aggregate stats directly in DB for performance
+        // We count both pivot assignments and primary user_id assignments
+        $stats = DB::table('project_activities as pa')
+            ->select('u.id', 'u.name', 'pa.status', DB::raw('count(*) as count'))
+            ->leftJoin('project_activity_user as pau', 'pa.id', '=', 'pau.project_activity_id')
+            ->leftJoin('users as u', function ($join) {
+                $join->on('pau.user_id', '=', 'u.id')
+                    ->orOn('pa.user_id', '=', 'u.id');
+            })
+            ->whereIn('pa.project_id', $projectIds)
+            ->whereNotNull('u.id')
+            ->groupBy('u.id', 'u.name', 'pa.status')
+            ->get();
+
+        $workload = [];
+        foreach ($stats as $stat) {
+            if (!isset($workload[$stat->id])) {
+                $workload[$stat->id] = [
+                    'id' => $stat->id,
+                    'name' => $stat->name,
+                    'in_progress' => 0,
+                    'pending' => 0,
+                    'checking' => 0,
+                    'stuck' => 0,
+                    'completed' => 0,
+                    'total' => 0
+                ];
+            }
+            if (isset($workload[$stat->id][$stat->status])) {
+                $workload[$stat->id][$stat->status] += $stat->count;
+                $workload[$stat->id]['total'] += $stat->count;
+            }
+        }
+
+        return array_values(collect($workload)->sortByDesc('total')->take(20)->toArray());
+    }
+
+    /**
+     * Get my activities across all projects.
      */
     public function addActivity(int $projectId, array $data, User $user): ProjectActivity
     {
+        $maxOrder = ProjectActivity::where('project_id', $projectId)->max('order_index') ?? -1;
+
         $activity = ProjectActivity::create(array_merge($data, [
             'project_id' => $projectId,
             'status' => $data['status'] ?? 'pending',
+            'order_index' => $maxOrder + 1,
         ]));
+
+        if (isset($data['employee_ids']) && is_array($data['employee_ids'])) {
+            $activity->assignedEmployees()->sync($data['employee_ids']);
+            
+            // Send notifications to all assigned employees
+            foreach ($data['employee_ids'] as $empId) {
+                if ($empId != $user->id) {
+                    $project = Project::find($projectId);
+                    $this->notificationService->sendFromTemplate(
+                        'project_activity_assigned',
+                        ['users' => [$empId]],
+                        [
+                            'project_name' => $project->name,
+                            'activity_name' => $activity->name,
+                        ],
+                        ['related' => $project]
+                    );
+                }
+            }
+        } elseif (isset($data['user_id']) && $data['user_id']) {
+            // Backward compatibility
+            $activity->assignedEmployees()->sync([$data['user_id']]);
+        }
 
         // Log creation
         $this->logActivityAction($activity->id, $user->id, 'created', null, null, "Fəaliyyət yaradıldı: {$activity->name}");
 
-        // If activity is assigned to someone else, notify them
-        if (isset($data['user_id']) && $data['user_id'] && $data['user_id'] != $user->id) {
-            $project = Project::find($projectId);
-            $this->notificationService->sendFromTemplate(
-                'project_activity_assigned',
-                ['users' => [$data['user_id']]],
-                [
-                    'project_name' => $project->name,
-                    'activity_name' => $activity->name,
-                ],
-                ['related' => $project]
-            );
-        }
-
-        return $activity->load('employee');
+        return $activity->load(['assignedEmployees', 'employee']);
     }
 
     /**
@@ -142,9 +243,17 @@ class ProjectService extends BaseService
     public function updateActivity(int $activityId, array $data, User $user): ProjectActivity
     {
         $activity = ProjectActivity::findOrFail($activityId);
-        $oldData = $activity->getOriginal();
+        
+        if (!$this->canEditActivity($activity, $user)) {
+            throw new \Exception('Bu fəaliyyəti redaktə etmək üçün icazəniz yoxdur.');
+        }
 
+        $oldData = $activity->getOriginal();
         $activity->update($data);
+
+        if (isset($data['employee_ids']) && is_array($data['employee_ids'])) {
+            $activity->assignedEmployees()->sync($data['employee_ids']);
+        }
 
         // Track specific changes for logging
         $trackableFields = ['status', 'priority', 'user_id', 'budget', 'planned_hours', 'end_date', 'goal_contribution_percentage', 'goal_target'];
@@ -162,7 +271,7 @@ class ProjectService extends BaseService
             }
         }
 
-        return $activity->load('employee');
+        return $activity->load(['assignedEmployees', 'employee']);
     }
 
     /**
@@ -170,13 +279,17 @@ class ProjectService extends BaseService
      */
     public function getProjectStats(int $projectId): array
     {
-        $project = Project::with(['activities.employee'])->findOrFail($projectId);
-        $activities = $project->activities;
+        $project = Project::with(['activities.assignedEmployees', 'activities.employee', 'assignments'])->findOrFail($projectId);
+        $user = Auth::user();
+
+        // Filter activities based on user visibility
+        $activities = $this->filterActivitiesForUser($project, $user);
 
         $total = $activities->count();
         $completed = $activities->where('status', 'completed')->count();
         $inProgress = $activities->where('status', 'in_progress')->count();
-        $stuck = $activities->where('status', 'stuck')->count(); // Added for Monday style
+        $checking = $activities->where('status', 'checking')->count();
+        $stuck = $activities->where('status', 'stuck')->count();
 
         $plannedHours = $activities->sum('planned_hours');
         $actualHours = $activities->sum('actual_hours');
@@ -186,6 +299,7 @@ class ProjectService extends BaseService
         $statusBreakdown = [
             'pending' => $activities->where('status', 'pending')->count(),
             'in_progress' => $inProgress,
+            'checking' => $checking,
             'completed' => $completed,
             'stuck' => $stuck,
         ];
@@ -270,6 +384,30 @@ class ProjectService extends BaseService
     }
 
     /**
+     * Delete an activity.
+     */
+    public function deleteActivity(int $activityId, User $user): void
+    {
+        $activity = ProjectActivity::with('project')->findOrFail($activityId);
+        
+        // Authorization: Admin or Project Creator
+        $canDelete = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']) || 
+                     $activity->project->created_by === $user->id;
+                     
+        if (!$canDelete) {
+            throw new \Exception('Bu fəaliyyəti silmək üçün icazəniz yoxdur.');
+        }
+
+        $activityName = $activity->name;
+        $projectId = $activity->project_id;
+        
+        $activity->delete();
+
+        // Log deletion
+        $this->logActivityAction($activityId, $user->id, 'deleted', null, null, null, "Fəaliyyət silindi: {$activityName}");
+    }
+
+    /**
      * Get comments for an activity.
      */
     public function getComments(int $activityId)
@@ -289,6 +427,122 @@ class ProjectService extends BaseService
             ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Reorder activities.
+     */
+    public function reorderActivities(int $projectId, array $activityIds): void
+    {
+        DB::transaction(function () use ($activityIds) {
+            foreach ($activityIds as $index => $id) {
+                ProjectActivity::where('id', $id)->update(['order_index' => $index]);
+            }
+        });
+    }
+
+    /**
+     * Get all activities assigned to a specific user
+     */
+    public function getMyActivities(User $user): Collection
+    {
+        return ProjectActivity::where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->orWhereHas('assignedEmployees', function ($subQuery) use ($user) {
+                    $subQuery->where('users.id', $user->id);
+                });
+        })
+        ->with(['project', 'assignedEmployees'])
+        ->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
+        ->orderBy('end_date', 'asc')
+        ->get();
+    }
+
+    /**
+     * Get urgent activities (overdue or due within 7 days) across all projects.
+     * Admins see all; regular users see only their own.
+     */
+    public function getUrgentActivities(User $user): Collection
+    {
+        $isAdmin = $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'admin']);
+        $sevenDaysFromNow = now()->addDays(7)->endOfDay();
+
+        $query = ProjectActivity::whereNotIn('status', ['completed'])
+            ->where(function ($q) use ($sevenDaysFromNow) {
+                $q->where('end_date', '<', now()->startOfDay()) // overdue
+                  ->orWhere(function ($q2) use ($sevenDaysFromNow) {
+                      $q2->where('end_date', '>=', now()->startOfDay())
+                         ->where('end_date', '<=', $sevenDaysFromNow); // upcoming 7 days
+                  });
+            })
+            ->with(['project', 'assignedEmployees']);
+
+        if (!$isAdmin) {
+            // Non-admins only see their own activities
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhereHas('assignedEmployees', function ($sq) use ($user) {
+                      $sq->where('users.id', $user->id);
+                  });
+            });
+        }
+
+        return $query->orderBy('end_date', 'asc')->get();
+    }
+
+    /**
+     * Filter project activities based on user visibility rules
+     */
+    public function filterActivitiesForUser(Project $project, User $user): Collection
+    {
+        // Check if user is linked to the project in any way
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
+        $isCreator = $project->created_by === $user->id;
+        $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
+        $hasAssignedActivity = $project->activities()->where(function($q) use ($user) {
+            $q->where('user_id', $user->id)
+              ->orWhereHas('assignedEmployees', fn($sq) => $sq->where('users.id', $user->id));
+        })->exists();
+
+        // If user has NO link to the project at all, they see nothing
+        if (!$isAdmin && !$isCreator && !$isProjectMember && !$hasAssignedActivity) {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        // EVERYONE linked to the project sees ALL activities for context
+        // But we will mark which ones are editable on the controller/model level
+        return $project->activities;
+    }
+
+    /**
+     * Check if a user can edit a specific activity
+     */
+    public function canEditActivity(ProjectActivity $activity, User $user): bool
+    {
+        if ($user->hasAnyRole(['regionadmin', 'admin', 'superadmin'])) {
+            return true;
+        }
+
+        $project = $activity->project;
+        if ($project->created_by === $user->id) {
+            return true;
+        }
+
+        // Project member assigned in project_assignments can edit everything
+        if ($project->assignments()->where('user_id', $user->id)->exists()) {
+            return true;
+        }
+
+        // ALLOW: If the user is specifically assigned to this activity
+        if ($activity->user_id === $user->id) {
+            return true;
+        }
+
+        if ($activity->assignedEmployees()->where('users.id', $user->id)->exists()) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

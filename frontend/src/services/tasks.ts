@@ -308,6 +308,7 @@ export type TasksListResponse = {
 export interface AssignableUser {
   id: number;
   name: string;
+  username?: string | null;
   email: string | null;
   role?: string | null;
   is_active: boolean;
@@ -353,6 +354,7 @@ export interface AssignableUsersResponse {
 export interface AssignableUsersRequestParams {
   role?: string;
   institution_id?: number;
+  region_id?: number;
   search?: string;
   per_page?: number;
   page?: number;

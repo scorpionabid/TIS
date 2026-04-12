@@ -1,7 +1,7 @@
 import React from 'react';
 import { List } from 'react-window';
 import type { RowComponentProps } from 'react-window';
-import { Loader2, Search, X } from 'lucide-react';
+import { Loader2, Search, X, MapPin, CheckSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,6 +14,15 @@ import {
 } from '@/components/tasks/config/taskFormFields';
 import { useAssignableUsers } from '@/hooks/tasks/useAssignableUsers';
 import { AssignableUser } from '@/services/tasks';
+import { useQuery } from '@tanstack/react-query';
+import { institutionService } from '@/services/institutions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type OriginScope = 'region' | 'sector' | null;
 
@@ -47,18 +56,35 @@ export function ResponsibleUserSelector({
   const [searchTerm, setSearchTerm] = React.useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), 400);
   const [roleFilter, setRoleFilter] = React.useState<string | null>(null);
+  const [selectedRegionId, setSelectedRegionId] = React.useState<number | null>(null);
   const [selectedCache, setSelectedCache] = React.useState<CachedUsers>({});
 
   const activeRoles = React.useMemo(() => {
     const roles = allowedRoles?.length ? allowedRoles : ASSIGNABLE_ROLES;
-    
-    // Hierarchy Filter: Only show roles at or below current user's level
+
     return Array.from(new Set(roles.map((role) => role.toLowerCase())))
       .filter(role => {
         const targetLevel = ROLE_HIERARCHY[role as UserRole] || 99;
         return targetLevel >= currentUserLevel;
       });
   }, [allowedRoles, currentUserLevel]);
+
+  // Fetch regions (level=2 institutions) for the region picker
+  const { data: regionsData } = useQuery({
+    queryKey: ['institutions-regions'],
+    queryFn: () => institutionService.getAll({ level: 2, per_page: 200 } as any),
+    staleTime: 1000 * 60 * 10,
+    enabled: !disabled,
+  });
+
+  const regions = React.useMemo(() => {
+    if (!regionsData) return [];
+    // Handle various response shapes from institutionService
+    const raw = (regionsData as any)?.data?.data ?? (regionsData as any)?.data ?? regionsData;
+    return Array.isArray(raw) ? raw : [];
+  }, [regionsData]);
+
+  const perPage = selectedRegionId ? 200 : 50;
 
   const {
     users,
@@ -73,6 +99,8 @@ export function ResponsibleUserSelector({
     originScope,
     role: roleFilter,
     search: debouncedSearch,
+    regionId: selectedRegionId,
+    perPage,
     enabled: !disabled,
   });
 
@@ -99,6 +127,12 @@ export function ResponsibleUserSelector({
   const handleClearSelection = React.useCallback(() => {
     onChange([]);
   }, [onChange]);
+
+  const handleSelectAllVisible = React.useCallback(() => {
+    const allIds = users.map((u) => u.id.toString());
+    const merged = Array.from(new Set([...value, ...allIds]));
+    onChange(merged);
+  }, [users, value, onChange]);
 
   const displayedUsers = React.useMemo(
     () => (Array.isArray(users) ? users : []),
@@ -133,11 +167,6 @@ export function ResponsibleUserSelector({
 
     const userId = user.id.toString();
     const isChecked = value.includes(userId);
-    const roleLabel = roleDisplayNames[user.role ?? ''] ?? user.role ?? 'N/A';
-
-    const path = Array.isArray(user.institution?.hierarchy_path)
-      ? user.institution!.hierarchy_path.map((node) => node.name).join(' › ')
-      : user.institution?.name;
 
     return (
       <div
@@ -161,6 +190,9 @@ export function ResponsibleUserSelector({
           />
           <div className="flex flex-col">
             <span className="font-semibold text-sm text-foreground">{user.name}</span>
+            {user.institution?.name && (
+              <span className="text-[11px] text-muted-foreground">{user.institution.name}</span>
+            )}
           </div>
         </label>
       </div>
@@ -170,6 +202,7 @@ export function ResponsibleUserSelector({
   return (
     <div className={cn('space-y-4 rounded-lg border border-dashed border-border/60 p-4', disabled && 'opacity-60')}>
       <div className="flex flex-col gap-3">
+        {/* Search */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-foreground">Axtar</label>
           <div className="relative">
@@ -184,6 +217,49 @@ export function ResponsibleUserSelector({
           </div>
         </div>
 
+        {/* Region filter */}
+        {regions.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              Region üzrə filtr
+            </label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedRegionId?.toString() ?? 'all'}
+                onValueChange={(v) => setSelectedRegionId(v === 'all' ? null : Number(v))}
+                disabled={disabled}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Bütün regionlar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün regionlar</SelectItem>
+                  {regions.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id.toString()}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedRegionId && !isFetching && displayedUsers.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 gap-1.5 text-xs"
+                  onClick={handleSelectAllVisible}
+                  disabled={disabled}
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  Hamısını seç ({displayedUsers.length})
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Role filters */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">Rol filtrləri</span>
@@ -211,6 +287,7 @@ export function ResponsibleUserSelector({
         </div>
       </div>
 
+      {/* Selected users */}
       {value.length > 0 && (
         <div className="space-y-2 rounded-md border border-border/60 p-3 bg-muted/40">
           <div className="flex items-center justify-between text-sm font-medium text-foreground">
@@ -240,6 +317,7 @@ export function ResponsibleUserSelector({
         </div>
       )}
 
+      {/* User list */}
       <div className="rounded-md border border-border/60">
         {error && (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">

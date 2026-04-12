@@ -8,7 +8,7 @@ export interface Project extends BaseEntity {
   end_date?: string;
   total_goal?: string;
   created_by: number;
-  status: 'active' | 'completed' | 'on_hold' | 'cancelled';
+  status: 'active' | 'completed' | 'on_hold' | 'cancelled' | 'archived';
   creator?: {
     id: number;
     name: string;
@@ -39,17 +39,39 @@ export interface ProjectActivity extends BaseEntity {
   budget: number;
   priority: 'low' | 'medium' | 'high' | 'critical';
   status: 'pending' | 'in_progress' | 'checking' | 'completed' | 'stuck';
-  category?: string;
+  category: string;
+  order_index: number;
   notes?: string;
   goal_contribution_percentage?: number;
   goal_target?: string;
+  expected_outcome?: string;
+  kpi_metrics?: string;
+  risks?: string;
+  location_platform?: string;
+  monitoring_mechanism?: string;
   comments_count: number;
   attachments?: ProjectAttachment[];
   employee?: {
     id: number;
     name: string;
   };
+  assigned_employees?: Array<{
+    id: number;
+    name: string;
+  }>;
   sub_activities?: ProjectActivity[];
+  created_at: string;
+}
+
+export interface WorkloadStat {
+  id: number;
+  name: string;
+  in_progress: number;
+  pending: number;
+  checking: number;
+  stuck: number;
+  completed: number;
+  total: number;
 }
 
 export interface ProjectActivityLog {
@@ -138,6 +160,14 @@ class ProjectService extends BaseService<Project> {
     return this.unwrapResponseData<ProjectActivity>(response);
   }
 
+  async deleteActivity(activityId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/activities/${activityId}`);
+  }
+
+  async reorderActivities(projectId: number, activityIds: number[]): Promise<void> {
+    await apiClient.post(`${this.baseEndpoint}/${projectId}/activities/reorder`, { activity_ids: activityIds });
+  }
+
   async getComments(activityId: number): Promise<any[]> {
     const response = await apiClient.get(`${this.baseEndpoint}/activities/${activityId}/comments`);
     return this.unwrapResponseData<any[]>(response);
@@ -168,6 +198,55 @@ class ProjectService extends BaseService<Project> {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get<any>(`${this.baseEndpoint}/stats`, params);
     return this.unwrapResponseData<ProjectStats | AdminDashboardStats>(response);
+  }
+
+  async getMyActivities(): Promise<ProjectActivity[]> {
+    const response = await apiClient.get<any>(`${this.baseEndpoint}/my-activities`);
+    return this.unwrapResponseData<ProjectActivity[]>(response);
+  }
+
+  async getUrgentActivities(): Promise<ProjectActivity[]> {
+    const response = await apiClient.get<any>(`${this.baseEndpoint}/urgent-activities`, {}, { cache: false });
+    return this.unwrapResponseData<ProjectActivity[]>(response);
+  }
+
+  async archiveProject(id: number): Promise<Project> {
+    const response = await apiClient.post<Project>(`${this.baseEndpoint}/${id}/archive`, {});
+    return this.unwrapResponseData<Project>(response);
+  }
+
+  async unarchiveProject(id: number): Promise<Project> {
+    const response = await apiClient.post<Project>(`${this.baseEndpoint}/${id}/unarchive`, {});
+    return this.unwrapResponseData<Project>(response);
+  }
+
+  async exportProject(id: number): Promise<void> {
+    try {
+      const response = await apiClient.get<Blob>(`projects/${id}/export`, {}, { responseType: 'blob' });
+      if (response.data) {
+        const url = window.URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `project_${id}_activities_${new Date().toISOString().split('T')[0]}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      throw error;
+    }
+  }
+
+  async getWorkloadStats(): Promise<WorkloadStat[]> {
+    const response = await apiClient.get<any>('/projects/workload-stats');
+    return this.unwrapResponseData<WorkloadStat[]>(response);
+  }
+
+  async batchUpdateActivities(ids: number[], data: any): Promise<any> {
+    const response = await apiClient.post('/projects/batch-update', { ids, data });
+    return this.unwrapResponseData<any>(response);
   }
 }
 

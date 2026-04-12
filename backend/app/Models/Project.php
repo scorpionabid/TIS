@@ -50,11 +50,10 @@ class Project extends Model
         return $this->belongsToMany(User::class, 'project_assignments', 'project_id', 'user_id');
     }
 
-    /**
-     * Get the activities for the project.
-     */
     public function activities(): HasMany
     {
-        return $this->hasMany(ProjectActivity::class);
+        return $this->hasMany(ProjectActivity::class)
+            ->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
+            ->orderBy('order_index', 'asc');
     }
 }

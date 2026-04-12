@@ -75,6 +75,7 @@ class TaskPermissionController extends BaseTaskController
         $request->validate([
             'role' => 'nullable|string',
             'institution_id' => 'nullable|integer|exists:institutions,id',
+            'region_id' => 'nullable|integer|exists:institutions,id',
             'search' => 'nullable|string|max:255',
             'per_page' => 'nullable|integer|min:1|max:200',
             'origin_scope' => 'nullable|string|in:region,sector',

@@ -21,8 +21,10 @@ import {
   Line,
   CartesianGrid
 } from "recharts";
-import { Project } from "@/services/projects";
+import { Project, WorkloadStat, projectService } from "@/services/projects";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   TrendingUp, 
   Clock, 
@@ -77,6 +79,11 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
     { month: 'Mar', count: 8 },
     { month: 'Apr', count: activeProjects.length + completedProjects.length },
   ];
+
+  const { data: workloadData, isLoading: isWorkloadLoading } = useQuery({
+    queryKey: ['projectWorkloadStats'],
+    queryFn: () => projectService.getWorkloadStats()
+  });
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
@@ -195,6 +202,59 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Workload Analytics */}
+      <Card className="shadow-xl border-primary/5 hover:border-primary/20 transition-all duration-300 group overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-black flex items-center gap-2">
+             <Users className="w-6 h-6 text-primary" />
+             Əməkdaşların İş Yükü Analitikası
+          </CardTitle>
+          <CardDescription className="text-sm font-medium italic">Hər bir əməkdaş üzrə aktiv tapşırıqların paylanması</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {isWorkloadLoading ? (
+            <div className="h-[400px] w-full flex items-center justify-center gap-4">
+               <Skeleton className="h-full w-20" />
+               <Skeleton className="h-full w-20" />
+               <Skeleton className="h-full w-20" />
+               <Skeleton className="h-full w-20" />
+            </div>
+          ) : (
+            <div className="h-[450px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={workloadData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                  <XAxis type="number" fontSize={12} fontStyle="bold" axisLine={false} tickLine={false} />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    fontSize={11} 
+                    fontWeight={700}
+                    width={150}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Legend verticalAlign="top" height={36}/>
+                  <Bar dataKey="in_progress" name="İcraatda" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="pending" name="Gözləmədə" stackId="a" fill="#94a3b8" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="checking" name="Yoxlamada" stackId="a" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="stuck" name="Problem" stackId="a" fill="#f43f5e" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="completed" name="Tamamlanıb" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Highlights / Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">

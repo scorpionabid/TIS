@@ -46,6 +46,17 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { az } from "date-fns/locale";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const COLUMNS = [
   {
@@ -89,15 +100,13 @@ type ColumnId = typeof COLUMNS[number]["id"];
 
 interface ProjectActivityKanbanProps {
   activities: ProjectActivity[];
-  onEditActivity: (activity: ProjectActivity) => void;
-  onDeleteActivity?: (activity: ProjectActivity) => void;
+  onDeleteActivity?: (activityId: number) => void;
   onStatusChange: (activityId: number, newStatus: ProjectActivity["status"]) => Promise<void>;
   canEdit: boolean;
 }
 
 export function ProjectActivityKanban({
   activities,
-  onEditActivity,
   onDeleteActivity,
   onStatusChange,
   canEdit,
@@ -168,7 +177,6 @@ export function ProjectActivityKanban({
             key={column.id}
             column={column}
             activities={activitiesByStatus[column.id]}
-            onEdit={onEditActivity}
             onDelete={onDeleteActivity}
             canEdit={canEdit}
           />
@@ -185,7 +193,7 @@ export function ProjectActivityKanban({
 
 
 
-function KanbanColumn({ column, activities, onEdit, onDelete, canEdit }: any) {
+function KanbanColumn({ column, activities, onDelete, canEdit }: any) {
   const { setNodeRef } = useDroppable({ id: column.id });
   const Icon = column.icon;
   
@@ -210,7 +218,6 @@ function KanbanColumn({ column, activities, onEdit, onDelete, canEdit }: any) {
               <SortableActivityCard 
                 key={activity.id} 
                 activity={activity} 
-                onEdit={onEdit} 
                 onDelete={onDelete}
                 canEdit={canEdit}
               />
@@ -228,7 +235,7 @@ function KanbanColumn({ column, activities, onEdit, onDelete, canEdit }: any) {
   );
 }
 
-function SortableActivityCard({ activity, onEdit, onDelete, canEdit }: any) {
+function SortableActivityCard({ activity, onDelete, canEdit }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: activity.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -236,8 +243,7 @@ function SortableActivityCard({ activity, onEdit, onDelete, canEdit }: any) {
     <div ref={setNodeRef} style={style} className={cn("touch-none", isDragging && "opacity-0")}>
       <ActivityCard 
         activity={activity} 
-        onEdit={() => onEdit(activity)} 
-        onDelete={() => onDelete?.(activity)}
+        onDelete={onDelete ? () => onDelete(activity.id) : undefined}
         canEdit={canEdit}
         dragHandleProps={{ ...attributes, ...listeners }} 
       />
@@ -245,7 +251,7 @@ function SortableActivityCard({ activity, onEdit, onDelete, canEdit }: any) {
   );
 }
 
-function ActivityCard({ activity, onEdit, onDelete, canEdit, dragHandleProps, isDragOverlay }: any) {
+function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOverlay }: any) {
   const priorityColors = {
     low: "bg-blue-500/10 text-blue-600 border-blue-200",
     medium: "bg-amber-500/10 text-amber-600 border-amber-200",
@@ -273,13 +279,36 @@ function ActivityCard({ activity, onEdit, onDelete, canEdit, dragHandleProps, is
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-32">
-                  <DropdownMenuItem onClick={onEdit} className="text-xs">
-                    <Edit className="h-3.5 w-3.5 mr-2" /> Redaktə
+                  <DropdownMenuItem className="text-xs text-muted-foreground italic">
+                     Detallara Cədvəldən baxın
                   </DropdownMenuItem>
                   {onDelete && (
-                    <DropdownMenuItem onClick={onDelete} className="text-xs text-destructive">
-                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Sil
-                    </DropdownMenuItem>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-xs text-destructive cursor-pointer">
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Sil
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Fəaliyyəti silmək?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              "{activity.name}" fəaliyyəti sistemdən silinəcək.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Xeyr</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={onDelete}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Bəli, Sil
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -314,11 +343,17 @@ function ActivityCard({ activity, onEdit, onDelete, canEdit, dragHandleProps, is
                   return date && !isNaN(date.getTime()) ? format(date, "dd.MM.yyyy", { locale: az }) : "-";
                 })()}
               </div>
-              {activity.employee && (
-                <div className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20 shadow-sm">
-                  {activity.employee.name}
-                </div>
-              )}
+              <div className="flex flex-col items-end gap-1 min-w-[80px]">
+                {activity.assigned_employees && activity.assigned_employees.length > 0 ? (
+                  activity.assigned_employees.map(emp => (
+                    <div key={emp.id} className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shadow-sm leading-none whitespace-nowrap">
+                      {emp.name}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[9px] text-muted-foreground/50 italic">Təyin edilməyib</div>
+                )}
+              </div>
             </div>
           </div>
         </div>

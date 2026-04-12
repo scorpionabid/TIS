@@ -29,6 +29,12 @@ class ProjectActivity extends Model
         'notes',
         'goal_contribution_percentage',
         'goal_target',
+        'expected_outcome',
+        'kpi_metrics',
+        'risks',
+        'location_platform',
+        'monitoring_mechanism',
+        'order_index',
     ];
 
     protected $casts = [
@@ -38,6 +44,7 @@ class ProjectActivity extends Model
         'actual_hours' => 'decimal:2',
         'budget' => 'decimal:2',
         'goal_contribution_percentage' => 'decimal:2',
+        'metadata' => 'array',
     ];
 
     /**
@@ -86,6 +93,16 @@ class ProjectActivity extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Get the employees assigned to this activity.
+     */
+    public function assignedEmployees()
+    {
+        return $this->belongsToMany(User::class, 'project_activity_user', 'project_activity_id', 'user_id')
+                    ->withPivot('assigned_at')
+                    ->withTimestamps();
     }
 
     /**

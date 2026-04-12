@@ -86,8 +86,41 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
     },
   });
 
+  // Sync form with initialData when it changes (e.g. user opens a different project)
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name || '',
+        description: initialData.description || '',
+        start_date: initialData.start_date ? new Date(initialData.start_date) : undefined,
+        end_date: initialData.end_date ? new Date(initialData.end_date) : undefined,
+        status: initialData.status || 'active',
+        total_goal: initialData.total_goal || '',
+        employee_ids: initialData.employees?.map(emp => emp.id.toString()) || [],
+      });
+    } else {
+      form.reset({
+        name: '',
+        description: '',
+        start_date: undefined,
+        end_date: undefined,
+        status: 'active',
+        total_goal: '',
+        employee_ids: [],
+      });
+    }
+  }, [initialData, form]);
+
   const handleSubmit = async (values: ProjectFormValues) => {
-    await onSubmit(values);
+    // Transform data for backend
+    const formattedValues = {
+      ...values,
+      employee_ids: values.employee_ids.map(id => parseInt(id, 10)),
+      start_date: values.start_date ? format(values.start_date, 'yyyy-MM-dd') : null,
+      end_date: values.end_date ? format(values.end_date, 'yyyy-MM-dd') : null,
+    };
+    
+    await onSubmit(formattedValues);
   };
 
   const statusColors = {

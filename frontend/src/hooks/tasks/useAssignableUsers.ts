@@ -12,6 +12,7 @@ export interface UseAssignableUsersOptions {
   originScope?: OriginScope;
   role?: string | null;
   institutionId?: number | null;
+  regionId?: number | null;
   search?: string;
   perPage?: number;
   enabled?: boolean;
@@ -23,6 +24,7 @@ export function useAssignableUsers({
   originScope = null,
   role = null,
   institutionId = null,
+  regionId = null,
   search = '',
   perPage = DEFAULT_PER_PAGE,
   enabled = true,
@@ -33,6 +35,7 @@ export function useAssignableUsers({
       originScope,
       role,
       institutionId,
+      regionId,
       search,
       perPage,
     },
@@ -59,6 +62,7 @@ export function useAssignableUsers({
         origin_scope: originScope ?? undefined,
         role: role ?? undefined,
         institution_id: institutionId ?? undefined,
+        region_id: regionId ?? undefined,
         search: search?.trim() || undefined,
         per_page: perPage,
         page: Number(pageParam ?? 1),

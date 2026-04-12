@@ -25,7 +25,6 @@ import { Link as LinkIcon, MessageSquare, Clock } from "lucide-react";
 
 interface ProjectActivityTimelineProps {
   activities: ProjectActivity[];
-  onEditActivity: (activity: ProjectActivity) => void;
 }
 
 const STATUS_COLORS = {
@@ -36,7 +35,7 @@ const STATUS_COLORS = {
   stuck: "bg-red-500",
 };
 
-export function ProjectActivityTimeline({ activities, onEditActivity }: ProjectActivityTimelineProps) {
+export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineProps) {
   // Determine date range for the timeline
   const { startDate, endDate, days } = useMemo(() => {
     if (activities.length === 0) {
@@ -126,7 +125,7 @@ export function ProjectActivityTimeline({ activities, onEditActivity }: ProjectA
                   <div className="w-[280px] p-3 border-r flex items-center gap-3 bg-background/50 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                     <div className={cn("w-1.5 h-8 rounded-full shrink-0", STATUS_COLORS[activity.status])} />
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold truncate group-hover:text-primary transition-colors cursor-pointer" onClick={() => onEditActivity(activity)}>
+                      <span className="text-xs font-bold truncate group-hover:text-primary transition-colors">
                         {activity.name}
                       </span>
                       <div className="flex items-center gap-2 mt-1">
@@ -177,7 +176,7 @@ export function ProjectActivityTimeline({ activities, onEditActivity }: ProjectA
                             width: `${widthDays * 40}px`,
                             zIndex: 5
                           }}
-                          onClick={() => onEditActivity(activity)}
+                          onClick={() => {}}
                         >
                            <div className="shrink-0 bg-white/20 p-1 rounded-md">
                              {activity.parent_id ? <LinkIcon className="w-3 h-3 text-white" /> : <Clock className="w-3 h-3 text-white" />}

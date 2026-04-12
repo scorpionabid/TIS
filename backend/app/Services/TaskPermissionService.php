@@ -294,11 +294,11 @@ class TaskPermissionService extends BaseService
         }
 
         if ($originScope === 'region') {
-            return $this->filterInstitutionIdsByLevels($scope, [2, 3]);
+            return $this->filterInstitutionIdsByLevels($scope, [2, 3, 4, 5, 6]);
         }
 
         if ($originScope === 'sector') {
-            return $this->filterInstitutionIdsByLevels($scope, [3, 4]);
+            return $this->filterInstitutionIdsByLevels($scope, [3, 4, 5, 6]);
         }
 
         return $scope;
@@ -307,8 +307,14 @@ class TaskPermissionService extends BaseService
     public function filterRolesByOriginScope(array $roles, string $originScope): array
     {
         $scopeRoleMap = [
-            'region' => ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'sektoroperator'],
-            'sector' => ['superadmin', 'sektoradmin', 'sektoroperator', 'schooladmin'],
+            'region' => [
+                'superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'sektoroperator', 
+                'schooladmin', 'preschooladmin', 'müəllim', 'teacher', 'muavin', 'metodik', 'psixoloq', 'user'
+            ],
+            'sector' => [
+                'superadmin', 'sektoradmin', 'sektoroperator', 
+                'schooladmin', 'preschooladmin', 'müəllim', 'teacher', 'muavin', 'metodik', 'psixoloq', 'user'
+            ],
         ];
 
         $allowed = $scopeRoleMap[$originScope] ?? $roles;
@@ -458,6 +464,9 @@ class TaskPermissionService extends BaseService
                 'sektoradmin',
                 'sektoroperator',
                 'schooladmin',
+                'teacher',
+                'metodik',
+                'user',
             ];
         }
 
@@ -467,6 +476,9 @@ class TaskPermissionService extends BaseService
                 'sektoradmin',
                 'sektoroperator',
                 'schooladmin',
+                'teacher',
+                'metodik',
+                'user',
             ];
         }
 
@@ -475,6 +487,9 @@ class TaskPermissionService extends BaseService
                 'sektoradmin',
                 'sektoroperator',
                 'schooladmin',
+                'teacher',
+                'metodik',
+                'user',
             ];
         }
 
@@ -735,6 +750,23 @@ class TaskPermissionService extends BaseService
         $institutionScope = $this->getUserInstitutionScope($user, $originScope);
         $institutionFilter = $filters['institution_id'] ?? null;
 
+        // region_id: fetch all users across the region's full institution hierarchy
+        $regionId = $filters['region_id'] ?? null;
+        $regionInstitutionIds = null;
+        if ($regionId) {
+            $regionInstitution = \App\Models\Institution::find((int) $regionId);
+            if ($regionInstitution) {
+                $regionInstitutionIds = array_unique(array_merge(
+                    [(int) $regionId],
+                    $regionInstitution->getAllChildrenIds()
+                ));
+                // Restrict to user's allowed scope
+                if (! empty($institutionScope)) {
+                    $regionInstitutionIds = array_values(array_intersect($regionInstitutionIds, $institutionScope));
+                }
+            }
+        }
+
         if ($institutionFilter && ! in_array((int) $institutionFilter, $institutionScope, true)) {
             return collect();
         }
@@ -748,7 +780,7 @@ class TaskPermissionService extends BaseService
 
         $query = \App\Models\User::query()
             ->with(['roles:id,name', 'institution:id,name,level,parent_id'])
-            ->select(['id', 'first_name', 'last_name', 'email', 'institution_id', 'is_active'])
+            ->select(['id', 'first_name', 'last_name', 'username', 'email', 'institution_id', 'is_active'])
             ->where('is_active', true)
             ->whereHas('roles', function ($roleQuery) use ($allowedRoles, $roleFilter) {
                 if ($roleFilter) {
@@ -769,11 +801,16 @@ class TaskPermissionService extends BaseService
             $query->where('institution_id', $institutionFilter);
         }
 
+        if ($regionInstitutionIds !== null) {
+            $query->whereIn('institution_id', $regionInstitutionIds);
+        }
+
         if ($search = $filters['search'] ?? null) {
             $query->where(function ($searchQuery) use ($search) {
                 $searchQuery->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%");
             });
         }
 
@@ -804,6 +841,7 @@ class TaskPermissionService extends BaseService
             return [
                 'id' => $assignableUser->id,
                 'name' => $assignableUser->name,
+                'username' => $assignableUser->username,
                 'email' => $assignableUser->email,
                 'institution' => $assignableUser->institution ? [
                     'id' => $assignableUser->institution->id,
