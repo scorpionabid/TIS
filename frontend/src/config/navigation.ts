@@ -137,6 +137,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
+          USER_ROLES.REGIONOPERATOR,
           USER_ROLES.SEKTORADMIN,
           USER_ROLES.SCHOOLADMIN,
           USER_ROLES.MUELLIM,
@@ -446,6 +447,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
+          USER_ROLES.REGIONOPERATOR,
           USER_ROLES.SEKTORADMIN,
         ],
         description: "Müəllim məlumatlarının təsdiqi və yoxlanması",

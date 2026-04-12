@@ -225,7 +225,7 @@ export function TeacherVerification() {
         <CardHeader>
           <CardTitle>Müəllim Məlumatlarının Təsdiqi</CardTitle>
           <CardDescription>
-            Sektorunuza aid məktəblərin müəllim məlumatlarını yoxlayın və təsdiq edin
+            Tabeçiliyinizdə olan məktəblərin müəllim məlumatlarını yoxlayın və təsdiq edin
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -81,6 +81,53 @@ All colors MUST be HSL format for consistent theming
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .deadline-glow {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.2);
+    animation: deadline-pulse 2s infinite ease-in-out;
+  }
+
+  @keyframes deadline-pulse {
+    0% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.2); }
+    50% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+    100% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.2); }
+  }
+
+  .overdue-pulse {
+    background-color: rgba(239, 68, 68, 0.05);
+    animation: overdue-border 1.5s infinite alternate;
+  }
+
+  @keyframes overdue-border {
+    from { border-left-color: #ef4444; }
+    to { border-left-color: #7f1d1d; }
+  }
+
+  @keyframes deadline-glow {
+    0% { box-shadow: 0 0 5px hsl(var(--warning)); border-color: hsl(var(--warning)); }
+    50% { box-shadow: 0 0 15px hsl(var(--warning) / 0.5); border-color: hsl(var(--warning) / 0.8); }
+    100% { box-shadow: 0 0 5px hsl(var(--warning)); border-color: hsl(var(--warning)); }
+  }
+
+  @keyframes overdue-pulse {
+    0% { background-color: transparent; }
+    50% { background-color: hsl(var(--destructive) / 0.1); }
+    100% { background-color: transparent; }
+  }
+
+  .animate-deadline-glow {
+    animation: deadline-glow 2s infinite ease-in-out;
+  }
+
+  .animate-overdue-pulse {
+    animation: overdue-pulse 2s infinite ease-in-out;
+  }
 }
 
 @layer base {

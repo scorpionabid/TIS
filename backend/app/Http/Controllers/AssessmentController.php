@@ -465,11 +465,11 @@ class AssessmentController extends Controller
             return false;
         }
 
-        // RegionAdmin can access institutions in their region
-        if ($user->hasRole('regionadmin')) {
+        // RegionAdmin and RegionOperator can access institutions in their region
+        if ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
             $userInstitution = Institution::find($user->institution_id);
             if (! $userInstitution) {
-                \Log::warning('canAccessInstitution: RegionAdmin user institution not found', [
+                \Log::warning('canAccessInstitution: Regional user institution not found', [
                     'user_id' => $user->id,
                     'user_institution_id' => $user->institution_id,
                 ]);

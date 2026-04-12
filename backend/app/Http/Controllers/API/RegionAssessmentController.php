@@ -26,13 +26,13 @@ class RegionAssessmentController extends Controller
     {
         $user = Auth::user();
 
-        // Authorization check - only RegionAdmin and SuperAdmin can access
-        if (! $user->hasAnyRole(['superadmin', 'regionadmin'])) {
+        // Authorization check - only RegionAdmin, RegionOperator and SuperAdmin can access
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        // For RegionAdmin, verify they can access this region
-        if ($user->hasRole('regionadmin')) {
+        // For RegionAdmin and RegionOperator, verify they can access this region
+        if ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
             $userRegion = $user->institution;
             if (! $userRegion || ($userRegion->level !== 2 && $userRegion->parent_id !== $regionId)) {
                 return response()->json(['error' => 'Access denied to this region'], 403);
@@ -88,7 +88,7 @@ class RegionAssessmentController extends Controller
         $user = Auth::user();
 
         // Authorization check
-        if (! $user->hasAnyRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -157,7 +157,7 @@ class RegionAssessmentController extends Controller
         $user = Auth::user();
 
         // Authorization check
-        if (! $user->hasAnyRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -198,7 +198,7 @@ class RegionAssessmentController extends Controller
         $user = Auth::user();
 
         // Authorization check
-        if (! $user->hasAnyRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -265,7 +265,7 @@ class RegionAssessmentController extends Controller
         $user = Auth::user();
 
         // Authorization check
-        if (! $user->hasAnyRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

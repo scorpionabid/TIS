@@ -38,13 +38,14 @@ export const GradeBookRoleProvider: React.FC<{ children: React.ReactNode }> = ({
     // Use hasRole for proper role checking with normalization
     const isSuperAdmin = hasRole('superadmin');
     const isRegionAdmin = hasRole('regionadmin');
+    const isRegionOperator = hasRole('regionoperator');
     const isSektorAdmin = hasRole('sektoradmin');
     const isSchoolAdmin = hasRole('schooladmin');
     const isTeacher = hasRole('teacher');
     
     // Determine view mode based on role
     let viewMode: GradeBookViewMode = 'teacher';
-    if (isSuperAdmin || isRegionAdmin) {
+    if (isSuperAdmin || isRegionAdmin || isRegionOperator) {
       viewMode = 'region';
     } else if (isSektorAdmin) {
       viewMode = 'sector';
@@ -58,12 +59,12 @@ export const GradeBookRoleProvider: React.FC<{ children: React.ReactNode }> = ({
     const canEdit = isSchoolAdmin || isTeacher;
     const canCreate = isSchoolAdmin;
     const canDelete = isSchoolAdmin;
-    const canViewHierarchy = isSuperAdmin || isRegionAdmin || isSektorAdmin;
+    const canViewHierarchy = isSuperAdmin || isRegionAdmin || isRegionOperator || isSektorAdmin;
 
     // Determine hierarchy level (lower = higher in hierarchy)
     let hierarchyLevel = 999;
     if (isSuperAdmin) hierarchyLevel = 1;
-    else if (isRegionAdmin) hierarchyLevel = 2;
+    else if (isRegionAdmin || isRegionOperator) hierarchyLevel = 2;
     else if (isSektorAdmin) hierarchyLevel = 3;
     else if (isSchoolAdmin) hierarchyLevel = 4;
     else if (isTeacher) hierarchyLevel = 5;
@@ -80,7 +81,7 @@ export const GradeBookRoleProvider: React.FC<{ children: React.ReactNode }> = ({
         sectorId: currentUser?.sector_id,
         schoolId: currentUser?.institution_id,
       },
-      isRegionAdmin: isRegionAdmin || isSuperAdmin,
+      isRegionAdmin: isRegionAdmin || isRegionOperator || isSuperAdmin,
       isSectorAdmin: isSektorAdmin,
       isSchoolAdmin: isSchoolAdmin,
       isTeacher: isTeacher,

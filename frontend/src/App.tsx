@@ -1035,6 +1035,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
                               USER_ROLES.SEKTORADMIN,
                               USER_ROLES.SCHOOLADMIN,
                               USER_ROLES.MUELLIM,
@@ -1412,6 +1413,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
                               USER_ROLES.SEKTORADMIN,
                               USER_ROLES.SCHOOLADMIN,
                               USER_ROLES.MUELLIM,
@@ -1444,6 +1446,9 @@ const App = () => {
                           <RoleProtectedRoute
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
+                              USER_ROLES.SEKTORADMIN,
                               USER_ROLES.SCHOOLADMIN,
                               USER_ROLES.MUELLIM,
                             ]}
@@ -1461,6 +1466,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
                               USER_ROLES.SEKTORADMIN,
                               USER_ROLES.SCHOOLADMIN,
                             ]}
@@ -1658,6 +1664,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
                               USER_ROLES.SEKTORADMIN,
                             ]}
                           >

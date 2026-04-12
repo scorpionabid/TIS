@@ -435,8 +435,15 @@ class GradeCRUDController extends Controller
         }
 
         // Apply filters
-        if ($request->has('institution_id')) {
-            $query->where('institution_id', (int) $request->institution_id);
+        $institutionId = $request->input('institution_id') ??
+                        $request->input('school_id') ??
+                        $request->route('institution') ??
+                        $request->route('institutionId') ??
+                        $request->route('schoolId') ??
+                        $request->route('school_id');
+
+        if ($institutionId) {
+            $query->where('institution_id', (int) $institutionId);
         }
 
         if ($request->has('class_level')) {

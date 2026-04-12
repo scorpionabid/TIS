@@ -144,7 +144,7 @@ Route::prefix('regionoperator')->middleware(['role:regionoperator', 'regional.ac
 });
 
 // SektorAdmin Dashboard Routes
-Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:sector', 'audit.logging'])->group(function () {
+Route::prefix('sektoradmin')->middleware(['role_or_permission:sektoradmin|regionadmin|regionoperator|superadmin|admin', 'regional.access:sector', 'audit.logging'])->group(function () {
     // Dashboard endpoints
     Route::get('dashboard', [SektorAdminDashboardController::class, 'getDashboardStats']);
     Route::get('dashboard/analytics', [SektorAdminDashboardController::class, 'getSectorAnalytics']);

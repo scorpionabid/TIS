@@ -69,7 +69,7 @@ Route::prefix('teacher-performance')->group(function () {
 });
 
 // Teacher Profile Approval Routes
-Route::prefix('teacher-approvals')->middleware(['auth:sanctum', 'role:sektoradmin'])->group(function () {
+Route::prefix('teacher-approvals')->middleware('role:sektoradmin|regionadmin|regionoperator|superadmin')->group(function () {
     Route::get('/', [App\Http\Controllers\API\TeacherApprovalController::class, 'index']);
     Route::get('/stats', [App\Http\Controllers\API\TeacherApprovalController::class, 'stats']);
     Route::get('/{id}', [App\Http\Controllers\API\TeacherApprovalController::class, 'show']);

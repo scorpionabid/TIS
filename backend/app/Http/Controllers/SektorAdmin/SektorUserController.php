@@ -21,7 +21,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -31,13 +31,10 @@ class SektorUserController extends Controller
         }
 
         try {
-            // Get sector schools
-            $schoolIds = Institution::where('parent_id', $sector->id)
-                ->where('level', 4)
-                ->pluck('id')
-                ->toArray();
-
-            // Include sector itself
+            // Get subordinate schools based on role
+            $schoolIds = $this->getSubordinateSchoolIds($user);
+            
+            // Include user's own institution
             $institutionIds = array_merge([$sector->id], $schoolIds);
 
             $query = User::whereIn('institution_id', $institutionIds)
@@ -136,7 +133,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -146,11 +143,8 @@ class SektorUserController extends Controller
         }
 
         try {
-            // Get sector schools
-            $schoolIds = Institution::where('parent_id', $sector->id)
-                ->where('level', 4)
-                ->pluck('id')
-                ->toArray();
+            // Get subordinate schools
+            $schoolIds = $this->getSubordinateSchoolIds($user);
 
             $query = User::whereIn('institution_id', $schoolIds)
                 ->whereHas('roles', function ($q) {
@@ -253,7 +247,7 @@ class SektorUserController extends Controller
     {
         $currentUser = $request->user();
 
-        if (! $currentUser->hasRole('sektoradmin')) {
+        if (! $currentUser->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -283,25 +277,20 @@ class SektorUserController extends Controller
             ], 422);
         }
 
-        \Log::info('✅ [Backend User Creation Debug] Validation passed');
-
-        // Verify institution belongs to sector
-        $institution = Institution::where('id', $request->institution_id)
-            ->where('parent_id', $sector->id)
-            ->first();
-
-        if (! $institution) {
-            \Log::error('❌ [Backend User Creation Debug] Institution not in sector', [
+        // Verify institution is in hierarchy
+        $schoolIds = $this->getSubordinateSchoolIds($currentUser);
+        if (!in_array($request->institution_id, $schoolIds)) {
+            \Log::error('❌ [Backend User Creation Debug] Institution not in subordinate hierarchy', [
                 'requested_institution_id' => $request->institution_id,
-                'sector_id' => $sector->id,
+                'user_id' => $currentUser->id,
             ]);
-
+ 
             return response()->json([
-                'message' => 'Seçilən müəssisə sizin sektora aid deyil',
+                'message' => 'Seçilən müəssisə sizin səlahiyyət dairənizə aid deyil',
             ], 400);
         }
 
-        \Log::info('✅ [Backend User Creation Debug] Institution verified:', ['id' => $institution->id, 'name' => $institution->name]);
+        \Log::info('✅ [Backend User Creation Debug] Institution verified:', ['id' => $request->institution_id]);
 
         try {
             \Log::info('🚀 [Backend User Creation Debug] Starting user creation');
@@ -344,7 +333,7 @@ class SektorUserController extends Controller
                     'username' => $user->username,
                     'email' => $user->email,
                     'role' => $request->role,
-                    'institution' => $institution->name,
+                    'institution' => $user->institution->name,
                 ],
             ];
 
@@ -373,7 +362,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -382,8 +371,9 @@ class SektorUserController extends Controller
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
-        $schools = Institution::where('parent_id', $sector->id)
-            ->where('level', 4)
+        $schoolIds = $this->getSubordinateSchoolIds($user);
+        
+        $schools = Institution::whereIn('id', $schoolIds)
             ->where('is_active', true)
             ->select('id', 'name', 'type', 'short_name')
             ->orderBy('name')
@@ -405,7 +395,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -416,10 +406,7 @@ class SektorUserController extends Controller
 
         try {
             // Get sector schools
-            $schoolIds = Institution::where('parent_id', $sector->id)
-                ->where('level', 4)
-                ->pluck('id')
-                ->toArray();
+            $schoolIds = $this->getSubordinateSchoolIds($user);
 
             // Start query
             $query = User::whereIn('institution_id', $schoolIds)
@@ -569,7 +556,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -579,11 +566,8 @@ class SektorUserController extends Controller
         }
 
         try {
-            // Get sector schools
-            $schoolIds = Institution::where('parent_id', $sector->id)
-                ->where('level', 4)
-                ->pluck('id')
-                ->toArray();
+            // Get subordinate schools
+            $schoolIds = $this->getSubordinateSchoolIds($user);
 
             // Get teachers with pending verification
             $pendingTeachers = User::whereIn('institution_id', $schoolIds)
@@ -647,7 +631,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -665,20 +649,19 @@ class SektorUserController extends Controller
         try {
             $approvedCount = 0;
             $errors = [];
+            $schoolIds = $this->getSubordinateSchoolIds($user);
 
             foreach ($validated['teacher_ids'] as $teacherId) {
-                // Verify teacher belongs to sector
+                // Verify teacher belongs to hierarchy
                 $teacher = User::where('id', $teacherId)
-                    ->whereHas('institution', function ($q) use ($sector) {
-                        $q->where('parent_id', $sector->id);
-                    })
+                    ->whereIn('institution_id', $schoolIds)
                     ->whereHas('roles', function ($q) {
                         $q->where('name', 'müəllim');
                     })
                     ->first();
 
                 if (! $teacher) {
-                    $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
+                    $errors[] = "Müəllim ID {$teacherId} səlahiyyət dairənizə aid deyil";
 
                     continue;
                 }
@@ -730,7 +713,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -813,7 +796,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -915,7 +898,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -974,7 +957,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (! $user->hasRole(['sektoradmin', 'regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -1024,5 +1007,45 @@ class SektorUserController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+ 
+    /**
+     * Get IDs of all schools under the user's administrative scope
+     */
+    private function getSubordinateSchoolIds($user): array
+    {
+        $institution = $user->institution;
+        if (!$institution) {
+            return [];
+        }
+ 
+        // Sector Admin: Schools under this sector
+        if ($user->hasRole('sektoradmin')) {
+            return Institution::where('parent_id', $institution->id)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+        }
+ 
+        // Region Admin or Operator: All schools in all sectors of this region
+        if ($user->hasRole(['regionadmin', 'regionoperator'])) {
+            $sectorIds = Institution::where('parent_id', $institution->id)
+                ->where('level', 3)
+                ->pluck('id');
+                
+            return Institution::whereIn('parent_id', $sectorIds)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+        }
+ 
+        // SuperAdmin: All schools
+        if ($user->hasRole(['superadmin', 'admin'])) {
+            return Institution::where('level', 4)
+                ->pluck('id')
+                ->toArray();
+        }
+ 
+        return [];
     }
 }

@@ -48,7 +48,7 @@ class InstitutionHierarchyController extends Controller
 
             // Apply role-based filtering like other controllers
             if ($user && ! $user->hasRole('superadmin')) {
-                if ($user->hasRole('regionadmin')) {
+                if ($user->hasRole(['regionadmin', 'regionoperator'])) {
                     // RegionAdmin can only see their region and institutions under it
                     $regionId = $user->institution_id;
 
@@ -97,7 +97,7 @@ class InstitutionHierarchyController extends Controller
 
             // For role-based access, get institutions at the appropriate root level
             if ($user && ! $user->hasRole('superadmin')) {
-                if ($user->hasRole('regionadmin')) {
+                if ($user->hasRole(['regionadmin', 'regionoperator'])) {
                     // For RegionAdmin, their region is the root
                     $institutions = $query->where('id', $user->institution_id)->get();
                 } elseif ($user->hasRole('sektoradmin')) {
@@ -119,8 +119,8 @@ class InstitutionHierarchyController extends Controller
             }
 
             // Debug: Log filtered institutions for regionadmin
-            if ($user && $user->hasRole('regionadmin')) {
-                \Log::info('RegionAdmin Hierarchy Query Result:', [
+            if ($user && $user->hasRole(['regionadmin', 'regionoperator'])) {
+                \Log::info('Regional Admin/Operator Hierarchy Query Result:', [
                     'user_id' => $user->id,
                     'region_id' => $user->institution_id,
                     'institutions_count' => $institutions->count(),
@@ -598,7 +598,7 @@ class InstitutionHierarchyController extends Controller
         $baseQuery = Institution::query();
 
         if ($user && ! $user->hasRole('superadmin')) {
-            if ($user->hasRole('regionadmin')) {
+            if ($user->hasRole(['regionadmin', 'regionoperator'])) {
                 $regionId = $user->institution_id;
                 $baseQuery->where(function ($q) use ($regionId) {
                     $q->where('id', $regionId)

@@ -92,50 +92,42 @@ class DataIsolationHelper
      */
     private static function applyRegionOperatorScope(Builder $query, User $user, string $resourceType): Builder
     {
-        $userDepartment = $user->department;
         $userInstitution = $user->institution;
-
-        if (! $userDepartment || ! $userInstitution) {
-            Log::warning('RegionOperator scope blocked due to missing department or institution', [
-                'user_id' => $user->id,
-                'username' => $user->username,
-                'has_department' => (bool) $userDepartment,
-                'has_institution' => (bool) $userInstitution,
-                'resource_type' => $resourceType,
-            ]);
-
+        $userDepartment = $user->department;
+ 
+        if (! $userInstitution) {
             return $query->whereRaw('1 = 0');
         }
-
+ 
+        // If at region level, expand scope to whole region
+        if ((int) $userInstitution->level === 2) {
+            $allowedInstitutionIds = collect($userInstitution->getAllChildrenIds());
+ 
+            switch ($resourceType) {
+                case 'users':
+                    // Users in the same region, optionally filtered by department
+                    return $query->whereIn('institution_id', $allowedInstitutionIds);
+                case 'institutions':
+                    return $query->whereIn('id', $allowedInstitutionIds);
+                case 'departments':
+                    return $query->whereIn('institution_id', $allowedInstitutionIds);
+                default:
+                    return $query->whereIn('institution_id', $allowedInstitutionIds);
+            }
+        }
+ 
+        // Fallback to department/institution specific for other levels
         switch ($resourceType) {
             case 'users':
-                // Can only see users in same department
-                return $query->where('department_id', $userDepartment->id);
-
+                return $userDepartment 
+                    ? $query->where('department_id', $userDepartment->id) 
+                    : $query->where('institution_id', $userInstitution->id);
             case 'institutions':
-                // Can only see their own institution
                 return $query->where('id', $userInstitution->id);
-
             case 'departments':
-                // Can only see their own department
-                return $query->where('id', $userDepartment->id);
-
-            case 'surveys':
-                // Can only see surveys targeting their institution/department
-                return $query->where(function ($q) use ($userInstitution, $userDepartment) {
-                    $q->whereHas('targets', function ($subQ) use ($userInstitution, $userDepartment) {
-                        $subQ->where('institution_id', $userInstitution->id)
-                            ->orWhere('department_id', $userDepartment->id);
-                    });
-                });
-
-            case 'tasks':
-                // Can only see tasks assigned to them or their department
-                return $query->where(function ($q) use ($user, $userDepartment) {
-                    $q->where('assigned_to', $user->id)
-                        ->orWhere('department_id', $userDepartment->id);
-                });
-
+                return $userDepartment 
+                    ? $query->where('id', $userDepartment->id)
+                    : $query->where('institution_id', $userInstitution->id);
             default:
                 return $query->where('institution_id', $userInstitution->id);
         }
@@ -347,32 +339,12 @@ class DataIsolationHelper
             $institution = $user->institution;
 
             if (! $institution) {
-                \Log::warning('RegionOperator getAllowedInstitutionIds: missing institution', [
-                    'user_id' => $user->id,
-                    'username' => $user->username,
-                ]);
-
                 return collect([]);
             }
 
-            if ((int) $institution->level === 2) {
-                $ids = $institution->getAllChildrenIds();
-
-                \Log::info('RegionOperator scope expanded to full region', [
-                    'user_id' => $user->id,
-                    'institution_id' => $institution->id,
-                    'children_count' => count($ids),
-                ]);
-
-                return collect($ids);
-            }
-
-            if ((int) $institution->level === 3) {
-                $childIds = Institution::where('parent_id', $institution->id)
-                    ->where('level', '>=', 3)
-                    ->pluck('id');
-
-                return $childIds->prepend($institution->id);
+            // Region level or Sector level assignment
+            if (in_array((int) $institution->level, [2, 3])) {
+                return collect($institution->getAllChildrenIds());
             }
 
             return collect([$institution->id]);

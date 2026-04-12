@@ -23,7 +23,7 @@ class TeacherApprovalController extends Controller
             $user = Auth::user();
 
             // Check if user is sectoradmin
-            if (! $user || ! $user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
@@ -70,7 +70,7 @@ class TeacherApprovalController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user || ! $user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
@@ -107,7 +107,7 @@ class TeacherApprovalController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user || ! $user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
@@ -159,7 +159,7 @@ class TeacherApprovalController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user || ! $user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
@@ -215,7 +215,7 @@ class TeacherApprovalController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user || ! $user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
@@ -271,7 +271,7 @@ class TeacherApprovalController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user || ! $user->hasRole('sektoradmin')) {
+            if (! $user || ! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',

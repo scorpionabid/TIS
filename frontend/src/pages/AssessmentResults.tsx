@@ -147,7 +147,7 @@ export default function AssessmentResults() {
   const { data: sectorsResponse } = useQuery({
     queryKey: ['sectors-level-3'],
     queryFn: () => hierarchyService.getInstitutionsByLevel(3),
-    enabled: hasRole(['superadmin', 'regionadmin']),
+    enabled: hasRole(['superadmin', 'regionadmin', 'regionoperator']),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -161,7 +161,7 @@ export default function AssessmentResults() {
       const response = await apiClient.get('/institutions') as any;
       return response.data?.data ?? response.data ?? [];
     },
-    enabled: hasRole(['superadmin', 'regionadmin']),
+    enabled: hasRole(['superadmin', 'regionadmin', 'regionoperator']),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -464,8 +464,8 @@ export default function AssessmentResults() {
               </SelectContent>
             </Select>
 
-            {/* Sektor - SuperAdmin/RegionAdmin only */}
-            {hasRole(['superadmin', 'regionadmin']) && sectors.length > 0 && (
+            {/* Sektor - SuperAdmin/RegionAdmin/RegionOperator only */}
+            {hasRole(['superadmin', 'regionadmin', 'regionoperator']) && sectors.length > 0 && (
               <Select
                 value={selectedSectorId ? selectedSectorId.toString() : 'all'}
                 onValueChange={(value) => {
@@ -487,7 +487,7 @@ export default function AssessmentResults() {
             )}
 
             {/* Məktəb - Combobox with search */}
-            {hasRole(['superadmin', 'regionadmin']) && institutions && (
+            {hasRole(['superadmin', 'regionadmin', 'regionoperator']) && institutions && (
               <Popover open={schoolOpen} onOpenChange={setSchoolOpen}>
                 <PopoverTrigger asChild>
                   <Button

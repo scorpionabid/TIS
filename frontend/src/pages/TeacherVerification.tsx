@@ -6,7 +6,7 @@ export default function TeacherVerificationPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Müəllim Məlumatlarının Təsdiqi</h1>
         <p className="text-muted-foreground">
-          Sektorunuza aid məktəblərin müəllim məlumatlarını yoxlayın və təsdiq edin
+          Tabeçiliyinizdə olan məktəblərin müəllim məlumatlarını yoxlayın və təsdiq edin
         </p>
       </div>
       <TeacherVerification />

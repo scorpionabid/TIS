@@ -84,7 +84,7 @@ Route::prefix('grades')->group(function () {
 });
 
 Route::prefix('curriculum-plans')
-    ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin')
+    ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator')
     ->group(function () {
         // Region Administration (Lock/Deadline) - Moved to top to ensure priority
         Route::get('/settings', [CurriculumPlanController::class, 'getSettings']);

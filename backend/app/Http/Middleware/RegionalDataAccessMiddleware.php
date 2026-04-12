@@ -134,99 +134,68 @@ class RegionalDataAccessMiddleware
      */
     private function validateRegionAdminAccess($user, $resourceType, $request): array
     {
-        Log::info('🔍 validateRegionAdminAccess - START', [
-            'user_id' => $user->id,
-            'user_email' => $user->email,
-            'resource_type' => $resourceType,
-        ]);
-
-        $userRegion = $user->institution;
-
-        Log::info('🏢 validateRegionAdminAccess - Institution check', [
-            'user_id' => $user->id,
-            'has_institution' => $userRegion !== null,
-            'institution_id' => $userRegion?->id,
-            'institution_name' => $userRegion?->name,
-            'institution_level' => $userRegion?->level,
-            'level_is_2' => $userRegion?->level === 2,
-        ]);
-
-        if (! $userRegion || $userRegion->level !== 2) {
-            Log::warning('❌ validateRegionAdminAccess - Institution validation FAILED', [
-                'user_id' => $user->id,
-                'has_institution' => $userRegion !== null,
-                'level' => $userRegion?->level ?? 'NULL',
-                'expected_level' => 2,
-            ]);
-
+        $userInstitution = $user->institution;
+ 
+        if (! $userInstitution || $userInstitution->level !== 2) {
             return [
                 'allowed' => false,
                 'message' => 'RegionAdmin regional idarəyə təyin edilməlidir',
             ];
         }
-
-        // Get all institutions under this region
-        $allowedInstitutions = Institution::where(function ($query) use ($userRegion) {
-            $query->where('id', $userRegion->id)
-                ->orWhere('parent_id', $userRegion->id)
-                ->orWhereHas('parent', function ($q) use ($userRegion) {
-                    $q->where('parent_id', $userRegion->id);
-                });
-        })->pluck('id')->toArray();
-
-        Log::info('🏫 validateRegionAdminAccess - Allowed institutions loaded', [
-            'user_id' => $user->id,
-            'region_id' => $userRegion->id,
-            'allowed_count' => count($allowedInstitutions),
-            'allowed_ids' => $allowedInstitutions,
-        ]);
-
+ 
+        $allowedInstitutions = $userInstitution->getAllChildrenIds();
+ 
         // Check if requested resource is within regional scope
         $hasInstitutionId = $this->hasInstitutionIdInRequest($request);
         $requestedInstitutionId = $hasInstitutionId ? $this->getInstitutionIdFromRequest($request) : null;
-
-        Log::info('🔍 validateRegionAdminAccess - Request institution check', [
-            'user_id' => $user->id,
-            'has_institution_id_in_request' => $hasInstitutionId,
-            'requested_institution_id' => $requestedInstitutionId,
-        ]);
-
+ 
         if ($hasInstitutionId) {
             if (! in_array($requestedInstitutionId, $allowedInstitutions)) {
-                Log::warning('❌ validateRegionAdminAccess - Institution access DENIED', [
-                    'user_id' => $user->id,
-                    'requested_id' => $requestedInstitutionId,
-                    'allowed_ids' => $allowedInstitutions,
-                ]);
-
                 return [
                     'allowed' => false,
                     'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur',
                 ];
             }
         }
-
-        Log::info('✅ validateRegionAdminAccess - Access GRANTED', [
-            'user_id' => $user->id,
-            'region_id' => $userRegion->id,
-            'allowed_institutions_count' => count($allowedInstitutions),
-        ]);
-
+ 
         return [
             'allowed' => true,
             'scope' => 'regional',
             'allowed_institutions' => $allowedInstitutions,
-            'region_id' => $userRegion->id,
+            'region_id' => $userInstitution->id,
         ];
     }
 
-    /**
-     * Validate RegionOperator access
-     */
     private function validateRegionOperatorAccess($user, $resourceType, $request): array
     {
-        $userDepartment = $user->department;
         $userInstitution = $user->institution;
+
+        // Ensure RegionOperator behaves like RegionAdmin for read access across the region/sector
+        if ($userInstitution && in_array((int) $userInstitution->level, [2, 3])) {
+            $allowedInstitutions = $userInstitution->getAllChildrenIds();
+
+            // Check if requested resource is within regional/sector scope
+            $hasInstitutionId = $this->hasInstitutionIdInRequest($request);
+            $requestedInstitutionId = $hasInstitutionId ? $this->getInstitutionIdFromRequest($request) : null;
+
+            if ($hasInstitutionId && ! in_array($requestedInstitutionId, $allowedInstitutions)) {
+                return [
+                    'allowed' => false,
+                    'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur',
+                ];
+            }
+
+            return [
+                'allowed' => true,
+                'scope' => 'regional',
+                'allowed_institutions' => $allowedInstitutions,
+                'region_id' => (int) ($userInstitution->level === 2 ? $userInstitution->id : $userInstitution->parent_id),
+                'sector_id' => (int) ($userInstitution->level === 3 ? $userInstitution->id : null),
+            ];
+        }
+
+        // Fallback to department scope if not at regional level
+        $userDepartment = $user->department;
 
         if (! $userDepartment || ! $userInstitution) {
             return [
@@ -235,26 +204,11 @@ class RegionalDataAccessMiddleware
             ];
         }
 
-        // RegionOperator can only access their department's data
-        $allowedInstitutions = [$userInstitution->id];
-        $allowedDepartments = [$userDepartment->id];
-
-        // Validate department access for resource requests
-        if ($this->hasDepartmentIdInRequest($request)) {
-            $requestedDepartmentId = $this->getDepartmentIdFromRequest($request);
-            if ($requestedDepartmentId !== $userDepartment->id) {
-                return [
-                    'allowed' => false,
-                    'message' => 'Bu departamenta giriş səlahiyyətiniz yoxdur',
-                ];
-            }
-        }
-
         return [
             'allowed' => true,
             'scope' => 'department',
-            'allowed_institutions' => $allowedInstitutions,
-            'allowed_departments' => $allowedDepartments,
+            'allowed_institutions' => [$userInstitution->id],
+            'allowed_departments' => [$userDepartment->id],
             'department_id' => $userDepartment->id,
         ];
     }
@@ -264,18 +218,28 @@ class RegionalDataAccessMiddleware
      */
     private function validateSektorAdminAccess($user, $resourceType, $request): array
     {
-        $userSector = $user->institution;
-
-        // Level-based validation (more robust than type checking)
-        if (! $userSector || $userSector->level !== 3) {
+        $userInstitution = $user->institution;
+ 
+        // Allow higher roles to bypass the level 3 check
+        if ($user->hasRole(['regionadmin', 'regionoperator', 'superadmin', 'admin'])) {
+            return [
+                'allowed' => true,
+                'scope' => 'region',
+                'allowed_institutions' => $userInstitution ? $userInstitution->getAllChildrenIds() : [],
+                'region_id' => $userInstitution ? $userInstitution->id : null,
+            ];
+        }
+ 
+        // Level-based validation for SektorAdmin
+        if (! $userInstitution || $userInstitution->level !== 3) {
             return [
                 'allowed' => false,
                 'message' => 'SektorAdmin sektora təyin edilməlidir',
             ];
         }
-
+ 
         // Get all descendant institutions under this sector (recursive)
-        $allowedInstitutions = $userSector->getAllChildrenIds();
+        $allowedInstitutions = $userInstitution->getAllChildrenIds();
 
         // Check if requested resource is within sector scope
         if ($this->hasInstitutionIdInRequest($request)) {
@@ -292,7 +256,7 @@ class RegionalDataAccessMiddleware
             'allowed' => true,
             'scope' => 'sector',
             'allowed_institutions' => $allowedInstitutions,
-            'sector_id' => $userSector->id,
+            'sector_id' => $userInstitution->id,
         ];
     }
 
@@ -375,16 +339,17 @@ class RegionalDataAccessMiddleware
      */
     private function hasInstitutionIdInRequest($request): bool
     {
-        // Check for numeric institution_id in query parameters
-        if ($request->has('institution_id') && $request->input('institution_id') !== null) {
-            $institutionId = $request->input('institution_id');
+        if ($request->has('institution_id') || $request->has('school_id')) {
+            $id = $request->input('institution_id') ?? $request->input('school_id');
 
-            // Only consider it a valid institution ID if it's numeric and not 'all'
-            return is_numeric($institutionId) && $institutionId !== 'all';
+            return is_numeric($id) && $id !== 'all';
         }
 
         // Check for institution ID in route parameters
-        return $request->route('institution') || $request->route('institutionId');
+        return $request->route('institution') ||
+               $request->route('institutionId') ||
+               $request->route('schoolId') ||
+               $request->route('school_id');
     }
 
     /**
@@ -392,27 +357,16 @@ class RegionalDataAccessMiddleware
      */
     private function getInstitutionIdFromRequest($request): ?int
     {
-        if ($request->has('institution_id') && $request->input('institution_id') !== null) {
-            return (int) $request->input('institution_id');
-        }
+        $id = $request->input('institution_id') ??
+             $request->input('school_id') ??
+             $request->route('institution') ??
+             $request->route('institutionId') ??
+             $request->route('schoolId') ??
+             $request->route('school_id') ??
+             $request->route('sectorId') ??
+             $request->route('sector_id');
 
-        if ($request->route('institution')) {
-            return (int) $request->route('institution');
-        }
-
-        if ($request->route('institutionId')) {
-            return (int) $request->route('institutionId');
-        }
-
-        if ($request->route('schoolId')) {
-            return (int) $request->route('schoolId');
-        }
-
-        if ($request->route('sectorId')) {
-            return (int) $request->route('sectorId');
-        }
-
-        return null;
+        return $id ? (int) $id : null;
     }
 
     /**
