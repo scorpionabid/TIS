@@ -16,8 +16,7 @@ import {
   History,
   TrendingDown,
   ChevronRight,
-  Eye,
-  ExternalLink
+  Eye
 } from 'lucide-react';
 import { reportTableService } from '@/services/reportTables';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ReportTable } from '@/types/reportTable';
 
 interface TableFillStats {
@@ -244,9 +242,9 @@ export function ReportTableStatisticsView() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)] overflow-hidden">
+    <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* Left Panel - Tables List */}
-      <div className="lg:w-[320px] shrink-0 flex flex-col gap-3 h-full overflow-hidden">
+      <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-3 lg:sticky lg:top-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -257,12 +255,11 @@ export function ReportTableStatisticsView() {
           />
         </div>
 
-        <div className="bg-white border rounded-xl overflow-hidden flex-1 flex flex-col shadow-sm">
+        <div className="bg-white border rounded-xl overflow-hidden flex flex-col shadow-sm">
           <div className="px-4 py-3 border-b bg-gray-50/50">
             <p className="text-sm font-semibold text-gray-700">Seçim edin</p>
           </div>
-          <ScrollArea className="flex-1">
-            <div className="divide-y">
+          <div className="overflow-y-auto max-h-64 lg:max-h-[calc(100vh-230px)] divide-y">
               {/* Overall Row */}
               <button
                 type="button"
@@ -302,15 +299,14 @@ export function ReportTableStatisticsView() {
                   </button>
                 );
               })}
-            </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
 
       {/* Right Panel - Data Rich View */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white border rounded-xl overflow-hidden shadow-sm h-full">
+      <div className="flex-1 flex flex-col min-w-0 bg-white border rounded-xl shadow-sm">
         {selectedTableId ? (
-          <div className="h-full flex flex-col overflow-hidden">
+          <div className="flex flex-col">
             {/* Header with KPI cards */}
             <div className="p-4 bg-gray-50/50 border-b shrink-0">
               <div className="flex items-center justify-between gap-4 mb-4">
@@ -380,8 +376,8 @@ export function ReportTableStatisticsView() {
             </div>
 
             {/* Filters & Content */}
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <div className="p-3 border-b flex items-center justify-between gap-3 bg-white/80 backdrop-blur shrink-0">
+            <div className="flex flex-col">
+              <div className="p-3 border-b flex items-center justify-between gap-3 bg-white/80 backdrop-blur">
                 <div className="flex items-center gap-3 flex-1">
                   <div className="relative flex-1 max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -410,7 +406,7 @@ export function ReportTableStatisticsView() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto">
+              <div>
                 {isLoadingTableStats || isLoadingSchoolStats ? (
                   <div className="p-4 space-y-4">
                     {[1,2,3,4,5,6,7,8].map(i => <Skeleton key={i} className="h-14 w-full" />)}
@@ -562,7 +558,7 @@ export function ReportTableStatisticsView() {
             </div>
           </div>
         ) : (
-          <div className="h-full flex items-center justify-center p-12 bg-gray-50/50">
+          <div className="flex items-center justify-center p-12 bg-gray-50/50 min-h-[400px]">
             <div className="text-center max-w-sm">
               <div className="h-20 w-20 bg-white rounded-2xl shadow-sm border flex items-center justify-center mx-auto mb-6">
                 <BarChart3 className="h-10 w-10 text-blue-200" />

@@ -357,6 +357,12 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
   queryKey: ['students'],
   defaultFilters,
   defaultCreateData,
+
+  // Server-side pagination and filtering
+  serverSide: {
+    pagination: true,
+    filtering: true,
+  },
   
   // UI Configuration
   columns,

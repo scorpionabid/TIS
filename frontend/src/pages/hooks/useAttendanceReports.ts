@@ -125,6 +125,24 @@ export function useAttendanceReports() {
     }
   };
 
+  const handlePresetSelect = (presetId: string) => {
+    const n = new Date();
+    const today = format(n, 'yyyy-MM-dd');
+    if (presetId === 'today') {
+      setStartDate(today);
+      setEndDate(today);
+    } else if (presetId === 'thisWeek') {
+      const weekStart = startOfWeek(n, { weekStartsOn: 1 });
+      setStartDate(format(weekStart, 'yyyy-MM-dd'));
+      setEndDate(today);
+    } else if (presetId === 'thisMonth') {
+      setStartDate(format(new Date(n.getFullYear(), n.getMonth(), 1), 'yyyy-MM-dd'));
+      setEndDate(today);
+    }
+    setActiveDatePreset(presetId);
+    setPage(1);
+  };
+
   const handleResetFilters = () => {
     setSelectedSchool('all');
     setSelectedClass('all');
@@ -162,6 +180,6 @@ export function useAttendanceReports() {
     statsLoading, statsError,
     classOptions: fetchedClassOptions || [],
     classOptionsLoading, classOptionsError,
-    handleExportReport, handleResetFilters
+    handleExportReport, handlePresetSelect, handleResetFilters
   };
 }
