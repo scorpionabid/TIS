@@ -40,6 +40,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ReportTable } from '@/types/reportTable';
 
 interface TableFillStats {
@@ -89,6 +90,7 @@ interface SchoolStat {
   avg_rating_percentage?: number;
   status: 'not_started' | 'draft' | 'pending' | 'partial' | 'completed';
   submitted_at?: string;
+  submitted_count?: number;
   is_filled?: boolean;
   respondent_name?: string | null;
 }
@@ -242,10 +244,10 @@ export function ReportTableStatisticsView() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 items-start">
+    <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-180px)] min-h-0">
       {/* Left Panel - Tables List */}
-      <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-3 lg:sticky lg:top-6">
-        <div className="relative">
+      <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-3 h-auto lg:h-full">
+        <div className="relative shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Cədvəl axtar..."
@@ -255,11 +257,12 @@ export function ReportTableStatisticsView() {
           />
         </div>
 
-        <div className="bg-white border rounded-xl overflow-hidden flex flex-col shadow-sm">
-          <div className="px-4 py-3 border-b bg-gray-50/50">
+        <div className="bg-white border rounded-xl flex flex-col shadow-sm min-h-0 overflow-hidden lg:flex-1">
+          <div className="px-4 py-3 border-b bg-gray-50/50 shrink-0">
             <p className="text-sm font-semibold text-gray-700">Seçim edin</p>
           </div>
-          <div className="overflow-y-auto max-h-64 lg:max-h-[calc(100vh-230px)] divide-y">
+          <ScrollArea className="flex-1">
+            <div className="divide-y">
               {/* Overall Row */}
               <button
                 type="button"
@@ -299,14 +302,15 @@ export function ReportTableStatisticsView() {
                   </button>
                 );
               })}
-          </div>
+              </div>
+          </ScrollArea>
         </div>
       </div>
 
       {/* Right Panel - Data Rich View */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white border rounded-xl shadow-sm">
+      <div className="flex-1 flex flex-col min-w-0 bg-white border rounded-xl shadow-sm h-auto lg:h-full overflow-hidden">
         {selectedTableId ? (
-          <div className="flex flex-col">
+          <div className="flex flex-col h-full">
             {/* Header with KPI cards */}
             <div className="p-4 bg-gray-50/50 border-b shrink-0">
               <div className="flex items-center justify-between gap-4 mb-4">
@@ -376,8 +380,8 @@ export function ReportTableStatisticsView() {
             </div>
 
             {/* Filters & Content */}
-            <div className="flex flex-col">
-              <div className="p-3 border-b flex items-center justify-between gap-3 bg-white/80 backdrop-blur">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-3 border-b flex items-center justify-between gap-3 bg-white/80 backdrop-blur shrink-0">
                 <div className="flex items-center gap-3 flex-1">
                   <div className="relative flex-1 max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -406,7 +410,7 @@ export function ReportTableStatisticsView() {
                 </div>
               </div>
 
-              <div>
+              <ScrollArea className="flex-1">
                 {isLoadingTableStats || isLoadingSchoolStats ? (
                   <div className="p-4 space-y-4">
                     {[1,2,3,4,5,6,7,8].map(i => <Skeleton key={i} className="h-14 w-full" />)}
@@ -484,13 +488,9 @@ export function ReportTableStatisticsView() {
                               {failCount > 0 ? (
                                 <button 
                                   onClick={() => {
-                                    if (school.response_id || isOverall) {
-                                      // If overall, we might need a different detail view, 
-                                      // but for now we link to the last response if available
-                                      if (school.response_id) {
-                                        setSelectedResponseId(school.response_id);
-                                        setIsDetailsOpen(true);
-                                      }
+                                    if (school.response_id) {
+                                      setSelectedResponseId(school.response_id);
+                                      setIsDetailsOpen(true);
                                     }
                                   }}
                                   className={`inline-flex flex-col items-center justify-center min-w-8 h-8 px-1.5 rounded-full bg-red-50 text-red-700 font-bold text-xs ring-1 ring-red-200 transition-colors ${!isOverall ? 'hover:bg-red-100 cursor-pointer' : 'cursor-default'}`}
@@ -554,7 +554,7 @@ export function ReportTableStatisticsView() {
                     </TableBody>
                   </Table>
                 )}
-              </div>
+              </ScrollArea>
             </div>
           </div>
         ) : (
@@ -646,7 +646,7 @@ export function ReportTableStatisticsView() {
                       </div>
                     ))}
                   {responseDetail.rows.filter((_: any, idx: number) => {
-                    const st = responseDetail.row_statuses?.[idx];
+                    const st = responseDetail.row_statuses?.[idx] as any;
                     return st?.status === 'rejected' || (st?.status === 'draft' && st?.was_returned);
                   }).length === 0 && (
                     <div className="py-20 text-center text-gray-400">
