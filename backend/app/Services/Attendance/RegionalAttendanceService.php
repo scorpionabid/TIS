@@ -453,7 +453,7 @@ class RegionalAttendanceService
                 'uniform_compliance_rate' => $uniformComplianceRate,
                 'average_attendance_rate' => $avgRate,
                 'reporting_gap' => max(0, $schoolDays - $reportedDays),
-                'attending_students' => $reportedDays > 0 ? (int) round(((float) ($agg?->total_morning_present ?? 0) + (float) ($agg?->total_evening_present ?? 0)) / (2 * $reportedDays)) : 0,
+                'attending_students' => (int) round($avgRate / 100 * (int) ($totals['student_total'] ?? 0)),
                 'warnings' => [],
             ];
 
