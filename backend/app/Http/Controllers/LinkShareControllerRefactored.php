@@ -1,10 +1,26 @@
 <?php
 
+/**
+ * @deprecated Bu controller refactor edilib. Yeni controller-lər:
+ *   - App\Http\Controllers\LinkShare\LinkShareCrudController
+ *   - App\Http\Controllers\LinkShare\LinkShareAccessController
+ *   - App\Http\Controllers\LinkShare\LinkShareBulkController
+ *   - App\Http\Controllers\LinkShare\LinkShareAnalyticsController
+ *   - App\Http\Controllers\LinkShare\LinkShareDatabaseController
+ *   - App\Http\Controllers\LinkShare\LinkShareTrackingController
+ *
+ * Bu fayl silinə bilər. Routes artıq yeni controller-lərə yönləndirilir.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Exports\LinkBulkTemplateExport;
 use App\Models\Institution;
 use App\Models\LinkShare;
+use App\Models\Document;
+use App\Models\ResourceView;
+use App\Models\Department;
+use App\Models\LinkAccessLog;
 use App\Services\LinkAnalyticsService;
 use App\Services\LinkSharing\LinkBulkUploadService;
 use App\Services\LinkSharingService;
@@ -235,7 +251,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($id) {
             $user = Auth::user();
 
-            $linkShare = \App\Models\LinkShare::findOrFail($id);
+            $linkShare = LinkShare::findOrFail($id);
 
             // Check permission: only owner or superadmin can restore
             if (! ($this->linkSharingService->canViewAllLinks($user) || $linkShare->shared_by === $user->id)) {
@@ -260,7 +276,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($id) {
             $user = Auth::user();
 
-            $linkShare = \App\Models\LinkShare::findOrFail($id);
+            $linkShare = LinkShare::findOrFail($id);
 
             // Only allow hard delete of disabled links
             if ($linkShare->status !== 'disabled') {
@@ -306,7 +322,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Find the link share first
-            $linkShare = \App\Models\LinkShare::findOrFail($id);
+            $linkShare = LinkShare::findOrFail($id);
 
             $this->linkSharingService->deleteLinkShare($linkShare, $user);
 
@@ -339,7 +355,7 @@ class LinkShareControllerRefactored extends BaseController
                 'referrer' => 'nullable|string|max:500',
             ]);
 
-            $result = $this->linkSharingService->accessLink($token, $validated, $request);
+            $result = $this->linkSharingService->downloadSharedDocument($token, $validated, $request);
 
             return $this->successResponse($result, 'Bağlantıya giriş uğurludur');
         }, 'linkshare.access_by_token');
@@ -607,9 +623,10 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($id) {
             $user = Auth::user();
-            $linkShare = $this->linkSharingService->regenerateToken($id, $user);
+            $linkShare = LinkShare::findOrFail($id);
+            $newToken = $this->linkSharingService->regenerateToken($linkShare, $user);
 
-            return $this->successResponse($linkShare, 'Bağlantı yeniləndi');
+            return $this->successResponse(['token' => $newToken], 'Bağlantı tokeni yeniləndi');
         }, 'linkshare.regenerate_token');
     }
 
@@ -771,7 +788,7 @@ class LinkShareControllerRefactored extends BaseController
                     return $this->errorResponse('Bu resursa giriş icazəniz yoxdur', 403);
                 }
             } elseif ($type === 'document') {
-                $resource = \App\Models\Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)->find($id);
+                $resource = Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)->find($id);
                 if (! $resource) {
                     return $this->errorResponse('Sənəd tapılmadı', 404);
                 }
@@ -781,7 +798,7 @@ class LinkShareControllerRefactored extends BaseController
                 }
             }
 
-            $view = \App\Models\ResourceView::where([
+            $view = ResourceView::where([
                 'user_id' => $user->id,
                 'resource_id' => $id,
                 'resource_type' => $type,
@@ -793,7 +810,7 @@ class LinkShareControllerRefactored extends BaseController
                     'view_count' => $view->view_count + 1,
                 ]);
             } else {
-                \App\Models\ResourceView::create([
+                ResourceView::create([
                     'user_id' => $user->id,
                     'resource_id' => $id,
                     'resource_type' => $type,
@@ -817,7 +834,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Validate department exists
-            $department = \App\Models\Department::find($departmentId);
+            $department = Department::find($departmentId);
             if (! $department) {
                 abort(404, 'Departament tapılmadı: ' . $departmentId);
             }
@@ -883,7 +900,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Verify sector exists and is active
-            $sector = \App\Models\Institution::where('id', $sectorId)
+            $sector = Institution::where('id', $sectorId)
                 ->where('is_active', true)
                 ->where(function ($q) {
                     $q->where('type', 'sektor')
@@ -982,7 +999,7 @@ class LinkShareControllerRefactored extends BaseController
 
             // Get sectors based on user's access level
             // Try both 'sektor' type and level 3
-            $query = \App\Models\Institution::where('is_active', true)
+            $query = Institution::where('is_active', true)
                 ->where(function ($q) {
                     $q->where('type', 'sektor')
                         ->orWhere('type', 'sector')
@@ -1039,7 +1056,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Get departments based on user's access level
-            $query = \App\Models\Department::where('is_active', true)
+            $query = Department::where('is_active', true)
                 ->select('id', 'name', 'short_name', 'department_type', 'institution_id');
 
             // Apply regional filtering
@@ -1090,7 +1107,7 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $departmentId) {
             // Validate department exists
-            $department = \App\Models\Department::find($departmentId);
+            $department = Department::find($departmentId);
             if (! $department) {
                 abort(404, 'Departament tapılmadı: ' . $departmentId);
             }
@@ -1139,7 +1156,7 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $sectorId) {
             // Verify sector exists
-            $sector = \App\Models\Institution::where('id', $sectorId)
+            $sector = Institution::where('id', $sectorId)
                 ->where('level', 3)
                 ->first();
 
@@ -1218,7 +1235,7 @@ class LinkShareControllerRefactored extends BaseController
             $linkShare->increment('click_count');
 
             // Log access
-            \App\Models\LinkAccessLog::create([
+            LinkAccessLog::create([
                 'link_share_id' => $id,
                 'user_id' => $user?->id,
                 'ip_address' => $request->ip(),
@@ -1238,7 +1255,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $user = Auth::user();
 
-            $query = \App\Models\LinkAccessLog::with(['linkShare', 'user'])
+            $query = LinkAccessLog::with(['linkShare', 'user'])
                 ->orderBy('created_at', 'desc');
 
             // Apply filters
@@ -1269,7 +1286,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $id) {
             $linkShare = LinkShare::findOrFail($id);
 
-            $history = \App\Models\LinkAccessLog::where('link_share_id', $id)
+            $history = LinkAccessLog::where('link_share_id', $id)
                 ->with('user')
                 ->orderBy('created_at', 'desc')
                 ->limit($request->get('limit', 100))
