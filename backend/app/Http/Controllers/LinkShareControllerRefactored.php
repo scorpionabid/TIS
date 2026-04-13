@@ -771,7 +771,7 @@ class LinkShareControllerRefactored extends BaseController
                     return $this->errorResponse('Bu resursa giriş icazəniz yoxdur', 403);
                 }
             } elseif ($type === 'document') {
-                $resource = \App\Models\Document::find($id);
+                $resource = \App\Models\Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)->find($id);
                 if (! $resource) {
                     return $this->errorResponse('Sənəd tapılmadı', 404);
                 }
