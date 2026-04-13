@@ -817,6 +817,29 @@ class TaskPermissionService extends BaseService
         $perPage = (int) ($filters['per_page'] ?? 120);
         $perPage = max(1, min($perPage, 200));
 
+        // Custom role ordering based on current user's role
+        $roleOrder = [];
+        if ($user->hasRole('regionadmin')) {
+            $roleOrder = ['regionoperator', 'sektoradmin', 'schooladmin'];
+        } elseif ($user->hasRole('sektoradmin')) {
+            $roleOrder = ['sektoroperator', 'schooladmin'];
+        }
+
+        if (! empty($roleOrder)) {
+            $case = 'CASE ';
+            foreach ($roleOrder as $index => $roleName) {
+                $priority = $index + 1;
+                $case .= "WHEN EXISTS (
+                    SELECT 1 FROM model_has_roles mhr 
+                    JOIN roles r ON r.id = mhr.role_id 
+                    WHERE mhr.model_id = users.id AND r.name = '{$roleName}'
+                ) THEN {$priority} ";
+            }
+            $case .= 'ELSE ' . (count($roleOrder) + 1) . ' END';
+
+            $query->orderByRaw($case);
+        }
+
         $users = $query
             ->orderBy('first_name')
             ->orderBy('last_name')

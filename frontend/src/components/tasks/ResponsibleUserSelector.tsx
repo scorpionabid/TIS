@@ -159,12 +159,48 @@ export function ResponsibleUserSelector({
     });
   }, [selectedCache, value]);
 
+  const listItems = React.useMemo(() => {
+    if (!displayedUsers.length) return [];
+
+    const items: Array<{ type: 'user'; user: AssignableUser } | { type: 'header'; roleName: string }> = [];
+    let currentRole: string | null = null;
+
+    displayedUsers.forEach((user) => {
+      const userRole = user.role || 'digər';
+      if (userRole !== currentRole) {
+        items.push({ 
+          type: 'header', 
+          roleName: roleDisplayNames[userRole] || userRole 
+        });
+        currentRole = userRole;
+      }
+      items.push({ type: 'user', user });
+    });
+
+    return items;
+  }, [displayedUsers]);
+
   const RowComponent = React.useCallback(({ index, style, ariaAttributes }: RowComponentProps) => {
-    const user = displayedUsers[index];
-    if (!user) {
+    const item = listItems[index];
+    if (!item) {
       return null;
     }
 
+    if (item.type === 'header') {
+      return (
+        <div
+          style={style}
+          key={`header-${item.roleName}`}
+          className="flex items-center px-3 bg-muted/30 border-b border-border/40"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            {item.roleName}
+          </span>
+        </div>
+      );
+    }
+
+    const { user } = item;
     const userId = user.id.toString();
     const isChecked = value.includes(userId);
 
@@ -191,13 +227,13 @@ export function ResponsibleUserSelector({
           <div className="flex flex-col">
             <span className="font-semibold text-sm text-foreground">{user.name}</span>
             {user.institution?.name && (
-              <span className="text-[11px] text-muted-foreground">{user.institution.name}</span>
+              <span className="text-[11px] text-muted-foreground line-clamp-1">{user.institution.name}</span>
             )}
           </div>
         </label>
       </div>
     );
-  }, [displayedUsers, disabled, handleToggleUser, value]);
+  }, [listItems, disabled, handleToggleUser, value]);
 
   return (
     <div className={cn('space-y-4 rounded-lg border border-dashed border-border/60 p-4', disabled && 'opacity-60')}>
@@ -339,7 +375,7 @@ export function ResponsibleUserSelector({
           <div>
             <List
               rowComponent={RowComponent}
-              rowCount={displayedUsers.length}
+              rowCount={listItems.length}
               rowHeight={ROW_HEIGHT}
               rowProps={{}}
               style={{ height: LIST_HEIGHT, width: '100%' }}
