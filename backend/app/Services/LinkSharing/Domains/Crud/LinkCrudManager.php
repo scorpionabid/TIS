@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Link CRUD Manager
@@ -59,6 +60,7 @@ class LinkCrudManager
 
             Log::info('Creating LinkShare with data:', $linkData);
 
+            $linkData['token'] = Str::random(32);
             $linkShare = LinkShare::create($linkData);
 
             return $linkShare->load(['sharedBy', 'institution']);
@@ -158,6 +160,73 @@ class LinkCrudManager
                 } catch (Exception $e) {
                     $results['failed']++;
                     $results['errors'][] = 'Link ' . ($index + 1) . ': ' . $e->getMessage();
+                }
+            }
+
+            return $results;
+        });
+    }
+
+    /**
+     * Regenerate share token for a link
+     */
+    public function regenerateToken($linkShare, $user)
+    {
+        if (! $this->permissionService->canModifyLink($user, $linkShare)) {
+            throw new Exception('Bu linki dəyişmək icazəniz yoxdur', 403);
+        }
+
+        return DB::transaction(function () use ($linkShare) {
+            $newToken = Str::random(32);
+            $linkShare->update(['token' => $newToken]);
+
+            return $newToken;
+        });
+    }
+
+    /**
+     * Perform bulk actions on multiple links
+     */
+    public function bulkAction(string $action, array $linkIds, $user, array $data = [])
+    {
+        return DB::transaction(function () use ($action, $linkIds, $user, $data) {
+            $results = [
+                'success' => 0,
+                'failed' => 0,
+                'errors' => [],
+            ];
+
+            $links = LinkShare::whereIn('id', $linkIds)->get();
+
+            foreach ($links as $link) {
+                try {
+                    if (! $this->permissionService->canModifyLink($user, $link)) {
+                        throw new Exception("Link #{$link->id} üçün icazəniz yoxdur");
+                    }
+
+                    switch ($action) {
+                        case 'delete':
+                            $link->update(['status' => 'disabled']);
+                            break;
+                        case 'activate':
+                            $link->update(['status' => 'active']);
+                            break;
+                        case 'deactivate':
+                            $link->update(['status' => 'disabled']);
+                            break;
+                        case 'extend_expiry':
+                            if (empty($data['expires_at'])) {
+                                throw new Exception('Bitiş tarixi qeyd edilməyib');
+                            }
+                            $link->update(['expires_at' => Carbon::parse($data['expires_at'])]);
+                            break;
+                        default:
+                            throw new Exception("Naməlum əməliyyat: {$action}");
+                    }
+                    $results['success']++;
+                } catch (Exception $e) {
+                    $results['failed']++;
+                    $results['errors'][] = $e->getMessage();
                 }
             }
 

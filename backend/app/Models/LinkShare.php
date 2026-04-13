@@ -13,6 +13,8 @@ class LinkShare extends Model
     use HasFactory;
 
     protected $fillable = [
+        'token', // NEW: Unique token for link identification
+        'password', // NEW: Password protection
         'title',
         'description',
         'url',

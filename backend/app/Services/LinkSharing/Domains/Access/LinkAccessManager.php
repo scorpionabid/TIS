@@ -103,6 +103,45 @@ class LinkAccessManager
     }
 
     /**
+     * Download/Access shared document by token
+     */
+    public function downloadSharedDocument(string $token, array $data, Request $request)
+    {
+        $linkShare = LinkShare::where('token', $token)->firstOrFail();
+
+        // 1. Availability checks
+        if ($linkShare->status !== 'active') {
+            throw new Exception('Bu link artıq aktiv deyil', 403);
+        }
+
+        if ($linkShare->expires_at && Carbon::now()->gt($linkShare->expires_at)) {
+            throw new Exception('Bu linkin müddəti bitib', 410);
+        }
+
+        // 2. Password check
+        if ($linkShare->password) {
+            if (empty($data['password'])) {
+                throw new Exception('Bu link parol ilə qorunur', 401);
+            }
+
+            if (! \Illuminate\Support\Facades\Hash::check($data['password'], $linkShare->password)) {
+                throw new Exception('Yanlış parol', 401);
+            }
+        }
+
+        // 3. Record access
+        $this->logLinkAccess($linkShare, $request, auth()->user());
+        $linkShare->increment('click_count');
+        $linkShare->update(['last_accessed_at' => now()]);
+
+        return [
+            'url' => $linkShare->url,
+            'title' => $linkShare->title,
+            'type' => $linkShare->link_type,
+        ];
+    }
+
+    /**
      * Log link access
      *
      * LOGIC PRESERVED FROM ORIGINAL (lines 642-652)

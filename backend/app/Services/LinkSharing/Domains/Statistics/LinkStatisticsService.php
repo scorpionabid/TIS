@@ -101,4 +101,34 @@ class LinkStatisticsService
 
         return $columnName;
     }
+
+    /**
+     * Get recent activity for the user
+     */
+    public function getRecentActivity($request, $user)
+    {
+        $limit = (int) $request->input('limit', 10);
+        $limit = max(1, min($limit, 50));
+
+        // Get recent link shares created by user or in user's institution
+        $recentShares = \App\Models\LinkShare::where('institution_id', $user->institution_id)
+            ->with(['sharedBy:id,first_name,last_name,username'])
+            ->latest()
+            ->limit($limit)
+            ->get();
+
+        // Get recent link accesses in user's institution
+        $recentAccesses = \App\Models\LinkAccessLog::whereHas('linkShare', function ($query) use ($user) {
+                $query->where('institution_id', $user->institution_id);
+            })
+            ->with(['user:id,first_name,last_name,username', 'linkShare:id,title,url'])
+            ->latest()
+            ->limit($limit)
+            ->get();
+
+        return [
+            'recent_shares' => $recentShares,
+            'recent_accesses' => $recentAccesses,
+        ];
+    }
 }

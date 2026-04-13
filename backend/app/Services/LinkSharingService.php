@@ -114,6 +114,22 @@ class LinkSharingService extends BaseService
     }
 
     /**
+     * Regenerate share token for a link
+     */
+    public function regenerateToken($linkShare, $user)
+    {
+        return $this->crudManager->regenerateToken($linkShare, $user);
+    }
+
+    /**
+     * Perform bulk actions on multiple links
+     */
+    public function bulkAction(string $action, array $linkIds, $user, array $data = [])
+    {
+        return $this->crudManager->bulkAction($action, $linkIds, $user, $data);
+    }
+
+    /**
      * Access link and log the access
      */
     public function accessLink($linkShare, $request, $user = null)
@@ -127,6 +143,14 @@ class LinkSharingService extends BaseService
     public function getLinkStatistics($linkShare, $user)
     {
         return $this->statisticsService->getLinkStatistics($linkShare, $user);
+    }
+
+    /**
+     * Get recent activity for the user
+     */
+    public function getRecentActivity($request, $user)
+    {
+        return $this->statisticsService->getRecentActivity($request, $user);
     }
 
     /**
@@ -186,11 +210,40 @@ class LinkSharingService extends BaseService
     }
 
     /**
+     * Download/Access shared document by token
+     */
+    public function downloadSharedDocument(string $token, array $data, Request $request)
+    {
+        return $this->accessManager->downloadSharedDocument($token, $data, $request);
+    }
+
+    /**
      * Get resources assigned to user's institution (both links and documents)
      */
     public function getAssignedResources($request, $user): array
     {
         return $this->queryBuilder->getAssignedResources($request, $user);
+    }
+
+    /**
+     * Export link data
+     */
+    public function exportLinkData($request, $user)
+    {
+        $links = $this->getAccessibleLinks($request, $user);
+
+        return $links->map(function ($link) {
+            return [
+                'ID' => $link->id,
+                'Başlıq' => $link->title,
+                'URL' => $link->url,
+                'Paylaşım növü' => $link->link_type,
+                'Status' => $link->status,
+                'Baxış sayı' => $link->click_count,
+                'Yaradılma tarixi' => $link->created_at->format('d.m.Y H:i'),
+                'Bitiş tarixi' => $link->expires_at ? $link->expires_at->format('d.m.Y H:i') : '-',
+            ];
+        });
     }
 
     /**
