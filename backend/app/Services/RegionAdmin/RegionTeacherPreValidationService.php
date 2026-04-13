@@ -39,10 +39,12 @@ class RegionTeacherPreValidationService
     protected array $existingUtisCodes = [];
 
     protected array $institutionCache = [];
-    
+
     // Seen during current file processing (Detect internal duplicates)
     protected array $fileSeenEmails = [];
+
     protected array $fileSeenUsernames = [];
+
     protected array $fileSeenUtisCodes = [];
 
     /**
@@ -73,7 +75,7 @@ class RegionTeacherPreValidationService
 
             // Step 3: Pre-load caches for performance
             $this->preloadCaches($rows, $region);
-            
+
             // Reset file-internal seen caches
             $this->fileSeenEmails = [];
             $this->fileSeenUsernames = [];
@@ -565,7 +567,7 @@ class RegionTeacherPreValidationService
         }
 
         // Check UTIS Code (if provided)
-        if (!empty($utisCode)) {
+        if (! empty($utisCode)) {
             if (isset($this->fileSeenUtisCodes[$utisCode])) {
                 $prevRow = $this->fileSeenUtisCodes[$utisCode];
                 $errors[] = [

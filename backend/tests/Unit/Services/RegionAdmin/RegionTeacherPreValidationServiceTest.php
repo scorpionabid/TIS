@@ -5,7 +5,6 @@ namespace Tests\Unit\Services\RegionAdmin;
 use App\Models\Institution;
 use App\Services\RegionAdmin\RegionTeacherPreValidationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
 
@@ -14,12 +13,13 @@ class RegionTeacherPreValidationServiceTest extends TestCase
     use RefreshDatabase;
 
     protected $service;
+
     protected $region;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new RegionTeacherPreValidationService();
+        $this->service = new RegionTeacherPreValidationService;
         $this->region = Institution::factory()->create(['level' => 1]);
     }
 
@@ -28,20 +28,20 @@ class RegionTeacherPreValidationServiceTest extends TestCase
     {
         // This is a unit test for the checkInternalDuplicates method directly
         // since mocking the whole Excel process is complex in a quick test
-        
+
         $method = new \ReflectionMethod(RegionTeacherPreValidationService::class, 'checkInternalDuplicates');
         $method->setAccessible(true);
 
         $row1 = [
             'email' => 'duplicate@example.com',
             'username' => 'user1',
-            'utis_code' => '12345'
+            'utis_code' => '12345',
         ];
 
         $row2 = [
             'email' => 'duplicate@example.com', // Duplicate email
             'username' => 'user2',
-            'utis_code' => '67890'
+            'utis_code' => '67890',
         ];
 
         // Process Row 1

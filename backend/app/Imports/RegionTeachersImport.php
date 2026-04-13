@@ -100,7 +100,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                         'row_number' => $currentRow,
                         'field' => 'institution',
                         'message' => "Müəssisə tapılmadı (kod/ID: {$identifier})",
-                        'severity' => 'critical'
+                        'severity' => 'critical',
                     ];
                     static::$errorCount++;
 
@@ -113,7 +113,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                         'row_number' => $currentRow,
                         'field' => 'institution',
                         'message' => "Müəssisə (ID:{$institution->id}) sizin regionunuza aid deyil",
-                        'severity' => 'critical'
+                        'severity' => 'critical',
                     ];
                     static::$errorCount++;
 
@@ -132,7 +132,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                             'row_number' => $currentRow,
                             'field' => $field,
                             'message' => implode(', ', $messages),
-                            'severity' => 'critical'
+                            'severity' => 'critical',
                         ];
                     }
                     static::$errorCount++;
@@ -159,7 +159,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                             'row_number' => $currentRow,
                             'field' => 'email',
                             'message' => ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur (keçildi)',
-                            'severity' => 'warning'
+                            'severity' => 'warning',
                         ];
                         static::$skippedCount++; // Use skippedCount for duplicates if skip is on
 
@@ -175,7 +175,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                         'row_number' => $currentRow,
                         'field' => 'email',
                         'message' => ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur',
-                        'severity' => 'critical'
+                        'severity' => 'critical',
                     ];
                     static::$errorCount++;
 
@@ -196,7 +196,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                     'row_number' => $currentRow,
                     'field' => 'general',
                     'message' => $e->getMessage(),
-                    'severity' => 'critical'
+                    'severity' => 'critical',
                 ];
                 static::$errorCount++;
             }
@@ -638,7 +638,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             'row_number' => 0,
             'field' => 'global',
             'message' => "Qlobal Xəta: {$e->getMessage()}",
-            'severity' => 'critical'
+            'severity' => 'critical',
         ];
     }
 
@@ -657,7 +657,7 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                 'row_number' => $row,
                 'field' => 'validation',
                 'message' => $errors,
-                'severity' => 'critical'
+                'severity' => 'critical',
             ];
         }
     }
