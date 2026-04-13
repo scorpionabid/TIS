@@ -43,7 +43,7 @@ class LinkShareCrudController extends BaseController
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'sort_by' => 'nullable|string|in:created_at,expires_at,access_count,document_name',
                 'sort_direction' => 'nullable|string|in:asc,desc',
-                'per_page' => 'nullable|integer|min:1|max:100',
+                'per_page' => 'nullable|integer|min:1|max:500',
                 'scope' => 'nullable|string|in:scoped,global',
                 'status' => 'nullable|string|in:active,expired,disabled',
                 'statuses' => 'nullable|array',
