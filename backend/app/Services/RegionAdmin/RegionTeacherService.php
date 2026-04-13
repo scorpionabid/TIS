@@ -60,14 +60,19 @@ class RegionTeacherService
                 ? $filters['sector_ids']
                 : explode(',', $filters['sector_ids']);
 
-            // Get all institution IDs under these sectors
-            $sectorInstitutionIds = Institution::whereIn('id', $sectorIds)
-                ->get()
-                ->flatMap(fn ($sector) => $sector->getAllChildrenIds())
-                ->unique()
-                ->toArray();
+            $sectorIds = array_map('intval', array_filter($sectorIds));
 
-            $query->whereIn('institution_id', $sectorInstitutionIds);
+            if (! empty($sectorIds)) {
+                // Directly fetch level-4 schools whose parent is one of the selected sectors.
+                // This avoids getAllChildrenIds() N+1 queries and correctly excludes
+                // the sector institution IDs themselves from the teacher whereIn clause.
+                $schoolIds = Institution::whereIn('parent_id', $sectorIds)
+                    ->where('level', 4)
+                    ->pluck('id')
+                    ->toArray();
+
+                $query->whereIn('institution_id', $schoolIds);
+            }
         }
 
         // School filter (Level 4 institutions)

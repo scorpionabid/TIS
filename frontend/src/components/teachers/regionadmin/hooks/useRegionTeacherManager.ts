@@ -235,7 +235,10 @@ export const useRegionTeacherManager = () => {
   // Helper: Update sector selection and reload schools
   const updateSectorSelection = useCallback((sectorIds: number[]) => {
     setSelectedSectorIds(sectorIds);
-    updateFilters({ sector_ids: sectorIds, school_ids: [] }); // Clear school filter when sector changes
+    updateFilters({
+      sector_ids: sectorIds.length > 0 ? sectorIds : undefined,
+      school_ids: undefined, // Clear school filter when sector changes
+    });
   }, [updateFilters]);
 
   // Helper: Select/deselect teacher

@@ -30,9 +30,7 @@ export class TeacherService extends BaseService<any> {
         data: { url: this.baseEndpoint, filters } 
       });
 
-      const response = await apiClient.get<RegionTeacherResult>(this.baseEndpoint, {
-        params: filters,
-      });
+      const response = await apiClient.get<RegionTeacherResult>(this.baseEndpoint, filters);
 
       if (!response.success) {
         throw new Error(response.message || 'Müəllim siyahısını yükləmək mümkün olmadı');
@@ -116,9 +114,10 @@ export class TeacherService extends BaseService<any> {
    */
   async getSchools(sectorIds?: number[]): Promise<Institution[]> {
     try {
-      const response = await apiClient.get<Institution[]>(`${this.baseEndpoint}/schools`, {
-        params: sectorIds && sectorIds.length > 0 ? { sector_ids: sectorIds } : {},
-      });
+      const response = await apiClient.get<Institution[]>(
+        `${this.baseEndpoint}/schools`,
+        sectorIds && sectorIds.length > 0 ? { sector_ids: sectorIds } : undefined,
+      );
 
       if (!response.success) {
         throw new Error(response.message || 'Məktəbləri yükləmək mümkün olmadı');
