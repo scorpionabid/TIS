@@ -39,6 +39,11 @@ class RegionTeacherPreValidationService
     protected array $existingUtisCodes = [];
 
     protected array $institutionCache = [];
+    
+    // Seen during current file processing (Detect internal duplicates)
+    protected array $fileSeenEmails = [];
+    protected array $fileSeenUsernames = [];
+    protected array $fileSeenUtisCodes = [];
 
     /**
      * Validate entire Excel file before import
@@ -68,6 +73,11 @@ class RegionTeacherPreValidationService
 
             // Step 3: Pre-load caches for performance
             $this->preloadCaches($rows, $region);
+            
+            // Reset file-internal seen caches
+            $this->fileSeenEmails = [];
+            $this->fileSeenUsernames = [];
+            $this->fileSeenUtisCodes = [];
 
             // Step 4: Validate each row
             $rowNumber = 1; // Start from 1 (excluding header)
@@ -316,9 +326,13 @@ class RegionTeacherPreValidationService
             }
         }
 
-        // VALIDATION 3: Duplicate checks
+        // VALIDATION 3: Duplicate checks (Database)
         $duplicateChecks = $this->checkDuplicates($data, $rowNumber);
         $rowErrors = array_merge($rowErrors, $duplicateChecks);
+
+        // VALIDATION 3.5: File-Internal Duplicate checks (NEW)
+        $internalDuplicateChecks = $this->checkInternalDuplicates($data, $rowNumber);
+        $rowErrors = array_merge($rowErrors, $internalDuplicateChecks);
 
         // VALIDATION 4: Warnings for optional fields
         $optionalWarnings = $this->checkOptionalFields($data);
@@ -511,6 +525,66 @@ class RegionTeacherPreValidationService
     }
 
     /**
+     * Check for duplicates WITHIN the same file (NEW)
+     */
+    protected function checkInternalDuplicates(array $data, int $rowNumber): array
+    {
+        $errors = [];
+        $email = $data['email'];
+        $username = $data['username'];
+        $utisCode = $data['utis_code'];
+
+        // Check Email
+        if (isset($this->fileSeenEmails[$email])) {
+            $prevRow = $this->fileSeenEmails[$email];
+            $errors[] = [
+                'field' => 'email',
+                'value' => $email,
+                'severity' => 'critical',
+                'message' => "Bu email fayl daxilində artıq istifadə olunub (Sətir {$prevRow})",
+                'suggestion' => 'Faylda təkrarlanan sətirləri təmizləyin və ya hər müəllim üçün unikal email istifadə edin.',
+            ];
+            $this->incrementErrorGroup('file_internal_duplicate');
+        } else {
+            $this->fileSeenEmails[$email] = $rowNumber;
+        }
+
+        // Check Username
+        if (isset($this->fileSeenUsernames[$username])) {
+            $prevRow = $this->fileSeenUsernames[$username];
+            $errors[] = [
+                'field' => 'username',
+                'value' => $username,
+                'severity' => 'critical',
+                'message' => "Bu istifadəçi adı fayl daxilində artıq istifadə olunub (Sətir {$prevRow})",
+                'suggestion' => 'Hər müəllim üçün unikal istifadəçi adı təyin edin.',
+            ];
+            $this->incrementErrorGroup('file_internal_duplicate');
+        } else {
+            $this->fileSeenUsernames[$username] = $rowNumber;
+        }
+
+        // Check UTIS Code (if provided)
+        if (!empty($utisCode)) {
+            if (isset($this->fileSeenUtisCodes[$utisCode])) {
+                $prevRow = $this->fileSeenUtisCodes[$utisCode];
+                $errors[] = [
+                    'field' => 'utis_code',
+                    'value' => $utisCode,
+                    'severity' => 'critical',
+                    'message' => "Bu UTİS kod fayl daxilində artıq istifadə olunub (Sətir {$prevRow})",
+                    'suggestion' => 'UTİS kodu yoxlayın, hər müəllim üçün yalnız bir unikal kod olmalıdır.',
+                ];
+                $this->incrementErrorGroup('file_internal_duplicate');
+            } else {
+                $this->fileSeenUtisCodes[$utisCode] = $rowNumber;
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
      * Check optional fields for warnings
      */
     protected function checkOptionalFields(array $data): array
@@ -622,6 +696,10 @@ class RegionTeacherPreValidationService
 
         if (isset($this->errorGroups['duplicate_email']) && $this->errorGroups['duplicate_email'] > 0) {
             $this->suggestions[] = '📌 ' . $this->errorGroups['duplicate_email'] . ' email artıq sistemdə mövcuddur. Fərqli email istifadə edin və ya "Mövcudları yenilə" seçimini aktivləşdirin.';
+        }
+
+        if (isset($this->errorGroups['file_internal_duplicate']) && $this->errorGroups['file_internal_duplicate'] > 0) {
+            $this->suggestions[] = '📌 Fayl daxilində təkrarlanan (' . $this->errorGroups['file_internal_duplicate'] . ') məlumatlar aşkar edildi. Eyni faylda eyni müəllimi iki dəfə yazmadığınızdan əmin olun.';
         }
 
         if (count($this->validRows) > 0 && count($this->invalidRows) > 0) {

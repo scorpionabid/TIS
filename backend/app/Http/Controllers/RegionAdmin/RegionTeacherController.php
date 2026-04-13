@@ -68,7 +68,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$updated} müəllimin statusu yeniləndi",
+                'message' => "{$updated} müəllimin statusu uğurla yeniləndi",
                 'updated_count' => $updated,
             ]);
         } catch (\Exception $e) {
@@ -86,7 +86,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$deleted} müəllim silindi",
+                'message' => "{$deleted} müəllim uğurla silindi",
                 'deleted_count' => $deleted,
             ]);
         } catch (\Exception $e) {
@@ -106,7 +106,7 @@ class RegionTeacherController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $data,
-                'message' => 'Müəllimlər uğurla export edildi',
+                'message' => 'Müəllim siyahısı uğurla ixrac edildi',
             ]);
         } catch (\Exception $e) {
             return $this->errorResponse('Export zamanı xəta baş verdi', $e);
@@ -166,7 +166,7 @@ class RegionTeacherController extends Controller
             if (! $teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil',
+                    'message' => 'Müəllim tapılmadı və ya sizin səlahiyyətiniz yoxdur',
                 ], 404);
             }
 
@@ -216,7 +216,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Müəllim məlumatları yeniləndi',
+                'message' => 'Müəllim məlumatları uğurla yeniləndi',
                 'data' => $teacher,
             ]);
         } catch (\Exception $e) {
@@ -240,7 +240,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => $success,
-                'message' => $success ? 'Müəllim deaktiv edildi' : 'Müəllim tapılmadı',
+                'message' => $success ? 'Müəllim hesabı qeyri-aktiv edildi' : 'Müəllim tapılmadı',
             ]);
         } catch (\Exception $e) {
             return $this->errorResponse('Deaktivasiya zamanı xəta baş verdi', $e);
@@ -263,7 +263,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => $success,
-                'message' => $success ? 'Müəllim tamamilə silindi' : 'Müəllim tapılmadı',
+                'message' => $success ? 'Müəllim sistemdən tamamilə silindi' : 'Müəllim tapılmadı',
             ]);
         } catch (\Exception $e) {
             return $this->errorResponse('Silmə zamanı xəta baş verdi', $e);
@@ -404,7 +404,7 @@ class RegionTeacherController extends Controller
 
         return response()->json([
             'success' => false,
-            'message' => "{$message}: " . $e->getMessage(),
+            'message' => "Məlumat emal edilərkən xəta baş verdi. Zəhmət olmasa təkrar cəhd edin. ({$message})",
         ], $status);
     }
 }

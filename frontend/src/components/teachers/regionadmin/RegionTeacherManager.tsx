@@ -55,6 +55,17 @@ import { RegionTeacherImportModal } from './RegionTeacherImportModal';
 import type { EnhancedTeacherProfile } from '@/types/teacher';
 import { RegionTeacherFormModal } from './RegionTeacherFormModal';
 import { type RegionTeacherCreateInput } from '@/services/teachers';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 
 
@@ -63,6 +74,19 @@ export const RegionTeacherManager: React.FC = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<EnhancedTeacherProfile | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: () => void;
+    variant?: 'default' | 'destructive';
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    action: () => {},
+  });
+  const { toast } = useToast();
 
   const {
     currentUser,
@@ -106,27 +130,43 @@ export const RegionTeacherManager: React.FC = () => {
   // Handle bulk activate
   const handleBulkActivate = () => {
     if (selectedTeachers.length === 0) return;
-    bulkUpdateStatus({
-      teacherIds: selectedTeachers.map(t => t.id),
-      isActive: true,
+    setConfirmModal({
+      open: true,
+      title: 'Hesabları Aktivləşdir',
+      description: `${selectedTeachers.length} müəllim hesabını aktiv etmək istədiyinizə əminsiniz?`,
+      action: () => bulkUpdateStatus({
+        teacherIds: selectedTeachers.map(t => t.id),
+        isActive: true,
+      }),
+      variant: 'default',
     });
   };
 
   // Handle bulk deactivate
   const handleBulkDeactivate = () => {
     if (selectedTeachers.length === 0) return;
-    bulkUpdateStatus({
-      teacherIds: selectedTeachers.map(t => t.id),
-      isActive: false,
+    setConfirmModal({
+      open: true,
+      title: 'Hesabları Deaktiv Et',
+      description: `${selectedTeachers.length} müəllim hesabını qeyri-aktiv etmək istədiyinizə əminsiniz?`,
+      action: () => bulkUpdateStatus({
+        teacherIds: selectedTeachers.map(t => t.id),
+        isActive: false,
+      }),
+      variant: 'destructive',
     });
   };
 
   // Handle bulk delete
   const handleBulkDelete = () => {
     if (selectedTeachers.length === 0) return;
-    if (confirm(`${selectedTeachers.length} müəllimi silmək istədiyinizə əminsiniz?`)) {
-      bulkDelete(selectedTeachers.map(t => t.id));
-    }
+    setConfirmModal({
+      open: true,
+      title: 'Müəllimləri Stil',
+      description: `Seçilmiş ${selectedTeachers.length} müəllimi sistemdən tamamilə silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`,
+      action: () => bulkDelete(selectedTeachers.map(t => t.id)),
+      variant: 'destructive',
+    });
   };
 
   // Check if all visible teachers are selected
@@ -148,7 +188,18 @@ export const RegionTeacherManager: React.FC = () => {
       closeTeacherForm();
     } catch (error) {
       console.error('RegionTeacherManager - Teacher save error', error);
+      // Toast is handled in mutation hook
     }
+  };
+
+  const handleSingleDelete = (teacher: EnhancedTeacherProfile) => {
+    setConfirmModal({
+      open: true,
+      title: 'Müəllimi Sil',
+      description: `${teacher.profile?.first_name || teacher.first_name} ${teacher.profile?.last_name || teacher.last_name} müəllimini sistemdən tamamilə silmək istədiyinizə əminsiniz?`,
+      action: () => bulkDelete([teacher.id]), // Reuse bulk delete for single
+      variant: 'destructive',
+    });
   };
 
   return (
@@ -504,8 +555,22 @@ export const RegionTeacherManager: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
           ) : teachers.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              Heç bir müəllim tapılmadı
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="bg-slate-50 p-4 rounded-full mb-4">
+                <Users className="h-10 w-10 text-slate-300" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-700">Heç bir müəllim tapılmadı</h3>
+              <p className="text-slate-500 text-center max-w-sm mt-1">
+                Axtarış meyarlarınıza uyğun heç bir nəticə movcud deyil. Filtrləri təmizləyərək yenidən yoxlayın.
+              </p>
+              <Button 
+                variant="outline" 
+                className="mt-6"
+                onClick={clearFilters}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Filtrləri Sıfırla
+              </Button>
             </div>
           ) : (
             <Table>
@@ -590,12 +655,8 @@ export const RegionTeacherManager: React.FC = () => {
                               Düzəliş et
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => {
-                                if (confirm(`${teacher.profile?.first_name || teacher.first_name} ${teacher.profile?.last_name || teacher.last_name} müəllimini silmək istədiyinizə əminsiniz?`)) {
-                                  // TODO: Implement single delete
-                                }
-                              }}
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                              onClick={() => handleSingleDelete(teacher)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Sil
@@ -653,6 +714,35 @@ export const RegionTeacherManager: React.FC = () => {
         teacher={editingTeacher}
         isSubmitting={isSavingTeacher}
       />
+
+      {/* Modern Confirmation Dialog */}
+      <AlertDialog 
+        open={confirmModal.open} 
+        onOpenChange={(open) => setConfirmModal(prev => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className={confirmModal.variant === 'destructive' ? 'text-red-600' : ''}>
+              {confirmModal.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmModal.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmModal.variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
+              onClick={() => {
+                confirmModal.action();
+                setConfirmModal(prev => ({ ...prev, open: false }));
+              }}
+            >
+              Bəli, davam et
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

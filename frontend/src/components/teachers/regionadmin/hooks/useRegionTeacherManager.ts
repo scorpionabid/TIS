@@ -108,8 +108,8 @@ export const useRegionTeacherManager = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
-        title: 'Uğurlu',
-        description: data.message || 'Status yeniləndi',
+        title: isActive ? 'Hesablar Aktivləşdirildi' : 'Hesablar Deaktiv Edildi',
+        description: data.message || (isActive ? 'Seçilmiş müəllimlər aktiv edildi' : 'Seçilmiş müəllimlər deaktiv edildi'),
       });
       setSelectedTeachers([]); // Clear selection
     },
@@ -129,8 +129,8 @@ export const useRegionTeacherManager = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
-        title: 'Uğurlu',
-        description: data.message || 'Müəllimlər silindi',
+        title: 'Müəllimlər Silindi',
+        description: data.message || 'Seçilmiş müəllimlər sistemdən xaric edildi',
       });
       setSelectedTeachers([]); // Clear selection
     },
@@ -155,8 +155,8 @@ export const useRegionTeacherManager = () => {
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: 'Uğurlu',
-        description: 'Məlumatlar ixrac edildi',
+        title: 'İxrac Tamamlandı',
+        description: 'Müəllim siyahısı Excel faylına köçürüldü',
       });
     },
     onError: (error) => {
@@ -175,14 +175,21 @@ export const useRegionTeacherManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
-        title: 'Uğurlu',
-        description: 'Müəllim yaradıldı',
+        title: 'Müəllim Yaradıldı',
+        description: 'Yeni müəllim hesabı uğurla sistemə əlavə edildi',
       });
     },
     onError: (error: any) => {
+      const fieldErrors = error.response?.data?.errors;
+      let description = error.message || 'Müəllim yaradılarkən xəta baş verdi';
+      
+      if (fieldErrors) {
+        description = Object.values(fieldErrors).flat().join('\n');
+      }
+
       toast({
-        title: 'Xəta',
-        description: error.message || 'Müəllim yaradılarkən xəta baş verdi',
+        title: 'Yaratma Xətası',
+        description,
         variant: 'destructive',
       });
       throw error;
@@ -196,14 +203,21 @@ export const useRegionTeacherManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
       toast({
-        title: 'Uğurlu',
-        description: 'Müəllim yeniləndi',
+        title: 'Məlumatlar Yeniləndi',
+        description: 'Müəllim profilindəki dəyişikliklər yadda saxlanıldı',
       });
     },
     onError: (error: any) => {
+      const fieldErrors = error.response?.data?.errors;
+      let description = error.message || 'Müəllim yenilənərkən xəta baş verdi';
+      
+      if (fieldErrors) {
+        description = Object.values(fieldErrors).flat().join('\n');
+      }
+
       toast({
-        title: 'Xəta',
-        description: error.message || 'Müəllim yenilənərkən xəta baş verdi',
+        title: 'Yeniləmə Xətası',
+        description,
         variant: 'destructive',
       });
       throw error;

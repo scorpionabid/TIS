@@ -96,7 +96,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                 $institution = $this->findInstitution($data);
                 if (! $institution) {
                     $identifier = $data['institution_utis_code'] ?: ($data['institution_code'] ?: $data['institution_id']);
-                    static::$details['errors'][] = "Sətir {$currentRow}: Müəssisə tapılmadı (kod/ID: {$identifier})";
+                    static::$details['errors'][] = [
+                        'row_number' => $currentRow,
+                        'field' => 'institution',
+                        'message' => "Müəssisə tapılmadı (kod/ID: {$identifier})",
+                        'severity' => 'critical'
+                    ];
                     static::$errorCount++;
 
                     continue;
@@ -104,7 +109,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
                 // STEP 2: Verify institution belongs to region
                 if (! $this->isInstitutionInRegion($institution)) {
-                    static::$details['errors'][] = "Sətir {$currentRow}: Müəssisə (ID:{$institution->id}) sizin regionunuza aid deyil";
+                    static::$details['errors'][] = [
+                        'row_number' => $currentRow,
+                        'field' => 'institution',
+                        'message' => "Müəssisə (ID:{$institution->id}) sizin regionunuza aid deyil",
+                        'severity' => 'critical'
+                    ];
                     static::$errorCount++;
 
                     continue;
@@ -117,8 +127,14 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                 $validator = $this->validateRow($data);
 
                 if ($validator->fails()) {
-                    $errors = implode(', ', $validator->errors()->all());
-                    static::$details['errors'][] = "Sətir {$currentRow}: {$errors}";
+                    foreach ($validator->errors()->getMessages() as $field => $messages) {
+                        static::$details['errors'][] = [
+                            'row_number' => $currentRow,
+                            'field' => $field,
+                            'message' => implode(', ', $messages),
+                            'severity' => 'critical'
+                        ];
+                    }
                     static::$errorCount++;
 
                     continue;
@@ -139,7 +155,13 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
                 if ($existingTeacher) {
                     if ($this->skipDuplicates) {
-                        static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur (keçildi)';
+                        static::$details['skipped'][] = [
+                            'row_number' => $currentRow,
+                            'field' => 'email',
+                            'message' => ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur (keçildi)',
+                            'severity' => 'warning'
+                        ];
+                        static::$skippedCount++; // Use skippedCount for duplicates if skip is on
 
                         continue;
                     } elseif ($this->updateExisting) {
@@ -149,7 +171,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
 
                         continue;
                     }
-                    static::$details['errors'][] = "Sətir {$currentRow}: " . ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur';
+                    static::$details['errors'][] = [
+                        'row_number' => $currentRow,
+                        'field' => 'email',
+                        'message' => ($data['utis_code'] ?: $data['email']) . ' artıq mövcuddur',
+                        'severity' => 'critical'
+                    ];
                     static::$errorCount++;
 
                     continue;
@@ -165,7 +192,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
                     'error' => $e->getMessage(),
                 ]);
 
-                static::$details['errors'][] = "Sətir {$currentRow}: {$e->getMessage()}";
+                static::$details['errors'][] = [
+                    'row_number' => $currentRow,
+                    'field' => 'general',
+                    'message' => $e->getMessage(),
+                    'severity' => 'critical'
+                ];
                 static::$errorCount++;
             }
         }
@@ -602,7 +634,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
         ]);
 
         static::$errorCount++;
-        static::$details['errors'][] = "Qlobal Xəta: {$e->getMessage()}";
+        static::$details['errors'][] = [
+            'row_number' => 0,
+            'field' => 'global',
+            'message' => "Qlobal Xəta: {$e->getMessage()}",
+            'severity' => 'critical'
+        ];
     }
 
     /**
@@ -616,7 +653,12 @@ class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection
             $errors = implode(', ', $failure->errors());
 
             static::$errorCount++;
-            static::$details['errors'][] = "Sətir {$row}: {$errors}";
+            static::$details['errors'][] = [
+                'row_number' => $row,
+                'field' => 'validation',
+                'message' => $errors,
+                'severity' => 'critical'
+            ];
         }
     }
 

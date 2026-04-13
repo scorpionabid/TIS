@@ -87,6 +87,8 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileSizeMB, setFileSizeMB] = useState(0);
   const [estimatedRows, setEstimatedRows] = useState(0);
+  const [errorSearch, setErrorSearch] = useState('');
+  const [errorFieldFilter, setErrorFieldFilter] = useState<string>('all');
 
   // Validation mutation (Phase 1)
   const validateMutation = useMutation({
@@ -542,57 +544,94 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                   </Card>
                 )}
 
-                {/* Top 10 Errors Preview */}
+                {/* Detailed Error Table (NEW) */}
                 {validationResult.errors.length > 0 && (
                   <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center justify-between">
-                        <span>Xətalar (İlk 10)</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => exportErrorsMutation.mutate()}
-                          disabled={exportErrorsMutation.isPending}
-                        >
-                          {exportErrorsMutation.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <>
-                              <FileDown className="h-3 w-3 mr-1" />
-                              Xətaları Export Et
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <span>Bütün Xətalar ({validationResult.errors.length})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+                            <input
+                              type="text"
+                              placeholder="Faylda axtar..."
+                              className="pl-7 h-8 w-48 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              value={errorSearch}
+                              onChange={(e) => setErrorSearch(e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => exportErrorsMutation.mutate()}
+                            disabled={exportErrorsMutation.isPending}
+                          >
+                            {exportErrorsMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <>
+                                <FileDown className="h-3 w-3 mr-1" />
+                                Export
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-48">
-                        <div className="space-y-2">
-                          {validationResult.errors.slice(0, 10).map((error, idx) => (
-                            <div key={idx} className="p-2 bg-red-50 border border-red-200 rounded text-xs">
-                              <div className="flex items-start gap-2">
-                                <Badge variant="destructive" className="text-[10px]">
-                                  Sətir {error.row_number}
-                                </Badge>
-                                <div className="flex-1">
-                                  <p className="font-medium">{error.field}: {error.message}</p>
-                                  {error.value && (
-                                    <p className="text-muted-foreground mt-1">Dəyər: {error.value}</p>
-                                  )}
-                                  {error.suggestion && (
-                                    <p className="text-blue-600 mt-1">💡 {error.suggestion}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          {validationResult.errors.length > 10 && (
-                            <p className="text-center text-xs text-muted-foreground py-2">
-                              ... və daha {validationResult.errors.length - 10} xəta
-                            </p>
-                          )}
-                        </div>
-                      </ScrollArea>
+                    <CardContent className="p-0 border-t">
+                      <div className="max-h-[400px] overflow-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-muted/50 sticky top-0 z-10 border-b">
+                            <tr>
+                              <th className="p-3 font-medium w-16">Sətir</th>
+                              <th className="p-3 font-medium w-24 text-center">Sahə</th>
+                              <th className="p-3 font-medium">Xəta Mesajı</th>
+                              <th className="p-3 font-medium max-w-[150px]">Dəyər</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {validationResult.errors
+                              .filter(e => 
+                                (errorSearch === '' || 
+                                 e.message.toLowerCase().includes(errorSearch.toLowerCase()) || 
+                                 (e.value?.toString().toLowerCase().includes(errorSearch.toLowerCase())) ||
+                                 e.row_number.toString().includes(errorSearch)
+                                )
+                              )
+                              .map((error, idx) => (
+                                <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                                  <td className="p-3 text-center">
+                                    <Badge variant="outline" className="font-mono">{error.row_number}</Badge>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <Badge variant="secondary" className="capitalize text-[10px]">
+                                      {error.field.replace('_', ' ')}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-red-600">{error.message}</p>
+                                      {error.suggestion && (
+                                        <p className="text-[10px] text-blue-600 flex items-center gap-1">
+                                          <Lightbulb className="h-3 w-3" />
+                                          {error.suggestion}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 truncate max-w-[150px] text-muted-foreground italic">
+                                    {error.value !== null && error.value !== undefined ? String(error.value) : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -656,13 +695,24 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                             Xətalı sətirləri sonra düzəldib yenidən yükləyə bilərsiniz.
                           </p>
                           {validationResult.summary.invalid_rows > 0 && (
-                            <Alert className="mt-2">
-                              <TrendingUp className="h-4 w-4" />
-                              <AlertDescription className="text-xs">
-                                {validationResult.summary.valid_rows} sətir idxal olunacaq,
-                                {validationResult.summary.invalid_rows} sətir ötürüləcək
-                              </AlertDescription>
-                            </Alert>
+                            <div className="mt-4 space-y-2 bg-muted/30 p-3 rounded-md border border-dashed">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-muted-foreground">Proqnozlaşdırılan Nəticə:</span>
+                                <Badge variant="outline" className="bg-background">
+                                  {Math.round((validationResult.summary.valid_rows / validationResult.summary.total_rows) * 100)}% Uğur
+                                </Badge>
+                              </div>
+                              <div className="flex h-2 w-full overflow-hidden rounded-full bg-red-100">
+                                <div 
+                                  className="bg-green-500 h-full transition-all duration-500" 
+                                  style={{ width: `${(validationResult.summary.valid_rows / validationResult.summary.total_rows) * 100}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-green-600 font-medium">✓ {validationResult.summary.valid_rows} sətir import ediləcək</span>
+                                <span className="text-red-600 font-medium">✕ {validationResult.summary.invalid_rows} sətir ötürüləcək</span>
+                              </div>
+                            </div>
                           )}
                           <Badge variant="default" className="mt-2">
                             Tövsiyə edilir
@@ -754,11 +804,43 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                       </div>
                     </div>
 
+                    {importResult.details && importResult.details.errors && importResult.details.errors.length > 0 && (
+                      <Card className="border-red-100 overflow-hidden">
+                        <CardHeader className="py-2 bg-red-50/50">
+                          <CardTitle className="text-xs font-semibold text-red-700">
+                            İdxal Zamanı Baş Verən Xətalar ({importResult.details.errors.length})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <ScrollArea className="h-[200px]">
+                            <table className="w-full text-[10px] text-left">
+                              <thead className="bg-muted/50 border-b">
+                                <tr>
+                                  <th className="p-2 font-medium w-12">Sətir</th>
+                                  <th className="p-2 font-medium">Xəta Mesajı</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {importResult.details.errors.map((error: any, idx: number) => (
+                                  <tr key={idx}>
+                                    <td className="p-2">
+                                      <Badge variant="outline" className="text-[9px]">{error.row_number || '?'}</Badge>
+                                    </td>
+                                    <td className="p-2 text-red-600">{error.message || error}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {importResult.errors > 0 && validationResult && (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          {importResult.errors} xətalı sətir ötürüldü. Xəta faylını export edərək düzəliş edə bilərsiniz.
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-xs text-blue-800">
+                          {importResult.errors} xətalı sətir ötürüldü. Tam hesabat üçün Excel faylını yükləyib xətaları düzəldə bilərsiniz.
                         </AlertDescription>
                       </Alert>
                     )}
