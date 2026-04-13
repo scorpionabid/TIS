@@ -775,8 +775,8 @@ class LinkShareControllerRefactored extends BaseController
                 if (! $resource) {
                     return $this->errorResponse('Sənəd tapılmadı', 404);
                 }
-                // SuperAdmin hər şeyə çatır; digərləri yalnız öz institution-larına
-                if (! $user->hasRole('superadmin') && $resource->institution_id !== $user->institution_id) {
+
+                if (! $resource->canAccess($user)) {
                     return $this->errorResponse('Bu sənədə giriş icazəniz yoxdur', 403);
                 }
             }

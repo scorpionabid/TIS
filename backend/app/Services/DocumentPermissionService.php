@@ -207,12 +207,13 @@ class DocumentPermissionService extends BaseService
         );
 
         return $this->cachePermissionCheck($cacheKey, function () use ($user, $document) {
-            // Use the existing document model method with additional checks
-            if (! $document->canAccess($user)) {
-                return false;
+            // 1. Check basic access permissions via model (User assignment, Public status, Ownership)
+            if ($document->canAccess($user)) {
+                return true;
             }
 
-            // Additional regional permission checks
+            // 2. Additional hierarchical permission checks (Lateral/Downward visibility)
+            // Even if not explicitly assigned, superiors might have access to institutional documents
             if ($user->hasRole('superadmin')) {
                 return true;
             }
@@ -223,56 +224,12 @@ class DocumentPermissionService extends BaseService
             switch ($userRole) {
                 case 'regionadmin':
                 case 'regionoperator':
+                    // Regional admins can access any document within their region's institutions
                     return $this->isDocumentInUserRegion($document, $userInstitutionId);
 
                 case 'sektoradmin':
-                    // Check if document is in user's sector
-                    if ($this->isDocumentInUserSector($document, $userInstitutionId)) {
-                        return true;
-                    }
-
-                    // Check if user uploaded the document
-                    if ($document->uploaded_by === $user->id) {
-                        return true;
-                    }
-
-                    // Check if document is public
-                    if ($document->is_public) {
-                        return true;
-                    }
-
-                    // Check if user's institution is in accessible_institutions
-                    if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
-                        // Use integer comparison since institution IDs are integers
-                        return in_array($userInstitutionId, $document->accessible_institutions, false);
-                    }
-
-                    return false;
-
-                case 'schooladmin':
-                case 'müəllim':
-                    // Check if document belongs to user's institution
-                    if ($document->institution_id === $userInstitutionId) {
-                        return true;
-                    }
-
-                    // Check if user uploaded the document
-                    if ($document->uploaded_by === $user->id) {
-                        return true;
-                    }
-
-                    // Check if document is public
-                    if ($document->is_public) {
-                        return true;
-                    }
-
-                    // Check if user's institution is in accessible_institutions
-                    if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
-                        // Use integer comparison since institution IDs are integers
-                        return in_array($userInstitutionId, $document->accessible_institutions, false);
-                    }
-
-                    return false;
+                    // Sector admins can access any document within their sector's institutions
+                    return $this->isDocumentInUserSector($document, $userInstitutionId);
 
                 default:
                     return false;
