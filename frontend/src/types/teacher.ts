@@ -161,6 +161,22 @@ export interface TeacherWorkplace {
 }
 
 /**
+ * Teacher Subject Interface
+ */
+export interface TeacherSubject {
+  id: number;
+  teacher_id: number;
+  subject_id: number;
+  is_active: boolean;
+  is_primary_subject: boolean;
+  subject?: {
+    id: number;
+    name: string;
+    short_name?: string;
+  };
+}
+
+/**
  * Enhanced Teacher Profile
  */
 export interface EnhancedTeacherProfile {
@@ -223,6 +239,7 @@ export interface EnhancedTeacherProfile {
   specialty?: string;
   specialty_score?: number;
   subjects?: string[];
+  teacher_subjects?: TeacherSubject[];
   qualifications?: string[];
   experience_years?: number;
 

@@ -31,6 +31,7 @@ class RegionTeacherService
                 'institution.parent:id,name',
                 'department:id,name',
                 'profile',
+                'teacherSubjects.subject',
             ]);
 
         // 3. Apply filters
@@ -335,6 +336,7 @@ class RegionTeacherService
                 'institution:id,name,level,parent_id',
                 'institution.parent:id,name',
                 'department:id,name',
+                'teacherSubjects.subject',
             ])
             ->find($id);
     }

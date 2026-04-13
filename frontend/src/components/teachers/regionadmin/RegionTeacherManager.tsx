@@ -554,7 +554,10 @@ export const RegionTeacherManager: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {teacher.profile?.subjects?.[0] || teacher.profile?.specialty || '—'}
+                        {teacher.teacher_subjects?.find(ts => ts.is_primary_subject)?.subject?.name || 
+                         teacher.profile?.subjects?.[0] || 
+                         teacher.profile?.specialty || 
+                         '—'}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
