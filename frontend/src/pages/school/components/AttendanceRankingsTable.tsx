@@ -57,9 +57,10 @@ export function AttendanceRankingsTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((school, index) => {
-                const rank = index + 1;
-                const isMySchool = mySchoolRank?.data.school_id === school.school_id;
+              {Array.isArray(data) && data.length > 0 ? (
+                data.map((school, index) => {
+                  const rank = index + 1;
+                  const isMySchool = mySchoolRank?.data?.school_id === school.school_id;
 
                 return (
                   <TableRow
@@ -155,7 +156,14 @@ export function AttendanceRankingsTable({
                     </TableCell>
                   </TableRow>
                 );
-              })}
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} className="h-24 text-center text-slate-400 italic">
+                  Məlumat tapılmadı
+                </TableCell>
+              </TableRow>
+            )}
             </TableBody>
           </Table>
         </div>

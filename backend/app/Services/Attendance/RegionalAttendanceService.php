@@ -71,6 +71,38 @@ class RegionalAttendanceService
     }
 
     /**
+     * Get grade level attendance statistics.
+     */
+    public function getGradeLevelStats(User $user, array $filters = []): array
+    {
+        return $this->statsService->getGradeLevelStats($user, $filters);
+    }
+
+    /**
+     * Get attendance statistics for schools and grade levels.
+     */
+    public function getSchoolGradeStats(User $user, array $filters = []): array
+    {
+        return $this->statsService->getSchoolGradeStats($user, $filters);
+    }
+
+    /**
+     * Export grade level statistics.
+     */
+    public function exportGradeLevelStats(User $user, array $filters = []): array
+    {
+        return $this->exportService->exportGradeLevelStats($user, $filters);
+    }
+
+    /**
+     * Export school and grade level statistics.
+     */
+    public function exportSchoolGradeStats(User $user, array $filters = []): array
+    {
+        return $this->exportService->exportSchoolGradeStats($user, $filters);
+    }
+
+    /**
      * Export schools with missing reports.
      */
     public function exportMissingReports(User $user, array $filters = []): array

@@ -99,7 +99,7 @@ Route::prefix('school-attendance')->group(function () {
 Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin'])->group(function () {
     Route::get('/overview', [RegionalAttendanceController::class, 'overview']);
     Route::get('/export', [RegionalAttendanceController::class, 'export']);
-    Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses']);
+    Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses'])->where('school', '[0-9]+');
     Route::get('/grade-level-stats', [RegionalAttendanceController::class, 'gradeLevelStats']);
     Route::get('/grade-level-stats/export', [RegionalAttendanceController::class, 'exportGradeLevelStats']);
     Route::get('/school-grade-stats', [RegionalAttendanceController::class, 'schoolGradeStats']);

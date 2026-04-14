@@ -226,11 +226,12 @@ export function useSchoolAttendanceData() {
     // Matrix Data
     matrixData,
     // Rankings
-    rankingsData,
+    rankingsData: rankingsData?.data?.schools || [],
     rankingsLoading,
     rankingsFetching,
     rankingsError,
     refetchRankings,
+    mySchoolRank: rankingsData?.data?.my_school_rank || null,
     // Actions
     handlePresetChange,
     filters,

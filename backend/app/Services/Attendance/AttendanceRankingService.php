@@ -176,6 +176,8 @@ class AttendanceRankingService
             $isSixDaySchool = $this->detectSixDayStatus($school, $instSubmissionsByDate, $workdays);
 
             $actualWorkdaysForSchool = 0;
+            $hasIntervalViolation = false;
+
             foreach ($workdays as $day) {
                 $isSaturday = CarbonImmutable::parse($day)->isSaturday();
                 if ($isSaturday && ! $isSixDaySchool) continue;
@@ -187,6 +189,16 @@ class AttendanceRankingService
                     $gradeSubmissionMap = $daySubmissions->keyBy('grade_id');
                     foreach ($schoolGrades as $grade) {
                         $gradeSub = $gradeSubmissionMap->get($grade->id);
+                        
+                        // Check for 3-hour interval violation if both sessions are present
+                        if ($gradeSub && $gradeSub->morning_recorded_at && $gradeSub->evening_recorded_at) {
+                            $mTime = CarbonImmutable::parse($gradeSub->morning_recorded_at);
+                            $eTime = CarbonImmutable::parse($gradeSub->evening_recorded_at);
+                            if ($eTime->diffInMinutes($mTime) < 180) {
+                                $hasIntervalViolation = true;
+                            }
+                        }
+
                         $shift = $grade->teaching_shift ?? '1';
                         $isAfternoon = str_contains($shift, '2');
                         $limitTime = $isAfternoon ? $eveningDeadlineTime : $morningDeadlineTime;
@@ -220,6 +232,11 @@ class AttendanceRankingService
             $finalScorePercent = ($actualWorkdaysForSchool > 0 && $totalGradesCount > 0)
                 ? ($totalScoreInPeriod / ($actualWorkdaysForSchool * $totalGradesCount)) * 100
                 : 0;
+            
+            // Apply 0.5 point penalty for 3-hour interval violations
+            if ($hasIntervalViolation) {
+                $finalScorePercent = max(0, $finalScorePercent - 0.5);
+            }
 
             $displayDay = $isMultipleDays ? $lastDayInWorkdays : $workdays[0];
             $displayDateObj = CarbonImmutable::parse($displayDay)->setTimezone('Asia/Baku');
@@ -228,7 +245,7 @@ class AttendanceRankingService
             $eveningDeadline = $displayDateObj->setTime(15, 0, 0);
 
             $morningSubmittedAt = $displaySubmissions->whereNotNull('morning_recorded_at')->min('morning_recorded_at');
-            $eveningSubmittedAt = $displaySubmissions->whereNotNull('evening_recorded_at')->min('evening_recorded_at');
+            $eveningSubmittedAt = $displaySubmissions->whereNotNull('evening_recorded_at')->max('evening_recorded_at');
 
             $morningData = $this->calculateShiftData($morningSubmittedAt ? CarbonImmutable::parse($morningSubmittedAt) : null, $morningDeadline, 'morning');
             $eveningData = $this->calculateShiftData($eveningSubmittedAt ? CarbonImmutable::parse($eveningSubmittedAt) : null, $eveningDeadline, 'evening');
@@ -240,6 +257,10 @@ class AttendanceRankingService
                 $primaryData = $eveningData;
             }
 
+            // Display timestamps should prioritize the viewed day (displaySubmissions)
+            $firstSub = $morningSubmittedAt ?: ($displaySubmissions->min('morning_recorded_at') ?: $displaySubmissions->min('evening_recorded_at'));
+            $lastSub = $eveningSubmittedAt ?: ($displaySubmissions->max('evening_recorded_at') ?: $displaySubmissions->max('morning_recorded_at'));
+
             $rankings[] = [
                 'school_id' => $school->id,
                 'name' => $school->name,
@@ -247,15 +268,17 @@ class AttendanceRankingService
                 'sector_name' => $sectorNamesById->get($school->parent_id, 'Naməlum'),
                 'shift_type' => $primaryData ? $primaryData['shift_type'] : null,
                 'deadline_time' => $primaryData ? $primaryData['deadline_time'] : null,
-                'first_submission_at' => $absFirstSubmission ? $absFirstSubmission->setTimezone('Asia/Baku')->toDateTimeString() : null,
-                'submitted_at' => $absLastSubmission ? $absLastSubmission->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'first_submission_at' => $firstSub ? CarbonImmutable::parse($firstSub)->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'submitted_at' => $lastSub ? CarbonImmutable::parse($lastSub)->setTimezone('Asia/Baku')->toDateTimeString() : null,
                 'is_late' => $primaryData ? $primaryData['is_late'] : false,
                 'late_minutes' => $primaryData ? $primaryData['late_minutes'] : 0,
                 'late_count' => $schoolLateCount,
                 'score' => round($finalScorePercent, 4),
                 'score_percent' => round($finalScorePercent, 2),
                 'status' => $this->getRankingStatus($primaryData),
-                'last_submission_at' => $absLastSubmission ? $absLastSubmission->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'last_submission_at' => $lastSub ? CarbonImmutable::parse($lastSub)->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'abs_first' => $absFirstSubmission ? $absFirstSubmission->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                'abs_last' => $absLastSubmission ? $absLastSubmission->setTimezone('Asia/Baku')->toDateTimeString() : null,
             ];
         }
 

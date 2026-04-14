@@ -9,8 +9,8 @@ import { Search, ArrowUpDown } from 'lucide-react';
 
 const numberFormatter = new Intl.NumberFormat('az');
 
-const formatPercent = (value?: number | null) => {
-  if (value === undefined || value === null) return '0%';
+const formatPercent = (value?: number | null | string) => {
+  if (value === undefined || value === null || value === '' || isNaN(Number(value))) return '0%';
   return `${Number(value).toFixed(1)}%`;
 };
 
@@ -149,11 +149,11 @@ export function SchoolsAttendanceTable({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  processedSchools.map((school) => {
+                  processedSchools.map((school, index) => {
                     const warnings = school.warnings || [];
                     return (
                       <TableRow 
-                        key={school.school_id}
+                        key={school.school_id || `school-${index}`}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => onSchoolClick(String(school.school_id))}
                       >
@@ -192,8 +192,8 @@ export function SchoolsAttendanceTable({
                             </Badge>
                           ) : (
                             <div className="flex flex-wrap justify-center gap-1">
-                              {warnings.map((warning) => (
-                                <Badge key={warning} variant="destructive" className="text-[10px] h-5 py-0 px-1.5">
+                              {warnings.map((warning, wIdx) => (
+                                <Badge key={`${warning}-${wIdx}`} variant="destructive" className="text-[10px] h-5 py-0 px-1.5">
                                   {warning === 'reports_missing' ? 'Hesabat yoxdur' : 'Aşağı davamiyyət'}
                                 </Badge>
                               ))}
