@@ -34,8 +34,15 @@ class RatingController extends BaseController
             $userRole = $request->get('user_role');
             $forceCalculate = $request->boolean('force_calculate', false);
 
+            $user = $request->user();
+
+            // If user is schooladmin, they should only see their own rating (myStats logic)
+            if ($user->hasRole('schooladmin')) {
+                return $this->myStats($request);
+            }
+
             // Get allowed institution IDs based on user hierarchy
-            $allowedInstitutionIds = DataIsolationHelper::getAllowedInstitutionIds($request->user());
+            $allowedInstitutionIds = DataIsolationHelper::getAllowedInstitutionIds($user);
 
             // Auto-calculate ratings when user_role and period are set
             if ($userRole && $period) {
@@ -120,8 +127,9 @@ class RatingController extends BaseController
                 // Transform to include sector info and score_details
                 $transformedData = collect($paginator->items())->map(function ($user) use ($period, $academicYearId) {
                     $rating = $user->ratings->first();
-
-                    return [
+                    $institution = $user->institution;
+                    
+                    $data = [
                         'id' => $rating?->id ?? null,
                         'user_id' => $user->id,
                         'institution_id' => $user->institution_id,
@@ -141,13 +149,65 @@ class RatingController extends BaseController
                             'full_name' => $user->name,
                             'email' => $user->email,
                         ],
-                        'institution' => $user->institution ? [
-                            'id' => $user->institution->id,
-                            'name' => $user->institution->name,
-                            'sector_id' => $user->institution->parent_id,
-                            'sector_name' => $user->institution->parent?->name,
+                        'institution' => $institution ? [
+                            'id' => $institution->id,
+                            'name' => $institution->name,
+                            'sector_id' => $institution->parent_id,
+                            'sector_name' => $institution->parent?->name,
                         ] : null,
                     ];
+
+                    // Add Ranking and Trend if it's a single institution view (School Admin)
+                    if ($institution && $period) {
+                        // 1. Sector Rank
+                        $sectorId = $institution->parent_id;
+                        $sectorRatings = \App\Models\Rating::where('period', $period)
+                            ->where('academic_year_id', $academicYearId)
+                            ->whereHas('institution', fn($q) => $q->where('parent_id', $sectorId))
+                            ->orderBy('overall_score', 'desc')
+                            ->pluck('overall_score', 'institution_id');
+                        
+                        $data['sector_rank'] = $sectorRatings->keys()->search($institution->id) !== false 
+                            ? $sectorRatings->keys()->search($institution->id) + 1 
+                            : null;
+                        $data['sector_total'] = $sectorRatings->count();
+
+                        // 2. Region Rank (Level 2)
+                        $regionId = $institution->region_id; // Added region_id check or parent path
+                        if (!$regionId && $institution->parent) {
+                             $regionId = $institution->parent->parent_id;
+                        }
+                        
+                        if ($regionId) {
+                            $regionRatings = \App\Models\Rating::where('period', $period)
+                                ->where('academic_year_id', $academicYearId)
+                                ->whereHas('institution', function($q) use ($regionId) {
+                                    $q->where('parent_id', $regionId)
+                                      ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
+                                })
+                                ->orderBy('overall_score', 'desc')
+                                ->pluck('overall_score', 'institution_id');
+
+                            $data['region_rank'] = $regionRatings->keys()->search($institution->id) !== false 
+                                ? $regionRatings->keys()->search($institution->id) + 1 
+                                : null;
+                            $data['region_total'] = $regionRatings->count();
+                        }
+
+                        // 3. Yearly Trend
+                        $yearlyRatings = \App\Models\Rating::where('institution_id', $institution->id)
+                            ->where('academic_year_id', $academicYearId)
+                            ->orderBy('period', 'asc')
+                            ->get(['period', 'overall_score'])
+                            ->map(fn($r) => [
+                                'period' => $r->period,
+                                'score' => $r->overall_score
+                            ]);
+                        
+                        $data['monthly_trend'] = $yearlyRatings;
+                    }
+
+                    return $data;
                 });
 
                 $results = $paginator->setCollection($transformedData);
@@ -178,6 +238,101 @@ class RatingController extends BaseController
             return $this->successResponse($results, 'Reytinqlər uğurla əldə edildi');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinqlər əldə edilə bilmədi: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get specific rating stats for the current school admin.
+     */
+    public function myStats(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            if (! $user->institution_id) {
+                return $this->errorResponse('İstifadəçinin müəssisəsi təyin edilməyib');
+            }
+
+            $period = $request->get('period') ?? now()->format('Y-m');
+            $academicYearId = $request->get('academic_year_id') 
+                ?? AcademicYear::current()->first()?->id 
+                ?? AcademicYear::active()->first()?->id;
+
+            if (! $academicYearId) {
+                return $this->errorResponse('Aktiv tədris ili tapılmadı');
+            }
+
+            // Ensure rating exists/calculated
+            $rating = $this->ratingService->calculateRating($user->id, [
+                'academic_year_id' => $academicYearId,
+                'period' => $period,
+                'user_role' => 'schooladmin',
+            ], $request->boolean('force_calculate'));
+
+            $institution = $user->institution;
+            
+            // 1. Sector Rank
+            $sectorId = $institution->parent_id;
+            $sectorRatings = Rating::where('period', $period)
+                ->where('academic_year_id', $academicYearId)
+                ->whereHas('institution', fn($q) => $q->where('parent_id', $sectorId))
+                ->orderBy('overall_score', 'desc')
+                ->get(['overall_score', 'institution_id']);
+            
+            $sectorRank = $sectorRatings->search(fn($r) => (int) $r->institution_id === (int) $institution->id);
+            $sectorRank = $sectorRank !== false ? $sectorRank + 1 : null;
+            $sectorTotal = $sectorRatings->count();
+
+            // 2. Region Rank
+            $regionId = $institution->region_id;
+            if (!$regionId && $institution->parent) {
+                $regionId = $institution->parent->parent_id;
+            }
+            
+            $regionRank = null;
+            $regionTotal = 0;
+            if ($regionId) {
+                $regionRatings = Rating::where('period', $period)
+                    ->where('academic_year_id', $academicYearId)
+                    ->whereHas('institution', function($q) use ($regionId) {
+                        $q->where('parent_id', $regionId)
+                          ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
+                    })
+                    ->orderBy('overall_score', 'desc')
+                    ->get(['overall_score', 'institution_id']);
+
+                $regionRankIndex = $regionRatings->search(fn($r) => (int) $r->institution_id === (int) $institution->id);
+                $regionRank = $regionRankIndex !== false ? $regionRankIndex + 1 : null;
+                $regionTotal = $regionRatings->count();
+            }
+
+            // 3. Dynamics (Monthly Trend)
+            $monthlyTrend = Rating::where('user_id', $user->id)
+                ->where('academic_year_id', $academicYearId)
+                ->orderBy('period', 'asc')
+                ->get(['period', 'overall_score'])
+                ->map(fn($r) => [
+                    'period' => $r->period,
+                    'score' => $r->overall_score
+                ]);
+
+            $data = [
+                'rating' => $rating,
+                'sector_rank' => $sectorRank,
+                'sector_total' => $sectorTotal,
+                'region_rank' => $regionRank,
+                'region_total' => $regionTotal,
+                'monthly_trend' => $monthlyTrend,
+                'institution' => [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
+                    'sector_name' => $institution->parent?->name,
+                ]
+            ];
+
+            return $this->successResponse($data, 'Məlumatlar uğurla əldə edildi');
+        } catch (\Exception $e) {
+            Log::error('MyStats error', ['error' => $e->getMessage()]);
+            return $this->errorResponse('Məlumatlar əldə edilə bilmədi');
         }
     }
 

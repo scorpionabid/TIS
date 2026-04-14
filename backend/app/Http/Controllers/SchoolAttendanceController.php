@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClassBulkAttendance;
+use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\SchoolAttendance;
 use Carbon\Carbon;
@@ -11,12 +12,16 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use App\Services\Attendance\RegionalAttendanceService;
 
 class SchoolAttendanceController extends BaseController
 {
-    public function __construct()
+    protected $attendanceService;
+
+    public function __construct(RegionalAttendanceService $attendanceService)
     {
         $this->middleware('auth:sanctum');
+        $this->attendanceService = $attendanceService;
     }
 
     /**
@@ -290,6 +295,21 @@ class SchoolAttendanceController extends BaseController
                 $query->where('institution_id', $request->school_id);
             }
 
+            if ($request->has('class_name') && $request->class_name && $request->class_name !== 'all') {
+                $className = $request->class_name;
+                if (preg_match('/^(\d+)([A-ZƏÖĞÇŞIİÜ].*)$/iu', $className, $matches)) {
+                    $level = $matches[1];
+                    $name = $matches[2];
+                    $query->whereHas('grade', function ($q) use ($level, $name) {
+                        $q->where('class_level', $level)->where('name', $name);
+                    });
+                } else {
+                    $query->whereHas('grade', function ($q) use ($className) {
+                        $q->where('name', $className);
+                    });
+                }
+            }
+
             // Date range
             $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
             $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
@@ -372,6 +392,52 @@ class SchoolAttendanceController extends BaseController
                 'total_records' => $records->count(),
             ];
 
+            // --- Calculation of Attending Students (Avg Daily) ---
+            $stats['avg_daily_attending'] = $uniqueDays > 0 
+                ? (int) round($presentTotal / (2 * $uniqueDays)) 
+                : 0;
+
+            // --- Smart Working Day Calculation ---
+            $start = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+            $workingDaysCount = 0;
+            $saturdaysInPeriod = [];
+            $current = $start->copy();
+            
+            while ($current->lte($end)) {
+                if ($current->isWeekday()) {
+                    $workingDaysCount++;
+                } elseif ($current->isSaturday()) {
+                    $saturdaysInPeriod[] = $current->format('Y-m-d');
+                }
+                $current->addDay();
+            }
+
+            if (!empty($saturdaysInPeriod)) {
+                // Find Saturdays where THIS school has records
+                $schoolSaturdayRecords = $records->whereIn('attendance_date', $saturdaysInPeriod)
+                    ->pluck('attendance_date')
+                    ->unique()
+                    ->map(fn($d) => $d instanceof \DateTimeInterface ? $d->format('Y-m-d') : (string)$d)
+                    ->toArray();
+
+                // Find Saturdays where 20+ schools in the system have records (Official makeup days)
+                $globalSaturdays = ClassBulkAttendance::whereIn('attendance_date', $saturdaysInPeriod)
+                    ->select('attendance_date')
+                    ->groupBy('attendance_date')
+                    ->havingRaw('COUNT(DISTINCT institution_id) >= ?', [20])
+                    ->pluck('attendance_date')
+                    ->map(fn($d) => $d instanceof \DateTimeInterface ? $d->format('Y-m-d') : (string)$d)
+                    ->toArray();
+
+                $officialWorkingSaturdays = array_unique(array_merge($schoolSaturdayRecords, $globalSaturdays));
+                $workingDaysCount += count($officialWorkingSaturdays);
+            }
+
+            $stats['expected_working_days'] = max($workingDaysCount, 1);
+            $stats['missing_days'] = max(0, $stats['expected_working_days'] - $uniqueDays);
+            // ----------------------------------------------
+
             // Determine trend: compare current period rate vs equally-long previous period
             $currentRate = $stats['average_attendance'];
             $intervalDays = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate)) + 1;
@@ -384,6 +450,21 @@ class SchoolAttendanceController extends BaseController
 
             if ($request->has('school_id') && $request->school_id) {
                 $prevQuery->where('institution_id', $request->school_id);
+            }
+
+            if ($request->has('class_name') && $request->class_name && $request->class_name !== 'all') {
+                $className = $request->class_name;
+                if (preg_match('/^(\d+)([A-ZƏÖĞÇŞIİÜ].*)$/iu', $className, $matches)) {
+                    $level = $matches[1];
+                    $name = $matches[2];
+                    $query->whereHas('grade', function ($q) use ($level, $name) {
+                        $q->where('class_level', $level)->where('name', $name);
+                    });
+                } else {
+                    $prevQuery->whereHas('grade', function ($q) use ($className) {
+                        $q->where('name', $className);
+                    });
+                }
             }
 
             $this->applyUserFiltering($prevQuery, Auth::user(), 'institution_id');
@@ -407,6 +488,51 @@ class SchoolAttendanceController extends BaseController
                                           ($currentRate >= 80 ? 'stable' : 'down');
                 $stats['trend_previous_rate'] = null;
             }
+
+            // --- Performance Score Calculation (Rating) ---
+            $totalScore = 0;
+            $recordCountForScore = 0;
+            $morningDeadline = "10:00:00";
+            $eveningDeadline = "15:00:00";
+
+            foreach ($records as $rec) {
+                $total = (int) $rec->total_students;
+                if ($total <= 0) continue;
+
+                $day = $rec->attendance_date->format('Y-m-d');
+                $mDeadline = Carbon::parse($day . ' ' . $morningDeadline);
+                $eDeadline = Carbon::parse($day . ' ' . $eveningDeadline);
+
+                // Morning
+                if ($rec->morning_recorded_at) {
+                    $recordCountForScore++;
+                    $recorded = Carbon::parse($rec->morning_recorded_at);
+                    if ($recorded->lte($mDeadline)) {
+                        $totalScore += 1.0;
+                    } else {
+                        $delayHours = $recorded->diffInMinutes($mDeadline, false) / -60;
+                        $totalScore += max(0, 1.0 - ($delayHours * 0.10));
+                    }
+                }
+
+                // Evening
+                if ($rec->evening_recorded_at) {
+                    $recordCountForScore++;
+                    $recorded = Carbon::parse($rec->evening_recorded_at);
+                    if ($recorded->lte($eDeadline)) {
+                        $totalScore += 1.0;
+                    } else {
+                        $delayHours = $recorded->diffInMinutes($eDeadline, false) / -60;
+                        $totalScore += max(0, 1.0 - ($delayHours * 0.10));
+                    }
+                }
+            }
+
+            $stats['performance_score'] = $recordCountForScore > 0 
+                ? round($totalScore / $recordCountForScore, 4) 
+                : 1.0; // Default to 1.0 if no submissions yet
+            $stats['score_out_of_100'] = round($stats['performance_score'] * 100, 1);
+            // ----------------------------------------------
 
             return response()->json([
                 'success' => true,
@@ -471,9 +597,18 @@ class SchoolAttendanceController extends BaseController
             }
 
             if (! empty($validated['class_name'])) {
-                $query->whereHas('grade', function (Builder $builder) use ($validated) {
-                    $builder->where('name', $validated['class_name']);
-                });
+                $className = $validated['class_name'];
+                if (preg_match('/^(\d+)([A-ZƏÖĞÇŞIİÜ].*)$/iu', $className, $matches)) {
+                    $level = $matches[1];
+                    $name = $matches[2];
+                    $query->whereHas('grade', function (Builder $builder) use ($level, $name) {
+                        $builder->where('class_level', $level)->where('name', $name);
+                    });
+                } else {
+                    $query->whereHas('grade', function (Builder $builder) use ($className) {
+                        $builder->where('name', $className);
+                    });
+                }
             }
 
             $query->whereDate('attendance_date', '>=', $startDate)
@@ -568,6 +703,8 @@ class SchoolAttendanceController extends BaseController
                         'present_total' => $presentTotal,
                         'uniform_violation_rate' => $uniformViolationRate,
                         'uniform_compliance_rate' => $uniformComplianceRate,
+                        'morning_recorded_at' => $record->morning_recorded_at ? $record->morning_recorded_at->setTimezone('Asia/Baku')->toDateTimeString() : null,
+                        'evening_recorded_at' => $record->evening_recorded_at ? $record->evening_recorded_at->setTimezone('Asia/Baku')->toDateTimeString() : null,
                         'school' => $record->institution ? [
                             'id' => $record->institution->id,
                             'name' => $record->institution->name,
@@ -773,10 +910,13 @@ class SchoolAttendanceController extends BaseController
     public function getSchoolClasses($schoolId): JsonResponse
     {
         try {
-            $classes = SchoolAttendance::where('school_id', $schoolId)
-                ->distinct()
-                ->pluck('class_name')
-                ->sort()
+            $classes = Grade::where('institution_id', $schoolId)
+                ->where('is_active', true)
+                ->orderBy('class_level')
+                ->orderBy('name')
+                ->get()
+                ->map(fn($g) => $g->class_level . $g->name)
+                ->unique()
                 ->values();
 
             return response()->json([
@@ -1340,7 +1480,7 @@ class SchoolAttendanceController extends BaseController
     {
         try {
             $user = Auth::user();
-            $schoolId = $user?->institution?->id;
+            $schoolId = $request->get('school_id') ?: $user?->institution_id;
 
             if (! $schoolId) {
                 return response()->json([
@@ -1406,6 +1546,8 @@ class SchoolAttendanceController extends BaseController
                     'total_present' => $totalPresent,
                     'total_absent' => $totalAbsent,
                     'uniform_violations' => $gradeRecords->sum('uniform_violation'),
+                    'first_recorded_at' => $gradeRecords->whereNotNull('morning_recorded_at')->min('morning_recorded_at'),
+                    'last_recorded_at' => $gradeRecords->whereNotNull('evening_recorded_at')->max('evening_recorded_at'),
                 ];
             });
 
@@ -1454,154 +1596,28 @@ class SchoolAttendanceController extends BaseController
     {
         try {
             $user = Auth::user();
-            $schoolId = $user?->institution?->id;
-            $sectorId = $user?->institution?->parent_id;
-
-            if (! $schoolId || ! $sectorId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Məktəb və ya sektor məlumatları tapılmadı',
-                ], 400);
+            
+            // Standardize filtering parameters for the service
+            $filters = $request->only([
+                'date', 
+                'start_date', 
+                'end_date', 
+                'region_id', 
+                'sector_id', 
+                'school_id',
+                'shift_type'
+            ]);
+            
+            // If school_id is not provided, use user's institution
+            if (!isset($filters['school_id']) && $user->institution_id) {
+                $filters['school_id'] = $user->institution_id;
             }
 
-            $date = $request->get('date', Carbon::now()->format('Y-m-d'));
-            $shiftType = $request->get('shift_type', 'all');
-
-            // Get all schools in this sector
-            $schools = Institution::where('parent_id', $sectorId)
-                ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
-                ->where('is_active', true)
-                ->get();
-
-            // Get submission times for each school
-            $submissions = ClassBulkAttendance::selectRaw(
-                'institution_id,
-                 MIN(morning_recorded_at) as first_morning_submission,
-                 MAX(morning_recorded_at) as last_morning_submission,
-                 MIN(evening_recorded_at) as first_evening_submission,
-                 MAX(evening_recorded_at) as last_evening_submission'
-            )
-                ->whereIn('institution_id', $schools->pluck('id'))
-                ->whereDate('attendance_date', $date)
-                ->groupBy('institution_id')
-                ->get()
-                ->keyBy('institution_id');
-
-            // Define deadlines
-            $morningDeadline = Carbon::parse($date)->setTime(10, 0, 0);
-            $eveningDeadline = Carbon::parse($date)->setTime(14, 30, 0);
-
-            $rankings = [];
-            $mySchoolRank = null;
-
-            foreach ($schools as $school) {
-                $submission = $submissions->get($school->id);
-
-                // Determine submissions
-                $morningSubmittedAt = $submission?->first_morning_submission
-                    ? Carbon::parse($submission->first_morning_submission)
-                    : null;
-                $eveningSubmittedAt = $submission?->first_evening_submission
-                    ? Carbon::parse($submission->first_evening_submission)
-                    : null;
-
-                // Use earliest submission for ranking
-                $primarySubmittedAt = null;
-                $primaryShiftType = null;
-                $primaryDeadline = null;
-
-                if ($shiftType === 'morning' || $shiftType === 'all') {
-                    if ($morningSubmittedAt) {
-                        $primarySubmittedAt = $morningSubmittedAt;
-                        $primaryShiftType = 'morning';
-                        $primaryDeadline = $morningDeadline;
-                    }
-                }
-
-                if ($shiftType === 'evening' || $shiftType === 'all') {
-                    if ($eveningSubmittedAt) {
-                        if (! $primarySubmittedAt || $eveningSubmittedAt->lt($primarySubmittedAt)) {
-                            $primarySubmittedAt = $eveningSubmittedAt;
-                            $primaryShiftType = 'evening';
-                            $primaryDeadline = $eveningDeadline;
-                        }
-                    }
-                }
-
-                // Calculate status
-                $isLate = false;
-                $lateMinutes = 0;
-                $status = 'not_submitted';
-
-                if ($primarySubmittedAt && $primaryDeadline) {
-                    $isLate = $primarySubmittedAt->gt($primaryDeadline);
-                    $lateMinutes = $isLate
-                        ? (int) round($primarySubmittedAt->diffInMinutes($primaryDeadline, false) * -1)
-                        : 0;
-                    $status = $isLate ? 'late' : 'on_time';
-                }
-
-                $rankings[] = [
-                    'school_id' => $school->id,
-                    'name' => $school->name,
-                    'submitted_at' => $primarySubmittedAt?->setTimezone('Asia/Baku')->toDateTimeString(),
-                    'shift_type' => $primaryShiftType,
-                    'deadline_time' => $primaryShiftType === 'morning' ? '10:00' : ($primaryShiftType === 'evening' ? '14:30' : null),
-                    'is_late' => $isLate,
-                    'late_minutes' => $lateMinutes,
-                    'status' => $status,
-                ];
-            }
-
-            // Sort by submission time (earliest first)
-            usort($rankings, function ($a, $b) {
-                if ($a['submitted_at'] === null && $b['submitted_at'] !== null) {
-                    return 1;
-                }
-                if ($a['submitted_at'] !== null && $b['submitted_at'] === null) {
-                    return -1;
-                }
-                if ($a['submitted_at'] && $b['submitted_at']) {
-                    return strcmp($a['submitted_at'], $b['submitted_at']);
-                }
-
-                return strcmp($a['name'], $b['name']);
-            });
-
-            // Find my school's rank
-            foreach ($rankings as $index => $ranking) {
-                if ($ranking['school_id'] === $schoolId) {
-                    $mySchoolRank = [
-                        'rank' => $index + 1,
-                        'total_schools' => count($rankings),
-                        'data' => $ranking,
-                    ];
-                    break;
-                }
-            }
-
-            // Calculate summary
-            $submittedCount = count(array_filter($rankings, fn ($r) => $r['submitted_at'] !== null));
-            $onTimeCount = count(array_filter($rankings, fn ($r) => $r['status'] === 'on_time'));
-            $lateCount = count(array_filter($rankings, fn ($r) => $r['status'] === 'late'));
+            $data = $this->attendanceService->getRankings($user, $filters);
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'date' => $date,
-                    'shift_type' => $shiftType,
-                    'morning_deadline' => $morningDeadline->toDateTimeString(),
-                    'evening_deadline' => $eveningDeadline->toDateTimeString(),
-                    'my_school_rank' => $mySchoolRank,
-                    'schools' => $rankings,
-                    'summary' => [
-                        'total_schools' => count($rankings),
-                        'submitted_count' => $submittedCount,
-                        'on_time_count' => $onTimeCount,
-                        'late_count' => $lateCount,
-                        'not_submitted_count' => count($rankings) - $submittedCount,
-                    ],
-                ],
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
             return response()->json([

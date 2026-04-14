@@ -200,11 +200,11 @@ export default function RegionAttendanceReports() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList className="inline-flex w-full items-center justify-start overflow-x-auto overflow-y-hidden rounded-2xl bg-slate-100 p-1 gap-1 h-auto scrollbar-hide no-scrollbar [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Ümumi Panorama</TabsTrigger>
-          <TabsTrigger value="classes" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Məktəb & Sinif nəzarəti</TabsTrigger>
-          <TabsTrigger value="gradeLevel" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Sinif üzrə statistika</TabsTrigger>
-          <TabsTrigger value="schoolGrade" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Məktəb+sinif</TabsTrigger>
-          <TabsTrigger value="missingReports" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Doldurmayan məktəblər</TabsTrigger>
+          <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Panorama</TabsTrigger>
+          <TabsTrigger value="missingReports" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Məktəblər (Doldurmayanlar)</TabsTrigger>
+          <TabsTrigger value="classes" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Siniflər (Məktəb üzrə)</TabsTrigger>
+          <TabsTrigger value="gradeLevel" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Sinif Statistikası</TabsTrigger>
+          <TabsTrigger value="schoolGrade" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">Matris (Məktəb+Sinif)</TabsTrigger>
           <TabsTrigger value="rankings" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">🏆 Reytinq</TabsTrigger>
         </TabsList>
 

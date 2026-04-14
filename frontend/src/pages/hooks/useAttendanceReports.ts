@@ -83,11 +83,12 @@ export function useAttendanceReports() {
   });
 
   const { data: statsResponse, isLoading: statsLoading, error: statsError } = useQuery<any, Error>({
-    queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution?.id],
+    queryKey: ['attendance-stats-reports', selectedSchool, selectedClass, startDate, endDate, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
       const filters: any = { start_date: startDate, end_date: endDate };
       if (isSchoolAdmin && userInstitutionId) filters.school_id = userInstitutionId;
       else if (selectedSchool !== 'all') filters.school_id = parseInt(selectedSchool);
+      if (selectedClass !== 'all') filters.class_name = selectedClass;
       return attendanceService.getAttendanceStats(filters);
     },
     enabled: hasAccess,

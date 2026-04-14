@@ -15,7 +15,7 @@ class RegionalAttendanceController extends BaseController
 {
     public function __construct(private RegionalAttendanceService $attendanceService)
     {
-        $this->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin']);
+        $this->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin|məktəbadmin']);
     }
 
     public function overview(Request $request): JsonResponse
@@ -246,6 +246,7 @@ class RegionalAttendanceController extends BaseController
             'end_date' => ['nullable', 'date'],
             'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'school_id' => ['nullable', 'integer', 'exists:institutions,id'],
             'shift_type' => ['nullable', 'string', 'in:morning,evening,all'],
         ]);
 

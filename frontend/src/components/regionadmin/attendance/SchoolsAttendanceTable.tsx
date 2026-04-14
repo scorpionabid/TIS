@@ -23,6 +23,7 @@ interface School {
   expected_school_days: number;
   average_attendance_rate: number;
   uniform_compliance_rate?: number;
+  last_submission_at?: string | null;
   warnings?: string[];
 }
 
@@ -136,13 +137,14 @@ export function SchoolsAttendanceTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Son Hesabat</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {processedSchools.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                       Filtrə uyğun məktəb tapılmadı.
                     </TableCell>
                   </TableRow>
@@ -179,6 +181,9 @@ export function SchoolsAttendanceTable({
                         </TableCell>
                         <TableCell className="text-center font-semibold text-sm whitespace-nowrap">
                           {formatPercent(school.uniform_compliance_rate)}
+                        </TableCell>
+                        <TableCell className="text-center text-xs whitespace-nowrap text-slate-500">
+                          {school.last_submission_at ? new Date(school.last_submission_at).toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' }) : '-'}
                         </TableCell>
                         <TableCell className="text-center whitespace-nowrap">
                           {warnings.length === 0 ? (
