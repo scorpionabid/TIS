@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Attendance;
 use App\Exports\RegionalAttendanceExport;
 use App\Http\Controllers\BaseController;
 use App\Models\Institution;
+use App\Services\Attendance\AttendanceExportService;
 use App\Services\Attendance\RegionalAttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,8 +14,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RegionalAttendanceController extends BaseController
 {
-    public function __construct(private RegionalAttendanceService $attendanceService)
-    {
+    public function __construct(
+        private RegionalAttendanceService $attendanceService,
+        private AttendanceExportService $exportService,
+    ) {
         $this->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin']);
     }
 
@@ -126,7 +129,7 @@ class RegionalAttendanceController extends BaseController
             'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
-        $exportData = $this->attendanceService->exportGradeLevelStats($request->user(), $validated);
+        $exportData = $this->exportService->exportGradeLevelStats($request->user(), $validated);
 
         // Create a simple array export
         $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray
@@ -160,7 +163,7 @@ class RegionalAttendanceController extends BaseController
             'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
-        $exportData = $this->attendanceService->exportSchoolGradeStats($request->user(), $validated);
+        $exportData = $this->exportService->exportSchoolGradeStats($request->user(), $validated);
 
         // Create a simple array export
         $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\ShouldAutoSize
@@ -215,7 +218,7 @@ class RegionalAttendanceController extends BaseController
             'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
-        $exportData = $this->attendanceService->exportMissingReports($request->user(), $validated);
+        $exportData = $this->exportService->exportMissingReports($request->user(), $validated);
 
         $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\ShouldAutoSize
         {
