@@ -25,6 +25,8 @@ export interface SchoolGradeStatsResponse {
       total_present: number;
       total_absent: number;
       uniform_violations: number;
+      first_recorded_at: string | null;
+      last_recorded_at: string | null;
     }>;
   };
 }
@@ -59,6 +61,8 @@ export interface SchoolRankingsResponse {
       is_late: boolean;
       late_minutes: number;
       status: 'on_time' | 'late' | 'not_submitted';
+      score: number;
+      score_percent: number;
     }>;
     summary: {
       total_schools: number;
@@ -72,16 +76,14 @@ export interface SchoolRankingsResponse {
 
 export const schoolAttendanceService = {
   async getSchoolGradeStats(filters: { start_date: string; end_date: string }): Promise<SchoolGradeStatsResponse> {
-    const response = await apiClient.get('/api/school-attendance/school-grade-stats', {
-      params: filters,
+    const response = await apiClient.get<SchoolGradeStatsResponse>('school-attendance/school-grade-stats', filters, {
+      cache: false,
     });
-    return response.data;
+    return response as any;
   },
 
   async getRankings(filters: { date: string; shift_type: 'morning' | 'evening' | 'all' }): Promise<SchoolRankingsResponse> {
-    const response = await apiClient.get('/api/school-attendance/rankings', {
-      params: filters,
-    });
-    return response.data;
+    const response = await apiClient.get<SchoolRankingsResponse>('school-attendance/rankings', filters);
+    return response as any;
   },
 };
