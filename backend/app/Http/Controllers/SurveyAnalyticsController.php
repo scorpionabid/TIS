@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\SurveyDeadlineHelpers;
 use App\Http\Traits\ValidationRules;
 use App\Models\Survey;
+use App\Models\SurveyDeadlineLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SurveyAnalyticsController extends Controller
 {
-    use ResponseHelpers, ValidationRules;
+    use ResponseHelpers, ValidationRules, SurveyDeadlineHelpers;
 
     protected $analyticsService;
 
@@ -379,6 +382,82 @@ class SurveyAnalyticsController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            return $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get admin-facing deadline insights across all active/published surveys.
+     */
+    public function getDeadlineInsights(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => 'nullable|string|in:overdue,approaching,on_track,no_deadline,all',
+            'limit'  => 'nullable|integer|min:1|max:200',
+        ]);
+
+        try {
+            $statusFilter = $validated['status'] ?? 'overdue';
+            $limit = $validated['limit'] ?? 50;
+
+            $baseQuery = Survey::query()
+                ->whereIn('status', ['published', 'active'])
+                ->select(['id', 'title', 'status', 'category', 'end_date', 'target_institutions']);
+
+            $surveysQuery = clone $baseQuery;
+
+            if ($statusFilter && $statusFilter !== 'all') {
+                $this->applyDeadlineFilter($surveysQuery, $statusFilter);
+            }
+
+            $surveys = $surveysQuery
+                ->orderByRaw('CASE WHEN end_date IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('end_date')
+                ->limit($limit)
+                ->get();
+
+            $latestLogs = collect();
+            if ($surveys->isNotEmpty()) {
+                $latestLogs = SurveyDeadlineLog::whereIn('survey_id', $surveys->pluck('id'))
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->groupBy('survey_id')
+                    ->map->first();
+            }
+
+            $surveys->transform(function ($survey) use ($latestLogs) {
+                $deadlineInfo = $this->resolveDeadlineStatus($survey->end_date);
+                $survey->deadline_status  = $deadlineInfo['status'];
+                $survey->deadline_details = $deadlineInfo;
+                $log = $latestLogs->get($survey->id);
+                $survey->last_deadline_event = $log ? [
+                    'event_type'        => $log->event_type,
+                    'notification_type' => $log->notification_type,
+                    'created_at'        => $log->created_at?->toISOString(),
+                ] : null;
+
+                return $survey;
+            });
+
+            $summaryFilters = ['overdue', 'approaching', 'on_track', 'no_deadline'];
+            $summary = [];
+
+            foreach ($summaryFilters as $filter) {
+                $summary[$filter] = $this->applyDeadlineFilter(clone $baseQuery, $filter)->count();
+            }
+
+            $eventSummary = SurveyDeadlineLog::select('event_type', DB::raw('count(*) as total'))
+                ->where('created_at', '>=', now()->subDays(30))
+                ->groupBy('event_type')
+                ->pluck('total', 'event_type')
+                ->toArray();
+
+            return $this->success([
+                'summary'       => $summary,
+                'surveys'       => $surveys,
+                'event_summary' => $eventSummary,
+            ], 'Survey deadline insights retrieved successfully');
+        } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
         }
     }

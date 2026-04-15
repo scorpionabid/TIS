@@ -3,6 +3,7 @@
 use App\Http\Controllers\BulkJobController;
 use App\Http\Controllers\SurveyAnalyticsController;
 use App\Http\Controllers\SurveyController;
+use App\Http\Controllers\SurveyMyController;
 use App\Http\Controllers\SurveyNotificationController;
 use App\Http\Controllers\SurveyResponseAttachmentController;
 use App\Http\Controllers\SurveyResponseController;
@@ -24,7 +25,7 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/analytics/overview', [SurveyAnalyticsController::class, 'dashboard']);
     Route::get('surveys/analytics/region', [SurveyAnalyticsController::class, 'regionAnalytics']);
     Route::get('surveys/hierarchical', [SurveyController::class, 'getHierarchicalList']);
-    Route::get('surveys/deadline-insights', [SurveyController::class, 'getDeadlineInsights']);
+    Route::get('surveys/deadline-insights', [SurveyAnalyticsController::class, 'getDeadlineInsights']);
 
     // NEW: Survey Results Analytics Endpoints (MUST be before generic /analytics route)
     Route::get('surveys/{survey}/analytics/overview', [SurveyAnalyticsController::class, 'analyticsOverview']);
@@ -134,10 +135,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // My Surveys - User-facing survey endpoints
 Route::middleware('auth:sanctum')->prefix('my-surveys')->group(function () {
-    Route::get('dashboard-stats', [SurveyController::class, 'getMyDashboardStats']);
-    Route::get('assigned', [SurveyController::class, 'getAssignedSurveys']);
-    Route::get('responses', [SurveyController::class, 'getMyResponses']);
-    Route::get('recent', [SurveyController::class, 'getRecentAssignedSurveys']);
+    Route::get('dashboard-stats', [SurveyMyController::class, 'getMyDashboardStats']);
+    Route::get('assigned', [SurveyMyController::class, 'getAssignedSurveys']);
+    Route::get('responses', [SurveyMyController::class, 'getMyResponses']);
+    Route::get('recent', [SurveyMyController::class, 'getRecentAssignedSurveys']);
 });
 
 // Survey Response Reports

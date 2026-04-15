@@ -14,7 +14,7 @@ use App\Http\Controllers\School\SchoolStudentController;
 use App\Http\Controllers\School\SchoolTeacherController;
 use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
 use App\Http\Controllers\SuperAdminDashboardController;
-use App\Http\Controllers\SurveyController;
+use App\Http\Controllers\SurveyAnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -98,7 +98,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     // Route::post('users/bulk-create', [RegionAdminUserController::class, 'bulkCreateUsers']);
 
     // Survey analytics endpoints for RegionAdmin dashboard
-    Route::get('surveys/dashboard-analytics', [SurveyController::class, 'getRegionAnalytics']);
+    Route::get('surveys/dashboard-analytics', [SurveyAnalyticsController::class, 'regionAnalytics']);
 
     // Reports endpoints
     Route::get('reports/institutions', [RegionAdminReportsController::class, 'getInstitutionReports']);
