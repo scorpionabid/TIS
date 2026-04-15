@@ -14,11 +14,12 @@ class InstitutionFactory extends Factory
     protected $model = Institution::class;
 
     /**
-     * Cached institution type ids to avoid duplicate lookups
+     * Cached institution type ids to avoid duplicate lookups within a single factory instance.
+     * Intentionally non-static to prevent stale IDs after migrate:fresh between tests.
      *
      * @var array<string, int>
      */
-    protected static array $typeCache = [];
+    protected array $typeCache = [];
 
     /**
      * Default hierarchy levels for legacy institution type keys
@@ -70,13 +71,13 @@ class InstitutionFactory extends Factory
      */
     protected function resolveInstitutionTypeId(string $type): ?int
     {
-        if (isset(self::$typeCache[$type])) {
-            $cachedId = self::$typeCache[$type];
+        if (isset($this->typeCache[$type])) {
+            $cachedId = $this->typeCache[$type];
             if (InstitutionType::query()->whereKey($cachedId)->exists()) {
                 return $cachedId;
             }
 
-            unset(self::$typeCache[$type]);
+            unset($this->typeCache[$type]);
         }
 
         $label = match ($type) {
@@ -103,7 +104,7 @@ class InstitutionFactory extends Factory
             ]
         );
 
-        return self::$typeCache[$type] = $institutionType->id;
+        return $this->typeCache[$type] = $institutionType->id;
     }
 
     /**

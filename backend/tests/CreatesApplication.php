@@ -20,22 +20,25 @@ trait CreatesApplication
 
         $app->make(Kernel::class)->bootstrap();
 
-        $defaultConnection = env('DB_CONNECTION', config('database.default'));
+        // phpunit.xml sets DB_CONNECTION=sqlite but Laravel's dotenv (.env) may overwrite it
+        // during bootstrap. We re-read from phpunit's server vars (set before bootstrap) to
+        // determine the intended connection, falling back to env() after bootstrap.
+        $defaultConnection = $_SERVER['DB_CONNECTION'] ?? $_ENV['DB_CONNECTION'] ?? env('DB_CONNECTION', config('database.default'));
 
         if (env('TESTS_DEBUG_DB', false)) {
             fwrite(
                 STDERR,
                 sprintf(
-                    '[TestBootstrap] env(DB_CONNECTION)=%s config_default=%s%s',
-                    $defaultConnection,
+                    '[TestBootstrap] server(DB_CONNECTION)=%s env(DB_CONNECTION)=%s config_default=%s%s',
+                    $_SERVER['DB_CONNECTION'] ?? 'n/a',
+                    env('DB_CONNECTION', 'n/a'),
                     config('database.default'),
                     PHP_EOL
                 )
             );
         }
 
-        // Note: .env.testing configures DB_CONNECTION=pgsql
-        // Tests run against PostgreSQL in Docker. SQLite support kept for legacy/local development if needed.
+        // .env.testing sets DB_CONNECTION=sqlite for the test environment.
         if ($defaultConnection === 'sqlite') {
             $databasePath = env('DB_DATABASE', database_path('testing.sqlite'));
 
