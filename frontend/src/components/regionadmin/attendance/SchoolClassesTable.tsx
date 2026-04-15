@@ -26,6 +26,8 @@ interface ClassStat {
   average_attendance_rate: number;
   uniform_compliance_rate?: number;
   warnings?: string[];
+  first_recorded_at?: string | null;
+  last_recorded_at?: string | null;
 }
 
 interface ClassSummary {
@@ -250,6 +252,8 @@ export function SchoolClassesTable({
                   <TableHead className="text-center whitespace-nowrap">Şagird</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Hesabat günləri</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Orta davamiyyət</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">İlk qeydiyyat</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Son qeydiyyat</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Məktəbli forma</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
@@ -275,6 +279,12 @@ export function SchoolClassesTable({
                     </TableCell>
                     <TableCell className="text-center font-semibold text-sm whitespace-nowrap">
                       {formatPercent(classStat.average_attendance_rate)}
+                    </TableCell>
+                    <TableCell className="text-center text-xs whitespace-nowrap">
+                      {classStat.first_recorded_at ? new Date(classStat.first_recorded_at).toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </TableCell>
+                    <TableCell className="text-center text-xs whitespace-nowrap">
+                      {classStat.last_recorded_at ? new Date(classStat.last_recorded_at).toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' }) : '-'}
                     </TableCell>
                     <TableCell className="text-center font-semibold text-sm whitespace-nowrap">
                       {formatPercent(classStat.uniform_compliance_rate)}

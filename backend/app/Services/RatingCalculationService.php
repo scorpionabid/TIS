@@ -73,6 +73,11 @@ class RatingCalculationService
                     + $reportResult['score'] + $manualScore;
             }
 
+            $totalLate = ($taskResult['late'] ?? 0) 
+                + ($surveyResult['late'] ?? 0) 
+                + ($reportResult['late'] ?? 0) 
+                + ($attendanceResult['missed'] ?? 0);
+
             $scoreDetails = [
                 'tasks_on_time' => $taskResult['on_time'],
                 'tasks_late' => $taskResult['late'],
@@ -101,6 +106,7 @@ class RatingCalculationService
                 'reports_total' => $reportResult['total'],
                 'report_score' => $reportResult['score'],
                 'report_breakdown' => $reportResult['breakdown'], // Added for transparency
+                'total_late' => $totalLate,
             ];
 
             $rating = Rating::updateOrCreate(

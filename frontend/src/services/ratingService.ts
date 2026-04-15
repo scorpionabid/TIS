@@ -222,7 +222,8 @@ class RatingService extends BaseService<RatingEntity> {
     });
 
     // The response has rating nested in data
-    const result = response.data?.rating || response.rating;
+    const resData = (response as any)?.data || response;
+    const result = resData?.rating || resData;
     this.invalidateCache(['list']);
     return result;
   }
@@ -313,6 +314,20 @@ class RatingService extends BaseService<RatingEntity> {
     });
 
     await apiClient.delete(`/rating-configs/${id}`);
+  }
+
+  /**
+   * Get specific rating stats for the current school admin
+   */
+  async getMyStats(params: { period?: string; academic_year_id?: number; force_calculate?: boolean }): Promise<any> {
+    logger.debug('Fetching current user rating stats', {
+      component: 'RatingService',
+      action: 'getMyStats',
+      data: { params }
+    });
+
+    const response = await apiClient.get<any>(`${this.baseEndpoint}/my-stats`, params);
+    return response.data || response;
   }
 
   /**

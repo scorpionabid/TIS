@@ -92,7 +92,8 @@ export function AttendanceRankingsTable({
                   {!isMultipleDays && (
                     <>
                       <TableHead className="text-center">Deadline</TableHead>
-                      <TableHead className="text-center">Doldurma Vaxtı</TableHead>
+                      <TableHead className="text-center">İlk Qeydiyyat</TableHead>
+                      <TableHead className="text-center">Son Qeydiyyat</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center">Geri Sayım</TableHead>
                     </>
@@ -215,10 +216,20 @@ function RankingsTableRow({ school, rank, morningDeadline, eveningDeadline, isMu
             {deadline ? <DeadlineBadge deadline={deadline} /> : '-'}
           </TableCell>
 
-          {/* Doldurma vaxtı */}
+          {/* İlk Qeydiyyat */}
           <TableCell className="text-center">
             <SubmissionTimeBadge
-              submittedAt={school.submitted_at}
+              submittedAt={school.first_submission_at || null}
+              deadline={deadline}
+              isLate={false}
+              lateMinutes={0}
+            />
+          </TableCell>
+
+          {/* Son Qeydiyyat */}
+          <TableCell className="text-center">
+            <SubmissionTimeBadge
+              submittedAt={school.last_submission_at || null}
               deadline={deadline}
               isLate={school.is_late}
               lateMinutes={school.late_minutes}

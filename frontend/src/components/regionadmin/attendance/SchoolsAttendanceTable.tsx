@@ -9,8 +9,8 @@ import { Search, ArrowUpDown } from 'lucide-react';
 
 const numberFormatter = new Intl.NumberFormat('az');
 
-const formatPercent = (value?: number | null) => {
-  if (value === undefined || value === null) return '0%';
+const formatPercent = (value?: number | null | string) => {
+  if (value === undefined || value === null || value === '' || isNaN(Number(value))) return '0%';
   return `${Number(value).toFixed(1)}%`;
 };
 
@@ -23,6 +23,7 @@ interface School {
   expected_school_days: number;
   average_attendance_rate: number;
   uniform_compliance_rate?: number;
+  last_submission_at?: string | null;
   warnings?: string[];
 }
 
@@ -136,22 +137,23 @@ export function SchoolsAttendanceTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Son Hesabat</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {processedSchools.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                       Filtrə uyğun məktəb tapılmadı.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  processedSchools.map((school) => {
+                  processedSchools.map((school, index) => {
                     const warnings = school.warnings || [];
                     return (
                       <TableRow 
-                        key={school.school_id}
+                        key={school.school_id || `school-${index}`}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => onSchoolClick(String(school.school_id))}
                       >
@@ -180,6 +182,9 @@ export function SchoolsAttendanceTable({
                         <TableCell className="text-center font-semibold text-sm whitespace-nowrap">
                           {formatPercent(school.uniform_compliance_rate)}
                         </TableCell>
+                        <TableCell className="text-center text-xs whitespace-nowrap text-slate-500">
+                          {school.last_submission_at ? new Date(school.last_submission_at).toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </TableCell>
                         <TableCell className="text-center whitespace-nowrap">
                           {warnings.length === 0 ? (
                             <Badge variant="secondary" className="bg-green-50 text-green-700 text-[10px] h-5">
@@ -187,8 +192,8 @@ export function SchoolsAttendanceTable({
                             </Badge>
                           ) : (
                             <div className="flex flex-wrap justify-center gap-1">
-                              {warnings.map((warning) => (
-                                <Badge key={warning} variant="destructive" className="text-[10px] h-5 py-0 px-1.5">
+                              {warnings.map((warning, wIdx) => (
+                                <Badge key={`${warning}-${wIdx}`} variant="destructive" className="text-[10px] h-5 py-0 px-1.5">
                                   {warning === 'reports_missing' ? 'Hesabat yoxdur' : 'Aşağı davamiyyət'}
                                 </Badge>
                               ))}

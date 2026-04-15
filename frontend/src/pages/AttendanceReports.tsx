@@ -64,15 +64,13 @@ export default function AttendanceReports({ embedded = false }: { embedded?: boo
       )}
 
       {/* Summary Cards */}
-      {!statsError && (
-        <AttendanceSummaryCards 
-          stats={statsData} 
-          loading={statsLoading} 
-          startDate={startDate} 
-          endDate={endDate} 
-          activePreset={activeDatePreset} 
-        />
-      )}
+      <AttendanceSummaryCards 
+        stats={statsData} 
+        loading={statsLoading} 
+        startDate={startDate} 
+        endDate={endDate} 
+        activePreset={activeDatePreset} 
+      />
 
       {/* Filters */}
       <AttendanceFilters 

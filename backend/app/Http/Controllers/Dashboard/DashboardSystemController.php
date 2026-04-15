@@ -399,7 +399,7 @@ class DashboardSystemController extends Controller
     // Placeholder methods for complex system metrics
     private function getLastBackupTime(): string
     {
-        return now()->subHours(6)->toDateTimeString();
+        return now()->setTimezone('Asia/Baku')->subHours(6)->toDateTimeString();
     }
 
     private function getQueueWorkerStatus(): array

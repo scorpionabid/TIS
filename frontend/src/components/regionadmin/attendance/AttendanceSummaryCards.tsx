@@ -46,9 +46,9 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
   const cards = [
     {
       label: 'Məktəblər',
-      value: summary.total_schools,
+      value: summary.total_schools ?? 0,
       icon: Building2,
-      description: `${summary.total_sectors} sektor üzrə`,
+      description: `${summary.total_sectors ?? 0} sektor üzrə`,
       palette: {
         bg: 'bg-indigo-50/50',
         border: 'border-indigo-100',
@@ -58,13 +58,13 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
         bar: 'bg-indigo-500'
       },
       isPercent: true,
-      raw: summary.total_schools > 0 ? ((summary.total_schools - summary.schools_missing_reports) / summary.total_schools) * 100 : 0
+      raw: (summary.total_schools ?? 0) > 0 ? (((summary.total_schools ?? 0) - (summary.schools_missing_reports ?? 0)) / (summary.total_schools ?? 0)) * 100 : 0
     },
     {
       label: 'Gələn şagird',
-      value: summary.attending_students,
+      value: summary.attending_students ?? 0,
       icon: Users,
-      description: `${numberFormatter.format(summary.total_students)} şagirddən`,
+      description: `${numberFormatter.format(summary.total_students ?? 0)} şagirddən`,
       palette: {
         bg: 'bg-violet-50/50',
         border: 'border-violet-100',
@@ -74,10 +74,11 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
         bar: 'bg-violet-500'
       },
       isPercent: true,
-      raw: summary.total_students > 0 ? (summary.attending_students / summary.total_students) * 100 : 0
+      raw: (summary.total_students ?? 0) > 0 ? ((summary.attending_students ?? 0) / (summary.total_students ?? 0)) * 100 : 0
     },
     {
-      value: `${summary.average_attendance_rate.toFixed(1)}%`,
+      label: 'Davamiyyət faizi',
+      value: `${(summary.average_attendance_rate ?? 0).toFixed(1)}%`,
       icon: Target,
       description: `${summary.period?.school_days ?? 0} hesabat gününə görə`,
       palette: {
@@ -89,7 +90,7 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
         bar: 'bg-emerald-500'
       },
       isPercent: true,
-      raw: summary.average_attendance_rate
+      raw: summary.average_attendance_rate ?? 0
     },
     {
       label: 'Məktəbli forma',
@@ -109,7 +110,7 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
     },
     {
       label: 'Məlumat çatışmazlığı',
-      value: summary.schools_missing_reports,
+      value: summary.schools_missing_reports ?? 0,
       icon: AlertTriangle,
       description: 'Gözlənilən hesabat daxil olmayanlar',
       palette: {
@@ -121,7 +122,7 @@ export function AttendanceSummaryCards({ summary, loading }: AttendanceSummaryCa
         bar: 'bg-orange-500'
       },
       isPercent: true,
-      raw: summary.total_schools > 0 ? (summary.schools_missing_reports / summary.total_schools) * 100 : 0
+      raw: (summary.total_schools ?? 0) > 0 ? ((summary.schools_missing_reports ?? 0) / (summary.total_schools ?? 0)) * 100 : 0
     }
   ];
 

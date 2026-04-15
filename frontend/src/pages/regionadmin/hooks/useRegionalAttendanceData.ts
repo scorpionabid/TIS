@@ -105,8 +105,12 @@ export function useRegionalAttendanceData() {
     refetch: refetchClassBreakdown,
   } = useQuery<SchoolClassBreakdown | null>({
     queryKey: ['regional-attendance', 'school-classes', selectedSchoolId, filters],
-    queryFn: () => selectedSchoolId ? regionalAttendanceService.getSchoolClasses(Number(selectedSchoolId), filters) : Promise.resolve(null),
-    enabled: hasAccess && Boolean(selectedSchoolId),
+    queryFn: () => {
+      const schoolId = Number(selectedSchoolId);
+      if (isNaN(schoolId)) return Promise.resolve(null);
+      return regionalAttendanceService.getSchoolClasses(schoolId, filters);
+    },
+    enabled: hasAccess && Boolean(selectedSchoolId) && !isNaN(Number(selectedSchoolId)),
     staleTime: 60 * 1000,
   });
 
@@ -182,10 +186,13 @@ export function useRegionalAttendanceData() {
       setSelectedSchoolId('');
       return;
     }
+    
     if (selectedSchoolId) {
       const exists = schools.some((s) => s.school_id === Number(selectedSchoolId));
-      if (!exists) setSelectedSchoolId(String(schools[0].school_id));
-    } else {
+      if (!exists && schools[0]?.school_id) {
+        setSelectedSchoolId(String(schools[0].school_id));
+      }
+    } else if (schools[0]?.school_id) {
       setSelectedSchoolId(String(schools[0].school_id));
     }
   }, [schools, selectedSchoolId]);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  FileText, TrendingUp, TrendingDown, CalendarIcon, BarChart3, PieChart, Users, BookOpen, AlertTriangle, Loader2 
+  FileText, TrendingUp, TrendingDown, CalendarIcon, BarChart3, PieChart, Users, BookOpen, AlertTriangle, Loader2, Trophy, Info 
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
@@ -31,35 +31,46 @@ export const AttendanceSummaryCards: React.FC<AttendanceSummaryCardsProps> = ({
   const activeTrend = trendCopy[trend as keyof typeof trendCopy];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      {/* 1. Gələn şagird sayı */}
       <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all">
         <div className="absolute top-0 left-0 right-0 h-1 bg-[#2563eb]" />
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xs font-semibold text-slate-500">Ümumi qeyd</CardTitle>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-[#2563eb] to-[#60a5fa]">
-            <FileText className="h-5 w-5" />
+          <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-tight">Gələn şagird sayı</CardTitle>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-[#2563eb] to-[#60a5fa] shadow-sm">
+            <Users className="h-5 w-5" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-extrabold text-[#1d4ed8]">{stats.total_records || 0}</div>
+          <div className="text-2xl font-extrabold text-[#1d4ed8]">
+            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (stats.avg_daily_attending || 0)}
+          </div>
           <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
-            <CalendarIcon className="h-3 w-3" />
-            {stats.total_days || 0} tədris günü
+             <Info className="h-3 w-3" />
+             Günlük orta göstərici
           </p>
         </CardContent>
       </Card>
 
+      {/* 2. Orta davamiyyət */}
       <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all">
         <div className="absolute top-0 left-0 right-0 h-1 bg-[#10b981]" />
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xs font-semibold text-slate-500">Orta davamiyyət</CardTitle>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-[#10b981] to-[#6ee7b7]">
+          <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-tight">Orta davamiyyət</CardTitle>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-[#10b981] to-[#6ee7b7] shadow-sm">
             <BarChart3 className="h-5 w-5" />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-extrabold text-[#047857]">
-            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : `${stats.average_attendance || 0}%`}
+          <div className="flex items-center gap-2">
+            <div className="text-2xl font-extrabold text-[#047857]">
+              {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : `${stats.average_attendance || 0}%`}
+            </div>
+            {!loading && trend !== 'stable' && (
+              <div className={`flex items-center text-[10px] font-bold ${trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              </div>
+            )}
           </div>
           <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
             <Users className="h-3 w-3" />
@@ -68,11 +79,12 @@ export const AttendanceSummaryCards: React.FC<AttendanceSummaryCardsProps> = ({
         </CardContent>
       </Card>
 
+      {/* 3. Forma qaydası */}
       <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all">
         <div className="absolute top-0 left-0 right-0 h-1 bg-[#6366f1]" />
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xs font-semibold text-slate-500">Forma qaydası</CardTitle>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-[#6366f1] to-[#a5b4fc]">
+          <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-tight">Forma qaydası</CardTitle>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-[#6366f1] to-[#a5b4fc] shadow-sm">
             <BookOpen className="h-5 w-5" />
           </div>
         </CardHeader>
@@ -87,25 +99,31 @@ export const AttendanceSummaryCards: React.FC<AttendanceSummaryCardsProps> = ({
         </CardContent>
       </Card>
 
-      <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-[#7c3aed]" />
+      {/* 4. Doldurulmayan günlər */}
+      <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all group hover:border-rose-200">
+        <div className={`absolute top-0 left-0 right-0 h-1 ${Number(stats.missing_days || 0) > 0 ? 'bg-[#ef4444]' : 'bg-[#10b981]'}`} />
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xs font-semibold text-slate-500">Dinamika</CardTitle>
-          {trend === 'up' ? <TrendingUp className="h-5 w-5 text-emerald-500" /> : 
-           trend === 'down' ? <TrendingDown className="h-5 w-5 text-rose-500" /> : <PieChart className="h-5 w-5 text-indigo-500" />}
+          <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-tight">Doldurulmayan günlər</CardTitle>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm bg-gradient-to-br ${Number(stats.missing_days || 0) > 0 ? 'from-[#ef4444] to-[#f87171]' : 'from-[#10b981] to-[#34d399]'}`}>
+            <AlertTriangle className="h-5 w-5" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className={`text-base font-extrabold ${trend === 'up' ? 'text-[#047857]' : trend === 'down' ? 'text-[#be123c]' : 'text-[#6d28d9]'}`}>
-            {activeTrend.label}
+          <div className={`text-2xl font-extrabold ${Number(stats.missing_days || 0) > 0 ? 'text-[#b91c1c]' : 'text-[#065f46]'}`}>
+            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (stats.missing_days || 0)}
           </div>
-          <p className="text-[10px] text-slate-400 font-medium mt-1 line-clamp-2">{activeTrend.description}</p>
+          <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
+            <CalendarIcon className="h-3 w-3" />
+            Periodda {stats.expected_working_days || 0} iş günü var
+          </p>
         </CardContent>
       </Card>
 
-      <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all">
+      {/* 5. Dövr */}
+      <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] transition-all col-span-1 sm:col-span-2 lg:col-span-4 xl:col-span-1 border-dashed bg-slate-50/50">
         <div className="absolute top-0 left-0 right-0 h-1 bg-[#f59e0b]" />
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xs font-semibold text-slate-500">Dövr</CardTitle>
+          <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-tight">Hesabat Dövrü</CardTitle>
           <CalendarIcon className="h-5 w-5 text-orange-500" />
         </CardHeader>
         <CardContent>

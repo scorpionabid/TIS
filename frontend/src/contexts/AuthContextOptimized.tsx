@@ -30,6 +30,7 @@ const ROLE_MAPPING: Record<string, UserRole> = {
   regionoperator: USER_ROLES.REGIONOPERATOR,
   sektoradmin: USER_ROLES.SEKTORADMIN,
   schooladmin: USER_ROLES.SCHOOLADMIN,
+  'məktəbadmin': USER_ROLES.SCHOOLADMIN,
   muavin: USER_ROLES.MUELLIM,
   'təşkilatçı': USER_ROLES.MUELLIM,
   tesarrufat: USER_ROLES.MUELLIM,

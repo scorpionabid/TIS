@@ -50,7 +50,7 @@ export function SchoolGradeStatsTable({
           <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
             Məktəb + Sinif statistikası
             <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium border border-slate-200">
-              {schools.length} məktəb
+              {schools.filter(s => s.id > 0).length} məktəb
             </span>
           </CardTitle>
           <p className="text-sm text-slate-500 font-medium">
@@ -118,7 +118,7 @@ export function SchoolGradeStatsTable({
 
                         return (
                           <TableRow key={`school-row-${school.id}`} className="hover:bg-indigo-50/30 transition-colors group">
-                            <TableCell className="sticky left-0 z-10 bg-white font-medium text-slate-700 text-sm border-r border-slate-200">
+                            <TableCell className={`sticky left-0 z-10 font-medium text-sm border-r border-slate-200 ${school.id < 0 ? 'bg-slate-50 text-indigo-700 italic' : 'bg-white text-slate-700'}`}>
                               {school.name}
                             </TableCell>
                             {school.grades.map((rate, idx) => (
@@ -147,26 +147,28 @@ export function SchoolGradeStatsTable({
                         );
                       })}
                       {/* Regional Averages Row */}
-                      <TableRow className="bg-slate-50/80 font-bold border-t-2 border-slate-200">
-                        <TableCell className="sticky left-0 z-10 bg-slate-50 font-bold text-slate-900 border-r border-slate-200">
-                          Orta (Region)
-                        </TableCell>
-                        {gradeLevels.map((idx) => {
-                          const rate = regionalAverages?.[idx];
-                          return (
-                            <TableCell key={`avg-${idx}`} className="text-center text-slate-900">
-                              {formatPercent(rate)}
-                            </TableCell>
-                          );
-                        })}
-                        <TableCell className="text-center text-indigo-900 bg-indigo-50 sticky right-0 z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-slate-200">
-                          {(() => {
-                            const validReg = (regionalAverages || []).filter(g => g !== null);
-                            const regAvg = validReg.length > 0 ? validReg.reduce((a, b) => (a || 0) + (b || 0), 0) / validReg.length : null;
-                            return formatPercent(regAvg);
-                          })()}
-                        </TableCell>
-                      </TableRow>
+                      {regionalAverages && regionalAverages.length > 0 && (
+                        <TableRow className="bg-slate-50/80 font-bold border-t-2 border-slate-200">
+                          <TableCell className="sticky left-0 z-10 bg-slate-50 font-bold text-slate-900 border-r border-slate-200">
+                            Orta (Region)
+                          </TableCell>
+                          {gradeLevels.map((idx) => {
+                            const rate = regionalAverages?.[idx];
+                            return (
+                              <TableCell key={`avg-${idx}`} className="text-center text-slate-900">
+                                {formatPercent(rate)}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center text-indigo-900 bg-indigo-50 sticky right-0 z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-slate-200">
+                            {(() => {
+                              const validReg = (regionalAverages || []).filter(g => g !== null);
+                              const regAvg = validReg.length > 0 ? validReg.reduce((a, b) => (a || 0) + (b || 0), 0) / validReg.length : null;
+                              return formatPercent(regAvg);
+                            })()}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </>
                   ) : (
                     <TableRow>

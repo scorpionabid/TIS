@@ -7,7 +7,8 @@ import { RatingActionToolbar } from './RatingActionToolbar';
 import { RatingDataTable } from './RatingDataTable';
 import { ManualScoreDialog } from './ManualScoreDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Building2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Building2, User } from 'lucide-react';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 
 interface SchoolAdminRatingTabProps {
   institutionId?: number;
@@ -24,6 +25,7 @@ export const SchoolAdminRatingTab: React.FC<SchoolAdminRatingTabProps> = ({
   institutionId,
   academicYearId
 }) => {
+  const { isSchoolAdmin, currentUser } = useRoleCheck();
   const [data, setData] = useState<RatingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
@@ -44,21 +46,46 @@ export const SchoolAdminRatingTab: React.FC<SchoolAdminRatingTabProps> = ({
   const loadData = async (forceCalculate = false) => {
     try {
       setLoading(true);
-      const response = await ratingService.getAllRatings({
-        period,
-        institution_id: institutionId,
-        academic_year_id: academicYearId,
-        user_role: 'schooladmin',
-        per_page: 500,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        sort_by: 'sector',
-        force_calculate: forceCalculate || undefined,
-      });
+      
+      if (isSchoolAdmin) {
+        const response = await ratingService.getMyStats({
+          period,
+          academic_year_id: academicYearId,
+          force_calculate: forceCalculate || undefined,
+        });
 
-      if (response && response.data) {
-        setData(response.data);
-      } else if (Array.isArray(response)) {
-        setData(response);
+        if (response) {
+          // Wrap single rating in array for compatibility with components if needed
+          // But usually SchoolAdminRatingTab will show a specialized view
+          const ratingData = {
+            ...response.rating,
+            sector_rank: response.sector_rank,
+            sector_total: response.sector_total,
+            region_rank: response.region_rank,
+            region_total: response.region_total,
+            monthly_trend: response.monthly_trend,
+            institution: response.institution,
+            user: currentUser,
+          };
+          setData([ratingData]);
+        }
+      } else {
+        const response = await ratingService.getAllRatings({
+          period,
+          institution_id: institutionId,
+          academic_year_id: academicYearId,
+          user_role: 'schooladmin',
+          per_page: 500,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          sort_by: 'sector',
+          force_calculate: forceCalculate || undefined,
+        });
+
+        if (response && response.data) {
+          setData(response.data);
+        } else if (Array.isArray(response)) {
+          setData(response);
+        }
       }
     } catch (error) {
       logger.error('Error loading school admin ratings:', { error });
@@ -232,26 +259,57 @@ export const SchoolAdminRatingTab: React.FC<SchoolAdminRatingTabProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Summary Cards */}
-      <RatingStatsCards data={filteredData} loading={loading} />
-
-      {/* Toolbar */}
-      <RatingActionToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onCalculateAll={forceRefresh}
-        onBulkSave={async () => {}}
-        onBulkDelete={bulkDelete}
-        onExport={exportToExcel}
-        selectedCount={selectedItems.length}
-        loading={loading}
-        status={statusFilter}
-        onStatusChange={setStatusFilter}
-        period={period}
-        onPeriodChange={setPeriod}
+      <RatingStatsCards 
+        data={filteredData} 
+        loading={loading} 
+        variant={isSchoolAdmin ? 'schooladmin' : 'school'}
       />
 
-      {/* Sector-grouped tables */}
-      {sectorGroups.length > 0 ? (
+      {/* Toolbar - Hidden for School Admin as per request */}
+      {!isSchoolAdmin && (
+        <RatingActionToolbar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onCalculateAll={forceRefresh}
+          onBulkSave={async () => {}}
+          onBulkDelete={bulkDelete}
+          onExport={exportToExcel}
+          selectedCount={selectedItems.length}
+          loading={loading}
+          status={statusFilter}
+          onStatusChange={setStatusFilter}
+          period={period}
+          onPeriodChange={setPeriod}
+        />
+      )}
+
+      {/* Content for School Admin vs Others */}
+      {isSchoolAdmin ? (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border p-6 shadow-sm ring-1 ring-slate-200/50">
+             <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                   <User className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                   <h2 className="text-xl font-bold text-slate-800">Mənim Reytinq Detallarım</h2>
+                   <p className="text-sm text-slate-500">{period} dövrü üçün göstəricilər</p>
+                </div>
+             </div>
+             
+             <RatingDataTable
+                data={filteredData}
+                pagination={null}
+                onPageChange={() => {}}
+                selectedItems={selectedItems}
+                onSelectItem={handleSelectItem}
+                onSelectAll={handleSelectAll}
+                onManualScoreEdit={handleManualScoreEdit}
+                hideCheckboxes={true}
+              />
+          </div>
+        </div>
+      ) : sectorGroups.length > 0 ? (
         <div className="space-y-4">
           {sectorGroups.map((group) => {
             const sectorKey = String(group.sectorId ?? 'unknown');

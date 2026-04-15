@@ -255,6 +255,8 @@ export interface SchoolRankingStat {
   shift_type: 'morning' | 'evening' | null;
   deadline_time: string | null;
   submitted_at: string | null;
+  first_submission_at?: string | null;
+  last_submission_at?: string | null;
   is_late: boolean;
   late_minutes: number;
   classes_count: number;

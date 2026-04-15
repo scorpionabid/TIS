@@ -72,6 +72,8 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                   Davamiyyət % <ArrowUpDown className={`h-4 w-4 ${sortField === 'attendance_rate' ? 'text-primary' : 'text-muted-foreground/50'}`} />
                 </Button>
               </TableHead>
+              <TableHead className="text-center font-bold">İlk qeydiyyat</TableHead>
+              <TableHead className="text-center font-bold">Son qeydiyyat</TableHead>
               <TableHead className="text-center w-[160px]">Forma</TableHead>
               <TableHead>Qeydlər</TableHead>
             </TableRow>
@@ -80,12 +82,12 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
             {loading ? (
               Array.from({length: 5}).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={isSchoolAdmin ? 7 : 8}><div className="h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
+                  <TableCell colSpan={isSchoolAdmin ? 9 : 10}><div className="h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
                 </TableRow>
               ))
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isSchoolAdmin ? 7 : 8} className="text-center py-8 text-muted-foreground">Məlumat tapılmadı</TableCell>
+                <TableCell colSpan={isSchoolAdmin ? 9 : 10} className="text-center py-8 text-muted-foreground">Məlumat tapılmadı</TableCell>
               </TableRow>
             ) : (
               data.map((record, index) => {
@@ -111,6 +113,12 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                         <span className={`text-xs font-bold ${tone}`}>{rate}%</span>
                         <Progress value={rate} className="h-1" />
                       </div>
+                    </TableCell>
+                    <TableCell className="text-center text-[11px] font-medium text-slate-500">
+                      {record.morning_recorded_at ? format(new Date(record.morning_recorded_at), 'HH:mm') : '-'}
+                    </TableCell>
+                    <TableCell className="text-center text-[11px] font-medium text-slate-500">
+                      {record.evening_recorded_at ? format(new Date(record.evening_recorded_at), 'HH:mm') : '-'}
                     </TableCell>
                     <TableCell className="text-center text-xs font-bold">
                       {formatPercent(record.uniform_compliance_rate)} ({record.uniform_violation || 0})

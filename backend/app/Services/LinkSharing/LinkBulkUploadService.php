@@ -275,7 +275,7 @@ class LinkBulkUploadService
         }
 
         try {
-            return Carbon::parse($value)->toDateTimeString();
+            return Carbon::parse($value, 'Asia/Baku')->toDateTimeString();
         } catch (\Throwable $e) {
             throw new \InvalidArgumentException('Tarix formatı düzgün deyil.');
         }

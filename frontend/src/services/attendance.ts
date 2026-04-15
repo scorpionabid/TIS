@@ -185,7 +185,7 @@ class AttendanceService extends BaseService {
   /**
    * Get attendance statistics
    */
-  async getAttendanceStats(filters?: Pick<AttendanceFilters, 'school_id' | 'start_date' | 'end_date'>): Promise<AttendanceStatsResponse> {
+  async getAttendanceStats(filters?: Pick<AttendanceFilters, 'school_id' | 'start_date' | 'end_date' | 'class_name'>): Promise<AttendanceStatsResponse> {
     const params = new URLSearchParams();
     
     if (filters) {
@@ -371,7 +371,7 @@ class AttendanceService extends BaseService {
       ];
     }
     const response = await this.get<{ success: boolean; data: string[]; message: string }>(`${this.baseUrl}/schools/${schoolId}/classes`);
-    return response.data?.data || [];
+    return response.data || [];
   }
 
   /**

@@ -25,6 +25,7 @@ export interface ScoreDetails {
   reports_missed?: number;
   reports_total?: number;
   report_score?: number;
+  total_late?: number;
 }
 
 export interface RatingItem {
@@ -62,6 +63,11 @@ export interface RatingItem {
       manual: number;
     };
   };
+  sector_rank?: number | null;
+  sector_total?: number;
+  region_rank?: number | null;
+  region_total?: number;
+  monthly_trend?: Array<{ period: string; score: number }>;
   created_at: string;
   updated_at: string;
   user?: {

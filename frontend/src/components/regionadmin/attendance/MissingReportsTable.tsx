@@ -77,11 +77,11 @@ export function MissingReportsTable({
                 {schools.map((school) => {
                   return (
                     <TableRow key={school.school_id}>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell>
                         <div className="font-medium flex items-center gap-2 text-sm">
-                          <SchoolIcon className="h-4 w-4 text-muted-foreground" />
+                          <SchoolIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                           <div className="flex flex-col">
-                            <span className="truncate max-w-[200px]">{school.name}</span>
+                            <span className="font-semibold leading-snug">{school.name}</span>
                             {school.is_six_day && (
                               <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-0.5 uppercase tracking-wider">
                                 6-günlük rejim

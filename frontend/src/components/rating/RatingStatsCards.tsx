@@ -1,12 +1,13 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, TrendingUp, Award, Users } from 'lucide-react';
+import { Building2, TrendingUp, Award, Users, MapPin, Activity, Calendar, AlertCircle } from 'lucide-react';
 import { RatingItem } from '@/types/rating';
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
 
 interface RatingStatsCardsProps {
     data: RatingItem[];
     loading?: boolean;
-    variant?: 'school' | 'sector';
+    variant?: 'school' | 'sector' | 'schooladmin';
 }
 
 export const RatingStatsCards: React.FC<RatingStatsCardsProps> = ({ 
@@ -39,8 +40,49 @@ export const RatingStatsCards: React.FC<RatingStatsCardsProps> = ({
     };
 
     const stats = calculateStats();
+    const isSchoolAdmin = variant === 'schooladmin';
+    const singleRating = isSchoolAdmin ? data[0] : null;
 
-    const statItems = [
+    const statItems = isSchoolAdmin ? [
+        {
+            title: 'Sektor üzrə yer',
+            value: singleRating?.sector_rank ? `${singleRating.sector_rank} / ${singleRating.sector_total || '?'}` : '-',
+            description: singleRating?.institution?.sector_name || 'Sektor qrupu',
+            icon: MapPin,
+            color: 'text-indigo-600',
+            bgColor: 'bg-indigo-50',
+            borderColor: 'border-indigo-200'
+        },
+        {
+            title: 'Region üzrə yeri',
+            value: singleRating?.region_rank ? `${singleRating.region_rank} / ${singleRating.region_total || '?'}` : '-',
+            description: 'Regional idarəetmə',
+            icon: Building2,
+            color: 'text-emerald-600',
+            bgColor: 'bg-emerald-50',
+            borderColor: 'border-emerald-200'
+        },
+        {
+            title: 'Gecikmiş davamiyyət',
+            value: singleRating?.score_details?.total_late ?? 0,
+            description: 'Ümumi gecikmə sayı',
+            icon: AlertCircle,
+            color: (singleRating?.score_details?.total_late ?? 0) > 0 ? 'text-rose-600' : 'text-slate-400',
+            bgColor: (singleRating?.score_details?.total_late ?? 0) > 0 ? 'bg-rose-50' : 'bg-slate-50',
+            borderColor: (singleRating?.score_details?.total_late ?? 0) > 0 ? 'border-rose-200' : 'border-slate-200'
+        },
+        {
+            title: 'İllik Dinamika',
+            value: singleRating?.overall_score?.toFixed(1) || '0.0',
+            description: 'Tədris ili üzrə trend',
+            icon: Activity,
+            color: 'text-amber-600',
+            bgColor: 'bg-amber-50',
+            borderColor: 'border-amber-200',
+            isChart: true,
+            chartData: singleRating?.monthly_trend || []
+        }
+    ] : [
         {
             title: isSector ? 'Ümumi Sektor Admin' : 'Ümumi Direktor',
             value: stats.total,
@@ -77,19 +119,41 @@ export const RatingStatsCards: React.FC<RatingStatsCardsProps> = ({
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {statItems.map((item, index) => (
-                <Card key={index} className="overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow">
+            {statItems.map((item: any, index) => (
+                <Card key={index} className={`overflow-hidden border shadow-sm hover:shadow-md transition-all duration-300 ${item.borderColor || 'border-slate-100'}`}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">{item.title}</CardTitle>
-                        <div className={`p-2 rounded-lg ${item.bgColor}`}>
+                        <CardTitle className="text-sm font-semibold text-slate-600">{item.title}</CardTitle>
+                        <div className={`p-2 rounded-lg ${item.bgColor} transition-colors`}>
                             <item.icon className={`h-4 w-4 ${item.color}`} />
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{loading ? '...' : item.value}</div>
-                        <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                    <CardContent className="pb-4">
+                        <div className="flex items-end justify-between">
+                            <div>
+                                <div className="text-2xl font-bold tracking-tight text-slate-900">{loading ? '...' : item.value}</div>
+                                <p className="text-xs font-medium text-slate-500 mt-1">{item.description}</p>
+                            </div>
+                            
+                            {item.isChart && item.chartData?.length > 0 && (
+                                <div className="h-12 w-24 -mb-1">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={item.chartData}>
+                                            <Line 
+                                                type="monotone" 
+                                                dataKey="score" 
+                                                stroke="#d97706" 
+                                                strokeWidth={2} 
+                                                dot={false} 
+                                                isAnimationActive={true}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </div>
                     </CardContent>
-                    <div className={`h-1 w-full ${item.bgColor.replace('100', '500')}`} />
+                    {!item.isChart && <div className={`h-1.5 w-full ${item.bgColor.replace('50', '500').replace('100', '500')}`} />}
+                    {item.isChart && <div className="h-1.5 w-full bg-amber-500" />}
                 </Card>
             ))}
         </div>

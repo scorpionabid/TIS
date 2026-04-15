@@ -168,7 +168,7 @@ class UserUtilityController extends BaseController
                 'user_id' => $user->id,
                 'username' => $user->username,
                 'status' => $user->is_active ? 'active' : 'inactive',
-                'last_login' => $user->last_login_at?->toDateTimeString(),
+                'last_login' => $user->last_login_at?->setTimezone('Asia/Baku')->toDateTimeString(),
                 'account_age' => $user->created_at->diffForHumans(),
                 'security_score' => $this->calculateSecurityScore($user),
                 'completeness_score' => $this->calculateCompletenessScore($user),
@@ -201,9 +201,9 @@ class UserUtilityController extends BaseController
                     'department' => $user->department?->name ?? 'N/A',
                 ],
                 'activity_info' => [
-                    'created_at' => $user->created_at->toDateTimeString(),
-                    'last_login_at' => $user->last_login_at?->toDateTimeString() ?? 'Never',
-                    'password_changed_at' => $user->password_changed_at?->toDateTimeString(),
+                    'created_at' => $user->created_at->setTimezone('Asia/Baku')->toDateTimeString(),
+                    'last_login_at' => $user->last_login_at?->setTimezone('Asia/Baku')->toDateTimeString() ?? 'Never',
+                    'password_changed_at' => $user->password_changed_at?->setTimezone('Asia/Baku')->toDateTimeString(),
                     'failed_attempts' => $user->failed_login_attempts,
                 ],
                 'quick_stats' => [
