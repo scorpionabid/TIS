@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { improvedNavigationConfig } from '../navigation';
-import { USER_ROLES } from '../constants';
+import { USER_ROLES } from '@/constants/roles';
 
 describe('Navigation Configuration', () => {
   it('has correct roles and permissions for preschool groups', () => {
