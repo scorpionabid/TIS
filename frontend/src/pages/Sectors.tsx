@@ -16,7 +16,7 @@ export default function Sectors() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   // Check access permissions
-  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role);
+  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'].includes(currentUser.role);
 
   const {
     // State

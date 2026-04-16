@@ -43,8 +43,10 @@ export const useRegionTeacherManager = () => {
   const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
   const [selectedTeachers, setSelectedTeachers] = useState<EnhancedTeacherProfile[]>([]);
 
-  // Helper: Check if user is regionadmin
-  const isRegionAdmin = !!currentUser && currentUser.role === 'regionadmin';
+  // Helper: Check if user can access teacher management (regionadmin or regionoperator)
+  const isRegionAdmin = !!currentUser && (
+    currentUser.role === 'regionadmin' || currentUser.role === 'regionoperator'
+  );
 
   console.log('✅ isRegionAdmin check result:', isRegionAdmin);
 

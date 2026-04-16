@@ -28,6 +28,8 @@ import {
 import { USER_ROLES } from '@/constants/roles';
 import {
   REGION_ADMIN_ROLES,
+  REGION_ROLES,
+  REGION_AND_ABOVE,
   SCHOOL_ADMIN_ROLES,
   MGMT_ROLES,
   REPORTING_ROLES,
@@ -40,7 +42,7 @@ export const managementMenuGroups: MenuGroup[] = [
     id: 'system-structure',
     label: 'Sistem İdarəetməsi',
     panel: 'management',
-    roles: MGMT_ROLES,
+    roles: REGION_AND_ABOVE,
     items: [
       {
         id: 'users',
@@ -76,21 +78,21 @@ export const managementMenuGroups: MenuGroup[] = [
         label: 'Müəllimlər',
         path: '/regionadmin/teachers',
         icon: GraduationCap,
-        roles: REGION_ADMIN_ROLES,
+        roles: REGION_ROLES,
       },
       {
         id: 'region-classes',
         label: 'Siniflər',
         path: '/regionadmin/classes',
         icon: Users,
-        roles: REGION_ADMIN_ROLES,
+        roles: REGION_ROLES,
       },
       {
         id: 'region-students',
         label: 'Şagirdlər',
         path: '/regionadmin/students',
         icon: GraduationCap,
-        roles: REGION_ADMIN_ROLES,
+        roles: REGION_ROLES,
       },
       {
         id: 'regions',
@@ -104,14 +106,14 @@ export const managementMenuGroups: MenuGroup[] = [
         label: 'Sektorlar',
         path: '/sectors',
         icon: Target,
-        roles: REGION_ADMIN_ROLES,
+        roles: REGION_ROLES,
       },
       {
         id: 'institutions',
         label: 'Ümumi Təhsil',
         path: '/institutions',
         icon: School,
-        roles: MGMT_ROLES,
+        roles: REGION_AND_ABOVE,
       },
       {
         id: 'preschools',
@@ -121,6 +123,7 @@ export const managementMenuGroups: MenuGroup[] = [
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
+          USER_ROLES.REGIONOPERATOR,
           USER_ROLES.PRESCHOOLADMIN,
         ],
       },

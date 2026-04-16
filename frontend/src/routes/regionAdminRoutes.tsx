@@ -140,7 +140,9 @@ export function RegionAdminRoutes() {
         element={
           <LazyWrapper>
             <RoleProtectedRoute
-              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+              requiredPermissions={['students.read']}
+              permissionMatch="any"
             >
               <RegionStudents />
             </RoleProtectedRoute>

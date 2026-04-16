@@ -75,6 +75,7 @@ export default function Preschools() {
     [
       "superadmin",
       "regionadmin",
+      "regionoperator",
       "sektoradmin",
       "schooladmin",
       "müəllim",
@@ -114,8 +115,8 @@ export default function Preschools() {
       if (currentUser?.role === "superadmin") {
         // SuperAdmin can see all sectors
         return await sectorsService.getSectors();
-      } else if (currentUser?.role === "regionadmin") {
-        // RegionAdmin can only see sectors under their region
+      } else if (currentUser?.role === "regionadmin" || currentUser?.role === "regionoperator") {
+        // RegionAdmin/RegionOperator can only see sectors under their region
         if (currentUser.institution?.id) {
           return await sectorsService.getSectorsByRegion(
             currentUser.institution.id,
