@@ -121,6 +121,7 @@ dist-ssr
 # Gatsby files
 .cache/
 public
+!/backend/public/
 !/backend/public/index.php
 !frontend/public/
 
