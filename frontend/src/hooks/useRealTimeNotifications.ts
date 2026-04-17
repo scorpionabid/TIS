@@ -26,7 +26,7 @@ export const useRealTimeNotifications = (
     fallbackPollingInterval = 30000
   } = options;
   
-  const { currentUser, getAuthToken } = useAuth();
+  const { currentUser } = useAuth();
   const {
     isConnected,
     isEchoConnected,
@@ -53,21 +53,18 @@ export const useRealTimeNotifications = (
   );
 
   // For SuperAdmin and others without school association, disable schooladmin notifications
-  const canUseSchoolAdminNotifications = currentUser?.roles?.some(role =>
-    role.name === USER_ROLES.SCHOOLADMIN
-  ) && currentUser?.institution_id;
-
-  // All authenticated users can use general notifications
-  const canUseGeneralNotifications = !!currentUser;
+  const canUseSchoolAdminNotifications = !!(
+    currentUser?.roles?.some(role => role.name === USER_ROLES.SCHOOLADMIN) &&
+    currentUser?.institution_id
+  );
 
   // Fetch initial notifications
-  const extractNotifications = (response: any): any[] => {
+  const extractNotifications = (response: unknown): Record<string, unknown>[] => {
     if (!response) return [];
-    if (Array.isArray(response)) {
-      return response;
-    }
-    if (Array.isArray(response?.data)) {
-      return response.data;
+    if (Array.isArray(response)) return response as Record<string, unknown>[];
+    if (typeof response === 'object' && response !== null) {
+      const data = (response as Record<string, unknown>)['data'];
+      if (Array.isArray(data)) return data as Record<string, unknown>[];
     }
     return [];
   };
@@ -81,14 +78,7 @@ export const useRealTimeNotifications = (
     queryFn: async () => {
       if (!currentUser || !supportsNotifications) return [];
 
-      const response = await notificationService.getNotifications(
-        { per_page: 50 },
-        {
-          useSchoolAdmin: canUseSchoolAdminNotifications,
-          userInstitutionId: currentUser.institution_id,
-          userRoles: currentUser.roles?.map(r => r.name) || [],
-        }
-      );
+      const response = await notificationService.getNotifications({ per_page: 50 });
 
       logger.debug('Unified notifications fetched:', response);
       return extractNotifications(response).map(normalizeNotification);
@@ -120,7 +110,7 @@ export const useRealTimeNotifications = (
     }
   }, []);
 
-  const handleIncomingNotification = useCallback((notification: any) => {
+  const handleIncomingNotification = useCallback((notification: Record<string, unknown>) => {
     const normalizedNotification = normalizeNotification(notification);
 
     // Check if this notification already exists
@@ -173,14 +163,7 @@ export const useRealTimeNotifications = (
     const startPolling = () => {
       pollingInterval = setInterval(async () => {
         try {
-          const response = await notificationService.getNotifications(
-            { per_page: 5 },
-            {
-              useSchoolAdmin: canUseSchoolAdminNotifications,
-              userInstitutionId: currentUser.institution_id,
-              userRoles: currentUser.roles?.map(r => r.name) || [],
-            }
-          );
+          const response = await notificationService.getNotifications({ per_page: 5 });
 
           const latestNotifications = extractNotifications(response).map(normalizeNotification);
 
@@ -260,7 +243,6 @@ export const useRealTimeNotifications = (
     listenToInstitutionChannel,
     listenToRoleChannel,
     fallbackPollingInterval,
-    canUseSchoolAdminNotifications,
     handleIncomingNotification,
     disconnect,
     isWebSocketConnected

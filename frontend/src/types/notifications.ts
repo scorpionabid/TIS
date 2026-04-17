@@ -19,13 +19,15 @@ export interface UnifiedNotification {
   message: string;
   created_at: string;
   is_read: boolean;
+  isRead?: boolean; // Alias for backward compatibility with legacy components
   read_at?: string | null;
+  readAt?: string | null; // Alias for backward compatibility
   action_url?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt?: string; // Backend alias
   data?: {
     action_url?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   // Additional fields from different sources
   related_entity_type?: string;
@@ -87,7 +89,7 @@ export interface CreateNotificationData {
   priority?: NotificationPriority;
   channel?: string;
   user_id?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   action_url?: string;
   scheduled_at?: string;
   language?: string;
@@ -180,7 +182,7 @@ export interface UseRealTimeNotificationsReturn {
   isLoading: boolean;
   markAsRead: (notificationId: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  refreshNotifications: () => Promise<any>;
+  refreshNotifications: () => Promise<unknown>;
   clearNotifications: () => void;
 }
 
@@ -207,10 +209,11 @@ export const NOTIFICATION_TYPE_MAPPINGS: Record<string, { ui_type: NotificationU
 };
 
 // Utility functions
-export function normalizeNotification(notification: any): UnifiedNotification {
-  const mapping = NOTIFICATION_TYPE_MAPPINGS[notification.type];
+export function normalizeNotification(notification: Record<string, unknown>): UnifiedNotification {
+  const type = notification['type'] as string | undefined;
+  const mapping = type ? NOTIFICATION_TYPE_MAPPINGS[type] : undefined;
 
-  const resolveBoolean = (value: any): boolean | undefined => {
+  const resolveBoolean = (value: unknown): boolean | undefined => {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'number') return value !== 0;
     if (typeof value === 'string') {
@@ -221,22 +224,24 @@ export function normalizeNotification(notification: any): UnifiedNotification {
     return undefined;
   };
 
-  const readAt = notification.read_at ?? notification.readAt ?? null;
+  const readAt = (notification['read_at'] ?? notification['readAt'] ?? null) as string | null;
   const resolvedIsRead =
-    resolveBoolean(notification.is_read) ??
-    resolveBoolean(notification.isRead) ??
-    resolveBoolean(notification.status);
+    resolveBoolean(notification['is_read']) ??
+    resolveBoolean(notification['isRead']) ??
+    resolveBoolean(notification['status']);
   const isRead = resolvedIsRead ?? (readAt ? true : false);
 
+  const notifData = notification['data'] as Record<string, unknown> | undefined;
+  const notifMetadata = notification['metadata'] as Record<string, unknown> | undefined;
   const actionUrl =
-    notification.action_url ||
-    notification.data?.action_url ||
-    notification.metadata?.action_url;
+    (notification['action_url'] as string | undefined) ||
+    (notifData?.['action_url'] as string | undefined) ||
+    (notifMetadata?.['action_url'] as string | undefined);
 
-  const createdAt = notification.created_at ?? notification.createdAt;
+  const createdAt = (notification['created_at'] ?? notification['createdAt']) as string;
 
   return {
-    ...notification,
+    ...(notification as Partial<UnifiedNotification>),
     is_read: isRead,
     isRead,
     read_at: readAt,
@@ -246,7 +251,7 @@ export function normalizeNotification(notification: any): UnifiedNotification {
     createdAt,
     ui_type: mapping?.ui_type || 'system',
     display_type: mapping?.display_type || 'info',
-  };
+  } as UnifiedNotification;
 }
 
 export function mapTypeToUIType(type: string): NotificationUIType {

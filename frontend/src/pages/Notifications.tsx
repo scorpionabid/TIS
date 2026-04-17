@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Bell, Settings, Eye, Trash2, Check, AlertCircle, Info, CheckCircle, Loader2, Filter, Mail, Archive, Clock, User, FileText, Calendar } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { notificationService, NotificationFilters, Notification } from "@/services/notification";
+import { notificationService, type NotificationFilters, type Notification, type NotificationStatistics } from "@/services/notification";
 import { useToast } from "@/hooks/use-toast";
 import { format, formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
@@ -43,9 +43,8 @@ export default function Notifications() {
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
-  // Use real data or fallback to mock data
-  const notifications = notificationsResponse?.data || notificationService.getMockNotifications();
-  const stats = statsResponse?.data || notificationService.getMockStatistics();
+  const notifications: Notification[] = notificationsResponse?.data ?? [];
+  const stats: NotificationStatistics | undefined = statsResponse?.data;
 
   // Mutations
   const markAsReadMutation = useMutation({
@@ -194,7 +193,7 @@ export default function Notifications() {
       <div className="p-6 text-center">
         <h1 className="text-2xl font-bold text-destructive mb-2">Xəta baş verdi</h1>
         <p className="text-muted-foreground">Bildirişlər yüklənərkən problem yarandı.</p>
-        <p className="text-sm text-muted-foreground mt-2">Mock məlumatlarla davam edilir</p>
+        <p className="text-sm text-muted-foreground mt-2">Yenidən cəhd edin.</p>
       </div>
     );
   }
@@ -238,7 +237,7 @@ export default function Notifications() {
                   {statsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    stats.unread_notifications
+                    stats?.unread_notifications ?? 0
                   )}
                 </p>
               </div>
@@ -256,7 +255,7 @@ export default function Notifications() {
                   {statsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    stats.new_today
+                    stats?.new_today ?? 0
                   )}
                 </p>
               </div>
@@ -274,7 +273,7 @@ export default function Notifications() {
                   {statsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    stats.this_week
+                    stats?.this_week ?? 0
                   )}
                 </p>
               </div>
@@ -292,7 +291,7 @@ export default function Notifications() {
                   {statsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    stats.total_notifications
+                    stats?.total_notifications ?? 0
                   )}
                 </p>
               </div>

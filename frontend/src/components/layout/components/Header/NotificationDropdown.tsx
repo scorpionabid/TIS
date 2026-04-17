@@ -10,360 +10,94 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   Bell,
-  CheckCircle,
-  AlertCircle,
-  Info,
-  Clock,
-  Eye,
-  Trash2,
   CheckCheck,
   RefreshCw,
-  CheckCircle2,
-  FileText,
-  File,
-  AlertTriangle,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import { useRealTimeNotifications } from '@/hooks/useRealTimeNotifications';
-import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: string; // Backend notification type
-  ui_type?: 'task' | 'survey' | 'document' | 'system'; // NEW: Logical grouping
-  display_type?: 'info' | 'success' | 'warning' | 'error'; // NEW: UI styling
-  isRead: boolean;
-  createdAt: string;
-  action_url?: string;
-  metadata?: {
-    status?: string;
-    action_type?: string;
-    [key: string]: any;
-  };
-}
+import type { UnifiedNotification } from '@/types/notifications';
+import { NotificationItem, getNotificationIcon } from './NotificationItem';
+import { UI_TYPE_LABELS, GROUP_THRESHOLD, type NotificationUIType } from './notificationHelpers';
 
 interface NotificationDropdownProps {
   className?: string;
   enableRealTime?: boolean;
   maxNotifications?: number;
-  // Legacy props for backward compatibility
-  notifications?: Notification[];
-  unreadCount?: number;
-  onMarkAsRead?: (id: number) => void;
-  onMarkAllAsRead?: () => void;
-  onDelete?: (id: number) => void;
-  onNotificationClick?: (id: number) => void;
 }
 
-const getNotificationIcon = (notification: Notification) => {
-  // Use ui_type first, fallback to display_type, then type
-  const iconType = notification.ui_type || notification.display_type || notification.type;
-
-  switch (iconType) {
-    case 'task': return <CheckCircle className="h-4 w-4 text-blue-500" />;
-    case 'survey': return <FileText className="h-4 w-4 text-green-500" />;
-    case 'document': return <File className="h-4 w-4 text-purple-500" />;
-    case 'system': return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-    case 'success': return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case 'warning': return <AlertCircle className="h-4 w-4 text-orange-500" />;
-    case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
-    default: return <Info className="h-4 w-4 text-gray-500" />;
-  }
-};
-
-const getNotificationTypeText = (notification: Notification) => {
-  // Use ui_type first for better user experience
-  const typeForText = notification.ui_type || notification.display_type || notification.type;
-
-  switch (typeForText) {
-    case 'task': return 'Tapşırıq';
-    case 'survey': return 'Sorğu';
-    case 'document': return 'Sənəd';
-    case 'system': return 'Sistem';
-    case 'success': return 'Uğurlu';
-    case 'warning': return 'Xəbərdarlıq';
-    case 'error': return 'Xəta';
-    default: return 'Məlumat';
-  }
-};
-
-const formatTimeAgo = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
-
-  if (diffInMinutes < 1) return 'İndi';
-  if (diffInMinutes < 60) return `${diffInMinutes} dəqiqə əvvəl`;
-
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours} saat əvvəl`;
-
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 7) return `${diffInDays} gün əvvəl`;
-
-  return date.toLocaleDateString('az-AZ');
-};
-
-const isNotificationCompleted = (notification: Notification) => {
-  return notification.metadata?.status === 'completed' ||
-         notification.metadata?.action_type === 'survey_completed';
-};
-
-const getCompletionStatus = (notification: Notification) => {
-  if (!isNotificationCompleted(notification)) return null;
-  return notification.metadata?.final_status || 'completed';
-};
-
-const getCompletionStyling = (status: string | null) => {
-  switch (status) {
-    case 'approved':
-      return 'opacity-60 bg-green-50 dark:bg-green-950/20 border-l-2 border-green-500';
-    case 'rejected':
-      return 'opacity-60 bg-red-50 dark:bg-red-950/20 border-l-2 border-red-500';
-    case 'completed':
-    default:
-      return 'opacity-60 bg-green-50 dark:bg-green-950/20 border-l-2 border-green-500';
-  }
-};
-
-const getCompletionText = (status: string | null) => {
-  switch (status) {
-    case 'approved':
-      return 'Təsdiqləndi';
-    case 'rejected':
-      return 'Rədd edildi';
-    case 'completed':
-    default:
-      return 'Tamamlandı';
-  }
-};
-
-// ─── Reusable single notification item ───────────────────────────────────────
-interface NotificationItemProps {
-  notification: Notification;
-  onMarkAsRead: (id: number) => void;
-  onDelete?: (id: number) => void;
-  onNotificationClick?: (id: number) => void;
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = ({
-  notification,
-  onMarkAsRead,
-  onDelete,
-  onNotificationClick,
-}) => {
-  const completionStatus = getCompletionStatus(notification);
-  return (
-    <div
-      className={`relative p-3 rounded-md cursor-pointer transition-colors hover:bg-accent/50 ${
-        !notification.isRead ? 'bg-accent/30' : ''
-      } ${completionStatus ? getCompletionStyling(completionStatus) : ''}`}
-      onClick={() => {
-        // Track click (non-blocking, marks as read server-side too)
-        notificationService.trackClick(notification.id);
-        if (notification.action_url) {
-          window.location.href = notification.action_url;
-        } else if (onNotificationClick) {
-          onNotificationClick(notification.id);
-        }
-        if (!notification.isRead) {
-          onMarkAsRead(notification.id);
-        }
-      }}
-    >
-      <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 mt-0.5">
-          {isNotificationCompleted(notification) ? (
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          ) : (
-            getNotificationIcon(notification)
-          )}
-        </div>
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-start justify-between">
-            <h4 className="text-sm font-medium text-foreground truncate pr-2">
-              {notification.title}
-            </h4>
-            {!notification.isRead && (
-              <div className="h-2 w-2 bg-primary rounded-full flex-shrink-0 mt-1" />
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {notification.message}
-          </p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Badge
-                variant={isNotificationCompleted(notification) ? 'secondary' : 'outline'}
-                className={`text-xs h-4 ${
-                  isNotificationCompleted(notification)
-                    ? 'bg-green-100 text-green-800 border-green-200'
-                    : ''
-                }`}
-              >
-                {completionStatus
-                  ? getCompletionText(completionStatus)
-                  : getNotificationTypeText(notification)}
-              </Badge>
-              <div className="flex items-center space-x-1">
-                <Clock className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {formatTimeAgo(notification.createdAt)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-1">
-              {!notification.isRead && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => { e.stopPropagation(); onMarkAsRead(notification.id); }}
-                  className="h-6 w-6"
-                >
-                  <Eye className="h-3 w-3" />
-                </Button>
-              )}
-              {onDelete && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => { e.stopPropagation(); onDelete(notification.id); }}
-                  className="h-6 w-6 text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Main Dropdown ────────────────────────────────────────────────────────────
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   className,
   enableRealTime = true,
   maxNotifications = 10,
-  // Legacy props
-  notifications: legacyNotifications,
-  unreadCount: legacyUnreadCount,
-  onMarkAsRead: legacyOnMarkAsRead,
-  onMarkAllAsRead: legacyOnMarkAllAsRead,
-  onDelete: legacyOnDelete,
-  onNotificationClick: legacyOnNotificationClick
 }) => {
-  // Use real-time notifications if enabled, fallback to legacy props
-  const realTimeHook = useRealTimeNotifications({
-    autoToast: enableRealTime,
-    maxToastNotifications: 3,
-    enableSound: false
-  });
-  
-  const notifications = enableRealTime ? realTimeHook.notifications : (legacyNotifications || []);
-  const unreadCount = enableRealTime ? realTimeHook.unreadCount : (legacyUnreadCount || 0);
-  const isLoading = enableRealTime ? realTimeHook.isLoading : false;
-  
-  const handleMarkAsRead = async (id: number) => {
-    try {
-      if (enableRealTime) {
-        await realTimeHook.markAsRead(id);
-        toast.success('Bildiriş oxundu olaraq qeyd edildi');
-      } else if (legacyOnMarkAsRead) {
-        legacyOnMarkAsRead(id);
-      }
-    } catch (error) {
-      toast.error('Xəta baş verdi');
-    }
-  };
-  
-  const handleMarkAllAsRead = async () => {
-    try {
-      if (enableRealTime) {
-        await realTimeHook.markAllAsRead();
-        toast.success('Bütün bildirişlər oxundu olaraq qeyd edildi');
-      } else if (legacyOnMarkAllAsRead) {
-        legacyOnMarkAllAsRead();
-      }
-    } catch (error) {
-      toast.error('Xəta baş verdi');
-    }
-  };
-  
-  const handleDelete = async (id: number) => {
-    try {
-      if (legacyOnDelete) {
-        legacyOnDelete(id);
-      }
-      toast.success('Bildiriş silindi');
-    } catch (error) {
-      toast.error('Silinmə zamanı xəta baş verdi');
-    }
-  };
-  
-  const handleRefresh = async () => {
-    if (enableRealTime && realTimeHook.refreshNotifications) {
-      try {
-        await realTimeHook.refreshNotifications();
-        toast.success('Bildirişlər yeniləndi');
-      } catch (error) {
-        toast.error('Yeniləmə zamanı xəta baş verdi');
-      }
-    }
-  };
-  
-  const displayNotifications = notifications.slice(0, maxNotifications || 10);
-
-  // Group notifications by ui_type when 3+ of the same type exist in display list
-  const GROUP_THRESHOLD = 3;
-  const uiTypeLabels: Record<string, string> = {
-    task: 'Tapşırıqlar',
-    survey: 'Sorğular',
-    document: 'Sənədlər',
-    system: 'Sistem',
-  };
-
-  type UiTypeKey = 'task' | 'survey' | 'document' | 'system';
-
-  const groupedMap = displayNotifications.reduce<Record<string, Notification[]>>((acc, n) => {
-    const key = (n.ui_type ?? 'system') as string;
-    acc[key] = acc[key] ?? [];
-    acc[key].push(n);
-    return acc;
-  }, {});
-
-  // Only collapse groups that meet the threshold
-  const shouldGroup = Object.values(groupedMap).some(g => g.length >= GROUP_THRESHOLD);
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    markAsRead,
+    markAllAsRead,
+    refreshNotifications,
+  } = useRealTimeNotifications({ autoToast: enableRealTime, maxToastNotifications: 3, enableSound: false });
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = (key: string) =>
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await markAsRead(id);
+      toast.success('Bildiriş oxundu olaraq qeyd edildi');
+    } catch {
+      toast.error('Xəta baş verdi');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+      toast.success('Bütün bildirişlər oxundu olaraq qeyd edildi');
+    } catch {
+      toast.error('Xəta baş verdi');
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      await refreshNotifications();
+      toast.success('Bildirişlər yeniləndi');
+    } catch {
+      toast.error('Yeniləmə zamanı xəta baş verdi');
+    }
+  };
+
+  const displayNotifications = notifications.slice(0, maxNotifications);
+
+  // Group notifications by ui_type when GROUP_THRESHOLD+ of the same type exist
+  const groupedMap = displayNotifications.reduce<Record<string, UnifiedNotification[]>>((acc, n) => {
+    const key = n.ui_type ?? 'system';
+    acc[key] = acc[key] ?? [];
+    acc[key].push(n);
+    return acc;
+  }, {});
+
+  const shouldGroup = Object.values(groupedMap).some(g => g.length >= GROUP_THRESHOLD);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className={cn(
-          "relative h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0",
-          className
-        )}>
-          <Bell className={cn(
-            "h-4 w-4",
-            unreadCount > 0 && enableRealTime ? "animate-pulse text-primary" : ""
-          )} />
+        <Button variant="ghost" size="icon" className={cn('relative h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0', className)}>
+          <Bell className={cn('h-4 w-4', unreadCount > 0 && enableRealTime ? 'animate-pulse text-primary' : '')} />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center text-[10px] font-medium">
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      
+
       <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
         {/* Header */}
         <DropdownMenuLabel className="flex items-center justify-between p-4">
@@ -371,35 +105,19 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             <Bell className="h-4 w-4" />
             <span>Bildirişlər</span>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="text-xs">
-                {unreadCount}
-              </Badge>
+              <Badge variant="destructive" className="text-xs">{unreadCount}</Badge>
             )}
           </div>
           <div className="flex items-center gap-1">
             {unreadCount > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                className="text-xs h-6 px-2"
-              >
+              <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-6 px-2">
                 <CheckCheck className="h-3 w-3 mr-1" />
                 Hamısını oxundu qeyd et
               </Button>
             )}
             {enableRealTime && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefresh}
-                className="h-6 px-2"
-                disabled={isLoading}
-              >
-                <RefreshCw className={cn(
-                  "h-3 w-3",
-                  isLoading && "animate-spin"
-                )} />
+              <Button variant="ghost" size="sm" onClick={handleRefresh} className="h-6 px-2" disabled={isLoading}>
+                <RefreshCw className={cn('h-3 w-3', isLoading && 'animate-spin')} />
               </Button>
             )}
           </div>
@@ -418,21 +136,19 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         ) : (
           <div className="space-y-1 p-1">
             {shouldGroup
-              ? /* ── Grouped view ── */
-                Object.entries(groupedMap).map(([typeKey, items]) => {
+              ? Object.entries(groupedMap).map(([typeKey, items]) => {
                   const isExpanded = expandedGroups[typeKey] ?? false;
-                  const label = uiTypeLabels[typeKey as UiTypeKey] ?? typeKey;
-                  const unreadInGroup = items.filter(n => !n.isRead).length;
+                  const label = UI_TYPE_LABELS[typeKey as NotificationUIType] ?? typeKey;
+                  const unreadInGroup = items.filter(n => !n.is_read).length;
                   const showCollapsed = items.length >= GROUP_THRESHOLD && !isExpanded;
                   return (
                     <div key={typeKey}>
-                      {/* Group header */}
                       <button
                         onClick={() => toggleGroup(typeKey)}
                         className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:bg-accent/30 rounded-md transition-colors"
                       >
                         <span className="flex items-center gap-2">
-                          {getNotificationIcon({ ui_type: typeKey as Notification['ui_type'] } as Notification)}
+                          {getNotificationIcon({ ui_type: typeKey as UnifiedNotification['ui_type'], type: typeKey, display_type: undefined })}
                           {label}
                           {unreadInGroup > 0 && (
                             <Badge variant="destructive" className="h-4 text-[10px] px-1">
@@ -445,36 +161,27 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                           {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                         </span>
                       </button>
-                      {/* Show first item as preview when collapsed */}
                       {showCollapsed && items[0] && (
                         <NotificationItem
                           notification={items[0]}
                           onMarkAsRead={handleMarkAsRead}
-                          onDelete={legacyOnDelete ? handleDelete : undefined}
-                          onNotificationClick={legacyOnNotificationClick}
                         />
                       )}
-                      {/* All items when expanded */}
                       {isExpanded && items.map(n => (
                         <NotificationItem
                           key={n.id}
                           notification={n}
                           onMarkAsRead={handleMarkAsRead}
-                          onDelete={legacyOnDelete ? handleDelete : undefined}
-                          onNotificationClick={legacyOnNotificationClick}
                         />
                       ))}
                     </div>
                   );
                 })
-              : /* ── Flat view (default when no group hits threshold) ── */
-                displayNotifications.map((notification: Notification) => (
+              : displayNotifications.map(notification => (
                   <NotificationItem
                     key={notification.id}
                     notification={notification}
                     onMarkAsRead={handleMarkAsRead}
-                    onDelete={legacyOnDelete ? handleDelete : undefined}
-                    onNotificationClick={legacyOnNotificationClick}
                   />
                 ))
             }
@@ -485,11 +192,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="w-full"
-                onClick={() => window.location.href = '/notifications'}
+                onClick={() => { window.location.href = '/notifications'; }}
               >
                 Bütün bildirişləri gör ({notifications.length})
               </Button>

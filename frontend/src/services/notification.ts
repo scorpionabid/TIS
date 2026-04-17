@@ -14,7 +14,7 @@ export interface Notification {
   sender_id?: number;
   related_entity_type?: string;
   related_entity_id?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   expires_at?: string;
   read_at?: string;
   sender?: {
@@ -54,7 +54,7 @@ export interface CreateNotificationData {
   recipients: number[]; // User IDs
   related_entity_type?: string;
   related_entity_id?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   expires_at?: string;
   schedule_at?: string;
 }
@@ -63,10 +63,13 @@ export interface NotificationFilters {
   status?: string;
   type?: string;
   priority?: string;
+  is_read?: boolean;
   date_from?: string;
   date_to?: string;
   sender_id?: number;
   search?: string;
+  per_page?: number;
+  page?: number;
 }
 
 /** Unread notification counts grouped by sidebar page category */
@@ -105,26 +108,27 @@ class NotificationService extends BaseService<Notification> {
   }
 
   // Normalize school notification to standard notification format
-  private normalizeSchoolNotification(schoolNotification: any): Notification {
+  private normalizeSchoolNotification(raw: Record<string, unknown>): Notification {
+    const rawType = raw['type'] as string | undefined;
     return {
-      id: schoolNotification.id,
-      title: schoolNotification.title || schoolNotification.message || 'Notification',
-      message: schoolNotification.message || schoolNotification.description || '',
-      type: schoolNotification.type || 'info',
-      ui_type: this.mapTypeToUIType(schoolNotification.type),
-      display_type: this.mapTypeToDisplayType(schoolNotification.type),
-      priority: schoolNotification.priority || 'medium',
-      status: schoolNotification.is_read ? 'read' : 'unread',
-      user_id: schoolNotification.user_id || 0,
-      sender_id: schoolNotification.sender_id,
-      related_entity_type: schoolNotification.related_entity_type,
-      related_entity_id: schoolNotification.related_entity_id,
-      metadata: schoolNotification.metadata || {},
-      expires_at: schoolNotification.expires_at,
-      read_at: schoolNotification.read_at,
-      sender: schoolNotification.sender,
-      created_at: schoolNotification.created_at,
-      updated_at: schoolNotification.updated_at
+      id: raw['id'] as number,
+      title: (raw['title'] as string | undefined) || (raw['message'] as string | undefined) || 'Notification',
+      message: (raw['message'] as string | undefined) || (raw['description'] as string | undefined) || '',
+      type: rawType || 'info',
+      ui_type: this.mapTypeToUIType(rawType || ''),
+      display_type: this.mapTypeToDisplayType(rawType || ''),
+      priority: (raw['priority'] as Notification['priority'] | undefined) || 'medium',
+      status: raw['is_read'] ? 'read' : 'unread',
+      user_id: (raw['user_id'] as number | undefined) || 0,
+      sender_id: raw['sender_id'] as number | undefined,
+      related_entity_type: raw['related_entity_type'] as string | undefined,
+      related_entity_id: raw['related_entity_id'] as number | undefined,
+      metadata: (raw['metadata'] as Record<string, unknown> | undefined) || {},
+      expires_at: raw['expires_at'] as string | undefined,
+      read_at: raw['read_at'] as string | undefined,
+      sender: raw['sender'] as Notification['sender'] | undefined,
+      created_at: raw['created_at'] as string,
+      updated_at: raw['updated_at'] as string,
     };
   }
 
@@ -158,13 +162,13 @@ class NotificationService extends BaseService<Notification> {
   }
 
   async getNotification(id: number): Promise<{ success: boolean; data: Notification }> {
-    console.log('🔍 NotificationService.getNotification called for ID:', id);
+    logger.debug('NotificationService.getNotification called', { id });
     try {
       const response = await this.get<Notification>(`${this.baseUrl}/${id}`);
-      console.log('✅ NotificationService.getNotification successful:', response);
+      logger.debug('NotificationService.getNotification successful');
       return response as { success: boolean; data: Notification };
     } catch (error) {
-      console.error('❌ NotificationService.getNotification failed:', error);
+      logger.error('NotificationService.getNotification failed', error);
       throw error;
     }
   }
@@ -286,25 +290,25 @@ class NotificationService extends BaseService<Notification> {
   }
 
   async getUserSettings(): Promise<{ success: boolean; data: NotificationSettings }> {
-    console.log('🔍 NotificationService.getUserSettings called');
+    logger.debug('NotificationService.getUserSettings called');
     try {
       const response = await this.get<NotificationSettings>(`${this.baseUrl}/settings`);
-      console.log('✅ NotificationService.getUserSettings successful:', response);
+      logger.debug('NotificationService.getUserSettings successful');
       return response as { success: boolean; data: NotificationSettings };
     } catch (error) {
-      console.error('❌ NotificationService.getUserSettings failed:', error);
+      logger.error('NotificationService.getUserSettings failed', error);
       throw error;
     }
   }
 
   async updateUserSettings(settings: Partial<NotificationSettings>): Promise<{ success: boolean; message: string }> {
-    console.log('🔍 NotificationService.updateUserSettings called with:', settings);
+    logger.debug('NotificationService.updateUserSettings called');
     try {
       const response = await this.put<void>(`${this.baseUrl}/settings`, settings);
-      console.log('✅ NotificationService.updateUserSettings successful:', response);
+      logger.debug('NotificationService.updateUserSettings successful');
       return response as { success: boolean; message: string };
     } catch (error) {
-      console.error('❌ NotificationService.updateUserSettings failed:', error);
+      logger.error('NotificationService.updateUserSettings failed', error);
       throw error;
     }
   }
@@ -319,174 +323,29 @@ class NotificationService extends BaseService<Notification> {
       institutions?: number[];
       departments?: string[];
     };
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<{ success: boolean; message: string; data: { sent_count: number } }> {
-    console.log('🔍 NotificationService.sendBulkNotification called with:', data);
+    logger.debug('NotificationService.sendBulkNotification called');
     try {
       const response = await this.post<{ sent_count: number }>(`${this.baseUrl}/bulk`, data);
-      console.log('✅ NotificationService.sendBulkNotification successful:', response);
+      logger.debug('NotificationService.sendBulkNotification successful');
       return response as { success: boolean; message: string; data: { sent_count: number } };
     } catch (error) {
-      console.error('❌ NotificationService.sendBulkNotification failed:', error);
+      logger.error('NotificationService.sendBulkNotification failed', error);
       throw error;
     }
   }
 
   async subscribeToNotifications(): Promise<{ success: boolean; message: string }> {
-    console.log('🔍 NotificationService.subscribeToNotifications called');
+    logger.debug('NotificationService.subscribeToNotifications called');
     try {
       const response = await this.post<void>(`${this.baseUrl}/subscribe`, {});
-      console.log('✅ NotificationService.subscribeToNotifications successful:', response);
+      logger.debug('NotificationService.subscribeToNotifications successful');
       return response as { success: boolean; message: string };
     } catch (error) {
-      console.error('❌ NotificationService.subscribeToNotifications failed:', error);
+      logger.error('NotificationService.subscribeToNotifications failed', error);
       throw error;
     }
-  }
-
-  // Mock data for development/fallback
-  getMockNotifications(): Notification[] {
-    return [
-      {
-        id: 1,
-        title: 'Yeni sorğu yaradıldı',
-        message: 'Məktəb infrastrukturu sorğusu yaradıldı və təsdiq gözləyir.',
-        type: 'survey_assigned', // Backend type
-        ui_type: 'survey', // NEW: UI grouping
-        display_type: 'info', // NEW: Styling type
-        priority: 'medium',
-        status: 'unread',
-        user_id: 1,
-        sender_id: 2,
-        related_entity_type: 'Survey',
-        related_entity_id: 15,
-        sender: {
-          id: 2,
-          first_name: 'Admin',
-          last_name: 'İstifadəçi',
-          role: 'SuperAdmin'
-        },
-        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 2,
-        title: 'Yeni tapşırıq təyin edildi',
-        message: 'Sizə yeni tapşırıq təyin edildi: "Şagird qiymətləndirmə sistemi"',
-        type: 'task_assigned', // Backend type
-        ui_type: 'task', // NEW: UI grouping
-        display_type: 'info', // NEW: Styling type
-        priority: 'high',
-        status: 'unread',
-        user_id: 1,
-        sender_id: 3,
-        related_entity_type: 'Task',
-        related_entity_id: 24,
-        sender: {
-          id: 3,
-          first_name: 'Müdür',
-          last_name: 'Əliyev',
-          role: 'SchoolAdmin'
-        },
-        created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 3,
-        title: 'Yeni sənəd paylaşıldı',
-        message: 'Dərs planı şablonu sizinlə paylaşıldı.',
-        type: 'document',
-        priority: 'low',
-        status: 'read',
-        user_id: 1,
-        sender_id: 4,
-        related_entity_type: 'Document',
-        related_entity_id: 42,
-        read_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-        sender: {
-          id: 4,
-          first_name: 'Məryəm',
-          last_name: 'Həsənova',
-          role: 'Teacher'
-        },
-        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 4,
-        title: 'Sistem yenilənməsi',
-        message: 'Sistem texniki baxım üçün sabah 02:00-04:00 arası dayandırılacaq.',
-        type: 'maintenance', // Backend type
-        ui_type: 'system', // NEW: UI grouping
-        display_type: 'warning', // NEW: Styling type
-        priority: 'urgent',
-        status: 'unread',
-        user_id: 1,
-        sender_id: 1,
-        related_entity_type: 'Maintenance',
-        related_entity_id: 1,
-        sender: {
-          id: 1,
-          first_name: 'Sistem',
-          last_name: 'Administrator',
-          role: 'SuperAdmin'
-        },
-        created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 5,
-        title: 'Sorğu nəticələri hazırlandı',
-        message: 'Müəllim məmnuniyyəti sorğusunun nəticələri hazır.',
-        type: 'survey',
-        priority: 'medium',
-        status: 'read',
-        user_id: 1,
-        sender_id: 2,
-        related_entity_type: 'Survey',
-        related_entity_id: 12,
-        read_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-        sender: {
-          id: 2,
-          first_name: 'Admin',
-          last_name: 'İstifadəçi',
-          role: 'SuperAdmin'
-        },
-        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-      }
-    ];
-  }
-
-  getMockStatistics(): NotificationStatistics {
-    return {
-      total_notifications: 156,
-      unread_notifications: 12,
-      new_today: 8,
-      this_week: 25,
-      by_type: [
-        { type: 'task', count: 45 },
-        { type: 'survey', count: 38 },
-        { type: 'document', count: 32 },
-        { type: 'system', count: 28 },
-        { type: 'info', count: 13 }
-      ],
-      by_priority: [
-        { priority: 'low', count: 78 },
-        { priority: 'medium', count: 52 },
-        { priority: 'high', count: 21 },
-        { priority: 'urgent', count: 5 }
-      ],
-      recent_activity: [
-        { date: '2024-08-15', count: 8 },
-        { date: '2024-08-14', count: 12 },
-        { date: '2024-08-13', count: 15 },
-        { date: '2024-08-12', count: 9 },
-        { date: '2024-08-11', count: 6 },
-        { date: '2024-08-10', count: 4 },
-        { date: '2024-08-09', count: 7 }
-      ]
-    };
   }
 }
 
