@@ -22,6 +22,7 @@ interface UseClassManagementDataProps {
   selectedRegionId: number | null;
   setSelectedRegionId: (id: number | null) => void;
   searchTerm: string;
+  debouncedSearchTerm: string;
   institutionFilter: string;
   classLevelFilter: string;
   academicYearFilter: string;
@@ -46,6 +47,7 @@ export const useClassManagementData = ({
   selectedRegionId,
   setSelectedRegionId,
   searchTerm,
+  debouncedSearchTerm,
   institutionFilter,
   classLevelFilter,
   academicYearFilter,
@@ -115,7 +117,7 @@ export const useClassManagementData = ({
   const filterParams: ClassFiltersType = useMemo(() => {
     const params: ClassFiltersType = { page, per_page: perPage };
 
-    if (searchTerm.trim()) params.search = searchTerm.trim();
+    if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
     if (institutionFilter !== "all")
       params.institution_id = parseInt(institutionFilter);
     if (classLevelFilter !== "all")
@@ -127,7 +129,7 @@ export const useClassManagementData = ({
 
     return params;
   }, [
-    searchTerm,
+    debouncedSearchTerm,
     institutionFilter,
     classLevelFilter,
     academicYearFilter,

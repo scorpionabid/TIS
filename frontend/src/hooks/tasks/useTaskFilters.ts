@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useDebounce } from '@/hooks/useDebounce';
 
 export type TaskFilterState = {
   searchTerm: string;
@@ -30,6 +31,8 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
   const [deadlineFilter, setDeadlineFilter] = useState(mergedInitialState.deadlineFilter);
   const [institutionLevel, setInstitutionLevel] = useState(mergedInitialState.institutionLevel);
   const [dateRange, setDateRange] = useState(mergedInitialState.dateRange);
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
   const isFiltering = useMemo(() => {
     return (
@@ -65,6 +68,7 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
 
   return {
     ...filters,
+    debouncedSearchTerm,
     setSearchTerm,
     setStatusFilter,
     setPriorityFilter,

@@ -25,6 +25,7 @@ export const RegionClassManagement = () => {
     selectedRegionId: state.selectedRegionId,
     setSelectedRegionId: state.setSelectedRegionId,
     searchTerm: state.searchTerm,
+    debouncedSearchTerm: state.debouncedSearchTerm,
     institutionFilter: state.institutionFilter,
     classLevelFilter: state.classLevelFilter,
     academicYearFilter: state.academicYearFilter,

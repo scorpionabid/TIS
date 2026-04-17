@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ActiveFilterBadges } from '@/components/common/ActiveFilterBadges';
 import { Search, X } from 'lucide-react';
 
 interface FilterOption {
@@ -50,7 +51,28 @@ export function StudentFilters({
   onStatusChange,
   onClearFilters,
 }: StudentFiltersProps) {
+  const sectorName = sectorId ? sectors.find(s => s.id === sectorId)?.name : undefined;
+  const schoolName = schoolId ? schools.find(s => s.id === schoolId)?.name : undefined;
+
   return (
+    <div className="space-y-2">
+    <ActiveFilterBadges
+      filters={[
+        { key: 'search',      label: 'Axtarış',   value: search },
+        { key: 'sector',      label: 'Sektor',     value: sectorId, displayValue: sectorName },
+        { key: 'school',      label: 'Məktəb',     value: schoolId, displayValue: schoolName },
+        { key: 'gradeLevel',  label: 'Sinif',      value: gradeLevel, displayValue: gradeLevel ? `${gradeLevel}-ci sinif` : undefined },
+        { key: 'isActive',    label: 'Status',     value: isActive, displayValue: isActive === 'true' ? 'Aktiv' : isActive === 'false' ? 'Qeyri-aktiv' : undefined },
+      ]}
+      onRemove={(key) => {
+        if (key === 'search')     onSearchChange('');
+        if (key === 'sector')     onSectorChange(undefined);
+        if (key === 'school')     onSchoolChange(undefined);
+        if (key === 'gradeLevel') onGradeChange('');
+        if (key === 'isActive')   onStatusChange('');
+      }}
+      onClearAll={onClearFilters}
+    />
     <div className="flex flex-wrap gap-3 items-center">
       {/* Search */}
       <div className="relative flex-1 min-w-[220px] max-w-sm">
@@ -139,6 +161,7 @@ export function StudentFilters({
           Filtri sıfırla
         </Button>
       )}
+    </div>
     </div>
   );
 }

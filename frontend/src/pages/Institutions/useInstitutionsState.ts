@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Institution } from '@/services/institutions';
 import { User } from '@/services/users';
 
@@ -18,6 +20,7 @@ export interface InstitutionsState {
   
   // Filter states
   searchQuery: string;
+  debouncedSearchQuery: string;
   statusFilter: string;
   levelFilter: string;
   parentFilter: string;
@@ -31,7 +34,23 @@ export interface InstitutionsState {
 }
 
 export const useInstitutionsState = () => {
-  // Modal states
+  const [urlSearchParams, setUrlSearchParams] = useSearchParams();
+
+  // ── URL-backed filter helpers ─────────────────────────────────────────────
+  const getUrlParam = (key: string, fallback = '') =>
+    urlSearchParams.get(key) ?? fallback;
+
+  const setUrlParam = useCallback((key: string, value: string, fallback = '') => {
+    setUrlSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === fallback || value === '') next.delete(key);
+      else next.set(key, value);
+      next.delete('page');
+      return next;
+    }, { replace: true });
+  }, [setUrlSearchParams]);
+
+  // Modal states (local — ephemeral)
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null);
@@ -39,15 +58,31 @@ export const useInstitutionsState = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [institutionToDelete, setInstitutionToDelete] = useState<Institution | null>(null);
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
-  
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Pagination (URL-backed for page, local for perPage)
+  const pageParam = urlSearchParams.get('page');
+  const currentPage = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+  const setCurrentPage = useCallback((p: number) => {
+    setUrlSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (p <= 1) next.delete('page');
+      else next.set('page', String(p));
+      return next;
+    }, { replace: true });
+  }, [setUrlSearchParams]);
   const [perPage, setPerPage] = useState(15);
-  
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [levelFilter, setLevelFilter] = useState<string>('all');
+
+  // Filter states (key 3 in URL, rest local)
+  const searchQuery    = getUrlParam('search');
+  const statusFilter   = getUrlParam('status', 'all') || 'all';
+  const levelFilter    = getUrlParam('level', 'all') || 'all';
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+
+  const setSearchQuery   = useCallback((v: string) => setUrlParam('search', v), [setUrlParam]);
+  const setStatusFilter  = useCallback((v: string) => setUrlParam('status', v, 'all'), [setUrlParam]);
+  const setLevelFilter   = useCallback((v: string) => setUrlParam('level', v, 'all'), [setUrlParam]);
+
+  // Remaining filters (local)
   const [parentFilter, setParentFilter] = useState<string>('all');
   const [deletedFilter, setDeletedFilter] = useState<string>('active');
   const [sortField, setSortField] = useState<string>('name');
@@ -98,15 +133,16 @@ export const useInstitutionsState = () => {
 
   // Filter handlers
   const resetFilters = useCallback(() => {
-    setSearchQuery('');
-    setStatusFilter('all');
-    setLevelFilter('all');
+    setUrlSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      ['search', 'status', 'level', 'page'].forEach(k => next.delete(k));
+      return next;
+    }, { replace: true });
     setParentFilter('all');
     setDeletedFilter('active');
     setSortField('name');
     setSortDirection('asc');
-    setCurrentPage(1);
-  }, []);
+  }, [setUrlSearchParams]);
 
   const updateInstitutionAdmin = useCallback((institutionId: number, admin: User | null) => {
     setInstitutionAdmins(prev => ({
@@ -127,6 +163,7 @@ export const useInstitutionsState = () => {
     currentPage,
     perPage,
     searchQuery,
+    debouncedSearchQuery,
     statusFilter,
     levelFilter,
     parentFilter,

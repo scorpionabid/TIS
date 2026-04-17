@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { type CheckedState } from "@radix-ui/react-checkbox";
 import { ClassData } from "@/services/regionadmin/classes";
 import {
@@ -38,6 +39,7 @@ export const useClassManagementState = () => {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 400);
   const [institutionFilter, setInstitutionFilter] = useState<string>("all");
   const [classLevelFilter, setClassLevelFilter] = useState<string>("all");
   const [academicYearFilter, setAcademicYearFilter] = useState<string>("all");
@@ -234,6 +236,7 @@ export const useClassManagementState = () => {
 
     // Filters
     searchTerm,
+    debouncedSearchTerm,
     institutionFilter,
     classLevelFilter,
     academicYearFilter,

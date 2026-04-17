@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Users, School, Building2, UserCheck, Upload, Download } from 'lucide-react';
 import { RegionStudentImportExportModal } from '@/components/modals/RegionStudentImportExportModal';
 
+import { FilterPanel } from '@/components/common/FilterPanel';
 import { useRegionStudentState } from './useRegionStudentState';
 import { useRegionStudentData }  from './useRegionStudentData';
 import { StudentFilters }        from './StudentFilters';
@@ -15,7 +16,7 @@ export const RegionStudents = () => {
   const state = useRegionStudentState();
 
   const data = useRegionStudentData({
-    search:        state.search,
+    search:        state.debouncedSearch,
     sectorId:      state.sectorId,
     schoolId:      state.schoolId,
     gradeLevel:    state.gradeLevel,
@@ -118,22 +119,27 @@ export const RegionStudents = () => {
       </div>
 
       {/* Filters */}
-      <StudentFilters
-        search={state.search}
-        sectorId={state.sectorId}
-        schoolId={state.schoolId}
-        gradeLevel={state.gradeLevel}
-        isActive={state.isActive}
-        sectors={data.sectors}
-        schools={data.schools}
-        hasActiveFilters={state.hasActiveFilters}
-        onSearchChange={state.handleSearchChange}
-        onSectorChange={state.handleSectorChange}
-        onSchoolChange={state.handleSchoolChange}
-        onGradeChange={state.handleGradeChange}
-        onStatusChange={state.handleStatusChange}
-        onClearFilters={state.clearFilters}
-      />
+      <FilterPanel
+        activeFilterCount={[state.search, state.sectorId, state.schoolId, state.gradeLevel, state.isActive].filter(Boolean).length}
+        label="Şagird Filterləri"
+      >
+        <StudentFilters
+          search={state.search}
+          sectorId={state.sectorId}
+          schoolId={state.schoolId}
+          gradeLevel={state.gradeLevel}
+          isActive={state.isActive}
+          sectors={data.sectors}
+          schools={data.schools}
+          hasActiveFilters={state.hasActiveFilters}
+          onSearchChange={state.handleSearchChange}
+          onSectorChange={state.handleSectorChange}
+          onSchoolChange={state.handleSchoolChange}
+          onGradeChange={state.handleGradeChange}
+          onStatusChange={state.handleStatusChange}
+          onClearFilters={state.clearFilters}
+        />
+      </FilterPanel>
 
       {/* Table */}
       <StudentTable

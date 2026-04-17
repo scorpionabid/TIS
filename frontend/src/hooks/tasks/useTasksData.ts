@@ -93,6 +93,8 @@ export function useTasksData({
     filters.searchTerm,
     filters.statusFilter,
     filters.institutionLevel,
+    filters.deadlineFilter,
+    filters.dateRange,
     page,
     perPage,
     activeTab,

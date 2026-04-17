@@ -46,6 +46,7 @@ export default function Tasks() {
 
   const {
     searchTerm,
+    debouncedSearchTerm,
     setSearchTerm,
     statusFilter,
     setStatusFilter,
@@ -116,7 +117,7 @@ export default function Tasks() {
     hasAccess,
     canSeeRegionTab: true, // Not used strictly anymore inside the hook query
     canSeeSectorTab: true,
-    filters: { searchTerm, statusFilter, priorityFilter, sourceFilter, deadlineFilter, institutionLevel },
+    filters: { searchTerm: debouncedSearchTerm, statusFilter, priorityFilter, sourceFilter, deadlineFilter, institutionLevel, dateRange },
   });
 
   const {
