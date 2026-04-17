@@ -9,27 +9,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Upload, 
-  Download, 
-  FileSpreadsheet, 
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
   BarChart3,
   CheckCircle,
   XCircle,
   Loader2,
-  GraduationCap,
-  School
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { teacherService } from '@/services/teachers';
 import { useAuth } from '@/contexts/AuthContext';
+import { downloadBlob, buildExportFilename } from '@/utils/fileDownload';
+import { type ImportResult, validateImportFile } from '@/types/import-export';
 
 interface TeacherImportExportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface ExportStats {
+interface TeacherExportStats {
   total_teachers: number;
   active_teachers: number;
   inactive_teachers: number;
@@ -38,10 +38,13 @@ interface ExportStats {
   by_department: Record<string, number>;
 }
 
+interface Department { id: number; name: string }
+interface Subject    { id: number; name: string }
+
 export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> = ({ isOpen, onClose }) => {
   const { currentUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<any>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [exportFilters, setExportFilters] = useState({
     subject_id: 'all',
     department_id: 'all',
@@ -53,21 +56,21 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
   const queryClient = useQueryClient();
 
   // Get export statistics
-  const { data: exportStats, isLoading: statsLoading, refetch: refetchStats } = useQuery<ExportStats>({
+  const { data: exportStats, isLoading: statsLoading, refetch: refetchStats } = useQuery<TeacherExportStats>({
     queryKey: ['teacher-export-stats', exportFilters],
     queryFn: () => teacherService.getExportStats(exportFilters),
     enabled: isOpen,
   });
 
   // Get available departments
-  const { data: departments } = useQuery({
+  const { data: departments } = useQuery<Department[]>({
     queryKey: ['teacher-departments'],
     queryFn: () => teacherService.getDepartments(),
     enabled: isOpen,
   });
 
   // Get available subjects
-  const { data: subjects } = useQuery({
+  const { data: subjects } = useQuery<Subject[]>({
     queryKey: ['teacher-subjects'],
     queryFn: () => teacherService.getSubjects(),
     enabled: isOpen,
@@ -77,15 +80,14 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
   const templateMutation = useMutation({
     mutationFn: () => teacherService.downloadTemplate(),
     onSuccess: (blob) => {
-      const filename = `teacher_import_template_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      downloadFileBlob(blob, filename);
+      downloadBlob(blob, buildExportFilename('teacher_import_template', 'xlsx'));
     },
   });
 
   // Import mutation
   const importMutation = useMutation({
     mutationFn: (file: File) => teacherService.importTeachers(file),
-    onSuccess: (result) => {
+    onSuccess: (result: ImportResult) => {
       setImportResult(result);
       queryClient.invalidateQueries({ queryKey: ['teacher-export-stats'] });
       refetchStats();
@@ -96,15 +98,14 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
   const exportMutation = useMutation({
     mutationFn: () => teacherService.exportTeachers(exportFilters),
     onSuccess: (blob) => {
-      const filename = `teachers_export_${new Date().toISOString().slice(0, 10)}.${exportFilters.format}`;
-      downloadFileBlob(blob, filename);
+      downloadBlob(blob, buildExportFilename('teachers_export', exportFilters.format));
     },
   });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const validation = validateFile(file);
+      const validation = validateImportFile(file);
       if (validation.valid) {
         setSelectedFile(file);
         setImportResult(null);
@@ -115,9 +116,7 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
   };
 
   const handleImport = () => {
-    if (selectedFile) {
-      importMutation.mutate(selectedFile);
-    }
+    if (selectedFile) importMutation.mutate(selectedFile);
   };
 
   const handleExport = () => {
@@ -131,45 +130,8 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
   const handleFilterChange = (key: string, value: string) => {
     setExportFilters(prev => ({
       ...prev,
-      [key]: value === 'all' ? '' : value
+      [key]: value === 'all' ? '' : value,
     }));
-  };
-
-  const validateFile = (file: File): {valid: boolean, error?: string} => {
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      return {
-        valid: false,
-        error: 'Fayl ölçüsü çox böyükdür (maksimum 10MB)'
-      };
-    }
-
-    // Check file type
-    const validTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel', // .xls
-      'text/csv' // .csv
-    ];
-
-    if (!validTypes.includes(file.type)) {
-      return {
-        valid: false,
-        error: 'Yalnız Excel (.xlsx, .xls) və CSV faylları dəstəklənir'
-      };
-    }
-
-    return { valid: true };
-  };
-
-  const downloadFileBlob = (blob: Blob, filename: string): void => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -282,8 +244,10 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
                             <details className="mt-2">
                               <summary className="cursor-pointer text-sm font-medium">Xəta təfərrüatları</summary>
                               <ul className="mt-1 text-xs space-y-1 max-h-32 overflow-y-auto">
-                                {importResult.errors.map((error: string, index: number) => (
-                                  <li key={index} className="text-red-600">• {error}</li>
+                                {importResult.errors.map((error, index) => (
+                                  <li key={index} className="text-red-600">
+                                    • {error.row != null ? `Sətir ${error.row}: ` : ''}{error.message}
+                                  </li>
                                 ))}
                               </ul>
                             </details>
@@ -324,7 +288,7 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Bütün şöbələr</SelectItem>
-                          {departments?.map((dept: any) => (
+                          {departments?.map((dept) => (
                             <SelectItem key={dept.id} value={dept.id.toString()}>
                               {dept.name}
                             </SelectItem>
@@ -361,7 +325,7 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Bütün fənlər</SelectItem>
-                          {subjects?.map((subject: any) => (
+                          {subjects?.map((subject) => (
                             <SelectItem key={subject.id} value={subject.id.toString()}>
                               {subject.name}
                             </SelectItem>

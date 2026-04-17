@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { downloadBlob } from '@/utils/fileDownload';
+import { type ImportResult } from '@/types/import-export';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +56,7 @@ export function InstitutionImportExportModal({
   const [generating, setGenerating] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState<'uploading' | 'processing' | 'validating' | 'complete' | 'error'>('uploading');
-  const [importResult, setImportResult] = useState<any>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
 
   // Load institution types for selection
@@ -79,29 +81,16 @@ export function InstitutionImportExportModal({
 
   // Get available institution types
   const availableTypes = React.useMemo(() => {
-    console.log('🏷️ Institution Types Response:', institutionTypesResponse);
-    console.log('🔄 Loading state:', isLoading);
-    console.log('👤 Current user:', currentUser);
+    if (!institutionTypesResponse?.institution_types) return [];
 
-    if (!institutionTypesResponse?.institution_types) {
-      console.log('❌ No institution types found in response');
-      return [];
-    }
-
-    const types = institutionTypesResponse.institution_types.map((type: InstitutionType) => {
-      console.log('🔍 Processing type:', type);
-      return {
-        key: type.key,
-        label: type.label_az || type.label,
-        level: type.default_level,
-        color: type.color || '#3b82f6',
-        icon: type.icon
-      };
-    });
-
-    console.log('✅ Processed types:', types);
-    return types;
-  }, [institutionTypesResponse, isLoading, currentUser]);
+    return institutionTypesResponse.institution_types.map((type: InstitutionType) => ({
+      key: type.key,
+      label: type.label_az || type.label,
+      level: type.default_level,
+      color: type.color || '#3b82f6',
+      icon: type.icon,
+    }));
+  }, [institutionTypesResponse]);
 
   // Handle institution type selection
   const handleTypeSelection = (typeKey: string) => {
@@ -125,16 +114,8 @@ export function InstitutionImportExportModal({
       // Create template for the selected institution type
       const selectedType = availableTypes.find(type => type.key === selectedInstitutionType);
       const templateBlob = await institutionService.downloadImportTemplateByType(selectedInstitutionType);
-      
-      // Create download link
-      const url = window.URL.createObjectURL(templateBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${selectedType?.label || selectedInstitutionType}_template_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const label = selectedType?.label || selectedInstitutionType;
+      downloadBlob(templateBlob, `${label}_template_${new Date().toISOString().split('T')[0]}.xlsx`);
 
       toast({
         title: 'Uğurlu',
@@ -197,17 +178,23 @@ export function InstitutionImportExportModal({
       setImportProgress(100);
       setImportStatus('complete');
 
-      // Store result for detailed modal
-      setImportResult(result.data);
+      // Normalize to ImportResult shape
+      const importData: ImportResult = {
+        created: result.data?.created ?? result.data?.success ?? 0,
+        updated: result.data?.updated ?? 0,
+        skipped: result.data?.skipped ?? 0,
+        errors: (result.data?.errors ?? []).map((e: string | { message: string }) =>
+          typeof e === 'string' ? { message: e } : e,
+        ),
+      };
+      setImportResult(importData);
 
-      // Brief success toast
-      const hasErrors = result.data?.errors && result.data.errors.length > 0;
+      const hasErrors = importData.errors.length > 0;
       toast({
         title: hasErrors ? 'İdxal tamamlandı (xətalarla)' : 'Uğurlu idxal',
-        description: hasErrors 
-          ? `${result.data.success || 0} uğurlu, ${result.data.errors.length} xəta`
-          : `${result.data?.success || 0} müəssisə əlavə edildi`,
-        variant: hasErrors ? 'default' : 'default',
+        description: hasErrors
+          ? `${importData.created} uğurlu, ${importData.errors.length} xəta`
+          : `${importData.created} müəssisə əlavə edildi`,
       });
 
       // Show detailed result modal after brief delay
@@ -216,30 +203,26 @@ export function InstitutionImportExportModal({
       }, 800);
 
       onImportComplete?.();
-    } catch (error: any) {
+    } catch (err: unknown) {
       setImportStatus('error');
       setImportProgress(0);
-      
-      console.error('Import error:', error);
-      
-      // Extract detailed error message
+
+      const error = err as { message?: string; response?: { data?: { message?: string; errors?: string[] | string } } };
       let errorMessage = 'Fayl idxal edilərkən xəta baş verdi';
-      
       if (error.message) {
         errorMessage = error.message;
       } else if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.response?.data?.errors) {
-        errorMessage = Array.isArray(error.response.data.errors) 
-          ? error.response.data.errors.join(', ')
-          : error.response.data.errors;
+        const rawErrors = error.response.data.errors;
+        errorMessage = Array.isArray(rawErrors) ? rawErrors.join(', ') : rawErrors;
       }
 
-      // Store error result for modal
       setImportResult({
-        success: 0,
-        errors: [errorMessage],
-        created_institutions: []
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [{ message: errorMessage }],
       });
 
       toast({
@@ -279,16 +262,8 @@ export function InstitutionImportExportModal({
       
       const selectedType = availableTypes.find(type => type.key === selectedInstitutionType);
       const exportBlob = await institutionService.exportInstitutionsByType(selectedInstitutionType);
-      
-      // Create download link
-      const url = window.URL.createObjectURL(exportBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${selectedType?.label || selectedInstitutionType}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const label = selectedType?.label || selectedInstitutionType;
+      downloadBlob(exportBlob, `${label}_export_${new Date().toISOString().split('T')[0]}.xlsx`);
 
       toast({
         title: 'Uğurlu',

@@ -19,22 +19,14 @@ import {
   FileText
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-
-interface ImportResult {
-  success: number;
-  errors: string[];
-  created_institutions?: Array<{
-    id: number;
-    name: string;
-    type: string;
-  }>;
-  warnings?: string[];
-}
+import { type ImportResult } from '@/types/import-export';
 
 interface ImportResultModalProps {
   open: boolean;
   onClose: () => void;
-  result: ImportResult | null;
+  result: (ImportResult & {
+    created_institutions?: Array<{ id: number; name: string; type: string }>;
+  }) | null;
   institutionType?: string;
   fileName?: string;
 }
@@ -46,43 +38,44 @@ export const ImportResultModal: React.FC<ImportResultModalProps> = ({
   institutionType,
   fileName
 }) => {
-  const totalAttempts = (result?.success || 0) + (result?.errors?.length || 0);
-  const successRate = totalAttempts > 0 ? Math.round((result?.success || 0) / totalAttempts * 100) : 0;
+  const totalAttempts = (result?.created || 0) + (result?.errors?.length || 0);
+  const successRate = totalAttempts > 0 ? Math.round((result?.created || 0) / totalAttempts * 100) : 0;
 
   const copyErrorsToClipboard = () => {
     if (result?.errors) {
-      const errorText = result.errors.join('\n');
+      const errorText = result.errors.map(e => e.message).join('\n');
       navigator.clipboard.writeText(errorText).then(() => {
-        toast({
-          title: 'Kopyalandı',
-          description: 'Xətalar panoya kopyalandı',
-        });
+        toast({ title: 'Kopyalandı', description: 'Xətalar panoya kopyalandı' });
       });
     }
   };
 
   const downloadErrorReport = () => {
     if (result?.errors) {
-      const errorReport = `
-İDXAL XƏTA HESABATI
-===================
-Fayl: ${fileName || 'Bilinmir'}
-Müəssisə Növü: ${institutionType || 'Bilinmir'}
-Tarix: ${new Date().toLocaleString('az-AZ')}
+      const errorLines = result.errors.map((e, i) =>
+        `${i + 1}. ${e.row != null ? `Sətir ${e.row}: ` : ''}${e.message}`,
+      );
+      const report = [
+        'İDXAL XƏTA HESABATI',
+        '===================',
+        `Fayl: ${fileName || 'Bilinmir'}`,
+        `Müəssisə Növü: ${institutionType || 'Bilinmir'}`,
+        `Tarix: ${new Date().toLocaleString('az-AZ')}`,
+        '',
+        'STATİSTİKA:',
+        `- Cəmi cəhd: ${totalAttempts}`,
+        `- Uğurlu: ${result.created || 0}`,
+        `- Xətalı: ${result.errors.length}`,
+        `- Uğur nisbəti: ${successRate}%`,
+        '',
+        'XƏTA DETALLAR:',
+        ...errorLines,
+        ...(result.created_institutions?.length
+          ? ['\nYARATILAN MÜƏSSİSƏLƏR:', ...result.created_institutions.map(i => `- ${i.name} (ID: ${i.id})`)]
+          : []),
+      ].join('\n');
 
-STATİSTİKA:
-- Cəmi cəhd: ${totalAttempts}
-- Uğurlu: ${result.success || 0}
-- Xətalı: ${result.errors.length}
-- Uğur nisbəti: ${successRate}%
-
-XƏTA DETALLAR:
-${result.errors.map((error, index) => `${index + 1}. ${error}`).join('\n')}
-
-${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.created_institutions.map(inst => `- ${inst.name} (ID: ${inst.id})`).join('\n') : ''}
-      `;
-      
-      const blob = new Blob([errorReport], { type: 'text/plain;charset=utf-8' });
+      const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -91,11 +84,7 @@ ${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.creat
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      toast({
-        title: 'Yükləndi',
-        description: 'Xəta hesabatı yükləndi',
-      });
+      toast({ title: 'Yükləndi', description: 'Xəta hesabatı yükləndi' });
     }
   };
 
@@ -106,7 +95,7 @@ ${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.creat
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {result.success > 0 && result.errors.length === 0 ? (
+            {result.created > 0 && result.errors.length === 0 ? (
               <CheckCircle2 className="h-5 w-5 text-green-500" />
             ) : result.errors.length > 0 ? (
               <AlertCircle className="h-5 w-5 text-orange-500" />
@@ -129,7 +118,7 @@ ${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.creat
               <div className="text-sm text-blue-600">Cəmi Cəhd</div>
             </div>
             <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-green-600">{result.success || 0}</div>
+              <div className="text-2xl font-bold text-green-600">{result.created || 0}</div>
               <div className="text-sm text-green-600">Uğurlu</div>
             </div>
             <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg text-center">
@@ -143,7 +132,7 @@ ${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.creat
           </div>
 
           {/* Success Message */}
-          {result.success > 0 && (
+          {result.created > 0 && (
             <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -152,7 +141,7 @@ ${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.creat
                 </h3>
               </div>
               <p className="text-green-700 dark:text-green-300 mt-1">
-                {result.success} müəssisə uğurla yaradıldı
+                {result.created} müəssisə uğurla yaradıldı
               </p>
               
               {/* Created Institutions */}
@@ -216,9 +205,11 @@ ${result.created_institutions ? '\nYARATILAN MÜƏSSİSƏLƏR:\n' + result.creat
                     <div key={index} className="bg-white dark:bg-gray-800 p-3 rounded text-sm border-l-4 border-red-400">
                       <div className="flex items-start gap-2">
                         <Badge variant="destructive" className="text-xs shrink-0">
-                          {index + 1}
+                          {error.row ?? index + 1}
                         </Badge>
-                        <span className="text-red-700 dark:text-red-300">{error}</span>
+                        <span className="text-red-700 dark:text-red-300">
+                          {error.row != null ? `Sətir ${error.row}: ` : ''}{error.message}
+                        </span>
                       </div>
                     </div>
                   ))}

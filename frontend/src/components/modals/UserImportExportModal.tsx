@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import { userService } from '@/services/users';
 import { useAuth } from '@/contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { toast } from '@/hooks/use-toast';
+import { type ImportResult } from '@/types/import-export';
 
 interface UserImportExportModalProps {
   isOpen: boolean;
@@ -59,15 +61,15 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
   // Import States
   const [selectedRoleType, setSelectedRoleType] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [importResult, setImportResult] = useState<any>(null);
-  
+  const [previewData, setPreviewData] = useState<unknown[][]>([]);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
   // Export States
   const [exportFilters, setExportFilters] = useState({
     role: '',
-    institution_id: (currentUser?.institution?.id || 'all') as any,
+    institution_id: currentUser?.institution?.id ?? 'all',
     is_active: 'all',
-    format: 'xlsx' as 'xlsx' | 'csv'
+    format: 'xlsx' as 'xlsx' | 'csv',
   });
 
   const queryClient = useQueryClient();
@@ -124,10 +126,10 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
   const importMutation = useMutation({
     mutationFn: ({ file, roleType }: { file: File, roleType: string }) => 
       userService.importUsersByRole(file, roleType),
-    onSuccess: (result) => {
+    onSuccess: (result: ImportResult) => {
       setImportResult(result);
       setStep('result');
-      
+
       const hasErrors = result.errors && result.errors.length > 0;
       const totalProcessed = (result.created || 0) + (result.updated || 0);
 
@@ -154,22 +156,22 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
       queryClient.invalidateQueries({ queryKey: ['users'] });
       refetchStats();
     },
-    onError: (error: any) => {
-      // If it's a validation error (422), we want to show the results step with errors
-      if (error.errors && error.errors.length > 0) {
+    onError: (error: unknown) => {
+      const err = error as { message?: string; errors?: string[] };
+      if (err.errors && err.errors.length > 0) {
         setImportResult({
           created: 0,
           updated: 0,
-          errors: error.errors,
-          message: error.message
+          skipped: 0,
+          errors: err.errors.map((msg) => ({ message: msg })),
+          message: err.message,
         });
         setStep('result');
       }
-
       toast({
-        title: "İdxal xətası",
-        description: error.message || "Bilinməyən xəta baş verdi. Zəhmət olmasa internet bağlantısını və fayl formatını yoxlayın.",
-        variant: "destructive",
+        title: 'İdxal xətası',
+        description: err.message ?? 'Bilinməyən xəta baş verdi. Zəhmət olmasa internet bağlantısını və fayl formatını yoxlayın.',
+        variant: 'destructive',
       });
     },
   });
@@ -212,7 +214,7 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
         const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         
         // Filter empty rows and get headers + first 5 data rows
-        const cleanRows = json.filter((row: any) => row.length > 0).slice(0, 6);
+        const cleanRows = (json as unknown[][]).filter((row) => row.length > 0).slice(0, 6);
         setPreviewData(cleanRows);
       };
       reader.readAsArrayBuffer(file);
@@ -278,7 +280,7 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 pb-6">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'import' | 'export')} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="import" className="flex items-center gap-2">
                 <Upload className="h-4 w-4" /> İdxal (Import)
@@ -378,7 +380,7 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
                           const input = document.createElement('input');
                           input.type = 'file';
                           input.accept = '.xlsx,.xls,.csv';
-                          input.onchange = (e) => handleFileSelect(e as any);
+                          input.onchange = (e) => handleFileSelect(e as React.ChangeEvent<HTMLInputElement>);
                           input.click();
                         }}
                       >
@@ -416,15 +418,15 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              {previewData[0]?.map((header: any, i: number) => (
+                              {previewData[0]?.map((header, i) => (
                                 <TableHead key={i} className="whitespace-nowrap text-xs bg-muted/20">{header}</TableHead>
                               ))}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {previewData.slice(1).map((row: any, i: number) => (
+                            {previewData.slice(1).map((row, i) => (
                               <TableRow key={i}>
-                                {row.map((cell: any, j: number) => (
+                                {(row as unknown[]).map((cell, j) => (
                                   <TableCell key={j} className="text-xs whitespace-nowrap">{cell}</TableCell>
                                 ))}
                               </TableRow>
@@ -585,22 +587,14 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {importResult.errors.map((err: any, idx: number) => {
-                                const isStringError = typeof err === 'string';
-                                const rowNumber = isStringError
-                                  ? (err.match(/Sətir (\d+)/)?.[1] ?? String(idx + 2))
-                                  : String(err.row ?? idx + 2);
-                                const rawField = isStringError ? '' : (err.attribute ?? '');
-                                const field = rawField ? translateAttribute(rawField) : 'Xəta';
-                                const message = isStringError
-                                  ? err
-                                  : (Array.isArray(err.errors) ? err.errors.join(', ') : String(err.errors ?? ''));
-
+                              {importResult.errors.map((err, idx) => {
+                                const rowNumber = err.row != null ? String(err.row) : String(idx + 2);
+                                const field = err.attribute ? translateAttribute(err.attribute) : 'Xəta';
                                 return (
                                   <TableRow key={idx} className="hover:bg-red-50/50">
                                     <TableCell className="font-medium">#{rowNumber}</TableCell>
                                     <TableCell className="text-red-600 text-xs font-semibold">{field}</TableCell>
-                                    <TableCell className="text-xs leading-relaxed">{message}</TableCell>
+                                    <TableCell className="text-xs leading-relaxed">{err.message}</TableCell>
                                   </TableRow>
                                 );
                               })}
@@ -711,7 +705,7 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
                       <Label>Format</Label>
                       <Select 
                         value={exportFilters.format} 
-                        onValueChange={(v) => setExportFilters(prev => ({ ...prev, format: v as any }))}
+                        onValueChange={(v) => setExportFilters(prev => ({ ...prev, format: v as 'xlsx' | 'csv' }))}
                       >
                         <SelectTrigger>
                           <SelectValue />

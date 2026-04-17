@@ -3,6 +3,8 @@ import { useToast } from '@/hooks/use-toast';
 import { assessmentService } from '@/services/assessments';
 import { assessmentTypeService } from '@/services/assessmentTypes';
 import { institutionService } from '@/services/institutions';
+import { downloadBlob, buildExportFilename } from '@/utils/fileDownload';
+import { validateImportFile } from '@/types/import-export';
 
 export interface ImportError {
   row: number;
@@ -73,8 +75,8 @@ export const useExcelImportExport = (
   });
 
   // Data for dropdowns
-  const [institutions, setInstitutions] = useState<any[]>([]);
-  const [assessmentTypes, setAssessmentTypes] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<{ id: number; name: string }[]>([]);
+  const [assessmentTypes, setAssessmentTypes] = useState<{ id: number; name: string }[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   // Load dropdown data
@@ -107,29 +109,9 @@ export const useExcelImportExport = (
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check file type
-    const allowedTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'text/csv'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: 'Fayl növü xətası',
-        description: 'Yalnız Excel (.xlsx, .xls) və CSV faylları dəstəklənir',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: 'Fayl ölçüsü xətası',
-        description: 'Fayl ölçüsü maksimum 10MB ola bilər',
-        variant: 'destructive',
-      });
+    const validation = validateImportFile(file);
+    if (!validation.valid) {
+      toast({ title: 'Fayl xətası', description: validation.error, variant: 'destructive' });
       return;
     }
 
@@ -184,12 +166,9 @@ export const useExcelImportExport = (
         title: 'İmport tamamlandı',
         description: `${result.successful_imports} məlumat uğurla import edildi`,
       });
-    } catch (error: any) {
-      toast({
-        title: 'İmport xətası',
-        description: error.message || 'İmport zamanı xəta baş verdi',
-        variant: 'destructive',
-      });
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'İmport zamanı xəta baş verdi';
+      toast({ title: 'İmport xətası', description: msg, variant: 'destructive' });
     } finally {
       setImporting(false);
       setUploadProgress(0);
@@ -220,31 +199,12 @@ export const useExcelImportExport = (
       };
 
       const response = await assessmentService.exportToExcel(exportData);
-      
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      
-      const fileName = `qiymetlendirme_export_${new Date().toISOString().split('T')[0]}.${exportForm.format}`;
-      link.setAttribute('download', fileName);
-      
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      
-      window.URL.revokeObjectURL(url);
-      
-      toast({
-        title: 'Export uğurlu',
-        description: 'Məlumatlar uğurla export edildi',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Export xətası',
-        description: error.message || 'Export zamanı xəta baş verdi',
-        variant: 'destructive',
-      });
+      const format = exportForm.format as 'xlsx' | 'csv' | 'pdf';
+      downloadBlob(new Blob([response.data]), buildExportFilename('qiymetlendirme_export', format));
+      toast({ title: 'Export uğurlu', description: 'Məlumatlar uğurla export edildi' });
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Export zamanı xəta baş verdi';
+      toast({ title: 'Export xətası', description: msg, variant: 'destructive' });
     } finally {
       setExporting(false);
     }
@@ -261,28 +221,10 @@ export const useExcelImportExport = (
   const downloadTemplate = async () => {
     try {
       const response = await assessmentService.downloadTemplate();
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'qiymetlendirme_template.xlsx');
-      
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      
-      window.URL.revokeObjectURL(url);
-      
-      toast({
-        title: 'Şablon yükləndi',
-        description: 'Excel şablonu uğurla yükləndi',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Şablon xətası',
-        description: 'Şablon yüklənə bilmədi',
-        variant: 'destructive',
-      });
+      downloadBlob(new Blob([response.data]), 'qiymetlendirme_template.xlsx');
+      toast({ title: 'Şablon yükləndi', description: 'Excel şablonu uğurla yükləndi' });
+    } catch {
+      toast({ title: 'Şablon xətası', description: 'Şablon yüklənə bilmədi', variant: 'destructive' });
     }
   };
 

@@ -18,55 +18,32 @@ import {
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentService } from '@/services/students';
+import { downloadBlob, buildExportFilename } from '@/utils/fileDownload';
+import { type ImportResult, validateImportFile } from '@/types/import-export';
 
 interface StudentImportExportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface ImportResultData {
-  success: number;
-  errors: string[];
-  created_students: { id: number; name: string; username: string }[];
-}
-
-interface ImportApiResult {
-  data?: ImportResultData;
-  success?: boolean;
-  message?: string;
-}
-
-const downloadBlob = (blob: Blob, filename: string): void => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
 export const StudentImportExportModal: React.FC<StudentImportExportModalProps> = ({ isOpen, onClose }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<ImportResultData | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const queryClient = useQueryClient();
 
   // Template download
   const templateMutation = useMutation({
     mutationFn: () => studentService.downloadTemplate(),
     onSuccess: (blob) => {
-      const date = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, `sagird_import_template_${date}.xlsx`);
+      downloadBlob(blob, buildExportFilename('sagird_import_template', 'xlsx'));
     },
   });
 
   // Import
   const importMutation = useMutation({
     mutationFn: (file: File) => studentService.importStudents(file),
-    onSuccess: (result: ImportApiResult) => {
-      const data = result?.data ?? (result as unknown as ImportResultData);
-      setImportResult(data);
+    onSuccess: (result: ImportResult) => {
+      setImportResult(result);
       queryClient.invalidateQueries({ queryKey: ['students'] });
     },
   });
@@ -75,8 +52,7 @@ export const StudentImportExportModal: React.FC<StudentImportExportModalProps> =
   const exportMutation = useMutation({
     mutationFn: () => studentService.exportStudents({}),
     onSuccess: (blob) => {
-      const date = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, `sagirdler_${date}.xlsx`);
+      downloadBlob(blob, buildExportFilename('sagirdler', 'xlsx'));
     },
   });
 
@@ -84,17 +60,9 @@ export const StudentImportExportModal: React.FC<StudentImportExportModalProps> =
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Fayl ölçüsü 10MB-dan böyük ola bilməz');
-      return;
-    }
-
-    const validTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-    ];
-    if (!validTypes.includes(file.type)) {
-      alert('Yalnız Excel faylları (.xlsx, .xls) dəstəklənir');
+    const validation = validateImportFile(file);
+    if (!validation.valid) {
+      alert(validation.error);
       return;
     }
 
@@ -192,13 +160,13 @@ export const StudentImportExportModal: React.FC<StudentImportExportModalProps> =
                 </Button>
 
                 {importResult && (
-                  <Alert className={importResult.success > 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}>
+                  <Alert className={importResult.created > 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}>
                     <AlertDescription>
                       <div className="space-y-2 text-sm">
                         <div className="flex gap-4">
                           <span className="flex items-center gap-1 text-green-700">
                             <CheckCircle className="h-3 w-3" />
-                            Uğurlu: <strong>{importResult.success}</strong>
+                            Uğurlu: <strong>{importResult.created}</strong>
                           </span>
                           <span className="flex items-center gap-1 text-red-700">
                             <XCircle className="h-3 w-3" />
@@ -210,7 +178,9 @@ export const StudentImportExportModal: React.FC<StudentImportExportModalProps> =
                             <summary className="cursor-pointer font-medium text-red-700">Xəta detalları</summary>
                             <ul className="mt-1 space-y-0.5 max-h-28 overflow-y-auto">
                               {importResult.errors.map((err, i) => (
-                                <li key={i} className="text-xs text-red-600">• {err}</li>
+                                <li key={i} className="text-xs text-red-600">
+                                  • {err.row != null ? `Sətir ${err.row}: ` : ''}{err.message}
+                                </li>
                               ))}
                             </ul>
                           </details>
