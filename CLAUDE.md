@@ -1,198 +1,105 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with the ATİS Education Management System.
+ATİS — Azerbaijan Education Management System (Ministry of Education). **LIVE with 22+ institutions.**
 
-## Project Overview
-
-ATİS (Alignment, Training & Inspection System) - Educational Institution Management System for Azerbaijan's Ministry of Education.
+## Stack
 
 - **Backend**: Laravel 11, PHP 8.3, PostgreSQL 16, Redis 7, Laravel Sanctum
-- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS 3.4, Shadcn/ui, Radix UI, @tanstack/react-query
-- **Infrastructure**: Docker (4 containers: atis_backend, atis_frontend, atis_postgres, atis_redis)
-- **Permissions**: spatie/laravel-permission with hierarchical RBAC
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS 3.4, Shadcn/ui, @tanstack/react-query
+- **Infrastructure**: Docker — atis_backend | atis_frontend | atis_postgres | atis_redis
+- **Permissions**: spatie/laravel-permission, hierarchical RBAC
 
 ## Vibe Coding Rejimi
 
-ATİS-də iki işləmə rejimi var. Claude tapşırığın mürəkkəbliyinə görə avtomatik rejim seçir:
+**Rejim A — Sürətli** (UI fix, label, kiçik əlavə):
+- Mövcud kodu oxu → dərhal implement et → nəticəni bir cümlə ilə yaz
 
-### Rejim A — Sürətli (kiçik dəyişikliklər)
+**Rejim B — Planlı** (yeni modul, migration, API, refactor 50+ sətir):
+- **User Intent (AZ)** → **Technical Interpretation (EN)** → **Impact** → **Plan** → **Quality Gates**
 
-Sadə fix, UI tweak, kiçik əlavə üçün:
-- Mövcud kodu oxu → dərhal implement et
-- Format tələb olunmur, yalnız **nə etdiyini bir cümlə ilə yaz**
-- "Button rəngini dəyiş", "bu xəta mesajını düzəlt", "filter əlavə et" tipli tapşırıqlar
-
-### Rejim B — Planlı (böyük dəyişikliklər)
-
-Yeni modul, schema dəyişikliyi, refactor üçün aşağıdakı format:
-
-**User Intent (AZ)** — istifadəçinin yazdığı
-**Technical Interpretation (EN)** — texniki ekvivalent
-**Impact** — hansı fayllar dəyişəcək, hansı sistemlər təsirlənəcək
-**Implementation Plan** — addım-addım
-**Quality Gates** — test + lint
-
-### Rejim Seçimi
-
-| Tapşırıq tipi | Rejim |
+| Tapşırıq | Rejim |
 |---|---|
-| UI dəyişikliyi, fix, kiçik əlavə | A |
-| Yeni API endpoint | B |
-| DB migration | B |
-| Yeni səhifə/modul | B |
-| Refactor (50+ sətir) | B |
-| Sadə text/label dəyişikliyi | A |
+| UI dəyişikliyi, fix, label | A |
+| Yeni API endpoint, migration, modul | B |
+| Refactor 50+ sətir | B |
 
-### Sürətli İşləmə Qaydaları
-
-- **Əvvəlcə oxu, sonra yaz** — mövcud kodu gör, pattern-i tanı
-- **Soru verməmək üçün** — fayl oxu, kontekst çıxar, varsayımı əsaslandır
-- **Bir soru varsa** — ən vacibini ver, hamısını bir anda deyil
-- **Natamam tələb** — ən məntiqli şərhi et, implement et, sonunda "X olaraq başa düşdüm, düzgündürmü?" de
-- **Hər dəyişiklikdən sonra** — nə dəyişdiyini qısaca izah et (kod deyil, nəticə)
+**Qaydalar:** Əvvəlcə oxu, sonra yaz. Natamam tələb varsa ən məntiqli şərhi et, implement et, sonunda "X olaraq başa düşdüm, düzgündürmü?" de.
 
 ## ⚠️ Critical Rules
 
-1. **Docker-only development** — NEVER use `php artisan serve` or local `npm run dev`
+1. **Docker-only** — NEVER `php artisan serve` or `npm run dev` directly
 2. **NEVER modify existing migrations** — always create new migration files
 3. **NEVER connect to production database** from development
-4. **All responses/explanations in Azerbaijani** — but use English technical terms
-5. **Search before creating** — always check for existing similar components/services before creating new ones
+4. **Azerbaijani responses** — but English technical terms
+5. **Search before creating** — check for existing components/services first
 6. **No `any` types** in TypeScript — strict mode enforced
 7. **Permission checks required** on all new API endpoints
-8. **Test before commit** — run quality gates below
+8. **Quality gates before commit** (see below)
 
-## Development Commands
+## Commands
 
 ```bash
-# System start/stop (ONLY way)
-./start.sh
-./stop.sh
+./start.sh && ./stop.sh          # System start/stop (ONLY way)
 
-# Backend (inside container)
 docker exec atis_backend php artisan migrate
 docker exec atis_backend php artisan test
 docker exec atis_backend php artisan tinker
-docker exec atis_backend composer install
-
-# Frontend (inside container)
 docker exec atis_frontend npm run lint
 docker exec atis_frontend npm run typecheck
-docker exec atis_frontend npm run build
-docker exec atis_frontend npm install
-
-# Database
 docker exec atis_postgres psql -U atis_dev_user -d atis_dev
-docker exec atis_backend php artisan migrate:fresh --seed  # Dev only!
 ```
 
-## Pre-commit Quality Gates (MANDATORY)
+## Quality Gates (MANDATORY)
 
 ```bash
 docker exec atis_frontend npm run lint
 docker exec atis_frontend npm run typecheck
 docker exec atis_backend php artisan test
-docker exec atis_backend composer test
-docker exec atis_frontend npm audit --audit-level=moderate
 docker exec atis_backend composer audit
+docker exec atis_frontend npm audit --audit-level=moderate
 ```
 
 ## Architecture
 
-### Role Hierarchy (10 roles)
 ```
-SuperAdmin → RegionAdmin → RegionOperator → SektorAdmin → SchoolAdmin
-                                                               ↓
-                                              müəllim | muavin | ubr | tesarrufat | psixoloq
-```
+Roles (10):  SuperAdmin → RegionAdmin → RegionOperator → SektorAdmin → SchoolAdmin
+                                                                            ↓
+                                                         müəllim | muavin | ubr | tesarrufat | psixoloq
 
-### Institution Hierarchy (4 levels)
-```
-Ministry → Regional Office → Sector → School/Preschool
+Institutions: Ministry → Regional Office → Sector → School/Preschool
 ```
 
-### Key Patterns
-- **Data isolation**: Users only see data within their hierarchy level
-- **Service layer**: API calls via BaseService pattern in `frontend/src/services/`
-- **Permission guards**: Frontend uses `useAuth()`, `usePermissions()` hooks
-- **API Resources**: Backend uses Laravel API Resources for response transformation
-- **Eager loading**: Always use eager loading to avoid N+1 queries
+**Patterns:** Data isolation by hierarchy level · BaseService in `frontend/src/services/` · `useAuth()` + `usePermissions()` hooks · API Resources for all responses · Eager loading always
 
-## Key References
+## References
 
-For detailed information, Claude should read these files when relevant:
-- **Permission rules per page**: `.claude/references/atis-permissions-guide.md`
-- **Change impact analysis**: `.claude/references/atis-impact-analyzer.md`
-- **Backend-specific rules**: `backend/CLAUDE.md`
-- **Frontend-specific rules**: `frontend/CLAUDE.md`
+Ətraflı məlumat üçün bu faylları oxu:
+- Permission rules: @.claude/references/atis-permissions-guide.md
+- Change impact analysis: @.claude/references/atis-impact-analyzer.md
+- Production deployment + safety + code style: @.claude/references/production-guide.md
+- Backend rules: @backend/CLAUDE.md
+- Frontend rules: @frontend/CLAUDE.md
 
-## Code Style
+## Production Safety (Quick)
 
-### Backend (Laravel)
-- PSR-12 coding standards
-- FormRequest classes for validation
-- API Resource classes for responses
-- Eloquent relationships with proper eager loading
-- Service classes for complex business logic
-
-### Frontend (React)
-- TypeScript strict mode, no `any`
-- Shadcn/ui components from `src/components/ui/`
-- Tailwind CSS for styling (not inline styles)
-- React Query for server state
-- Zod for form validation with react-hook-form
-
-## AI Code Review Requirements
-
-Before committing AI-generated code:
-- [ ] Can you explain every line?
-- [ ] Follows existing project patterns?
-- [ ] No hardcoded secrets, proper validation?
-- [ ] Database queries optimized (no N+1)?
-- [ ] TypeScript types complete?
-- [ ] Tests written or updated?
-
-## Production Deployment (Server Pull)
-
-Production serverdə yeniləmə üçün:
-```bash
-cd /srv/atis/TIS && ./pull.sh
-```
-Bu skript avtomatik: DB backup + yoxlama → git pull → docker build → migrate → health check edir.
-
-**Əsas qeydlər:**
-- `docker-compose.yml` production dəyərləri ilə lokalda saxlanılır (`git skip-worktree`)
-- Postgres servisi: `postgres_v2` (container: `atis_postgres`), volume: `postgres_data`, port: `5434`
-- `backend/.env`-də `DB_HOST=atis_postgres` olmalıdır (container adı ilə)
-- n8n postgres port `5433` istifadə edir — konflikt riski var
-- Backuplar: `database-backups/` (son 5 saxlanılır)
-- Pull zamanı `docker-compose.yml` remote-da dəyişibsə, skript avtomatik stash/pop edir
-- Pull sonrası `backend/.env`-dəki `DB_HOST` dəyərini yoxla (remote dəyişiklik ola bilər)
-
-## Production Safety
-
-ATİS is LIVE with 22+ real educational institutions. Every change matters.
-- Never run `migrate:fresh` in production
+- **NEVER** `migrate:fresh` or full `db:seed` in production
+- Safe seeders only: `RoleSeeder`, `PermissionSeeder`, `SuperAdminSeeder`
 - All migrations must be reversible
-- Create rollback plans for schema changes
-- Test with production-like data volumes
-- **HEÇVAXT `php artisan db:seed` (ümumi) çalışdırma!** Fake data yaradır (classes, grades, attendance). Yalnız ayrı-ayrı core seeders istifadə et:
-  ```bash
-  docker exec atis_backend php artisan db:seed --class=RoleSeeder --force
-  docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force
-  docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
-  docker exec atis_backend php artisan db:seed --class=RegionOperatorPermissionSeeder --force
-  docker exec atis_backend php artisan db:seed --class=RegionAdminPermissionBalanceSeeder --force
-  ```
-- `pull.sh` yalnız bu core seeders-i avtomatik çalışdırır
 
-## Test Credentials (DEVELOPMENT ONLY)
+## Session & Context Management
 
-- **SuperAdmin**: superadmin / admin123
-- **RegionAdmin**: regionadmin1 / admin123
+| Vəziyyət | Nə et |
+|----------|-------|
+| Böyük feature tamamlandı | `/compact` — summary saxla, context təmizlə |
+| Tamamilə fərqli tapşırıq | `/clear` — fresh context |
+| Codebase araşdırması lazımdır | Subagent işlət — main context-i qoruyur |
+| Context 80%+ dolub | Dərhal `/compact`, sonra davam et |
+| Rejim B planlaşdırması | `plan-architect` agent çağır |
+| Kod təhlükəsizlik yoxlaması | `/security-review` skill |
 
+**Subagent nə vaxt:** Fayl axtarışı, impact analizi, araşdırma — exploration işi subagent-ə ver, nəticəni summary kimi al.
 
-## URLs
+## Dev Credentials & URLs
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000/api
+- Frontend: http://localhost:3000 · API: http://localhost:8000/api
+- SuperAdmin: `superadmin / admin123` · RegionAdmin: `regionadmin1 / admin123`
