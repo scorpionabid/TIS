@@ -2,7 +2,7 @@ import { BaseService, PaginationParams } from './BaseService';
 import { apiClient, ApiResponse, PaginatedResponse } from './api';
 import { fetchBlob } from './utils/downloadBlob';
 import { surveyAnalyticsService } from './surveys/analytics';
-import { surveyNotificationService } from './surveys/notifications';
+
 import type {
   Survey,
   SurveyQuestion,
@@ -205,23 +205,6 @@ class SurveyService extends BaseService<Survey> {
       questions
     });
     return response.data;
-  }
-
-  // Survey notification methods
-  async getSurveyNotifications(params?: { limit?: number; only_unread?: boolean }): Promise<UnknownRecord> {
-    return surveyNotificationService.getNotifications(params);
-  }
-
-  async getUnreadSurveyCount(): Promise<number> {
-    return surveyNotificationService.getUnreadCount();
-  }
-
-  async getSurveyNotificationStats(): Promise<UnknownRecord> {
-    return surveyNotificationService.getStats();
-  }
-
-  async markSurveyNotificationAsRead(surveyId: number): Promise<UnknownRecord> {
-    return surveyNotificationService.markAsRead(surveyId);
   }
 
   // Dashboard and user-facing survey methods
