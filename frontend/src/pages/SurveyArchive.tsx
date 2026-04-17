@@ -389,9 +389,9 @@ export default function SurveyArchive() {
                               Hansı formatda yükləmək istəyirsiniz?
                             </DialogDescription>
                           </DialogHeader>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
                               onClick={() => handleExport(survey, 'pdf')}
                               disabled={exportMutation.isPending}
                             >

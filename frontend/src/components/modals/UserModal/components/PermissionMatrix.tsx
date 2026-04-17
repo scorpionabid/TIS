@@ -147,7 +147,7 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
         {/* General Templates */}
         <div className="mb-4">
           <div className="text-xs font-medium text-muted-foreground mb-2">Ümumi Şablonlar</div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {Object.entries(PERMISSION_TEMPLATES_CRUD)
               .filter(([key]) => ['viewer', 'editor', 'manager', 'full'].includes(key))
               .map(([key, template]) => (
@@ -175,7 +175,7 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
         {/* Role-Specific Templates */}
         <div>
           <div className="text-xs font-medium text-muted-foreground mb-2">Rol-Əsaslı Şablonlar</div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {Object.entries(PERMISSION_TEMPLATES_CRUD)
               .filter(([key]) => ['survey_manager', 'task_coordinator', 'document_admin', 'content_curator'].includes(key))
               .map(([key, template]) => (

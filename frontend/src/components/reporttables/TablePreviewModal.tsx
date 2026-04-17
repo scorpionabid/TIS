@@ -33,15 +33,15 @@ export function TablePreviewModal({ table, open, onClose }: TablePreviewModalPro
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-full sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">{table.title}</DialogTitle>
         </DialogHeader>
 
         {isDraft ? (
           // Draft: mövcud nümunə görünüşü
-          <div className="mt-4 border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="mt-4 border rounded-lg overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="bg-gray-50 border-b">
                   <th className="px-3 py-2 text-left text-gray-500 font-medium w-10">#</th>

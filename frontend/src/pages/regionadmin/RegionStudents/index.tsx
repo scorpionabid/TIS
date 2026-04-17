@@ -40,7 +40,7 @@ export const RegionStudents = () => {
             Region daxilindəki bütün şagirdləri izləyin
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"

@@ -299,7 +299,7 @@ export default function Links() {
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={selectedType} onValueChange={setSelectedType}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Tip" />

@@ -258,7 +258,8 @@ export default function TeacherPerformance() {
           <CardDescription>Seçilmiş dövr ərzində performans dinamikası</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="overflow-x-auto">
+          <div className="space-y-4 min-w-[480px]">
             {monthlyStats.map((stat, index) => (
               <div key={index} className="grid grid-cols-5 gap-4 items-center">
                 <div className="font-medium">{stat.month}</div>
@@ -280,6 +281,7 @@ export default function TeacherPerformance() {
                 </div>
               </div>
             ))}
+          </div>
           </div>
         </CardContent>
       </Card>

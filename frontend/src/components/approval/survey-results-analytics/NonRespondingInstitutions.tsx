@@ -225,8 +225,8 @@ const NonRespondingInstitutions: React.FC<NonRespondingInstitutionsProps> = ({
 
                 {/* Schools List - Always show for SektorAdmin, conditional for others */}
                 {(isSektorAdminView || isExpanded) && (
-                  <div className={isSektorAdminView ? '' : 'border-t bg-muted/20'}>
-                    <table className="w-full">
+                  <div className={isSektorAdminView ? 'overflow-x-auto' : 'border-t bg-muted/20 overflow-x-auto'}>
+                    <table className="w-full min-w-[400px]">
                       <thead className="bg-muted/50">
                         <tr className="text-xs">
                           <th className="text-left p-3 font-semibold">Məktəb</th>

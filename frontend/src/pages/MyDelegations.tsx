@@ -223,26 +223,28 @@ export default function MyDelegations() {
 
       {/* Delegations List */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">
-            Bütün ({getDelegationsByStatus('all').length})
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            Gözləyir ({getDelegationsByStatus('pending').length})
-          </TabsTrigger>
-          <TabsTrigger value="accepted">
-            Qəbul edildi ({getDelegationsByStatus('accepted').length})
-          </TabsTrigger>
-          <TabsTrigger value="in_progress">
-            İcrada ({getDelegationsByStatus('in_progress').length})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Tamamlandı ({getDelegationsByStatus('completed').length})
-          </TabsTrigger>
-          <TabsTrigger value="cancelled">
-            Ləğv edildi ({getDelegationsByStatus('cancelled').length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-6 min-w-[540px]">
+            <TabsTrigger value="all">
+              Bütün ({getDelegationsByStatus('all').length})
+            </TabsTrigger>
+            <TabsTrigger value="pending">
+              Gözləyir ({getDelegationsByStatus('pending').length})
+            </TabsTrigger>
+            <TabsTrigger value="accepted">
+              Qəbul edildi ({getDelegationsByStatus('accepted').length})
+            </TabsTrigger>
+            <TabsTrigger value="in_progress">
+              İcrada ({getDelegationsByStatus('in_progress').length})
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Tamamlandı ({getDelegationsByStatus('completed').length})
+            </TabsTrigger>
+            <TabsTrigger value="cancelled">
+              Ləğv edildi ({getDelegationsByStatus('cancelled').length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {(['all', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled'] as const).map((status) => (
           <TabsContent key={status} value={status} className="space-y-4">

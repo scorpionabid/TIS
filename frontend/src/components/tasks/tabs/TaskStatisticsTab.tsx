@@ -330,8 +330,8 @@ export function TaskStatisticsTab({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-[300px] overflow-y-auto">
-              <table className="w-full text-sm">
+            <div className="max-h-[300px] overflow-y-auto overflow-x-auto">
+              <table className="w-full text-sm min-w-[400px]">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-wider">
                     <th className="px-6 py-3 text-left">Əməkdaş</th>

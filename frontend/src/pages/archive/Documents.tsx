@@ -151,7 +151,7 @@ export default function Documents() {
 
       <div className="space-y-4">
         {/* Search and Filter Bar */}
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -387,10 +387,10 @@ export default function Documents() {
                       )}
                       {document.download_count > 0 && <span>• {document.download_count} yükləmə</span>}
                     </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex items-center gap-1"
                         onClick={() => handleView(document)}
                       >

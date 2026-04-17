@@ -278,13 +278,15 @@ export default function TeacherProfile() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="personal">Şəxsi Məlumatlar</TabsTrigger>
-          <TabsTrigger value="teaching">Tədris Fəaliyyəti</TabsTrigger>
-          <TabsTrigger value="achievements">Nailiyyətlər</TabsTrigger>
-          <TabsTrigger value="education">Təhsil</TabsTrigger>
-          <TabsTrigger value="certificates">Sertifikatlar</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-5 min-w-[500px]">
+            <TabsTrigger value="personal">Şəxsi Məlumatlar</TabsTrigger>
+            <TabsTrigger value="teaching">Tədris Fəaliyyəti</TabsTrigger>
+            <TabsTrigger value="achievements">Nailiyyətlər</TabsTrigger>
+            <TabsTrigger value="education">Təhsil</TabsTrigger>
+            <TabsTrigger value="certificates">Sertifikatlar</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="personal" className="space-y-4">
           <Card>

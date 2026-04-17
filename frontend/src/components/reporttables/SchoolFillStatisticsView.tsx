@@ -334,7 +334,8 @@ export function SchoolFillStatisticsView() {
                 {/* Expanded Table Details */}
                 {isExpanded && (
                   <div className="px-4 py-3 bg-gray-50 border-t">
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[500px]">
                       <thead>
                         <tr className="border-b">
                           <th className="text-left py-2 px-2 font-medium text-gray-500">Cədvəl</th>
@@ -371,6 +372,7 @@ export function SchoolFillStatisticsView() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>

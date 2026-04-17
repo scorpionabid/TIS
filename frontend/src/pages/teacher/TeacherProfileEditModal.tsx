@@ -307,13 +307,15 @@ export default function TeacherProfileEditModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="personal">Şəxsi</TabsTrigger>
-            <TabsTrigger value="teaching">Tədris</TabsTrigger>
-            <TabsTrigger value="education">Təhsil</TabsTrigger>
-            <TabsTrigger value="achievements">Nailiyyətlər</TabsTrigger>
-            <TabsTrigger value="certificates">Sertifikatlar</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className="grid w-full grid-cols-5 min-w-[400px]">
+              <TabsTrigger value="personal">Şəxsi</TabsTrigger>
+              <TabsTrigger value="teaching">Tədris</TabsTrigger>
+              <TabsTrigger value="education">Təhsil</TabsTrigger>
+              <TabsTrigger value="achievements">Nailiyyətlər</TabsTrigger>
+              <TabsTrigger value="certificates">Sertifikatlar</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="personal" className="space-y-4">
             <Card>

@@ -146,8 +146,8 @@ export const AnalyticsNonFillingSchools: React.FC<AnalyticsNonFillingSchoolsProp
             </p>
           </div>
         ) : (
-          <div className="max-h-[400px] overflow-y-auto">
-            <table className="w-full text-sm">
+          <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
+            <table className="w-full text-sm min-w-[500px]">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium text-gray-700 w-12">#</th>

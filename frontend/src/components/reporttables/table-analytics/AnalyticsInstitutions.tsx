@@ -56,7 +56,8 @@ export const AnalyticsInstitutions: React.FC<AnalyticsInstitutionsProps> = ({
         <div className="bg-gray-50 px-4 py-3 border-b">
           <h4 className="font-medium text-sm">Sektorlar üzrə icmal</h4>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[500px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2 text-left">Sektor</th>
@@ -106,6 +107,7 @@ export const AnalyticsInstitutions: React.FC<AnalyticsInstitutionsProps> = ({
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

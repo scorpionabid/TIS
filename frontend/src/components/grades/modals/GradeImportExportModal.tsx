@@ -154,7 +154,7 @@ export const GradeImportExportModal: React.FC<GradeImportExportModalProps> = ({ 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Sinif İdxal/İxrac</DialogTitle>
           <DialogDescription>
