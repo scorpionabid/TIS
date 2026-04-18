@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, X } from "lucide-react";
+import { logger } from '@/utils/logger';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,15 +30,10 @@ export function DocumentFormTab({
 }: DocumentFormTabProps) {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log('📄 File selected:', file);
     if (file) {
       setSelectedFile(file);
-      form.setValue('file', file as any);
-      console.log('✅ File set in form and state:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
+      form.setValue('file', file as File);
+      logger.debug('File selected and set in form', { name: file.name, size: file.size, type: file.type });
     }
   };
 
@@ -138,7 +134,6 @@ export function DocumentFormTab({
                 <Checkbox
                   checked={form.watch('is_downloadable')}
                   onCheckedChange={(checked) => {
-                    console.log('📥 is_downloadable changed:', checked, typeof checked);
                     form.setValue('is_downloadable', checked as boolean);
                   }}
                 />
@@ -149,7 +144,6 @@ export function DocumentFormTab({
                 <Checkbox
                   checked={form.watch('is_viewable_online')}
                   onCheckedChange={(checked) => {
-                    console.log('👁️ is_viewable_online changed:', checked, typeof checked);
                     form.setValue('is_viewable_online', checked as boolean);
                   }}
                 />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { logger } from '@/utils/logger';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -338,11 +339,11 @@ export default function Documents() {
           queryClient.invalidateQueries({ queryKey: ['resources'] });
           break;
       }
-    } catch (error: any) {
-      console.error('Resource action error:', error);
+    } catch (error: unknown) {
+      logger.error('Resource action error', error);
       toast({
         title: 'Xəta baş verdi',
-        description: error.message || 'Əməliyyat yerinə yetirməyi bacarmadık',
+        description: error instanceof Error ? error.message : 'Əməliyyat yerinə yetirməyi bacarmadık',
         variant: 'destructive',
       });
     }

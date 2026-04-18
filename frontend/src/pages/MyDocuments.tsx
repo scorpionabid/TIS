@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Folder, FileText, Upload, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/utils/logger';
 import documentCollectionService from '../services/documentCollectionService';
 import type { DocumentCollection } from '../types/documentCollection';
 import FolderDocumentsView from '../components/documents/FolderDocumentsView';
+
+// Backend may return target_institutions on folder objects not in base type
+type FolderWithTargets = DocumentCollection & {
+  target_institutions?: Array<{ id: number }>;
+  targetInstitutions?: Array<{ id: number }>;
+};
 
 const MyDocuments: React.FC = () => {
   const { currentUser } = useAuth();
@@ -18,19 +25,19 @@ const MyDocuments: React.FC = () => {
       setError(null);
       const allFolders = await documentCollectionService.getAll();
 
-      // Filter folders where user's institution is in targetInstitutions
-      const userInstitutionId = (currentUser as any)?.institution?.id || (currentUser as any)?.institution_id;
+      const userInstitutionId = currentUser?.institution_id;
 
-      const myFolders = allFolders.filter((folder: any) => {
+      const myFolders = (allFolders as FolderWithTargets[]).filter(folder => {
         // Backend returns snake_case (target_institutions), not camelCase (targetInstitutions)
-        const targetInstitutions = folder.target_institutions || folder.targetInstitutions || [];
-        return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
+        const targetInstitutions = folder.target_institutions ?? folder.targetInstitutions ?? [];
+        return targetInstitutions.some(inst => inst.id === userInstitutionId);
       });
 
       setFolders(myFolders);
-    } catch (err: any) {
-      console.error('Error loading folders:', err);
-      setError(err.response?.data?.message || 'Folderlər yüklənərkən xəta baş verdi');
+    } catch (err: unknown) {
+      logger.error('Error loading folders', err);
+      const message = err instanceof Error ? err.message : 'Folderlər yüklənərkən xəta baş verdi';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -110,7 +117,7 @@ const MyDocuments: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {folders.map((folder: any) => (
+          {folders.map((folder) => (
             <div
               key={folder.id}
               onClick={() => handleFolderClick(folder)}

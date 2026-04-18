@@ -1,5 +1,6 @@
 import { BaseService, BaseEntity, PaginationParams } from './BaseService';
 import { apiClient } from './api';
+import { logger } from '@/utils/logger';
 
 export interface Document extends BaseEntity {
   title: string;
@@ -116,17 +117,15 @@ class DocumentService extends BaseService<Document> {
         } else if (typeof value === 'boolean') {
           // Laravel expects '1' for true, '0' for false in FormData
           formData.append(key, value ? '1' : '0');
-          console.log(`🔄 Boolean field ${key}: ${value} -> ${value ? '1' : '0'}`);
+          logger.debug(`Boolean field ${key}: ${value} -> ${value ? '1' : '0'}`);
         } else {
           formData.append(key, String(value));
         }
       }
     });
 
-    // Debug log
-    console.log('📤 Document upload data:', {
+    logger.debug('Document upload data', {
       title: data.title,
-      description: data.description,
       category: data.category,
       accessible_institutions: data.accessible_institutions,
       accessible_departments: data.accessible_departments,
@@ -166,7 +165,7 @@ class DocumentService extends BaseService<Document> {
       }
     });
 
-    console.log('♻️ Document update data:', {
+    logger.debug('Document update data', {
       id,
       hasFile: !!data.file,
       title: data.title,
@@ -181,7 +180,8 @@ class DocumentService extends BaseService<Document> {
   // Custom FormData submission method that uses apiClient infrastructure
   private async submitFormData(formData: FormData, endpoint: string, method: 'POST' | 'PUT' = 'POST'): Promise<{ data: Document }> {
     // Ensure CSRF cookie is initialized (same as apiClient does)
-    const sanctumUrl = `${(apiClient as any).baseURL.replace('/api', '')}/sanctum/csrf-cookie`;
+    const apiClientInternal = apiClient as unknown as { baseURL: string; getHeaders: () => Record<string, string> };
+    const sanctumUrl = `${apiClientInternal.baseURL.replace('/api', '')}/sanctum/csrf-cookie`;
 
     try {
       await fetch(sanctumUrl, {
@@ -189,28 +189,26 @@ class DocumentService extends BaseService<Document> {
         credentials: 'include',
         headers: { 'Accept': 'application/json' },
       });
-      console.log('🔐 CSRF cookie initialized for file upload');
+      logger.debug('CSRF cookie initialized for file upload');
     } catch (error) {
-      console.error('❌ Failed to initialize CSRF cookie:', error);
+      logger.error('Failed to initialize CSRF cookie', error);
       throw new Error('Unable to initialize secure session for file upload');
     }
 
     // Get headers from apiClient but exclude Content-Type for FormData
-    const headers = { ...((apiClient as any).getHeaders()) };
+    const headers = { ...apiClientInternal.getHeaders() };
     delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
 
-    console.log('🚀 FormData upload request:', {
-      url: `${(apiClient as any).baseURL}${endpoint}`,
+    logger.debug('FormData upload request', {
+      url: `${apiClientInternal.baseURL}${endpoint}`,
       method,
-      headers: headers,
-      credentials: 'include',
       formDataEntries: [...formData.entries()].map(([key, value]) => ({
         key,
         value: value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value
       }))
     });
 
-    const response = await fetch(`${(apiClient as any).baseURL}${endpoint}`, {
+    const response = await fetch(`${apiClientInternal.baseURL}${endpoint}`, {
       method,
       headers: headers,
       credentials: 'include', // Important for Sanctum SPA
@@ -219,31 +217,19 @@ class DocumentService extends BaseService<Document> {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Document upload failed:', {
+      logger.error('Document upload failed', {
         status: response.status,
         statusText: response.statusText,
         url: response.url,
-        headers: Object.fromEntries(response.headers.entries()),
-        error: errorText
       });
 
-      // Try to parse JSON error for better debugging
       try {
-        const errorJson = JSON.parse(errorText);
-        console.error('📋 Detailed error response:', errorJson);
-        if (errorJson.errors) {
-          console.error('🔍 Validation errors:', errorJson.errors);
-        }
-        if (errorJson.message) {
-          console.error('💬 Error message:', errorJson.message);
-        }
-
-        // Enhanced error message for user
+        const errorJson = JSON.parse(errorText) as { errors?: unknown; message?: string };
+        logger.error('Detailed error response', errorJson);
         const userMessage = errorJson.message || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(userMessage);
       } catch (parseError) {
-        console.error('📋 Raw error response:', errorText);
-        console.error('⚠️ Failed to parse error JSON:', parseError);
+        logger.error('Raw error response', { errorText, parseError });
         throw new Error(`Document upload failed: ${response.status} ${response.statusText}`);
       }
     }
@@ -254,42 +240,36 @@ class DocumentService extends BaseService<Document> {
 
   async downloadDocument(id: number): Promise<Blob> {
     try {
-      console.log('📥 Downloading document:', id);
+      logger.debug('Downloading document', { id });
 
-      // Use apiClient for proper authentication and error handling
       const response = await apiClient.get(`${this.baseEndpoint}/${id}/download`, {}, {
         responseType: 'blob'
       });
 
-      console.log('✅ Document download successful, response:', response);
+      logger.debug('Document download successful', { id });
 
-      // ApiClient returns { data: blob } structure for blob responses
       if (response && typeof response === 'object' && 'data' in response) {
         return response.data as Blob;
       } else {
-        // Fallback for direct blob response
         return response as Blob;
       }
     } catch (error) {
-      console.error('❌ Document download failed:', error);
+      logger.error('Document download failed', error);
       throw new Error('Download failed');
     }
   }
 
 
   async getSharedWithMe(params?: PaginationParams) {
-    const response = await apiClient.get<Document[]>(`${this.baseEndpoint}/shared-with-me`, params);
-    return response as any; // PaginatedResponse
+    return apiClient.get<Document[]>(`${this.baseEndpoint}/shared-with-me`, params);
   }
 
   async getMyUploads(params?: PaginationParams) {
-    const response = await apiClient.get<Document[]>(`${this.baseEndpoint}/my-uploads`, params);
-    return response as any; // PaginatedResponse
+    return apiClient.get<Document[]>(`${this.baseEndpoint}/my-uploads`, params);
   }
 
   async getPublicDocuments(params?: PaginationParams) {
-    const response = await apiClient.get<Document[]>(`${this.baseEndpoint}/public`, params);
-    return response as any; // PaginatedResponse
+    return apiClient.get<Document[]>(`${this.baseEndpoint}/public`, params);
   }
 
   async getStats(): Promise<DocumentStats> {
@@ -331,7 +311,7 @@ class DocumentService extends BaseService<Document> {
     expires_at?: string;
     allow_download?: boolean;
     allow_reshare?: boolean;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const response = await apiClient.post(`${this.baseEndpoint}/${id}/share`, shareData);
     return response.data;
   }
