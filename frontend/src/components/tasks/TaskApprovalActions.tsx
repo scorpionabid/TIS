@@ -6,9 +6,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { taskApprovalService } from '@/services/taskApproval';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
+import { Task } from '@/services/tasks';
 
 interface TaskApprovalActionsProps {
-  task: any; // TODO: Add proper Task type
+  task: Task;
   userCanApprove: boolean;
   userIsCreator: boolean;
 }
@@ -30,8 +31,9 @@ export function TaskApprovalActions({
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['task', task.id] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Xəta baş verdi');
+    onError: (error: unknown) => {
+      const apiErr = error as { response?: { data?: { message?: string } } };
+      toast.error(apiErr.response?.data?.message || 'Xəta baş verdi');
     },
   });
 
@@ -45,8 +47,9 @@ export function TaskApprovalActions({
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['task', task.id] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Xəta baş verdi');
+    onError: (error: unknown) => {
+      const apiErr = error as { response?: { data?: { message?: string } } };
+      toast.error(apiErr.response?.data?.message || 'Xəta baş verdi');
     },
   });
 
@@ -61,8 +64,9 @@ export function TaskApprovalActions({
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['task', task.id] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Xəta baş verdi');
+    onError: (error: unknown) => {
+      const apiErr = error as { response?: { data?: { message?: string } } };
+      toast.error(apiErr.response?.data?.message || 'Xəta baş verdi');
     },
   });
 

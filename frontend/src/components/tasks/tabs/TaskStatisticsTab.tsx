@@ -4,13 +4,25 @@ import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, 
 import { TaskStats } from '../TaskStatsWidget';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle2, Clock, Users, BarChart2, LayoutDashboard } from 'lucide-react';
+import { Task } from '@/services/tasks';
+
+interface StatUser {
+  id?: number;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+interface StatCurrentUser {
+  id?: number | string;
+}
 
 interface TaskStatisticsTabProps {
   stats: TaskStats;
-  tasks: any[];
-  assignedTasks?: any[];
-  availableUsers?: any[];
-  currentUser?: any;
+  tasks: Task[];
+  assignedTasks?: Task[];
+  availableUsers?: StatUser[];
+  currentUser?: StatCurrentUser;
   startDate?: string;
   endDate?: string;
 }
@@ -23,7 +35,7 @@ const COLORS = {
   review: "#8b5cf6",
 };
 
-function filterByDate(list: any[], startDate?: string, endDate?: string) {
+function filterByDate(list: Task[], startDate?: string, endDate?: string): Task[] {
   if (!startDate && !endDate) return list;
   return list.filter(t => {
     const d = t.created_at ? new Date(t.created_at) : null;
@@ -45,7 +57,7 @@ export function TaskStatisticsTab({
 }: TaskStatisticsTabProps) {
   const currentUserId = Number(currentUser?.id);
 
-  const getUserDisplayName = (u: any) => {
+  const getUserDisplayName = (u: StatUser | null | undefined): string => {
     if (!u) return 'Naməlum';
     if (u.name) return u.name;
     if (u.first_name || u.last_name) {
@@ -103,10 +115,10 @@ export function TaskStatisticsTab({
     const assignedToMe = filteredAssignedTasks.length > 0
       ? filteredAssignedTasks
       : filteredTasks.filter(t =>
-          t.assignments?.some((a: any) => Number(a.assigned_user_id) === currentUserId)
+          t.assignments?.some(a => Number(a.assigned_user_id) === currentUserId)
         );
 
-    const aggregate = (list: any[]) => ({
+    const aggregate = (list: Task[]) => ({
       total: list.length,
       completed:   list.filter(t => t.status === 'completed').length,
       in_progress: list.filter(t => t.status === 'in_progress').length,
@@ -132,7 +144,7 @@ export function TaskStatisticsTab({
     });
 
     filteredTasks.forEach(t => {
-      (t.assignments || []).forEach((a: any) => {
+      (t.assignments || []).forEach(a => {
         const userObj = a.assignedUser || a.assigned_user;
         const userName = getUserDisplayName(userObj);
         const cur = map.get(userName) || { name: userName, overdue: 0, pending: 0, in_progress: 0, completed: 0, total: 0 };

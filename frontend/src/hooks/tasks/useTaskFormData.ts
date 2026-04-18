@@ -8,6 +8,7 @@ import {
   TaskCreationContext,
   taskService,
 } from '@/services/tasks';
+import { logger } from '@/utils/logger';
 const CREATION_CONTEXT_KEY = ['task-creation-context'];
 
 type UseTaskFormDataOptions = {
@@ -40,7 +41,7 @@ export function usePrefetchTaskFormData(
 
     prefetchTaskFormData(queryClient).catch(
       (error) => {
-        console.warn('[usePrefetchTaskFormData] Prefetch failed', error);
+        logger.warn('usePrefetchTaskFormData: Prefetch failed');
       },
     );
   }, [enabled, originScope, queryClient]);

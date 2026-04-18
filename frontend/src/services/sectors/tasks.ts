@@ -1,4 +1,5 @@
 import { apiClient } from '../api';
+import { logger } from '@/utils/logger';
 import type {
   SectorTask,
   SectorTaskFilters,
@@ -20,19 +21,18 @@ export class SectorTasksService {
    * Get tasks for a specific sector
    */
   async getSectorTasks(sectorId: number, filters?: SectorTaskFilters): Promise<SectorTasksResponse> {
-    console.log('🔍 SectorTasksService.getSectorTasks called for sector:', sectorId, 'with filters:', filters);
+    logger.debug('SectorTasksService.getSectorTasks', { data: { sectorId, filters } });
     try {
-      const response = await apiClient.get<{ 
+      const response = await apiClient.get<{
         data: SectorTask[];
         current_page: number;
         last_page: number;
         per_page: number;
         total: number;
       }>(`${this.baseUrl}/${sectorId}/tasks`, filters);
-      console.log('✅ SectorTasksService.getSectorTasks successful:', response);
       return response as SectorTasksResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.getSectorTasks failed:', error);
+      logger.error('SectorTasksService.getSectorTasks failed', error);
       throw error;
     }
   }
@@ -41,13 +41,12 @@ export class SectorTasksService {
    * Create a new task for a sector
    */
   async createSectorTask(sectorId: number, data: SectorTaskCreateData): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.createSectorTask called for sector:', sectorId, 'with data:', data);
+    logger.debug('SectorTasksService.createSectorTask', { data: { sectorId } });
     try {
       const response = await apiClient.post<SectorTask>(`${this.baseUrl}/${sectorId}/tasks`, data);
-      console.log('✅ SectorTasksService.createSectorTask successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.createSectorTask failed:', error);
+      logger.error('SectorTasksService.createSectorTask failed', error);
       throw error;
     }
   }
@@ -56,13 +55,12 @@ export class SectorTasksService {
    * Get task statistics for a sector
    */
   async getSectorTaskStatistics(sectorId: number): Promise<SectorTaskStatisticsResponse> {
-    console.log('🔍 SectorTasksService.getSectorTaskStatistics called for sector:', sectorId);
+    logger.debug('SectorTasksService.getSectorTaskStatistics', { data: { sectorId } });
     try {
       const response = await apiClient.get<SectorTaskStatistics>(`${this.baseUrl}/${sectorId}/tasks/statistics`);
-      console.log('✅ SectorTasksService.getSectorTaskStatistics successful:', response);
       return response as SectorTaskStatisticsResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.getSectorTaskStatistics failed:', error);
+      logger.error('SectorTasksService.getSectorTaskStatistics failed', error);
       throw error;
     }
   }
@@ -71,13 +69,12 @@ export class SectorTasksService {
    * Update task status
    */
   async updateTaskStatus(sectorId: number, taskId: number, status: SectorTask['status']): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.updateTaskStatus called for sector:', sectorId, 'task:', taskId, 'status:', status);
+    logger.debug('SectorTasksService.updateTaskStatus', { data: { sectorId, taskId, status } });
     try {
       const response = await apiClient.put<SectorTask>(`${this.baseUrl}/${sectorId}/tasks/${taskId}`, { status });
-      console.log('✅ SectorTasksService.updateTaskStatus successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.updateTaskStatus failed:', error);
+      logger.error('SectorTasksService.updateTaskStatus failed', error);
       throw error;
     }
   }
@@ -86,13 +83,12 @@ export class SectorTasksService {
    * Update task progress
    */
   async updateTaskProgress(sectorId: number, taskId: number, progress: number): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.updateTaskProgress called for sector:', sectorId, 'task:', taskId, 'progress:', progress);
+    logger.debug('SectorTasksService.updateTaskProgress', { data: { sectorId, taskId, progress } });
     try {
       const response = await apiClient.put<SectorTask>(`${this.baseUrl}/${sectorId}/tasks/${taskId}`, { progress });
-      console.log('✅ SectorTasksService.updateTaskProgress successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.updateTaskProgress failed:', error);
+      logger.error('SectorTasksService.updateTaskProgress failed', error);
       throw error;
     }
   }
@@ -101,13 +97,12 @@ export class SectorTasksService {
    * Assign task to user
    */
   async assignTask(sectorId: number, taskId: number, assignedTo: number): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.assignTask called for sector:', sectorId, 'task:', taskId, 'assignee:', assignedTo);
+    logger.debug('SectorTasksService.assignTask', { data: { sectorId, taskId, assignedTo } });
     try {
       const response = await apiClient.put<SectorTask>(`${this.baseUrl}/${sectorId}/tasks/${taskId}`, { assigned_to: assignedTo });
-      console.log('✅ SectorTasksService.assignTask successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.assignTask failed:', error);
+      logger.error('SectorTasksService.assignTask failed', error);
       throw error;
     }
   }
@@ -116,23 +111,22 @@ export class SectorTasksService {
    * Complete a task
    */
   async completeTask(sectorId: number, taskId: number, completionNotes?: string): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.completeTask called for sector:', sectorId, 'task:', taskId);
+    logger.debug('SectorTasksService.completeTask', { data: { sectorId, taskId } });
     try {
       const updateData: Partial<SectorTask> = {
         status: 'completed',
         progress: 100,
         completed_at: new Date().toISOString()
       };
-      
+
       if (completionNotes) {
         updateData.completion_notes = completionNotes;
       }
 
       const response = await apiClient.put<SectorTask>(`${this.baseUrl}/${sectorId}/tasks/${taskId}`, updateData);
-      console.log('✅ SectorTasksService.completeTask successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.completeTask failed:', error);
+      logger.error('SectorTasksService.completeTask failed', error);
       throw error;
     }
   }
@@ -141,21 +135,20 @@ export class SectorTasksService {
    * Cancel a task
    */
   async cancelTask(sectorId: number, taskId: number, reason?: string): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.cancelTask called for sector:', sectorId, 'task:', taskId);
+    logger.debug('SectorTasksService.cancelTask', { data: { sectorId, taskId } });
     try {
       const updateData: Partial<SectorTask> = {
         status: 'cancelled'
       };
-      
+
       if (reason) {
         updateData.completion_notes = `Cancelled: ${reason}`;
       }
 
       const response = await apiClient.put<SectorTask>(`${this.baseUrl}/${sectorId}/tasks/${taskId}`, updateData);
-      console.log('✅ SectorTasksService.cancelTask successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.cancelTask failed:', error);
+      logger.error('SectorTasksService.cancelTask failed', error);
       throw error;
     }
   }
@@ -164,16 +157,15 @@ export class SectorTasksService {
    * Approve a task that requires approval
    */
   async approveTask(sectorId: number, taskId: number, approverId: number): Promise<SectorTaskResponse> {
-    console.log('🔍 SectorTasksService.approveTask called for sector:', sectorId, 'task:', taskId, 'approver:', approverId);
+    logger.debug('SectorTasksService.approveTask', { data: { sectorId, taskId, approverId } });
     try {
       const response = await apiClient.post<SectorTask>(`${this.baseUrl}/${sectorId}/tasks/${taskId}/approve`, {
         approved_by: approverId,
         approved_at: new Date().toISOString()
       });
-      console.log('✅ SectorTasksService.approveTask successful:', response);
       return response as SectorTaskResponse;
     } catch (error) {
-      console.error('❌ SectorTasksService.approveTask failed:', error);
+      logger.error('SectorTasksService.approveTask failed', error);
       throw error;
     }
   }
@@ -189,24 +181,23 @@ export class SectorTasksService {
    * Get overdue tasks for a sector
    */
   async getOverdueTasks(sectorId: number): Promise<SectorTask[]> {
-    console.log('🔍 SectorTasksService.getOverdueTasks called for sector:', sectorId);
+    logger.debug('SectorTasksService.getOverdueTasks', { data: { sectorId } });
     try {
       const response = await this.getSectorTasks(sectorId, {
         sort_by: 'deadline',
         sort_order: 'asc'
       });
-      
+
       const currentDate = new Date();
       const overdueTasks = response.data.data.filter(task => {
         if (!task.deadline) return false;
         const deadline = new Date(task.deadline);
         return deadline < currentDate && task.status !== 'completed' && task.status !== 'cancelled';
       });
-      
-      console.log('✅ SectorTasksService.getOverdueTasks successful, found:', overdueTasks.length, 'overdue tasks');
+
       return overdueTasks;
     } catch (error) {
-      console.error('❌ SectorTasksService.getOverdueTasks failed:', error);
+      logger.error('SectorTasksService.getOverdueTasks failed', error);
       throw error;
     }
   }

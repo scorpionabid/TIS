@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { taskService, UpdateTaskData } from '@/services/tasks';
 import { useToast } from '@/hooks/use-toast';
 import { CellEditState, ColumnId } from '../types';
+import { logger } from '@/utils/logger';
 
 export function useInlineEdit() {
   const [editingCell, setEditingCell] = useState<CellEditState | null>(null);
@@ -59,7 +60,7 @@ export function useInlineEdit() {
         setEditingCell(null);
       } catch (error) {
         // Error handled by mutation onError
-        console.error('Failed to save edit:', error);
+        logger.error('useInlineEdit: Failed to save edit', error);
       }
     },
     [updateMutation]

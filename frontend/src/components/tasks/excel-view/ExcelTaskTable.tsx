@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/utils/logger';
 
 interface ExcelTaskTableProps {
   tasks: Task[];
@@ -152,7 +153,7 @@ export function ExcelTaskTable({
           description: `${bulkEditContext.selectedCount} tapşırıq yeniləndi.`,
         });
       } catch (error) {
-        console.error('[ExcelTaskTable] Bulk update failed', error);
+        logger.error('ExcelTaskTable: Bulk update failed', error);
         toast({
           title: 'Xəta baş verdi',
           description: error instanceof Error ? error.message : 'Toplu yeniləmə zamanı xəta baş verdi.',

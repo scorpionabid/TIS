@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { taskService, CreateTaskData, UpdateTaskData } from '@/services/tasks';
+import { logger } from '@/utils/logger';
 
 /**
  * Hook for task CRUD mutations (Create, Update, Delete)
@@ -21,10 +22,10 @@ export function useTaskMutations() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error: Error) => {
-      console.error('Task creation failed:', error);
-      
+      logger.error('Task creation failed', error);
+
       // Handle duplicate assignment errors specifically
-      if (error.message.includes('Duplicate assignment detected') || 
+      if (error.message.includes('Duplicate assignment detected') ||
           error.message.includes('artıq bu tapşırıq üçün təyin edilib')) {
         // This is a user-friendly error, no need for additional handling
         return;
@@ -39,7 +40,7 @@ export function useTaskMutations() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error: Error) => {
-      console.error('Task update failed:', error);
+      logger.error('Task update failed', error);
     },
   });
 
@@ -49,7 +50,7 @@ export function useTaskMutations() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error: Error) => {
-      console.error('Task deletion failed:', error);
+      logger.error('Task deletion failed', error);
     },
   });
 

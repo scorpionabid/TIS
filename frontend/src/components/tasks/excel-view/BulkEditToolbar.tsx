@@ -18,6 +18,7 @@ import { UpdateTaskData } from '@/services/tasks';
 import { priorityOptions, statusLabels } from '../config/taskFormFields';
 import { CheckSquare, X, Edit3, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { logger } from '@/utils/logger';
 
 interface BulkEditToolbarProps {
   selectedCount: number;
@@ -41,7 +42,7 @@ export function BulkEditToolbar({
       await onBulkUpdate({ status: status as UpdateTaskData['status'] });
       setIsOpen(false);
     } catch (error) {
-      console.error('[BulkEditToolbar] Status update failed', error);
+      logger.error('BulkEditToolbar: Status update failed', error);
     }
   };
 
@@ -50,7 +51,7 @@ export function BulkEditToolbar({
       await onBulkUpdate({ priority: priority as UpdateTaskData['priority'] });
       setIsOpen(false);
     } catch (error) {
-      console.error('[BulkEditToolbar] Priority update failed', error);
+      logger.error('BulkEditToolbar: Priority update failed', error);
     }
   };
 

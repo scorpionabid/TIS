@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { TaskSubDelegation } from '@/services/tasks';
+import { logger } from '@/utils/logger';
 
 interface SubDelegationUpdateData {
   delegation_id: number;
@@ -35,6 +36,7 @@ interface SubDelegationUpdateData {
 export const useSubDelegationUpdates = (parentAssignmentId: number) => {
   const { toast } = useToast();
   const eventSourceRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const handleStatusChange = useCallback((event: MessageEvent) => {
     try {
@@ -64,7 +66,7 @@ export const useSubDelegationUpdates = (parentAssignmentId: number) => {
       }));
 
     } catch (error) {
-      console.error('Error parsing sub-delegation update:', error);
+      logger.error('Error parsing sub-delegation update', error);
     }
   }, [toast]);
 
@@ -85,7 +87,7 @@ export const useSubDelegationUpdates = (parentAssignmentId: number) => {
       eventSourceRef.current.onmessage = handleStatusChange;
       
       eventSourceRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('EventSource error', error);
         toast({
           title: 'Bağlantı Xətası',
           description: 'Real-time yeniləmələr bağlantısı kəsildi',
@@ -94,31 +96,24 @@ export const useSubDelegationUpdates = (parentAssignmentId: number) => {
       };
 
       eventSourceRef.current.onopen = () => {
-        console.log('Sub-delegation WebSocket connected');
+        logger.debug('Sub-delegation EventSource connected');
       };
 
     } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
-      
-      // Fallback to polling if WebSocket fails
-      console.log('Falling back to polling for sub-delegation updates');
+      logger.error('Error creating EventSource connection', error);
       startPolling();
     }
   }, [parentAssignmentId, handleStatusChange]);
 
   const startPolling = useCallback(() => {
-    const pollInterval = setInterval(async () => {
+    pollIntervalRef.current = setInterval(async () => {
       try {
-        // This would be implemented with a polling endpoint
-        // For now, we'll just log that polling is active
-        console.log('Polling for sub-delegation updates...');
+        // Polling endpoint would be called here when implemented
+        logger.debug('Polling for sub-delegation updates...');
       } catch (error) {
-        console.error('Polling error:', error);
+        logger.error('Polling error', error);
       }
     }, 30000); // Poll every 30 seconds
-
-    // Store interval ID for cleanup
-    (window as any).subDelegationPollInterval = pollInterval;
   }, []);
 
   const disconnect = useCallback(() => {
@@ -127,11 +122,9 @@ export const useSubDelegationUpdates = (parentAssignmentId: number) => {
       eventSourceRef.current = null;
     }
 
-    // Clear polling interval if it exists
-    const pollInterval = (window as any).subDelegationPollInterval;
-    if (pollInterval) {
-      clearInterval(pollInterval);
-      delete (window as any).subDelegationPollInterval;
+    if (pollIntervalRef.current !== undefined) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = undefined;
     }
   }, []);
 

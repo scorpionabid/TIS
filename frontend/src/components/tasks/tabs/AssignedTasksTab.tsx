@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList, Send, Eye, Clock } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { taskService, Task, UserAssignmentSummary, AssignmentStatus } from "@/services/tasks";
+import { taskService, Task, UserAssignmentSummary, AssignmentStatus, TasksListResponse } from "@/services/tasks";
 import { useAssignedTasksFilters, type SortField, type SortDirection } from "@/hooks/tasks/useAssignedTasksFilters";
 import { useAssignmentDialogs } from "@/hooks/tasks/useAssignmentDialogs";
 import { useAssignmentMutations } from "@/hooks/tasks/useAssignmentMutations";
@@ -208,9 +208,9 @@ export function AssignedTasksTab() {
   const isLoading = activeQuery.isLoading || activeQuery.isFetching;
   const error = activeQuery.error as Error | null | undefined;
 
-  const responseData = activeQuery.data as any;
-  const tasks = Array.isArray(responseData?.data) ? responseData.data : [];
-  const meta = responseData?.meta;
+  const responseData: TasksListResponse | undefined = activeQuery.data;
+  const tasks: Task[] = Array.isArray(responseData?.data) ? responseData.data : [];
+  const meta = responseData?.pagination;
   const statistics = responseData?.statistics;
 
   useEffect(() => {

@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskMutations } from '@/hooks/tasks/useTaskMutations';
+import { logger } from '@/utils/logger';
 import { CreateTaskData } from '@/services/tasks';
 import {
   categoryOptions,
@@ -134,7 +135,7 @@ export function ExcelCreateRow({
       // Cədvəli yenilə
       await onTaskCreated();
     } catch (error) {
-      console.error('[ExcelCreateRow] Yaratma xətası', error);
+      logger.error('ExcelCreateRow: Yaratma xətası', error);
       
       // Handle duplicate assignment errors specifically
       const errorMessage = error instanceof Error ? error.message : 'Tapşırıq yaradılarkən xəta baş verdi';

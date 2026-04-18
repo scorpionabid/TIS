@@ -19,23 +19,18 @@ import { Task } from "@/services/tasks";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import { TaskPriorityBadge } from "@/components/tasks/TaskPriorityBadge";
 import { SortDirection, SortField } from "@/hooks/tasks/useTasksData";
-import { categoryLabels } from "@/components/tasks/config/taskFormFields";
 import { formatDate } from "@/utils/taskDate";
+import { logger } from "@/utils/logger";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   Edit,
   Eye,
-  FileText,
   MoreHorizontal,
-  PartyPopper,
   Plus,
   Trash2,
   Users,
-  Wrench,
-  Shield,
-  BookOpen,
   Loader2,
   PlayCircle,
   CheckCircle2,
@@ -114,33 +109,23 @@ const getAssigneeInitials = (name: string) => {
 
 const formatUserName = (name: string) => {
   if (!name) {
-    console.log('[formatUserName] Empty name, returning Anonim');
+    logger.debug('formatUserName: empty name');
     return "Anonim İstifadəçi";
   }
 
   // If name is an email address, format it nicely
   if (name.includes("@")) {
     const username = name.split("@")[0];
-    // Convert "zulfiyya.h" to "Zulfiyya H"
-    // Convert "firstname.lastname" to "Firstname Lastname"
     const emailParts = username.split(/[._-]/).filter(Boolean);
-    console.log('[formatUserName] Email detected:', name, 'Parts:', emailParts);
 
     if (emailParts.length >= 2) {
-      const formatted = emailParts.map(part =>
+      return emailParts.map(part =>
         part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
       ).join(" ");
-      console.log('[formatUserName] Formatted:', formatted);
-      return formatted;
     }
-    // Single part email username: "john" -> "John"
-    const formatted = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
-    console.log('[formatUserName] Single part formatted:', formatted);
-    return formatted;
+    return username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
   }
 
-  // Return normal name as-is
-  console.log('[formatUserName] Normal name:', name);
   return name;
 };
 
@@ -197,7 +182,7 @@ export function TasksTable({
   const renderAssignees = (task: Task) => {
     const assignments = Array.isArray(task.assignments) ? task.assignments : [];
     const allUsers = assignments
-      .map((assignment) => assignment.assignedUser ?? (assignment as any)?.assigned_user)
+      .map((assignment) => assignment.assignedUser ?? assignment.assigned_user)
       .filter(Boolean);
 
     // Get unique users by ID to avoid duplicates (same user can have multiple institution assignments)

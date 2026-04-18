@@ -66,13 +66,13 @@ function extractAssignedUserIds(task: Task): string[] {
 /**
  * Array-i string array-ə çevirir (ID-lər üçün)
  */
-function normalizeArrayToStringArray(value: any): string[] {
+function normalizeArrayToStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
-    .map((id: any) => Number(id))
+    .map((id: unknown) => Number(id))
     .filter((id) => !Number.isNaN(id))
     .map((id) => id.toString());
 }
@@ -87,7 +87,7 @@ function normalizeArrayToStringArray(value: any): string[] {
  * @param formData - Form-dan gələn məlumatlar
  * @returns API-yə göndəriləcək data
  */
-export function transformTaskDataForAPI(formData: any): CreateTaskData {
+export function transformTaskDataForAPI(formData: TaskFormValues): CreateTaskData {
   logger.debug('Transforming task data for API', {
     component: 'taskDataTransformer',
     action: 'transform',
@@ -158,13 +158,13 @@ export function transformTaskDataForAPI(formData: any): CreateTaskData {
 /**
  * String və ya number array-i number array-ə çevirir
  */
-function normalizeToNumberArray(value: any): number[] {
+function normalizeToNumberArray(value: unknown): number[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
-    .map((id: string | number) => Number(id))
+    .map((id: unknown) => Number(id))
     .filter((id) => !Number.isNaN(id));
 }
 
@@ -212,7 +212,7 @@ export function validateTaskData(data: CreateTaskData): {
 /**
  * Task məlumatlarını log üçün safe formata çevirir (hassas məlumatları gizlədir)
  */
-export function sanitizeTaskDataForLogging(data: any): any {
+export function sanitizeTaskDataForLogging(data: Record<string, unknown>): Record<string, unknown> {
   return {
     title: data.title ? `${data.title.substring(0, 30)}...` : '',
     category: data.category,

@@ -7,6 +7,7 @@
 import { useState, useCallback } from 'react';
 import { Task, UpdateTaskData, taskService } from '@/services/tasks';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/utils/logger';
 
 interface UseBulkEditProps {
   tasks: Task[];
@@ -90,7 +91,7 @@ export function useBulkEdit({ tasks, onRefresh }: UseBulkEditProps): BulkEditCon
         // Clear selection after successful update
         clearSelection();
       } catch (error) {
-        console.error('[useBulkEdit] Bulk update failed', error);
+        logger.error('useBulkEdit: Bulk update failed', error);
         throw error;
       } finally {
         setIsBulkUpdating(false);
