@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/utils/logger';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document, FolderWithDocuments } from '../../types/documentCollection';
 import {
@@ -13,13 +14,16 @@ import {
   Trash2,
   Archive,
   Search,
-  ChevronDown,
   ChevronRight,
   Filter,
-  ArrowUpDown,
   FileIcon,
   Clock
 } from 'lucide-react';
+
+type FolderWithTargets = DocumentCollection & {
+  target_institutions?: Array<{ id: number }>;
+  targetInstitutions?: Array<{ id: number }>;
+};
 import { FileUploadZone } from './FileUploadZone';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,7 +54,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
       const data: FolderWithDocuments = await documentCollectionService.getById(folder.id);
       setDocuments(data.documents || []);
     } catch (err) {
-      console.error('Error loading documents:', err);
+      logger.error('Error loading documents', err);
       setError('Sənədlər yüklənərkən xəta baş verdi');
     } finally {
       setLoading(false);
@@ -98,9 +102,10 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
       const blob = await documentCollectionService.downloadDocument(doc.id);
       const fileName = doc.file_name || doc.original_filename || 'document';
       documentCollectionService.downloadFile(blob, fileName);
-    } catch (err: any) {
-      console.error('Error downloading document:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Sənəd yüklənərkən xəta baş verdi';
+    } catch (err: unknown) {
+      logger.error('Error downloading document', err);
+      const apiErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const errorMessage = apiErr?.response?.data?.message ?? apiErr?.message ?? 'Sənəd yüklənərkən xəta baş verdi';
       alert(errorMessage);
     }
   };
@@ -110,9 +115,10 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
       await documentCollectionService.uploadDocument(folder.id, file);
       await loadDocuments();
       setShowUploadZone(false);
-    } catch (error: any) {
-      console.error('❌ File upload failed:', error);
-      alert(`Fayl yüklənə bilmədi: ${error.message}`);
+    } catch (error: unknown) {
+      logger.error('File upload failed', error);
+      const errorMessage = error instanceof Error ? error.message : 'Naməlum xəta';
+      alert(`Fayl yüklənə bilmədi: ${errorMessage}`);
     }
   };
 
@@ -124,9 +130,10 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     try {
       await documentCollectionService.deleteDocument(documentId);
       await loadDocuments();
-    } catch (err: any) {
-      console.error('Error deleting document:', err);
-      alert(err.response?.data?.message || 'Sənəd silinərkən xəta baş verdi');
+    } catch (err: unknown) {
+      logger.error('Error deleting document', err);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      alert(apiErr?.response?.data?.message ?? 'Sənəd silinərkən xəta baş verdi');
     }
   };
 
@@ -141,9 +148,10 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
       const blob = await documentCollectionService.bulkDownload(folder.id);
       const fileName = `${folder.name}_${new Date().toISOString().split('T')[0]}.zip`;
       documentCollectionService.downloadFile(blob, fileName);
-    } catch (err: any) {
-      console.error('Error bulk downloading:', err);
-      alert(err.response?.data?.message || 'ZIP faylı yaradılarkən xəta baş verdi');
+    } catch (err: unknown) {
+      logger.error('Error bulk downloading', err);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      alert(apiErr?.response?.data?.message ?? 'ZIP faylı yaradılarkən xəta baş verdi');
     } finally {
       setBulkDownloading(false);
     }
@@ -161,23 +169,22 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
 
   const canUpload = () => {
     if (!user || !folder) return false;
-    const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
+    const userInstitutionId = user.institution?.id;
     if (!userInstitutionId) return false;
-    const targetInstitutions = (folder as any)?.target_institutions || (folder as any)?.targetInstitutions || [];
-    return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
+    const folderWithTargets = folder as FolderWithTargets;
+    const targetInstitutions = folderWithTargets.target_institutions ?? folderWithTargets.targetInstitutions ?? [];
+    return targetInstitutions.some(inst => inst.id === userInstitutionId);
   };
 
   const canDelete = (document: Document) => {
     if (!user) return false;
 
-    // Ownership check: supports both user_id (frontend legacy) and uploaded_by (backend standard)
-    const ownerId = document.uploaded_by || document.user_id;
+    // Ownership check: supports both uploaded_by (backend standard) and user_id (legacy)
+    const ownerId = document.uploaded_by ?? document.user_id;
     const isOwner = ownerId === user.id;
 
     // Role check: superadmins can delete any document
-    const userRoles = (user as any)?.roles || [];
-    const userRole = (user as any)?.role;
-    const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
+    const isSuperAdmin = user.role === 'superadmin';
 
     return isOwner || isSuperAdmin;
   };
@@ -221,9 +228,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     };
   }, [filteredDocuments, groupedDocuments]);
 
-  const userRoles = (user as any)?.roles || [];
-  const userRole = (user as any)?.role;
-  const isSchoolAdmin = userRole === 'schooladmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'schooladmin'));
+  const isSchoolAdmin = user?.role === 'schooladmin';
 
   const fileTypes = [
     { id: 'all', label: 'Hamısı', icon: <Filter size={14} /> },

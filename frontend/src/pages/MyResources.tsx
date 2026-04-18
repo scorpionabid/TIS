@@ -78,10 +78,14 @@ export default function MyResources() {
       if (currentUser?.role === 'superadmin' || currentUser?.role === 'regionadmin') {
         return allFolders;
       }
-      const userInstitutionId = (currentUser as any)?.institution?.id || (currentUser as any)?.institution_id;
-      return allFolders.filter((folder: any) => {
-        const targets = folder.target_institutions || folder.targetInstitutions || [];
-        return targets.some((inst: any) => inst.id === userInstitutionId);
+      type FolderWithTargets = typeof allFolders[number] & {
+        target_institutions?: Array<{ id: number }>;
+        targetInstitutions?: Array<{ id: number }>;
+      };
+      const userInstitutionId = currentUser?.institution?.id;
+      return (allFolders as FolderWithTargets[]).filter(folder => {
+        const targets = folder.target_institutions ?? folder.targetInstitutions ?? [];
+        return targets.some(inst => inst.id === userInstitutionId);
       });
     },
     enabled: isAuthenticated && !!canViewFolders,
@@ -192,7 +196,7 @@ export default function MyResources() {
           break;
       }
     } catch (err: unknown) {
-      const anyErr = err as any;
+      const apiErr = err as { response?: { status?: number }; message?: string };
       const errorMessages: Record<number, string> = {
         403: 'Bu resursa giriş icazəniz yoxdur',
         404: 'Resurs tapılmadı və ya silinib',
@@ -201,10 +205,10 @@ export default function MyResources() {
         500: 'Server xətası baş verdi, yenidən cəhd edin',
         503: 'Xidmət müvəqqəti əlçatmazdır',
       };
-      const statusCode = anyErr?.response?.status;
+      const statusCode = apiErr?.response?.status;
       toast({
         title: 'Xəta baş verdi',
-        description: errorMessages[statusCode] || anyErr?.message || 'Əməliyyat yerinə yetirmək mümkün olmadı',
+        description: (statusCode ? errorMessages[statusCode] : undefined) ?? apiErr?.message ?? 'Əməliyyat yerinə yetirmək mümkün olmadı',
         variant: 'destructive',
       });
     } finally {
@@ -403,7 +407,7 @@ export default function MyResources() {
                 ) : folders && folders.length > 0 ? (
                   <TooltipProvider delayDuration={400}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                      {folders.map((folder: any) => {
+                      {folders.map((folder) => {
                         const ownerInst = folder.owner_institution || folder.ownerInstitution;
                         return (
                           <Tooltip key={folder.id}>

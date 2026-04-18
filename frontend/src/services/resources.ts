@@ -2,8 +2,9 @@
 // both link and document services and therefore diverges from the usual CRUD
 // contract. (See note at bottom of file.)
 import { apiClient } from './api';
+import { logger } from '@/utils/logger';
 import { linkService, LinkFilters, LinkShare, LinkSharingOverviewResponse } from './links';
-import { documentService } from './documents';
+import { documentService, Document as ServiceDocument } from './documents';
 import {
   Resource,
   CreateResourceData,
@@ -19,17 +20,7 @@ import { AssignableUser } from '@/services/tasks';
 
 export type LinkSharingOverview = LinkSharingOverviewResponse;
 
-const isDevEnv = typeof import.meta !== 'undefined' ? Boolean(import.meta.env?.DEV) : false;
-const debugLog = (...args: unknown[]) => {
-  if (isDevEnv) {
-    console.log(...args);
-  }
-};
-const debugWarn = (...args: unknown[]) => {
-  if (isDevEnv) {
-    console.warn(...args);
-  }
-};
+type ApiObjectPayload = { data?: unknown[] | { data?: unknown[] } };
 
 class ResourceService {
   private readonly baseEndpoint = '/resources';
@@ -37,33 +28,33 @@ class ResourceService {
   /**
    * Helper: Transform link result to unified format
    */
-  private transformLinkResult(result: any): Resource {
+  private transformLinkResult(result: LinkShare): Resource {
     return {
       ...result,
       type: 'link' as const,
       created_by: result.shared_by,
       creator: result.sharedBy,
-    };
+    } as Resource;
   }
 
   /**
    * Helper: Transform document result to unified format
    */
-  private transformDocumentResult(result: any): Resource {
+  private transformDocumentResult(result: ServiceDocument): Resource {
     return {
       ...result,
       type: 'document' as const,
       created_by: result.uploaded_by,
       creator: result.uploader,
-    };
+    } as Resource;
   }
 
   /**
    * Helper: Build link request payload
    */
-  private buildLinkPayload(data: any) {
+  private buildLinkPayload(data: CreateResourceData) {
     return {
-      url: data.url || data.url!,
+      url: data.url,
       link_type: data.link_type,
       share_scope: data.share_scope || 'institutional',
       target_institutions: data.target_institutions,
@@ -87,15 +78,14 @@ class ResourceService {
     filters: ResourceFilters = {},
     options: { allowForbiddenFallback?: boolean } = {}
   ): Promise<ResourceListResponse> {
-    debugLog('📡 ResourceService.getAll request', {
-      filters,
-      options,
-    });
+    logger.debug('ResourceService.getAll request', { data: { filters, options } });
     try {
-      debugLog('🚀 ResourceService.getAll request planning:', {
-        filterType: filters.type,
-        shouldFetchLinks: !filters.type || filters.type === 'link',
-        shouldFetchDocuments: !filters.type || filters.type === 'document'
+      logger.debug('ResourceService.getAll request planning', {
+        data: {
+          filterType: filters.type,
+          shouldFetchLinks: !filters.type || filters.type === 'link',
+          shouldFetchDocuments: !filters.type || filters.type === 'document',
+        },
       });
 
       // Determine which resources to fetch based on filter type
@@ -105,7 +95,7 @@ class ResourceService {
       // Build requests array with explicit type tracking
       interface TypedRequest {
         type: 'link' | 'document';
-        promise: Promise<any>;
+        promise: Promise<unknown>;
       }
       const typedRequests: TypedRequest[] = [];
 
@@ -161,59 +151,61 @@ class ResourceService {
       const responses = await Promise.all(typedRequests.map(tr => tr.promise));
       const allResources: Resource[] = [];
 
-      debugLog('🔍 ResourceService.getAll responses:', {
-        requestCount: typedRequests.length,
-        responseCount: responses.length,
-        requestTypes: typedRequests.map(tr => tr.type),
-        responses: responses.map((r, i) => ({
-          index: i,
-          type: typedRequests[i].type,
-          hasData: !!r?.data,
-          dataLength: r?.data?.data?.length || 0
-        }))
+      logger.debug('ResourceService.getAll responses', {
+        data: {
+          requestCount: typedRequests.length,
+          responseCount: responses.length,
+          requestTypes: typedRequests.map(tr => tr.type),
+        },
       });
 
       // Process responses using type information (race condition fix)
       for (let i = 0; i < typedRequests.length; i++) {
         const requestType = typedRequests[i].type;
-        const response = responses[i] as { data?: any } | undefined;
+        const response = responses[i] as { data?: unknown } | undefined;
 
         if (!response) continue;
 
         if (requestType === 'link') {
           // Process links
-          let links = [];
-          const responseData = response.data as any;
-          if (responseData?.data && Array.isArray(responseData.data)) {
-            links = responseData.data;
+          let links: LinkShare[] = [];
+          const responseData = response?.data;
+          if (responseData && typeof responseData === 'object' && !Array.isArray(responseData)) {
+            const dataObj = responseData as { data?: unknown[] };
+            if (Array.isArray(dataObj.data)) {
+              links = dataObj.data as LinkShare[];
+            }
           } else if (Array.isArray(responseData)) {
-            links = responseData;
+            links = responseData as LinkShare[];
           }
 
-          debugLog('🔗 Processing links:', links.length);
-          allResources.push(...links.map((link: any) => ({
+          logger.debug('Processing links', { data: { count: links.length } });
+          allResources.push(...links.map(link => ({
             ...link,
             type: 'link' as const,
-            created_by: typeof link.shared_by === 'number' ? link.shared_by : link.shared_by?.id,
+            created_by: link.shared_by,
             creator: link.sharedBy,
-          })));
+          } as Resource)));
         } else if (requestType === 'document') {
           // Process documents
-          let documents = [];
-          const responseData = response.data as any;
-          if (responseData?.data && Array.isArray(responseData.data)) {
-            documents = responseData.data;
+          let documents: ServiceDocument[] = [];
+          const responseData = response?.data;
+          if (responseData && typeof responseData === 'object' && !Array.isArray(responseData)) {
+            const dataObj = responseData as { data?: unknown[] };
+            if (Array.isArray(dataObj.data)) {
+              documents = dataObj.data as ServiceDocument[];
+            }
           } else if (Array.isArray(responseData)) {
-            documents = responseData;
+            documents = responseData as ServiceDocument[];
           }
 
-          debugLog('📄 Processing documents:', documents.length);
-          allResources.push(...documents.map((doc: any) => ({
+          logger.debug('Processing documents', { data: { count: documents.length } });
+          allResources.push(...documents.map(doc => ({
             ...doc,
             type: 'document' as const,
             created_by: doc.uploaded_by,
             creator: doc.uploader,
-          })));
+          } as Resource)));
         }
       }
 
@@ -244,15 +236,12 @@ class ResourceService {
 
       return this.buildPaginatedResponse(allResources, filters.per_page);
 
-    } catch (error: any) {
-      console.error('❌ ResourceService.getAll failed:', error);
+    } catch (error: unknown) {
+      logger.error('ResourceService.getAll failed', error);
 
       // Graceful fallback for roles without links.read permission
       if (options.allowForbiddenFallback !== false && this.isForbiddenResourceError(error)) {
-        debugWarn('⚠️ ResourceService.getAll: links.read forbidden, falling back to assigned resources', {
-          filters,
-          errorMessage: error?.message,
-        });
+        logger.warn('ResourceService.getAll: links.read forbidden, falling back to assigned resources');
         const assignedResources = await this.getAssignedResources(filters);
         return this.buildPaginatedResponse(assignedResources, filters.per_page);
       }
@@ -289,27 +278,24 @@ class ResourceService {
 
     const response = await linkService.getAll(linkFilters);
 
-    if (import.meta.env?.DEV) {
-      console.log('[Links][getLinksPaginated] request', {
-        linkFilters,
-      });
-      console.log('[Links][getLinksPaginated] raw response keys', {
+    logger.debug('[Links][getLinksPaginated] request', { data: { linkFilters } });
+    logger.debug('[Links][getLinksPaginated] raw response', {
+      data: {
         responseType: typeof response,
-        keys: response && typeof response === 'object' ? Object.keys(response as any) : null,
-        hasDataArray: Array.isArray((response as any)?.data),
-        hasPagination: Boolean((response as any)?.pagination),
-        pagination: (response as any)?.pagination,
-      });
-    }
+        keys: response && typeof response === 'object' ? Object.keys(response as Record<string, unknown>) : null,
+        hasDataArray: Array.isArray((response as ApiObjectPayload)?.data),
+        hasPagination: Boolean((response as Record<string, unknown>)?.pagination),
+      },
+    });
 
-    const payload: any = response ?? {};
+    const payload = (response ?? {}) as Record<string, unknown>;
     const linkData: LinkShare[] = Array.isArray(payload?.data)
-      ? payload.data
-      : Array.isArray(payload)
-        ? (payload as LinkShare[])
+      ? (payload.data as LinkShare[])
+      : Array.isArray(response)
+        ? (response as LinkShare[])
         : [];
 
-    const metaSource = payload?.meta ?? payload?.pagination ?? payload ?? {};
+    const metaSource = (payload?.meta ?? payload?.pagination ?? payload ?? {}) as Record<string, unknown>;
     const total = typeof metaSource?.total === 'number' ? metaSource.total : linkData.length;
     const perPage = typeof metaSource?.per_page === 'number'
       ? metaSource.per_page
@@ -318,8 +304,8 @@ class ResourceService {
       ? metaSource.current_page
       : filters.page ?? 1;
 
-    if (import.meta.env?.DEV) {
-      console.log('[Links][getLinksPaginated] parsed', {
+    logger.debug('[Links][getLinksPaginated] parsed', {
+      data: {
         page: filters.page,
         per_page: filters.per_page,
         receivedCount: linkData.length,
@@ -327,9 +313,8 @@ class ResourceService {
         perPage,
         currentPage,
         hasMeta: Boolean(payload?.meta),
-        meta: payload?.meta,
-      });
-    }
+      },
+    });
 
     return {
       data: linkData.map(link => this.transformLinkResult(link)),
@@ -346,7 +331,7 @@ class ResourceService {
       const link = await linkService.getById(id);
       return this.transformLinkResult(link);
     } catch (error) {
-      console.error('❌ ResourceService.getLinkById failed:', error);
+      logger.error('ResourceService.getLinkById failed', error);
       throw error;
     }
   }
@@ -356,7 +341,7 @@ class ResourceService {
       const overview = await linkService.getSharingOverview(linkId);
       return overview ?? null;
     } catch (error) {
-      console.error('❌ ResourceService.getLinkSharingOverview failed:', error);
+      logger.error('ResourceService.getLinkSharingOverview failed', error);
       throw error;
     }
   }
@@ -367,13 +352,13 @@ class ResourceService {
    */
   async getGroupedLinkSharingOverview(linkTitle: string): Promise<LinkSharingOverviewResponse | null> {
     try {
-      const response = await apiClient.get<LinkSharingOverviewResponse>(
+      const response = await apiClient.get<{ data: LinkSharingOverviewResponse | null }>(
         '/links/grouped-sharing-overview',
         { title: linkTitle }
       );
-      return response.data ?? null;
+      return (response as { data: LinkSharingOverviewResponse | null }).data ?? null;
     } catch (error) {
-      console.error('❌ ResourceService.getGroupedLinkSharingOverview failed:', error);
+      logger.error('ResourceService.getGroupedLinkSharingOverview failed', error);
       throw error;
     }
   }
@@ -382,24 +367,24 @@ class ResourceService {
    * Create a new resource (link or document)
    */
   async create(data: CreateResourceData): Promise<Resource> {
-    debugLog('🔥 ResourceService.create called', data);
+    logger.debug('ResourceService.create called', { data: { type: data.type, title: data.title } });
 
     try {
-      let result;
+      let result: Resource | undefined;
 
       if (data.type === 'link') {
         // Use existing link service
-        result = await linkService.create({
+        const linkResult = await linkService.create({
           title: data.title,
           description: data.description,
           ...this.buildLinkPayload(data),
         });
 
         // Transform to unified format
-        result = this.transformLinkResult(result);
+        result = this.transformLinkResult(linkResult);
       } else if (data.type === 'document') {
         // Use existing document service - Fix field mapping
-        result = await documentService.uploadDocument({
+        const docResult = await documentService.uploadDocument({
           title: data.title,
           description: data.description,
           file: data.file!,
@@ -414,7 +399,7 @@ class ResourceService {
         });
 
         // Transform to unified format
-        result = this.transformDocumentResult(result);
+        result = this.transformDocumentResult(docResult);
       }
 
       // Send notifications if target institutions specified
@@ -428,7 +413,7 @@ class ResourceService {
             notification_type: 'resource_assigned',
           });
         } catch (notificationError) {
-          debugWarn('⚠️ Notification failed but resource created successfully:', notificationError);
+          logger.warn('Notification failed but resource created successfully');
           // Don't throw error - resource creation was successful
         }
       }
@@ -437,17 +422,17 @@ class ResourceService {
       // This prevents unnecessary cache invalidation and improves performance
       if (data.type === 'link') {
         linkService.clearServiceCache();
-        debugLog('🧹 Cleared link service cache after link creation');
+        logger.debug('Cleared link service cache after link creation');
       } else if (data.type === 'document') {
         documentService.clearServiceCache();
-        debugLog('🧹 Cleared document service cache after document creation');
+        logger.debug('Cleared document service cache after document creation');
       }
 
-      debugLog('✅ ResourceService.create successful:', result);
+      logger.debug('ResourceService.create successful', { data: { id: result?.id } });
       return result!;
 
     } catch (error) {
-      console.error('❌ ResourceService.create failed:', error);
+      logger.error('ResourceService.create failed', error);
       throw error;
     }
   }
@@ -456,22 +441,23 @@ class ResourceService {
    * Update a resource
    */
   async update(id: number, type: 'link' | 'document', data: UpdateResourceData): Promise<Resource> {
-    debugLog('🔥 ResourceService.update called', id, type, data);
+    logger.debug('ResourceService.update called', { data: { id, type } });
 
     try {
-      let result;
+      let result: Resource;
 
       if (type === 'link') {
-        result = await linkService.update(id, {
+        const linkResult = await linkService.update(id, {
           title: data.title,
           description: data.description,
-          ...this.buildLinkPayload(data),
+          ...this.buildLinkPayload(data as CreateResourceData),
         });
 
-        result = this.transformLinkResult(result);
+        result = this.transformLinkResult(linkResult);
       } else {
         // For documents, use dedicated update method with metadata + optional file
-        result = await documentService.updateDocument(id, {
+        const updateData = data as UpdateResourceData & { file?: File };
+        const docResult = await documentService.updateDocument(id, {
           title: data.title,
           description: data.description,
           category: data.category,
@@ -482,16 +468,16 @@ class ResourceService {
           is_downloadable: data.is_downloadable,
           is_viewable_online: data.is_viewable_online,
           expires_at: data.expires_at,
-          file: (data as any).file,
+          file: updateData.file,
         });
-        result = this.transformDocumentResult(result);
+        result = this.transformDocumentResult(docResult);
       }
 
-      debugLog('✅ ResourceService.update successful:', result);
+      logger.debug('ResourceService.update successful', { data: { id } });
       return result;
 
     } catch (error) {
-      console.error('❌ ResourceService.update failed:', error);
+      logger.error('ResourceService.update failed', error);
       throw error;
     }
   }
@@ -501,7 +487,7 @@ class ResourceService {
    */
   async restoreLink(id: number): Promise<Resource> {
     const response = await apiClient.patch(`/links/${id}/restore`);
-    return this.transformLinkResult(response.data.data);
+    return this.transformLinkResult((response as { data: { data: LinkShare } }).data.data);
   }
 
   /**
@@ -515,7 +501,7 @@ class ResourceService {
    * Delete a resource
    */
   async delete(id: number, type: 'link' | 'document'): Promise<void> {
-    debugLog('🔥 ResourceService.delete called', id, type);
+    logger.debug('ResourceService.delete called', { data: { id, type } });
 
     try {
       if (type === 'link') {
@@ -524,9 +510,9 @@ class ResourceService {
         await documentService.delete(id);
       }
 
-      debugLog('✅ ResourceService.delete successful');
+      logger.debug('ResourceService.delete successful', { data: { id } });
     } catch (error) {
-      console.error('❌ ResourceService.delete failed:', error);
+      logger.error('ResourceService.delete failed', error);
       throw error;
     }
   }
@@ -535,24 +521,24 @@ class ResourceService {
    * Get resource by ID
    */
   async getById(id: number, type: 'link' | 'document'): Promise<Resource> {
-    debugLog('🔍 ResourceService.getById called', id, type);
+    logger.debug('ResourceService.getById called', { data: { id, type } });
 
     try {
-      let result;
+      let result: Resource;
 
       if (type === 'link') {
-        result = await linkService.getById(id);
-        result = this.transformLinkResult(result);
+        const link = await linkService.getById(id);
+        result = this.transformLinkResult(link);
       } else {
-        result = await documentService.getById(id);
-        result = this.transformDocumentResult(result);
+        const doc = await documentService.getById(id);
+        result = this.transformDocumentResult(doc);
       }
 
-      debugLog('✅ ResourceService.getById successful:', result);
+      logger.debug('ResourceService.getById successful', { data: { id } });
       return result;
 
     } catch (error) {
-      console.error('❌ ResourceService.getById failed:', error);
+      logger.error('ResourceService.getById failed', error);
       throw error;
     }
   }
@@ -561,7 +547,7 @@ class ResourceService {
    * Get unified resource statistics
    */
   async getStats(options: { includeLinks?: boolean; includeDocuments?: boolean } = {}): Promise<ResourceStats> {
-    debugLog('📈 ResourceService.getStats called', options);
+    logger.debug('ResourceService.getStats called', { data: options });
 
     const includeLinks = options.includeLinks ?? true;
     const includeDocuments = options.includeDocuments ?? true;
@@ -569,14 +555,14 @@ class ResourceService {
     try {
       const linkStatsPromise = includeLinks
         ? linkService.getLinkStats().catch((error) => {
-            console.warn('⚠️ Link stats unavailable:', error);
+            logger.warn('Link stats unavailable', { data: { error } });
             return null;
           })
         : Promise.resolve(null);
 
       const documentStatsPromise = includeDocuments
         ? documentService.getStats().catch((error) => {
-            console.warn('⚠️ Document stats unavailable:', error);
+            logger.warn('Document stats unavailable', { data: { error } });
             return null;
           })
         : Promise.resolve(null);
@@ -607,13 +593,13 @@ class ResourceService {
         },
       };
 
-      debugLog('✅ ResourceService.getStats successful:', stats);
+      logger.debug('ResourceService.getStats successful');
       return stats;
 
     } catch (error) {
-      console.error('❌ ResourceService.getStats failed:', error);
+      logger.error('ResourceService.getStats failed', error);
       if (this.isForbiddenResourceError(error)) {
-        debugWarn('⚠️ Returning empty stats due to permission limits');
+        logger.warn('Returning empty stats due to permission limits');
         return this.getEmptyStats();
       }
       throw error;
@@ -624,31 +610,28 @@ class ResourceService {
    * Get assigned resources for school admins and teachers
    */
   async getAssignedResources(filters: ResourceFilters = {}): Promise<AssignedResource[]> {
-    debugLog('📋 ResourceService.getAssignedResources called', filters);
+    logger.debug('ResourceService.getAssignedResources called', { data: { filters } });
 
     try {
       // This would be a new API endpoint that returns resources assigned to current user's institution
       const response = await apiClient.get('/my-resources/assigned', filters);
-      const rawPayload = (response as any)?.data ?? response;
+      const rawPayload = (response as { data?: unknown })?.data ?? response;
 
       let assignedResources: AssignedResource[] = [];
-      if (rawPayload && typeof rawPayload === 'object' && Array.isArray((rawPayload as any).data)) {
-        assignedResources = (rawPayload as any).data as AssignedResource[];
+      if (rawPayload && typeof rawPayload === 'object' && Array.isArray((rawPayload as { data?: unknown[] }).data)) {
+        assignedResources = (rawPayload as { data: AssignedResource[] }).data;
       } else if (Array.isArray(rawPayload)) {
         assignedResources = rawPayload as AssignedResource[];
       }
 
-      debugLog('✅ ResourceService.getAssignedResources successful:', assignedResources);
+      logger.debug('ResourceService.getAssignedResources successful', { data: { count: assignedResources.length } });
       return assignedResources;
 
-    } catch (error) {
-      console.error('❌ ResourceService.getAssignedResources failed:', error, {
-        filters,
-        errorMessage: (error as any)?.message,
-      });
+    } catch (error: unknown) {
+      logger.error('ResourceService.getAssignedResources failed', error, { data: { filters } });
 
       if (!this.isForbiddenResourceError(error)) {
-        debugWarn('⚠️ ResourceService.getAssignedResources: non-permission error, retrying getAll without fallback');
+        logger.warn('ResourceService.getAssignedResources: non-permission error, retrying getAll without fallback');
         const allResources = await this.getAll(filters, { allowForbiddenFallback: false });
         return allResources.data;
       }
@@ -666,7 +649,7 @@ class ResourceService {
       await apiClient.post(`/my-resources/${type}/${id}/view`, {});
     } catch (error) {
       // Non-blocking — view tracking failure should never break the user experience
-      console.warn('⚠️ ResourceService.markAsViewed failed (non-critical):', error);
+      logger.warn('ResourceService.markAsViewed failed (non-critical)');
     }
   }
 
@@ -687,9 +670,10 @@ class ResourceService {
     };
   }
 
-  private isForbiddenResourceError(error: any): boolean {
+  private isForbiddenResourceError(error: unknown): boolean {
     if (!error) return false;
-    const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+    const err = error as { message?: unknown };
+    const message = typeof err.message === 'string' ? err.message.toLowerCase() : '';
     return message.includes('links.read') || message.includes('forbidden');
   }
 
@@ -723,11 +707,11 @@ class ResourceService {
    * Send notifications when resources are assigned
    */
   async sendResourceNotifications(data: ResourceNotificationData): Promise<void> {
-    debugLog('🔔 ResourceService.sendResourceNotifications called', data);
+    logger.debug('ResourceService.sendResourceNotifications called', { data: { resource_id: data.resource_id } });
 
     try {
       // This would integrate with the existing notification system
-      const response = await apiClient.post('/notifications/resource-assignment', {
+      await apiClient.post('/notifications/resource-assignment', {
         title: `Yeni ${data.resource_type === 'link' ? 'Link' : 'Sənəd'} Təyinatı`,
         message: `Sizə yeni resurs təyin edildi: ${data.resource_title}`,
         type: data.notification_type,
@@ -737,9 +721,9 @@ class ResourceService {
         related_id: data.resource_id,
       });
 
-      debugLog('✅ ResourceService.sendResourceNotifications successful');
+      logger.debug('ResourceService.sendResourceNotifications successful');
     } catch (error) {
-      console.error('❌ ResourceService.sendResourceNotifications failed:', error);
+      logger.error('ResourceService.sendResourceNotifications failed', error);
       // Don't throw error here - notification failure shouldn't break resource creation
     }
   }
@@ -760,19 +744,19 @@ class ResourceService {
       // IMPORTANT: Caller must revoke the URL after use with URL.revokeObjectURL()
       try {
         const blob = await documentService.downloadDocument(id);
-        debugLog('📥 Downloaded blob:', blob, 'Type:', typeof blob, 'Size:', blob?.size);
+        logger.debug('Downloaded blob', { data: { size: blob?.size } });
 
         // Ensure we have a valid blob
         if (blob instanceof Blob) {
           const url = URL.createObjectURL(blob);
-          debugLog('🔗 Created object URL:', url, '(must be revoked by caller)');
+          logger.debug('Created object URL (must be revoked by caller)');
           return { url };
         } else {
-          console.error('❌ Invalid blob received:', blob);
+          logger.error('Invalid blob received', blob);
           throw new Error('Invalid file format received');
         }
       } catch (error) {
-        console.error('❌ Document download failed:', error);
+        logger.error('Document download failed', error);
         throw error;
       }
     }
@@ -787,20 +771,20 @@ class ResourceService {
     per_page?: number;
     origin_scope?: 'region' | 'sector';
   }): Promise<AssignableUser[]> {
-    debugLog('👥 ResourceService.getTargetUsers called', params);
+    logger.debug('ResourceService.getTargetUsers called', { data: params });
 
     const response = await apiClient.get('/resources/target-users', {
       ...params,
       per_page: Math.min(params?.per_page ?? 200, 200),
     });
-    const payload: any = response?.data ?? response ?? [];
+    const payload = ((response as { data?: unknown })?.data ?? response ?? []) as unknown;
 
     if (Array.isArray(payload)) {
       return payload as AssignableUser[];
     }
 
-    if (Array.isArray(payload?.data)) {
-      return payload.data as AssignableUser[];
+    if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown[] }).data)) {
+      return (payload as { data: AssignableUser[] }).data;
     }
 
     return [];
@@ -843,23 +827,23 @@ class ResourceService {
    * Get sub-institution documents grouped by institution
    */
   async getSubInstitutionDocuments(): Promise<InstitutionalResource[]> {
-    debugLog('📋 ResourceService.getSubInstitutionDocuments called');
+    logger.debug('ResourceService.getSubInstitutionDocuments called');
 
     try {
       const response = await apiClient.get('/documents/sub-institutions');
-      const payload = (response as any)?.data ?? response;
+      const payload = ((response as { data?: unknown })?.data ?? response) as unknown;
 
       if (Array.isArray(payload)) {
         return payload as InstitutionalResource[];
       }
 
-      if (payload && typeof payload === 'object' && Array.isArray((payload as any).data)) {
-        return (payload as any).data as InstitutionalResource[];
+      if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown[] }).data)) {
+        return (payload as { data: InstitutionalResource[] }).data;
       }
 
       return [];
     } catch (error) {
-      console.error('❌ Failed to fetch sub-institution documents:', error);
+      logger.error('Failed to fetch sub-institution documents', error);
       throw error;
     }
   }
@@ -867,24 +851,24 @@ class ResourceService {
   /**
    * Get superior institutions for document targeting
    */
-  async getSuperiorInstitutions(): Promise<any[]> {
-    debugLog('🔝 ResourceService.getSuperiorInstitutions called');
+  async getSuperiorInstitutions(): Promise<unknown[]> {
+    logger.debug('ResourceService.getSuperiorInstitutions called');
 
     try {
       const response = await apiClient.get('/documents/superior-institutions');
-      const payload = (response as any)?.data ?? response;
+      const payload = ((response as { data?: unknown })?.data ?? response) as unknown;
 
       if (Array.isArray(payload)) {
         return payload;
       }
 
-      if (payload && typeof payload === 'object' && Array.isArray((payload as any).data)) {
-        return (payload as any).data;
+      if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown[] }).data)) {
+        return (payload as { data: unknown[] }).data;
       }
 
       return [];
     } catch (error) {
-      console.error('❌ Failed to fetch superior institutions:', error);
+      logger.error('Failed to fetch superior institutions', error);
       throw error;
     }
   }
