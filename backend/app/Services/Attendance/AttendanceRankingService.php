@@ -144,7 +144,8 @@ class AttendanceRankingService
             ->get()
             ->groupBy('institution_id');
 
-        $submissions = ClassBulkAttendance::selectRaw(
+        $submissions = ClassBulkAttendance::withoutGlobalScopes()
+            ->selectRaw(
             'institution_id, attendance_date, grade_id, morning_recorded_at, evening_recorded_at'
         )
             ->whereIn('institution_id', $schoolIds)
@@ -202,7 +203,7 @@ class AttendanceRankingService
                         $shift = $grade->teaching_shift ?? '1';
                         $isAfternoon = str_contains($shift, '2');
                         $limitTime = $isAfternoon ? $eveningDeadlineTime : $morningDeadlineTime;
-                        $deadlineDT = CarbonImmutable::parse($day)->setTimezone('Asia/Baku')->setTimeFromTimeString($limitTime);
+                        $deadlineDT = CarbonImmutable::parse($day, 'Asia/Baku')->setTimeFromTimeString($limitTime);
 
                         $recordedAt = null;
                         if ($gradeSub) {
@@ -212,7 +213,7 @@ class AttendanceRankingService
                         }
 
                         if ($recordedAt) {
-                            $recordedAtCI = CarbonImmutable::parse($recordedAt);
+                            $recordedAtCI = CarbonImmutable::parse($recordedAt, 'UTC')->setTimezone('Asia/Baku');
                             if ($absFirstSubmission === null || $recordedAtCI->lt($absFirstSubmission)) $absFirstSubmission = $recordedAtCI;
                             if ($absLastSubmission === null || $recordedAtCI->gt($absLastSubmission)) $absLastSubmission = $recordedAtCI;
 

@@ -16,7 +16,7 @@ class SchoolAttendanceRankingsService
 {
     private const MORNING_DEADLINE_TIME = [10, 0, 0];
 
-    private const EVENING_DEADLINE_TIME = [14, 30, 0];
+    private const EVENING_DEADLINE_TIME = [15, 0, 0];
 
     private const SCHOOL_TYPES = [
         'secondary_school',
@@ -40,7 +40,8 @@ class SchoolAttendanceRankingsService
             ->where('is_active', true)
             ->get();
 
-        $submissions = ClassBulkAttendance::selectRaw(
+        $submissions = ClassBulkAttendance::withoutGlobalScopes()
+            ->selectRaw(
             'institution_id,
              MIN(morning_recorded_at) as first_morning_submission,
              MAX(morning_recorded_at) as last_morning_submission,
@@ -53,8 +54,8 @@ class SchoolAttendanceRankingsService
             ->get()
             ->keyBy('institution_id');
 
-        $morningDeadline = Carbon::parse($date)->setTime(...self::MORNING_DEADLINE_TIME);
-        $eveningDeadline = Carbon::parse($date)->setTime(...self::EVENING_DEADLINE_TIME);
+        $morningDeadline = Carbon::parse($date, 'Asia/Baku')->setTime(...self::MORNING_DEADLINE_TIME);
+        $eveningDeadline = Carbon::parse($date, 'Asia/Baku')->setTime(...self::EVENING_DEADLINE_TIME);
 
         $rankings = [];
 
@@ -96,11 +97,11 @@ class SchoolAttendanceRankingsService
         Carbon $eveningDeadline
     ): array {
         $morningSubmittedAt = $submission?->first_morning_submission
-            ? Carbon::parse($submission->first_morning_submission)
+            ? Carbon::parse($submission->first_morning_submission, 'UTC')->setTimezone('Asia/Baku')
             : null;
 
         $eveningSubmittedAt = $submission?->first_evening_submission
-            ? Carbon::parse($submission->first_evening_submission)
+            ? Carbon::parse($submission->first_evening_submission, 'UTC')->setTimezone('Asia/Baku')
             : null;
 
         [$primarySubmittedAt, $primaryShiftType, $primaryDeadline] = $this->resolvePrimary(

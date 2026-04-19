@@ -59,28 +59,33 @@ export default function SchoolAttendanceReports({ activeTab = 'schoolGrade' }: S
     if (activeTab === 'rankings') {
       loadRatingData();
     }
-  }, [activeTab]);
+  }, [activeTab, startDate]);
 
   const loadRatingData = async () => {
     try {
       setRatingLoading(true);
+      const targetDate = startDate || new Date();
       const response = await ratingService.getMyStats({
-        period: format(new Date(), 'yyyy-MM'),
+        period: format(targetDate, 'yyyy-MM'),
       });
 
-      if (response?.rating) {
-        const item: RatingItem = {
-          ...response.rating,
-          sector_rank: response.sector_rank,
-          sector_total: response.sector_total,
-          region_rank: response.region_rank,
-          region_total: response.region_total,
-          monthly_trend: response.monthly_trend,
-          institution: response.institution,
-          user: currentUser || undefined,
-        };
-        setRatingData([item]);
-      }
+      // Integrate with live ranking data if official rating is not yet available
+      const item: any = {
+        ...(response?.rating || {}),
+        sector_rank: response?.sector_rank || mySchoolRank?.rank,
+        sector_total: response?.sector_total || mySchoolRank?.total_schools,
+        region_rank: response?.region_rank,
+        region_total: response?.region_total,
+        monthly_trend: response?.monthly_trend || [],
+        institution: response?.institution || currentUser?.institution,
+        user: currentUser || undefined,
+        overall_score: response?.rating?.overall_score || (mySchoolRank?.data?.score_percent ? Number(mySchoolRank.data.score_percent) : 0),
+        score_details: response?.rating?.score_details || {
+          total_late: mySchoolRank?.data?.status === 'late' ? 1 : 0
+        }
+      };
+      
+      setRatingData([item]);
     } catch (error) {
       console.error('Error loading rating data:', error);
     } finally {
@@ -158,8 +163,9 @@ export default function SchoolAttendanceReports({ activeTab = 'schoolGrade' }: S
           {/* Stats Cards for School Admin */}
           {ratingData.length > 0 && (
             <RatingStatsCards 
-              data={ratingData[0]} 
-              loading={ratingLoading} 
+              data={ratingData} 
+              loading={ratingLoading || rankingsLoading} 
+              variant="schooladmin"
             />
           )}
 

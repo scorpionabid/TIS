@@ -349,7 +349,8 @@ class RatingCalculationService
                 }
 
                 if ($recordedAt) {
-                    $recordTime = Carbon::parse($recordedAt)->format('H:i:s');
+                    $recordedAtCI = Carbon::parse($recordedAt, 'UTC')->setTimezone('Asia/Baku');
+                    $recordTime = $recordedAtCI->format('H:i:s');
 
                     if ($recordTime <= $limitTime) {
                         $dayOnTime++;
