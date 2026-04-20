@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { TaskStats } from '../TaskStatsWidget';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Clock, Users, BarChart2, LayoutDashboard } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Users, BarChart2, LayoutDashboard, Download } from 'lucide-react';
+import { exportEmployeePerformanceToExcel } from '@/utils/taskStatisticsExport';
+import { Button } from '@/components/ui/button';
 import { Task } from '@/services/tasks';
 
 interface StatUser {
@@ -336,11 +338,26 @@ export function TaskStatisticsTab({
 
         {/* Employee Performance Table */}
         <Card className="border-slate-200 shadow-sm overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b pb-3">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Users className="h-4 w-4 text-indigo-500" />
-              Əməkdaşların icra vəziyyəti
-            </CardTitle>
+          <CardHeader className="bg-slate-50/50 border-b pb-3 py-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Users className="h-4 w-4 text-indigo-500" />
+                Əməkdaşların icra vəziyyəti
+              </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-8 text-[10px] uppercase font-bold gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                onClick={() => exportEmployeePerformanceToExcel(employeeStats, {
+                  currentUser: currentUser as any,
+                  startDate,
+                  endDate
+                })}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Ekspor (Excel)
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[300px] overflow-y-auto overflow-x-auto">
