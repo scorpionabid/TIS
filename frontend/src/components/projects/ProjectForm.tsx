@@ -123,13 +123,6 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
     await onSubmit(formattedValues);
   };
 
-  const statusColors = {
-    active: 'bg-emerald-500 text-white',
-    completed: 'bg-blue-500 text-white',
-    on_hold: 'bg-amber-500 text-white',
-    cancelled: 'bg-red-500 text-white',
-  };
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full bg-background">
@@ -237,8 +230,8 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
             {/* Section 2: Timeline */}
             <section className="space-y-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-orange-500/10 rounded-lg">
-                  <Clock className="w-5 h-5 text-orange-600" />
+                <div className="p-2 bg-warning/10 rounded-lg">
+                  <Clock className="w-5 h-5 text-warning" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold tracking-tight">Zaman Planlaması</h3>
@@ -338,8 +331,8 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
             {/* Section 3: Team */}
             <section className="space-y-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <Users className="w-5 h-5 text-blue-600" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Users className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold tracking-tight">Komanda və Məsullar</h3>
@@ -376,7 +369,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
           <Button type="button" variant="ghost" className="h-11 px-8 rounded-xl font-bold text-muted-foreground" onClick={onCancel}>
             Ləğv et
           </Button>
-          <Button type="submit" disabled={isLoading} className="h-11 px-10 rounded-xl font-bold gap-2 shadow-lg shadow-primary/20 transition-all active:scale-95">
+          <Button type="submit" disabled={isLoading} className="h-11 px-10 rounded-xl font-bold gap-2 transition-colors">
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {initialData ? 'Dəyişiklikləri Saxla' : 'Layihəni Təsdiqlə'}
           </Button>
