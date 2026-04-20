@@ -22,7 +22,8 @@ import {
   Clock,
   AlertCircle,
   Edit,
-  Archive
+  Archive,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { az } from "date-fns/locale";
@@ -34,7 +35,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
+import { PROJECT_STATUS_CONFIG, formatProjectDate, type ProjectStatus } from '@/utils/projectStatus';
 
 interface ProjectTableProps {
   projects: Project[];
@@ -42,19 +44,12 @@ interface ProjectTableProps {
   onEditClick: (project: Project) => void;
   onArchiveClick: (project: Project) => void;
   onUnarchiveClick: (project: Project) => void;
+  onDeleteClick: (project: Project) => void;
   isAdmin: boolean;
   currentUserId?: number;
 }
 
-export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectClick, onEditClick, onArchiveClick, onUnarchiveClick, isAdmin, currentUserId }) => {
-  const statusConfig = {
-    active: { label: 'Aktiv', color: 'text-emerald-600', bg: 'bg-emerald-500/10', icon: Activity },
-    completed: { label: 'Tamamlanıb', color: 'text-blue-600', bg: 'bg-blue-500/10', icon: CheckCircle2 },
-    on_hold: { label: 'Gözləmədə', color: 'text-amber-600', bg: 'bg-amber-500/10', icon: Clock },
-    cancelled: { label: 'Ləğv edilib', color: 'text-slate-600', bg: 'bg-slate-500/10', icon: AlertCircle },
-    archived: { label: 'Arxivdə', color: 'text-purple-600', bg: 'bg-purple-500/10', icon: Archive },
-  };
-
+export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectClick, onEditClick, onArchiveClick, onUnarchiveClick, onDeleteClick, isAdmin, currentUserId }) => {
   return (
     <div className="rounded-lg border border-border bg-background overflow-hidden">
       <Table>
@@ -71,7 +66,7 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectC
         </TableHeader>
         <TableBody>
           {projects.map((project) => {
-            const config = statusConfig[project.status] || statusConfig.active;
+            const config = PROJECT_STATUS_CONFIG[project.status as ProjectStatus] || PROJECT_STATUS_CONFIG.active;
             const activities = project.activities ?? [];
             const progressValue = activities.length > 0
               ? Math.round((activities.filter(a => a.status === 'completed').length / activities.length) * 100)
@@ -90,7 +85,7 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectC
                   </div>
                 </TableCell>
                 <TableCell className="text-center py-4">
-                  <Badge variant="outline" className={cn(config.bg, config.color, "px-2 py-0.5 text-[10px] font-semibold uppercase rounded-md border-none inline-flex items-center gap-1")}>
+                  <Badge variant="outline" className={cn(config.bg, config.color, 'px-2 py-0.5 text-xs font-medium rounded-md border-none inline-flex items-center gap-1')}>
                     <config.icon className="w-2.5 h-2.5" />
                     {config.label}
                   </Badge>
@@ -99,23 +94,13 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectC
                   <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3 h-3 text-primary/70" />
-                      <span>{(() => {
-                        const cleanStartStr = project.start_date?.includes('.') ? project.start_date.split('.')[0] : project.start_date;
-                        const cleanEndStr = project.end_date?.includes('.') ? project.end_date.split('.')[0] : project.end_date;
-                        const start = cleanStartStr ? new Date(cleanStartStr) : null;
-                        const end = cleanEndStr ? new Date(cleanEndStr) : null;
-                        
-                        const startFormatted = start && !isNaN(start.getTime()) ? format(start, 'dd.MM.yyyy', { locale: az }) : '...';
-                        const endFormatted = end && !isNaN(end.getTime()) ? format(end, 'dd.MM.yyyy', { locale: az }) : '...';
-                        
-                        return `${startFormatted} - ${endFormatted}`;
-                      })()}</span>
+                      <span>{formatProjectDate(project.start_date)} — {formatProjectDate(project.end_date)}</span>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-4 hidden sm:table-cell">
                   <div className="flex items-center gap-2">
-                    <Target className="w-3 h-3 text-amber-500" />
+                    <Target className="w-3 h-3 text-warning" />
                     <span className="text-xs text-foreground">{project.total_goal || '-'}</span>
                   </div>
                 </TableCell>
@@ -174,7 +159,7 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectC
                         )}
                         {(isAdmin || project.created_by === currentUserId) && project.status !== 'archived' && (
                           <DropdownMenuItem
-                            className="gap-2 cursor-pointer text-sm text-purple-600 focus:text-purple-600"
+                            className="gap-2 cursor-pointer text-sm text-muted-foreground"
                             onClick={() => onArchiveClick(project)}
                           >
                             <Archive className="w-3.5 h-3.5" /> Arxivləşdir
@@ -182,10 +167,18 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectC
                         )}
                         {(isAdmin || project.created_by === currentUserId) && project.status === 'archived' && (
                           <DropdownMenuItem
-                            className="gap-2 cursor-pointer text-sm text-emerald-600 focus:text-emerald-600"
+                            className="gap-2 cursor-pointer text-sm text-success focus:text-success"
                             onClick={() => onUnarchiveClick(project)}
                           >
                             <Archive className="w-3.5 h-3.5" /> Arxivdən çıxar
+                          </DropdownMenuItem>
+                        )}
+                        {(isAdmin || project.created_by === currentUserId) && (
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer text-sm text-destructive focus:text-destructive"
+                            onClick={() => onDeleteClick(project)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Sil
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>

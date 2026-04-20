@@ -10,7 +10,8 @@ import {
   BarChart3,
   Clock,
   Edit,
-  Archive
+  Archive,
+  Trash2
 } from 'lucide-react';
 import { Project } from '@/services/projects';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -28,7 +29,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
+import { PROJECT_STATUS_CONFIG, formatProjectDate, type ProjectStatus } from '@/utils/projectStatus';
 
 interface ProjectListProps {
   projects: Project[];
@@ -36,26 +38,27 @@ interface ProjectListProps {
   onEditClick: (project: Project) => void;
   onArchiveClick: (project: Project) => void;
   onUnarchiveClick: (project: Project) => void;
+  onDeleteClick: (project: Project) => void;
   onCreateClick?: () => void;
   isAdmin: boolean;
   currentUserId?: number;
 }
 
-export const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectClick, onEditClick, onArchiveClick, onUnarchiveClick, onCreateClick, isAdmin, currentUserId }) => {
+export const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectClick, onEditClick, onArchiveClick, onUnarchiveClick, onDeleteClick, onCreateClick, isAdmin, currentUserId }) => {
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-20 text-center border-2 border-dashed rounded-3xl bg-muted/20 border-muted-foreground/10 animate-in fade-in duration-700">
         <div className="w-24 h-24 mb-6 rounded-full bg-primary/10 flex items-center justify-center shadow-inner">
           <Target className="w-12 h-12 text-primary animate-pulse" />
         </div>
-        <h3 className="text-2xl font-black mb-3 tracking-tight">Hələ ki layihə yoxdur</h3>
-        <p className="text-muted-foreground max-w-sm mb-8 text-sm font-medium italic leading-relaxed">
+        <h3 className="text-2xl font-bold mb-3">Hələ ki layihə yoxdur</h3>
+        <p className="text-muted-foreground max-w-sm mb-8 text-sm leading-relaxed">
           {isAdmin 
             ? "Yeni bir strateji hədəf yaradaraq komandanı birləşdirin və fəaliyyət planını başlayın." 
             : "Sizə təyin edilmiş hər hansı bir aktiv layihə tapılmadı."}
         </p>
         {isAdmin && onCreateClick && (
-          <Button onClick={onCreateClick} className="gap-3 rounded-xl px-8 h-12 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+          <Button onClick={onCreateClick} className="gap-3 rounded-xl px-8 h-12 font-bold transition-colors">
             <Plus className="w-5 h-5" /> Yeni Layihə Strategiyası
           </Button>
         )}
@@ -78,6 +81,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectCli
             onEditClick={() => onEditClick(project)}
             onArchiveClick={() => onArchiveClick(project)}
             onUnarchiveClick={() => onUnarchiveClick(project)}
+            onDeleteClick={() => onDeleteClick(project)}
             isAdmin={isAdmin}
             currentUserId={currentUserId}
           />
@@ -93,18 +97,11 @@ const ProjectCard: React.FC<{
   onEditClick: () => void;
   onArchiveClick: () => void;
   onUnarchiveClick: () => void;
+  onDeleteClick: () => void;
   isAdmin: boolean;
   currentUserId?: number;
-}> = ({ project, onClick, onEditClick, onArchiveClick, onUnarchiveClick, isAdmin, currentUserId }) => {
-  const statusConfig = {
-    active: { label: 'Aktiv', color: 'text-emerald-600', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: Activity },
-    completed: { label: 'Tamamlanıb', color: 'text-blue-600', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: CheckCircle2 },
-    on_hold: { label: 'Gözləmədə', color: 'text-amber-600', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: Clock },
-    cancelled: { label: 'Ləğv edilib', color: 'text-slate-600', bg: 'bg-slate-500/10', border: 'border-slate-500/20', icon: Target },
-    archived: { label: 'Arxivdə', color: 'text-purple-600', bg: 'bg-purple-500/10', border: 'border-purple-500/20', icon: Archive },
-  };
-
-  const config = statusConfig[project.status] || statusConfig.active;
+}> = ({ project, onClick, onEditClick, onArchiveClick, onUnarchiveClick, onDeleteClick, isAdmin, currentUserId }) => {
+  const config = PROJECT_STATUS_CONFIG[project.status as ProjectStatus] || PROJECT_STATUS_CONFIG.active;
   const activities = project.activities ?? [];
   const progressValue = activities.length > 0
     ? Math.round((activities.filter(a => a.status === 'completed').length / activities.length) * 100)
@@ -117,7 +114,7 @@ const ProjectCard: React.FC<{
     >
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center mb-4">
-          <Badge variant="outline" className={cn(config.bg, config.color, config.border, "px-3 py-1 text-[10px] font-semibold uppercase rounded-lg flex items-center gap-1.5")}>
+          <Badge variant="outline" className={cn(config.bg, config.color, config.border, 'px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5')}>
             <config.icon className="w-3 h-3" />
             {config.label}
           </Badge>
@@ -141,7 +138,7 @@ const ProjectCard: React.FC<{
                 )}
                 {(isAdmin || project.created_by === currentUserId) && project.status !== 'archived' && (
                   <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-sm text-purple-600 focus:text-purple-600"
+                    className="gap-2 cursor-pointer text-sm text-muted-foreground"
                     onClick={onArchiveClick}
                   >
                     <Archive className="w-3.5 h-3.5" /> Arxivləşdir
@@ -149,10 +146,18 @@ const ProjectCard: React.FC<{
                 )}
                 {(isAdmin || project.created_by === currentUserId) && project.status === 'archived' && (
                   <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-sm text-emerald-600 focus:text-emerald-600"
+                    className="gap-2 cursor-pointer text-sm text-success focus:text-success"
                     onClick={onUnarchiveClick}
                   >
                     <Archive className="w-3.5 h-3.5" /> Arxivdən çıxar
+                  </DropdownMenuItem>
+                )}
+                {(isAdmin || project.created_by === currentUserId) && (
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer text-sm text-destructive focus:text-destructive"
+                    onClick={onDeleteClick}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Sil
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -170,17 +175,7 @@ const ProjectCard: React.FC<{
       <CardContent className="space-y-4 pb-4">
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-md border border-border/60">
-            <span>{(() => {
-              const cleanStartStr = project.start_date?.includes('.') ? project.start_date.split('.')[0] : project.start_date;
-              const cleanEndStr = project.end_date?.includes('.') ? project.end_date.split('.')[0] : project.end_date;
-              const start = cleanStartStr ? new Date(cleanStartStr) : null;
-              const end = cleanEndStr ? new Date(cleanEndStr) : null;
-              
-              const startFormatted = start && !isNaN(start.getTime()) ? format(start, 'dd.MM.yyyy', { locale: az }) : '...';
-              const endFormatted = end && !isNaN(end.getTime()) ? format(end, 'dd.MM.yyyy', { locale: az }) : '...';
-              
-              return `${startFormatted} - ${endFormatted}`;
-            })()}</span>
+            <span>{formatProjectDate(project.start_date)} — {formatProjectDate(project.end_date)}</span>
           </div>
         </div>
 
