@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -45,40 +46,45 @@ interface ProjectOverallStatsProps {
 
 export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
   // Aggregate Stats
-  const activeProjects = projects.filter(p => p.status === 'active');
-  const completedProjects = projects.filter(p => p.status === 'completed');
-  
-  // Calculate aggregate goal progress across all projects
-  const totalPossibleContribution = projects.reduce((acc, p) => {
-    return acc + (p.activities?.reduce((sum, a) => sum + (a.goal_contribution_percentage || 0), 0) || 0);
-  }, 0);
+  const { activeProjects, completedProjects, totalKPI, goalProgressPercentage, statusData, timelineData } = useMemo(() => {
+    const active = projects.filter(p => p.status === 'active');
+    const completed = projects.filter(p => p.status === 'completed');
+    
+    const totalPossible = projects.reduce((acc, p) => {
+      return acc + (p.activities?.reduce((sum, a) => sum + (a.goal_contribution_percentage || 0), 0) || 0);
+    }, 0);
 
-  const totalActualContribution = projects.reduce((acc, p) => {
-    return acc + (p.activities?.filter(a => a.status === 'completed')
-      .reduce((sum, a) => sum + (a.goal_contribution_percentage || 0), 0) || 0);
-  }, 0);
+    const totalActual = projects.reduce((acc, p) => {
+      return acc + (p.activities?.filter(a => a.status === 'completed')
+        .reduce((sum, a) => sum + (a.goal_contribution_percentage || 0), 0) || 0);
+    }, 0);
 
-  const goalProgressPercentage = totalPossibleContribution > 0 
-    ? Math.round((totalActualContribution / totalPossibleContribution) * 100) 
-    : 0;
+    const progress = totalPossible > 0 ? Math.round((totalActual / totalPossible) * 100) : 0;
+    const kpi = projects.reduce((acc, p) => acc + (parseFloat(p.total_goal?.replace(/[^0-9.]/g, '') || '0') || 0), 0);
+    
+    const status = [
+      { name: "Aktiv", value: active.length, color: "#10b981" },
+      { name: "Tamamlanıb", value: completed.length, color: "#3b82f6" },
+      { name: "Gözləmədə", value: projects.filter(p => p.status === 'on_hold').length, color: "#f59e0b" },
+      { name: "Ləğv edilib", value: projects.filter(p => p.status === 'cancelled').length, color: "#ef4444" },
+    ].filter(d => d.value > 0);
 
-  const totalKPI = projects.reduce((acc, p) => acc + (parseFloat(p.total_goal?.replace(/[^0-9.]/g, '') || '0') || 0), 0);
-  
-  // Status breakdown for Pie chart
-  const statusData = [
-    { name: "Aktiv", value: projects.filter(p => p.status === 'active').length, color: "#10b981" },
-    { name: "Tamamlanıb", value: projects.filter(p => p.status === 'completed').length, color: "#3b82f6" },
-    { name: "Gözləmədə", value: projects.filter(p => p.status === 'on_hold').length, color: "#f59e0b" },
-    { name: "Ləğv edilib", value: projects.filter(p => p.status === 'cancelled').length, color: "#ef4444" },
-  ].filter(d => d.value > 0);
+    const timeline = [
+      { month: 'Yan', count: 2 },
+      { month: 'Fev', count: 5 },
+      { month: 'Mar', count: 8 },
+      { month: 'Apr', count: active.length + completed.length },
+    ];
 
-  // Growth / Timeline data (Mocking for visual effect or calculating if dates exist)
-  const timelineData = [
-    { month: 'Yan', count: 2 },
-    { month: 'Fev', count: 5 },
-    { month: 'Mar', count: 8 },
-    { month: 'Apr', count: activeProjects.length + completedProjects.length },
-  ];
+    return {
+      activeProjects: active,
+      completedProjects: completed,
+      totalKPI: kpi,
+      goalProgressPercentage: progress,
+      statusData: status,
+      timelineData: timeline
+    };
+  }, [projects]);
 
   const { data: workloadData, isLoading: isWorkloadLoading } = useQuery({
     queryKey: ['projectWorkloadStats'],
@@ -86,54 +92,30 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
   });
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+    <div className="space-y-8 py-2">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <GlobalStatCard 
-          title="Ümumi Layihə" 
-          value={projects.length} 
-          description="Sistemdəki bütün layihələr"
-          icon={Layers}
-          color="text-primary"
-          bgColor="bg-primary/10"
-        />
-        <GlobalStatCard 
-          title="Aktiv İcraat" 
-          value={activeProjects.length} 
-          description="Hazırda davam edən"
-          icon={Activity}
-          color="text-emerald-600"
-          bgColor="bg-emerald-50"
-        />
-        <GlobalStatCard 
-          title="Tamamlanmış" 
-          value={completedProjects.length} 
-          description="Uğurla bitirilmiş"
-          icon={CheckCircle2}
-          color="text-blue-600"
-          bgColor="bg-blue-50"
-        />
-        <GlobalStatCard 
-          title="Ümumi KPI" 
-          value={`${totalKPI.toLocaleString()}`} 
-          description="Sistem üzrə ümumi hədəf vahidi"
-          icon={Zap}
-          color="text-amber-600"
-          bgColor="bg-amber-50"
-        />
-        <GlobalStatCard 
-          title="Hədəf İcrası" 
-          value={`${goalProgressPercentage}%`} 
-          description="Ümumi hədəfə çatılma dərəcəsi"
-          icon={TrendingUp}
-          color="text-violet-600"
-          bgColor="bg-violet-50"
-        />
+        {[
+          { title: "Ümumi Layihə", value: projects.length, description: "Sistemdəki bütün layihələr", icon: Layers, color: "text-primary", bgColor: "bg-primary/10" },
+          { title: "Aktiv İcraat", value: activeProjects.length, description: "Hazırda davam edən", icon: Activity, color: "text-success", bgColor: "bg-success/10" },
+          { title: "Tamamlanmış", value: completedProjects.length, description: "Uğurla bitirilmiş", icon: CheckCircle2, color: "text-primary", bgColor: "bg-primary/10" },
+          { title: "Ümumi KPI", value: totalKPI.toLocaleString(), description: "Sistem üzrə ümumi hədəf vahidi", icon: Zap, color: "text-warning", bgColor: "bg-warning/10" },
+          { title: "Hədəf İcrası", value: `${goalProgressPercentage}%`, description: "Ümumi hədəfə çatılma dərəcəsi", icon: TrendingUp, color: "text-accent-foreground", bgColor: "bg-accent/20" }
+        ].map((item, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.5 }}
+          >
+            <GlobalStatCard {...item} />
+          </motion.div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Project Distribution */}
-        <Card className="lg:col-span-1 shadow-xl border-primary/5 hover:border-primary/20 transition-all duration-300 overflow-hidden group">
+        <Card className="lg:col-span-1 shadow-2xl border-border/40 bg-card/40 backdrop-blur-md hover:bg-card/60 transition-all duration-500 overflow-hidden group">
            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-black flex items-center gap-2">
@@ -171,7 +153,7 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
         </Card>
 
         {/* Growth Chart */}
-        <Card className="lg:col-span-2 shadow-xl border-primary/5 hover:border-primary/20 transition-all duration-300 group overflow-hidden">
+        <Card className="lg:col-span-2 shadow-2xl border-border/40 bg-card/40 backdrop-blur-md hover:bg-card/60 transition-all duration-500 group overflow-hidden">
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full -ml-24 -mb-24 blur-3xl group-hover:bg-blue-500/10 transition-colors" />
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-black flex items-center gap-2">
@@ -203,8 +185,8 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
         </Card>
       </div>
 
-      {/* Workload Analytics */}
-      <Card className="shadow-xl border-primary/5 hover:border-primary/20 transition-all duration-300 group overflow-hidden">
+       {/* Workload Analytics */}
+      <Card className="shadow-2xl border-border/40 bg-card/40 backdrop-blur-md hover:bg-card/60 transition-all duration-500 group overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-xl font-black flex items-center gap-2">
              <Users className="w-6 h-6 text-primary" />
@@ -258,26 +240,26 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
 
       {/* Highlights / Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20 shadow-sm">
+        <Card className="bg-success/5 border-success/20 shadow-sm">
           <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-4 bg-white rounded-2xl shadow-sm text-emerald-600">
+            <div className="p-4 bg-background rounded-2xl shadow-sm text-success">
                <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-               <h4 className="font-black text-lg text-emerald-900 leading-tight">Məhsuldarlıq Artımı</h4>
-               <p className="text-sm text-emerald-800/80 italic font-medium">Bütün layihələr üzrə orta icraat faizi keçən aya nisbətən 12% artıb.</p>
+               <h4 className="font-bold text-lg leading-tight">Məhsuldarlıq Artımı</h4>
+               <p className="text-sm text-muted-foreground">Bütün layihələr üzrə orta icraat faizi keçən aya nisbətən 12% artıb.</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20 shadow-sm">
+        <Card className="bg-primary/5 border-primary/20 shadow-sm">
           <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-600">
+            <div className="p-4 bg-background rounded-2xl shadow-sm text-primary">
                <Users className="w-6 h-6" />
             </div>
             <div>
-               <h4 className="font-black text-lg text-blue-900 leading-tight">Aktiv Əməkdaşlıq</h4>
-               <p className="text-sm text-blue-800/80 italic font-medium">Hazırda {projects.reduce((acc, p) => acc + (p.employees?.length || 0), 0)} nəfər müxtəlif layihələrdə məsul şəxsdir.</p>
+               <h4 className="font-bold text-lg leading-tight">Aktiv Əməkdaşlıq</h4>
+               <p className="text-sm text-muted-foreground">Hazırda {projects.reduce((acc, p) => acc + (p.employees?.length || 0), 0)} nəfər müxtəlif layihələrdə məsul şəxsdir.</p>
             </div>
           </CardContent>
         </Card>
@@ -288,17 +270,18 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
 
 function GlobalStatCard({ title, value, description, icon: Icon, color, bgColor }: any) {
   return (
-    <Card className="border-none shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-background group">
+    <Card className="border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 bg-card/40 backdrop-blur-md hover:bg-card/60 group rounded-2xl overflow-hidden relative">
+      <div className={cn("absolute top-0 right-0 w-16 h-16 opacity-10 rounded-full -mr-8 -mt-8", bgColor)} />
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className={cn("p-3 rounded-2xl transition-transform group-hover:scale-110 duration-300", bgColor)}>
+          <div className={cn("p-3 rounded-2xl transition-transform group-hover:rotate-12 group-hover:scale-110 duration-500", bgColor)}>
             <Icon className={cn("w-6 h-6", color)} />
           </div>
         </div>
         <div className="space-y-1">
-          <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest">{title}</h4>
-          <div className="text-3xl font-black tracking-tighter tabular-nums">{value}</div>
-          <p className="text-xs text-muted-foreground font-medium italic">{description}</p>
+          <h4 className="text-xs font-semibold text-muted-foreground">{title}</h4>
+          <div className="text-3xl font-bold tabular-nums">{value}</div>
+          <p className="text-[10px] text-muted-foreground font-medium italic opacity-70 group-hover:opacity-100 transition-opacity">{description}</p>
         </div>
       </CardContent>
     </Card>
