@@ -16,23 +16,32 @@ import {
   Eye
 } from "lucide-react";
 
-export type ProjectColumn = 
-  | 'name' 
-  | 'employees' 
-  | 'status' 
-  | 'priority' 
+import type { LucideIcon } from 'lucide-react';
+
+export type ProjectColumn =
+  | 'name'
+  | 'employees'
+  | 'status'
+  | 'priority'
   | 'start_date'
   | 'end_date'
-  | 'duration' 
-  | 'budget' 
-  | 'expected_outcome' 
-  | 'kpi_metrics' 
-  | 'risks' 
-  | 'dependency' 
-  | 'location_platform' 
-  | 'monitoring_mechanism' 
-  | 'description' 
+  | 'duration'
+  | 'budget'
+  | 'expected_outcome'
+  | 'kpi_metrics'
+  | 'risks'
+  | 'dependency'
+  | 'location_platform'
+  | 'monitoring_mechanism'
+  | 'description'
   | 'notes';
+
+export interface ColumnSetting {
+  id: ProjectColumn;
+  label: string;
+  icon: LucideIcon;
+  visible: boolean;
+}
 
 const DEFAULT_COLUMNS: ColumnSetting[] = [
   { id: 'name', label: 'Fəaliyyət Adı', icon: FileText, visible: true },
