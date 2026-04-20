@@ -48,7 +48,9 @@ class SchoolAttendanceStatsService
 
         $records = $query->get();
 
-        $stats = $this->aggregateStats($records);
+        $expectedWorkingDays = $this->countWeekdays($startDate, $endDate);
+
+        $stats = $this->aggregateStats($records, $expectedWorkingDays);
         $stats = array_merge($stats, $this->buildTrend($filters, $user, $startDate, $endDate, $stats['average_attendance']));
 
         return $stats;
@@ -178,6 +180,30 @@ class SchoolAttendanceStatsService
             )
             : 0.0;
 
+        // Add weekly breakdown if period is long enough
+        $weeklyBreakdown = [];
+        $start = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
+
+        if ($start->diffInDays($end) >= 6) {
+            $recordsByWeek = $records->groupBy(function($r) {
+                return Carbon::parse($r->attendance_date)->startOfWeek()->format('Y-m-d');
+            })->sortKeysDesc();
+
+            foreach ($recordsByWeek as $weekStart => $weekRecords) {
+                $wStart = Carbon::parse($weekStart);
+                $wEnd = $wStart->copy()->endOfWeek()->min($end);
+                
+                // Adjust week start if it's before our period start
+                $actualStart = $wStart->max($start);
+
+                $weeklyBreakdown[] = [
+                    'week_label' => "Həftə " . $wStart->weekOfYear . " (" . $actualStart->format('d.m') . " - " . $wEnd->format('d.m') . ")",
+                    'grades' => $grades->map(fn ($grade) => $this->buildGradeStat($grade, $weekRecords)),
+                ];
+            }
+        }
+
         return [
             'school_id' => $schoolId,
             'school_name' => $user->institution?->name,
@@ -189,6 +215,7 @@ class SchoolAttendanceStatsService
                 'average_attendance_rate' => $schoolAvgRate,
             ],
             'grades' => $gradeStats,
+            'weekly_breakdown' => $weeklyBreakdown,
         ];
     }
 
@@ -199,16 +226,25 @@ class SchoolAttendanceStatsService
     /**
      * Build the main stats array from a collection of ClassBulkAttendance records.
      */
-    private function aggregateStats(\Illuminate\Support\Collection $records): array
+    private function aggregateStats(\Illuminate\Support\Collection $records, int $expectedWorkingDays = 0): array
     {
         $totalStudents = (int) $records->sum('total_students');
         $uniqueDays = $records->pluck('attendance_date')->unique()->count();
 
-        $presentTotal = $records->sum(fn ($r) => $this->calculator->effectivePresentTotal($r));
         $uniformRaw = (int) $records->sum('uniform_violation');
-        $uniform = $this->calculator->uniformStats($presentTotal, $uniformRaw);
 
         $avgAttendance = $this->calculator->weightedRate($records);
+
+        // effectivePresentTotal sums morning+evening (double-counts).
+        // Use effectiveRate×students per record to get true daily attending count.
+        $effectiveAttendingSum = $records->sum(
+            fn ($r) => $this->calculator->effectiveRate($r) / 100 * max((int) $r->total_students, 1)
+        );
+        $presentTotal = (int) round($effectiveAttendingSum);
+        $uniform = $this->calculator->uniformStats($presentTotal, $uniformRaw);
+
+        $avgDailyAttending = $uniqueDays > 0 ? (int) round($effectiveAttendingSum / $uniqueDays) : 0;
+        $missingDays = max(0, $expectedWorkingDays - $uniqueDays);
 
         return [
             'total_students' => $totalStudents,
@@ -221,7 +257,29 @@ class SchoolAttendanceStatsService
             'average_attendance' => $avgAttendance,
             'total_days' => $uniqueDays,
             'total_records' => $records->count(),
+            'avg_daily_attending' => $avgDailyAttending,
+            'expected_working_days' => $expectedWorkingDays,
+            'missing_days' => $missingDays,
         ];
+    }
+
+    /**
+     * Count weekdays (Mon–Fri) in an inclusive date range.
+     */
+    private function countWeekdays(string $startDate, string $endDate): int
+    {
+        $current = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->startOfDay();
+        $count = 0;
+
+        while ($current->lte($end)) {
+            if ($current->isWeekday()) {
+                $count++;
+            }
+            $current->addDay();
+        }
+
+        return $count;
     }
 
     /**

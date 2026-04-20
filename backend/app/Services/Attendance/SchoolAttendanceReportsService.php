@@ -56,7 +56,13 @@ class SchoolAttendanceReportsService
         }
 
         if (! empty($validated['class_name'])) {
-            $query->whereHas('grade', fn (Builder $b) => $b->where('name', $validated['class_name']));
+            $classFilter = $validated['class_name'];
+            // Support both "A" (name only) and "1-A" (level-name) formats
+            if (preg_match('/^(\d+)-(.+)$/', $classFilter, $m)) {
+                $query->whereHas('grade', fn (Builder $b) => $b->where('class_level', (int) $m[1])->where('name', $m[2]));
+            } else {
+                $query->whereHas('grade', fn (Builder $b) => $b->where('name', $classFilter));
+            }
         }
 
         $query->whereDate('attendance_date', '>=', $startDate)
@@ -144,6 +150,8 @@ class SchoolAttendanceReportsService
             'present_total' => $presentTotal,
             'uniform_violation_rate' => $uniform['violation_rate'],
             'uniform_compliance_rate' => $uniform['compliance_rate'],
+            'morning_recorded_at' => $record->morning_recorded_at?->toISOString(),
+            'evening_recorded_at' => $record->evening_recorded_at?->toISOString(),
             'school' => $record->institution ? [
                 'id' => $record->institution->id,
                 'name' => $record->institution->name,

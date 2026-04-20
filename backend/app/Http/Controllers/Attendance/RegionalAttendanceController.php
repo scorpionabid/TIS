@@ -61,6 +61,7 @@ class RegionalAttendanceController extends BaseController
         $validated = $request->validate([
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
         ]);
 
         $data = $this->attendanceService->getSchoolClassBreakdown($request->user(), $school, $validated);

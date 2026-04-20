@@ -145,22 +145,50 @@ class AttendanceStatsService
         foreach ($schools as $school) {
             $agg = $aggregates->get($school->id);
             $count = $studentCounts->get($school->id);
-            
-            $reported = $agg ? $agg->reported_days : 0;
+
+            $reported = $agg ? (int) $agg->reported_days : 0;
             $missing = max(0, $days - $reported);
+            $studentTotal = $count ? $count['student_total'] : 0;
+            $attendanceRate = $agg ? round($agg->avg_rate, 2) : 0;
+            $presentTotal = $agg ? (int) $agg->total_morning_present + (int) $agg->total_evening_present : 0;
+            $uniformViolations = $agg ? (int) $agg->total_uniform_violations : 0;
+            $reportedClasses = $agg ? (int) $agg->reported_classes : 0;
+            $possibleAttendance = $studentTotal * max($reported, 1);
+            $uniformComplianceRate = $possibleAttendance > 0
+                ? round((($possibleAttendance - $uniformViolations) / $possibleAttendance) * 100, 2)
+                : 0;
+            $lastSubmission = $agg ? ($agg->last_evening_recorded ?? $agg->last_morning_recorded) : null;
+
+            $warnings = [];
+            if ($missing > 0) {
+                $warnings[] = 'reports_missing';
+            }
+            if ($reported > 0 && $attendanceRate < 70) {
+                $warnings[] = 'low_attendance';
+            }
 
             $stats[$school->id] = [
+                'school_id' => $school->id,
                 'id' => $school->id,
                 'name' => $school->name,
                 'sector_id' => $school->parent_id,
                 'sector_name' => $sectorNames->get($school->parent_id, 'Naməlum'),
-                'attendance_rate' => $agg ? round($agg->avg_rate, 2) : 0,
+                'average_attendance_rate' => $attendanceRate,
+                'attendance_rate' => $attendanceRate,
                 'reported_days' => $reported,
                 'missing_days' => $missing,
-                'student_count' => $count ? $count['student_total'] : 0,
+                'expected_school_days' => $days,
+                'total_students' => $studentTotal,
+                'student_count' => $studentTotal,
+                'reported_classes' => $reportedClasses,
+                'present_total' => $presentTotal,
+                'total_uniform_violations' => $uniformViolations,
+                'uniform_compliance_rate' => $uniformComplianceRate,
+                'last_submission_at' => $lastSubmission,
                 'last_morning_recorded' => $agg ? $agg->last_morning_recorded : null,
                 'last_evening_recorded' => $agg ? $agg->last_evening_recorded : null,
                 'is_compliant' => $missing === 0,
+                'warnings' => $warnings,
             ];
         }
         return $stats;
@@ -285,16 +313,43 @@ class AttendanceStatsService
         foreach ($gradeMap as $id => $grade) {
             $classRecords = $grouped->get($id, collect());
             $reported = $classRecords->count();
-            $avgRate = $reported > 0 ? $classRecords->avg('daily_attendance_rate') : 0;
+            $avgRate = $reported > 0 ? round($classRecords->avg('daily_attendance_rate'), 2) : 0;
+            $presentTotal = (int) $classRecords->sum('morning_present') + (int) $classRecords->sum('evening_present');
+            $uniformViolations = (int) $classRecords->sum('uniform_violation');
+            $studentCount = (int) $grade->student_count;
+            $possibleAttendance = $studentCount * max($reported, 1);
+            $uniformComplianceRate = $possibleAttendance > 0
+                ? round((($possibleAttendance - $uniformViolations) / $possibleAttendance) * 100, 2)
+                : 0;
+            $firstRecordedAt = $reported > 0 ? $classRecords->min('morning_recorded_at') : null;
+            $lastRecordedAt = $reported > 0 ? ($classRecords->max('evening_recorded_at') ?? $classRecords->max('morning_recorded_at')) : null;
+
+            $warnings = [];
+            if ($reported === 0 && $days > 0) {
+                $warnings[] = 'reports_missing';
+            } elseif ($reported > 0 && $avgRate < 70) {
+                $warnings[] = 'low_attendance';
+            }
 
             $stats[$id] = [
+                'grade_id' => $id,
                 'id' => $id,
                 'name' => $grade->name,
+                'class_level' => $grade->class_level,
                 'level' => $grade->class_level,
-                'student_count' => $grade->student_count,
+                'student_count' => $studentCount,
+                'records' => $reported,
                 'reported_days' => $reported,
+                'expected_school_days' => $days,
                 'missing_days' => max(0, $days - $reported),
-                'average_rate' => round($avgRate, 2),
+                'average_attendance_rate' => $avgRate,
+                'average_rate' => $avgRate,
+                'present_total' => $presentTotal,
+                'total_uniform_violations' => $uniformViolations,
+                'uniform_compliance_rate' => $uniformComplianceRate,
+                'warnings' => $warnings,
+                'first_recorded_at' => $firstRecordedAt,
+                'last_recorded_at' => $lastRecordedAt,
             ];
         }
         return $stats;
@@ -306,12 +361,33 @@ class AttendanceStatsService
     protected function buildSchoolSummary($classStats, $days, $start, $end): array
     {
         $totalClasses = count($classStats);
-        $avgRate = $totalClasses > 0 ? array_sum(array_column($classStats, 'average_rate')) / $totalClasses : 0;
+        $reportedClasses = count(array_filter($classStats, fn($c) => $c['reported_days'] > 0));
+        $avgRate = $totalClasses > 0
+            ? array_sum(array_column($classStats, 'average_attendance_rate')) / $totalClasses
+            : 0;
+        $presentTotal = (int) array_sum(array_column($classStats, 'present_total'));
+        $uniformViolations = (int) array_sum(array_column($classStats, 'total_uniform_violations'));
+        $totalStudents = (int) array_sum(array_column($classStats, 'student_count'));
+        $totalPossible = $totalStudents * max($reportedClasses, 1);
+        $uniformComplianceRate = $totalPossible > 0
+            ? round((($totalPossible - $uniformViolations) / $totalPossible) * 100, 2)
+            : 0;
 
         return [
             'total_classes' => $totalClasses,
+            'reported_classes' => $reportedClasses,
+            'average_attendance_rate' => round($avgRate, 2),
             'average_rate' => round($avgRate, 2),
+            'attending_students' => $presentTotal,
+            'present_total' => $presentTotal,
+            'total_uniform_violations' => $uniformViolations,
+            'uniform_compliance_rate' => $uniformComplianceRate,
             'period_days' => $days,
+            'period' => [
+                'start_date' => $start,
+                'end_date' => $end,
+                'school_days' => $days,
+            ],
         ];
     }
 
