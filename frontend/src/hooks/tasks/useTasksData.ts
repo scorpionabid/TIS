@@ -119,16 +119,6 @@ export function useTasksData({
     placeholderData: (previous) => previous,
   });
 
-  // Statistics tab üçün ayrıca assigned tasks query
-  // (RegionOperator-a təyin edilmiş tapşırıqları statistikada göstərmək üçün)
-  const assignedForStatsQuery = useQuery<TasksListResponse, Error>({
-    queryKey: ["tasks", "assigned-for-stats", currentUser?.id],
-    queryFn: () => taskService.getAssignedToMe({ page: 1, per_page: 1000 }),
-    enabled: hasAccess && isStatisticsTab,
-    refetchOnWindowFocus: false,
-    placeholderData: (previous) => previous,
-  });
-
   const tasksResponse = tasksQuery.data;
   const rawTasks: Task[] = Array.isArray(tasksResponse?.data) ? tasksResponse.data : [];
   const isLoading = tasksQuery.isLoading;
@@ -138,7 +128,7 @@ export function useTasksData({
 
   // Use statistics from API response (server-side calculated on filtered data)
   const stats = useMemo(() => {
-    // Backend now returns statistics in the response
+    // Current backend returns statistics in the response
     const apiStatistics = (tasksResponse as any)?.statistics;
 
     if (apiStatistics) {
@@ -151,7 +141,6 @@ export function useTasksData({
       };
     }
 
-    // Fallback to pagination total if statistics not available (backward compatibility)
     return {
       total: pagination?.total ?? 0,
       pending: 0,
@@ -187,10 +176,6 @@ export function useTasksData({
     setPage(1);
   }, []);
 
-  const assignedTasks: Task[] = Array.isArray(assignedForStatsQuery.data?.data)
-    ? assignedForStatsQuery.data.data
-    : [];
-
   return {
     tasks,
     stats,
@@ -207,6 +192,5 @@ export function useTasksData({
     setPage,
     setPerPage: handlePerPageChange,
     pagination,
-    assignedTasks,
   };
 }

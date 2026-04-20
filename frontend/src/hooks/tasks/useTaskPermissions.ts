@@ -39,7 +39,7 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
     normalizedRole && ["superadmin", "regionadmin"].includes(normalizedRole)
   );
   const canSeeSectorTab = Boolean(
-    normalizedRole && ["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole)
+    normalizedRole && ["superadmin", "regionadmin"].includes(normalizedRole)
   );
 
   const availableTabs = useMemo(
@@ -93,7 +93,7 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
     canCreateRegionTask || (normalizedRole === 'regionoperator' && moduleAccess.canEdit);
   const canManageSectorTasks = Boolean(
     normalizedRole &&
-      (["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole) ||
+      (["superadmin", "regionadmin"].includes(normalizedRole) ||
         (normalizedRole === 'regionoperator' && moduleAccess.canEdit))
   );
 

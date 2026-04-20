@@ -13,6 +13,8 @@ import { DateCell } from './cells/DateCell';
 import { TimeCell } from './cells/TimeCell';
 import { ProgressCell } from './cells/ProgressCell';
 import { MultiSelectCell } from './cells/MultiSelectCell';
+import { DeadlineProgressCell } from './cells/DeadlineProgressCell';
+import { ExcelTaskRowActions } from './ExcelTaskRowActions';
 import {
   sourceOptions,
   priorityOptions,
@@ -22,34 +24,9 @@ import {
   getStatusColor,
 } from '../config/taskFormFields';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Eye, Edit, Trash2, Clock, AlertTriangle, CheckCircle2, Calendar, Share2, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Helper function to format user names
-function formatUserName(name: string): string {
-  if (!name) return '';
-
-  // If name contains @, extract username before @
-  if (name.includes('@')) {
-    const username = name.split('@')[0];
-    // Capitalize first letter and handle dots/underscores
-    return username
-      .split(/[._-]/)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(' ');
-  }
-
-  // Otherwise, just return the name as is
-  return name;
-}
+import { formatUserName } from '@/utils/taskFormatters';
 
 interface ExcelTaskRowProps {
   task: Task;
@@ -141,58 +118,6 @@ export function ExcelTaskRow({
     return Array.from(usersMap.values());
   }, [availableUsers, originalAssignments]);
 
-  // ── Deadline progress hesablaması ──────────────────────────
-  const deadlineInfo = useMemo(() => {
-    if (!task.deadline) return null;
-
-    const now = new Date();
-    const deadline = new Date(task.deadline);
-
-    // Append deadline_time if available
-    if (task.deadline_time) {
-      const [h, m] = task.deadline_time.split(':');
-      deadline.setHours(Number(h), Number(m), 0);
-    } else {
-      deadline.setHours(23, 59, 59);
-    }
-
-    const createdAt = task.created_at ? new Date(task.created_at) : new Date();
-    const startedAt = task.started_at ? new Date(task.started_at) : createdAt;
-
-    const totalMs = deadline.getTime() - startedAt.getTime();
-    const elapsedMs = now.getTime() - startedAt.getTime();
-    const remainingMs = deadline.getTime() - now.getTime();
-
-    // Already completed/cancelled - no need to show
-    if (['completed', 'cancelled'].includes(task.status)) return null;
-
-    const isPast = remainingMs < 0;
-    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
-
-    // Progress percentage (how much time has elapsed)
-    const usedPercent = totalMs > 0
-      ? Math.min(100, Math.max(0, Math.round((elapsedMs / totalMs) * 100)))
-      : (isPast ? 100 : 0);
-
-    let color: 'green' | 'yellow' | 'red';
-    let label: string;
-
-    if (isPast) {
-      color = 'red';
-      label = `${Math.abs(remainingDays)}g gecikdi`;
-    } else if (remainingDays <= 2) {
-      color = 'red';
-      label = remainingDays === 0 ? 'Bu gün' : `${remainingDays}g qaldı`;
-    } else if (remainingDays <= 7) {
-      color = 'yellow';
-      label = `${remainingDays}g qaldı`;
-    } else {
-      color = 'green';
-      label = `${remainingDays}g qaldı`;
-    }
-
-    return { usedPercent, color, label, isPast, remainingDays };
-  }, [task.deadline, task.deadline_time, task.started_at, task.created_at, task.status]);
 
   return (
     <tr
@@ -338,116 +263,7 @@ export function ExcelTaskRow({
 
       {/* deadline_progress: progress bar + hover tooltip with date info + inline edit */}
       <td className="px-2 py-1">
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div 
-                className="flex flex-col gap-1 min-w-[130px] cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => canEdit && startEdit(task.id, 'deadline', task.deadline)}
-              >
-                {deadlineInfo ? (
-                  <>
-                    {/* Progress bar */}
-                    <div className="relative h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={cn(
-                          'absolute left-0 top-0 h-full rounded-full transition-all',
-                          deadlineInfo.color === 'green' && 'bg-emerald-500',
-                          deadlineInfo.color === 'yellow' && 'bg-amber-400',
-                          deadlineInfo.color === 'red' && 'bg-rose-500',
-                        )}
-                        style={{ width: `${deadlineInfo.usedPercent}%` }}
-                      />
-                    </div>
-                    {/* Label */}
-                    <div className={cn(
-                      'flex items-center gap-1 text-[11px] font-medium',
-                      deadlineInfo.color === 'green' && 'text-emerald-600',
-                      deadlineInfo.color === 'yellow' && 'text-amber-600',
-                      deadlineInfo.color === 'red' && 'text-rose-600',
-                    )}>
-                      {deadlineInfo.isPast
-                        ? <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                        : deadlineInfo.remainingDays <= 2
-                          ? <Clock className="h-3 w-3 flex-shrink-0" />
-                          : <CheckCircle2 className="h-3 w-3 flex-shrink-0" />}
-                      <span>{deadlineInfo.label}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>Tarix yox</span>
-                  </div>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              className="p-0 overflow-hidden rounded-lg border shadow-lg w-[220px]"
-            >
-              <div className="bg-popover text-popover-foreground">
-                {/* Header */}
-                <div className={cn(
-                  'px-3 py-2 text-xs font-semibold flex items-center gap-2',
-                  !deadlineInfo && 'bg-muted/50',
-                  deadlineInfo?.color === 'green' && 'bg-emerald-50 text-emerald-800',
-                  deadlineInfo?.color === 'yellow' && 'bg-amber-50 text-amber-800',
-                  deadlineInfo?.color === 'red' && 'bg-rose-50 text-rose-800',
-                )}>
-                  <Calendar className="h-3.5 w-3.5" />
-                  Son Tarix Məlumatı
-                </div>
-                {/* Body */}
-                <div className="px-3 py-2 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Tarix:</span>
-                    <span className="font-medium">
-                      {task.deadline
-                        ? new Date(task.deadline).toLocaleDateString('az-AZ', {
-                            day: '2-digit', month: 'long', year: 'numeric'
-                          })
-                        : '—'}
-                    </span>
-                  </div>
-                  {task.deadline_time && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Saat:</span>
-                      <span className="font-medium">{task.deadline_time}</span>
-                    </div>
-                  )}
-                  {deadlineInfo && (
-                    <div className={cn(
-                      'flex items-center justify-between text-xs font-semibold pt-1 border-t mt-1',
-                      deadlineInfo.color === 'green' && 'text-emerald-700',
-                      deadlineInfo.color === 'yellow' && 'text-amber-700',
-                      deadlineInfo.color === 'red' && 'text-rose-700',
-                    )}>
-                      <span>Vəziyyət:</span>
-                      <span>{deadlineInfo.label}</span>
-                    </div>
-                  )}
-                  {canEdit && task.deadline !== undefined && (
-                    <div className="pt-2 border-t mt-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full h-7 justify-start gap-1.5 px-2 text-[11px] text-primary hover:bg-primary/5"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEdit(task.id, 'deadline', task.deadline);
-                        }}
-                      >
-                        <Edit className="h-3 w-3" />
-                        Son tarixi redaktə et
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <DeadlineProgressCell task={task} editContext={editContext} canEdit={canEdit} />
       </td>
 
 
@@ -464,68 +280,16 @@ export function ExcelTaskRow({
 
       {/* Actions */}
       <td className="px-2 py-1">
-        <div className="flex items-center gap-1">
-
-          
-          {isAssignedTab && onStatusChange && ['pending', 'accepted'].includes(task.user_assignment?.status ?? '') && task.user_assignment?.can_update && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50"
-              onClick={() => onStatusChange(task.id, 'in_progress')}
-              title="İcraya götür"
-            >
-              <PlayCircle className="h-4 w-4" />
-            </Button>
-          )}
-
-          {isAssignedTab && onStatusChange && task.user_assignment?.status === 'in_progress' && task.user_assignment?.can_update && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"
-              onClick={() => onStatusChange(task.id, 'completed')}
-              title="Tamamla"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-            </Button>
-          )}
-
-          {isAssignedTab && onDelegate && task.user_assignment?.can_delegate && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
-              onClick={() => onDelegate(task)}
-              title="Yönləndir"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-          )}
-
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => onEdit(task)}
-              title="Redaktə et"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-destructive hover:text-destructive"
-              onClick={() => onDelete(task)}
-              title="Sil"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        <ExcelTaskRowActions
+          task={task}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          isAssignedTab={isAssignedTab}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onDelegate={onDelegate}
+          onStatusChange={onStatusChange}
+        />
       </td>
     </tr>
   );

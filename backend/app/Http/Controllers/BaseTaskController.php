@@ -160,9 +160,30 @@ abstract class BaseTaskController extends Controller
         if ($request->institution_level) {
             $levelMap = ['region' => 2, 'sector' => 3, 'school' => 4];
             $level = $levelMap[$request->institution_level] ?? null;
+            
             if ($level) {
-                $query->whereHas('assignedInstitution', function ($q) use ($level) {
-                    $q->where('level', $level);
+                $query->where(function ($subQ) use ($level, $request) {
+                    // 1. Matches targeted institution level
+                    $subQ->whereHas('assignedInstitution', function ($q) use ($level) {
+                        $q->where('level', $level);
+                    });
+
+                    // 2. Specific scope logic for broadcasting tasks
+                    if ($request->institution_level === 'region') {
+                        $subQ->orWhere('target_scope', 'regional')
+                            ->orWhere('origin_scope', 'region');
+                    }
+
+                    if ($request->institution_level === 'sector') {
+                        $subQ->orWhereIn('target_scope', ['sector', 'sectoral'])
+                            ->orWhere('origin_scope', 'sector');
+                    }
+                    
+                    // 3. For school level, sometimes tasks are targeted by schooladmin role
+                    if ($request->institution_level === 'school') {
+                        $subQ->orWhere('target_scope', 'institutional')
+                            ->orWhereJsonContains('target_roles', 'schooladmin');
+                    }
                 });
             }
         }

@@ -93,8 +93,8 @@ export function TaskSummaryHeader({
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                   {stat.label}
                 </p>
-                <h3 className="text-2xl font-bold tracking-tight">
-                  {isLoading ? '...' : stat.value}
+                <h3 className="text-2xl font-bold tracking-tight tabular-nums">
+                  {isLoading && !statistics ? '...' : stat.value}
                 </h3>
               </div>
               <div className={cn("p-2 rounded-lg", stat.bgColor)}>

@@ -49,7 +49,7 @@ function filterByDate(list: Task[], startDate?: string, endDate?: string): Task[
 export function TaskStatisticsTab({
   stats,
   tasks,
-  assignedTasks = [],
+  assignedTasks,
   availableUsers = [],
   currentUser,
   startDate,
@@ -72,10 +72,10 @@ export function TaskStatisticsTab({
     [tasks, startDate, endDate]
   );
 
-  // Tarixə görə filterlənmiş assigned tasks
+  // Tarixə görə filterlənmiş assigned tasks (assignedTasks varsa istifadə et, yoxsa tasks)
   const filteredAssignedTasks = useMemo(
-    () => filterByDate(assignedTasks, startDate, endDate),
-    [assignedTasks, startDate, endDate]
+    () => filterByDate(assignedTasks ?? tasks, startDate, endDate),
+    [assignedTasks, tasks, startDate, endDate]
   );
 
   // Priority data for BarChart
@@ -111,11 +111,11 @@ export function TaskStatisticsTab({
   const personalStats = useMemo(() => {
     const createdByMe = filteredTasks.filter(t => Number(t.created_by) === currentUserId);
 
-    // assignedTasks varsa (endpoint-dən gəlir) istifadə et, yoxsa filteredTasks-dan tap
     const assignedToMe = filteredAssignedTasks.length > 0
       ? filteredAssignedTasks
       : filteredTasks.filter(t =>
-          t.assignments?.some(a => Number(a.assigned_user_id) === currentUserId)
+          t.assignments?.some(a => Number(a.assigned_user_id) === currentUserId) ||
+          Number(t.assigned_to) === currentUserId
         );
 
     const aggregate = (list: Task[]) => ({
@@ -132,7 +132,7 @@ export function TaskStatisticsTab({
       created:  aggregate(createdByMe),
       assigned: aggregate(assignedToMe),
     };
-  }, [filteredTasks, filteredAssignedTasks, currentUserId]);
+  }, [filteredTasks, currentUserId]);
 
   // Employee performance table
   const employeeStats = useMemo(() => {
@@ -190,7 +190,7 @@ export function TaskStatisticsTab({
             <CardContent>
               <div className="flex items-end justify-between">
                 <div className="space-y-1">
-                  <div className="text-3xl font-black text-indigo-900">{personalStats.created.total}</div>
+                  <div className="text-3xl font-black text-indigo-900 tabular-nums">{personalStats.created.total}</div>
                   <div className="text-[10px] text-slate-500 font-medium">Cəmi tapşırıq</div>
                 </div>
                 <div className="flex gap-3 text-right">
@@ -229,7 +229,7 @@ export function TaskStatisticsTab({
             <CardContent>
               <div className="flex items-end justify-between">
                 <div className="space-y-1">
-                  <div className="text-3xl font-black text-amber-900">{personalStats.assigned.total}</div>
+                  <div className="text-3xl font-black text-amber-900 tabular-nums">{personalStats.assigned.total}</div>
                   <div className="text-[10px] text-slate-500 font-medium">Həll edilməli</div>
                 </div>
                 <div className="flex gap-3 text-right">
@@ -401,7 +401,7 @@ function StatusCard({ title, value, icon, color }: { title: string; value: numbe
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-xs uppercase font-bold tracking-tight opacity-70">{title}</p>
-            <p className="text-3xl font-black">{value}</p>
+            <p className="text-3xl font-black tabular-nums">{value}</p>
           </div>
           <div className="p-3 bg-white/50 rounded-xl shadow-sm">
             {icon}

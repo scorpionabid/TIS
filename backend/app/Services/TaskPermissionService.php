@@ -202,16 +202,13 @@ class TaskPermissionService extends BaseService
             return false;
         }
 
-        // Assignments created via delegation cannot be re-delegated
-        $metadata = $userAssignment->assignment_metadata ?? [];
-        if (! empty($metadata['is_delegated'])) {
-            return false;
-        }
+        // Check delegation depth to prevent circular or excessive delegation
+        $delegationCount = \App\Models\TaskDelegationHistory::where('task_id', $task->id)
+            ->where('delegated_to_user_id', $user->id)
+            ->count();
 
-        // Check if this assignment has already been delegated (1-time limit)
-        $existingDelegation = \App\Models\TaskDelegationHistory::where('assignment_id', $userAssignment->id)->exists();
-
-        if ($existingDelegation) {
+        // Limit delegation to 3 levels to maintain accountability
+        if ($delegationCount >= 3) {
             return false;
         }
 
@@ -247,10 +244,6 @@ class TaskPermissionService extends BaseService
 
             if (! $isRegionOperator && ! $isSectorOperator) {
                 if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-                    $childIds = $userInstitution->getAllChildrenIds();
-                    $q->orWhereIn('assigned_to_institution_id', $childIds);
-                    $this->appendTargetInstitutionFilterToQuery($q, $childIds);
-                } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
                     $childIds = $userInstitution->getAllChildrenIds();
                     $q->orWhereIn('assigned_to_institution_id', $childIds);
                     $this->appendTargetInstitutionFilterToQuery($q, $childIds);
@@ -494,7 +487,14 @@ class TaskPermissionService extends BaseService
         }
 
         if ($user->hasRole('schooladmin')) {
-            return ['schooladmin'];
+            return [
+                'schooladmin',
+                'teacher',
+                'metodik',
+                'psixoloq',
+                'muavin',
+                'user',
+            ];
         }
 
         return ['schooladmin'];
@@ -505,7 +505,7 @@ class TaskPermissionService extends BaseService
      */
     public function canCreateHierarchicalTask($user): bool
     {
-        return $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'regionoperator']);
+        return $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'regionoperator', 'schooladmin']);
     }
 
     /**
@@ -606,9 +606,6 @@ class TaskPermissionService extends BaseService
             if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
                 $childIds = $userInstitution->getAllChildrenIds();
                 $q->orWhereIn('institution_id', $childIds);
-            } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-                $childIds = $userInstitution->getAllChildrenIds();
-                $q->orWhereIn('institution_id', $childIds);
             } elseif ($user->hasRole('schooladmin')) {
                 $q->orWhere('institution_id', $userInstitution->id);
             }
@@ -627,7 +624,7 @@ class TaskPermissionService extends BaseService
      */
     public function canPerformBulkOperations($user): bool
     {
-        return $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin']);
+        return $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']);
     }
 
     /**

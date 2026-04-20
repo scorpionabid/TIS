@@ -98,7 +98,7 @@ export const excelColumns: ExcelColumn[] = [
   {
     id: 'actions',
     label: 'Əməliyyat',
-    width: 'w-[100px]',
+    width: 'w-[170px]',
     sortable: false,
     editable: false,
     type: 'readonly',

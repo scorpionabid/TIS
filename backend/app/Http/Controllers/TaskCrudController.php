@@ -97,8 +97,11 @@ class TaskCrudController extends BaseTaskController
                         ELSE 6
                     END " . ($sortDirection === 'asc' ? 'ASC' : 'DESC')
                 );
-                // Secondary sort by created_at to show newest first within same status
                 $query->orderBy('created_at', 'desc');
+            } elseif ($sortBy === 'assignee') {
+                $query->leftJoin('users as assignees', 'tasks.assigned_to', '=', 'assignees.id')
+                    ->orderBy('assignees.last_name', $sortDirection)
+                    ->orderBy('assignees.first_name', $sortDirection);
             } else {
                 $query->orderBy($sortBy, $sortDirection);
             }

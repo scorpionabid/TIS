@@ -58,25 +58,27 @@ class Institution extends Model
      */
     public function getAllChildrenIds(): array
     {
-        $collectedIds = [];
-        $pendingParentIds = [(int) $this->id];
+        return \Cache::remember("institution_{$this->id}_all_children_ids", 86400, function () {
+            $collectedIds = [];
+            $pendingParentIds = [(int) $this->id];
 
-        // Breadth-first traversal to avoid issuing a query per institution
-        while (! empty($pendingParentIds)) {
-            $pendingParentIds = array_map('intval', $pendingParentIds);
-            $collectedIds = array_values(array_unique(array_merge($collectedIds, $pendingParentIds)));
+            // Breadth-first traversal to avoid issuing a query per institution
+            while (! empty($pendingParentIds)) {
+                $pendingParentIds = array_map('intval', $pendingParentIds);
+                $collectedIds = array_values(array_unique(array_merge($collectedIds, $pendingParentIds)));
 
-            $children = static::withTrashed()
-                ->whereIn('parent_id', $pendingParentIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
+                $children = static::withTrashed()
+                    ->whereIn('parent_id', $pendingParentIds)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
 
-            // Only continue with IDs we have not processed yet
-            $pendingParentIds = array_values(array_diff($children, $collectedIds));
-        }
+                // Only continue with IDs we have not processed yet
+                $pendingParentIds = array_values(array_diff($children, $collectedIds));
+            }
 
-        return array_map('intval', $collectedIds);
+            return array_map('intval', $collectedIds);
+        });
     }
 
     /**

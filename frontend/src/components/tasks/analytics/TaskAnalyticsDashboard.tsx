@@ -4,21 +4,12 @@
  * Comprehensive analytics dashboard for task management
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-} from "@/components/ui/chart";
 import {
   PieChart,
   Pie,
@@ -27,8 +18,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  LineChart,
-  Line,
   Area,
   AreaChart,
   ResponsiveContainer,
@@ -37,24 +26,21 @@ import {
   Tooltip,
 } from "recharts";
 import {
-  TrendingUp,
-  TrendingDown,
-  Calendar,
   Clock,
   CheckCircle,
   AlertTriangle,
   Users,
   Building,
   Target,
-  Award,
-  Download,
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/services/api";
 import { format, subDays, subMonths } from "date-fns";
-import { az } from "date-fns/locale";
-import { statusLabels, priorityLabels, categoryLabels } from "../config/taskFormFields";
+import { CHART_COLORS } from "@/constants/chartColors";
+import { AnalyticsStatsCard } from "./AnalyticsStatsCard";
+import { PerformanceTable } from "./PerformanceTable";
+import { useAnalyticsChartData } from "@/hooks/tasks/useAnalyticsChartData";
 
 // Analytics data types
 interface TaskAnalytics {
@@ -115,31 +101,8 @@ interface TaskAnalytics {
   >;
 }
 
-// Chart colors
-const COLORS = {
-  primary: "#3b82f6",
-  success: "#22c55e",
-  warning: "#f59e0b",
-  danger: "#ef4444",
-  purple: "#8b5cf6",
-  gray: "#6b7280",
-};
-
-const STATUS_COLORS = {
-  pending: "#f59e0b",
-  in_progress: "#3b82f6",
-  review: "#8b5cf6",
-  completed: "#22c55e",
-  cancelled: "#6b7280",
-  overdue: "#ef4444",
-};
-
-const PRIORITY_COLORS = {
-  low: "#6b7280",
-  medium: "#3b82f6",
-  high: "#f59e0b",
-  urgent: "#ef4444",
-};
+// COLORS alias for backward compat within this file
+const COLORS = CHART_COLORS;
 
 // Fetch analytics data
 const fetchAnalytics = async (dateRange: string): Promise<TaskAnalytics> => {
@@ -173,55 +136,7 @@ export function TaskAnalyticsDashboard({ className }: TaskAnalyticsDashboardProp
     queryFn: () => fetchAnalytics(dateRange),
   });
 
-  // Prepare chart data
-  const statusChartData = useMemo(() => {
-    if (!analytics?.status_breakdown) return [];
-
-    return Object.entries(analytics.status_breakdown).map(([status, data]) => ({
-      name: statusLabels[status] || status,
-      value: data.count,
-      percentage: data.percentage,
-      color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || "#6b7280",
-    }));
-  }, [analytics?.status_breakdown]);
-
-  const priorityChartData = useMemo(() => {
-    if (!analytics?.priority_analysis) return [];
-
-    return Object.entries(analytics.priority_analysis).map(([priority, data]) => ({
-      priority: priorityLabels[priority] || priority,
-      total: data.total,
-      completed: data.completed,
-      completion_rate: data.completion_rate,
-      color: PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS] || "#6b7280",
-    }));
-  }, [analytics?.priority_analysis]);
-
-  const trendChartData = useMemo(() => {
-    if (!analytics?.completion_trends) return [];
-
-    const { creation_trends, completion_trends } = analytics.completion_trends;
-    const allDates = new Set([...Object.keys(creation_trends), ...Object.keys(completion_trends)]);
-
-    return Array.from(allDates)
-      .sort()
-      .map((date) => ({
-        date: format(new Date(date), "d MMM", { locale: az }),
-        yaradılan: creation_trends[date] || 0,
-        tamamlanan: completion_trends[date] || 0,
-      }));
-  }, [analytics?.completion_trends]);
-
-  const categoryChartData = useMemo(() => {
-    if (!analytics?.type_distribution) return [];
-
-    return Object.entries(analytics.type_distribution).map(([type, data]) => ({
-      name: categoryLabels[type] || type,
-      value: data.count,
-      completed: data.completed,
-      completion_rate: data.completion_rate,
-    }));
-  }, [analytics?.type_distribution]);
+  const { statusChartData, priorityChartData, trendChartData, categoryChartData } = useAnalyticsChartData(analytics);
 
   if (isLoading) {
     return (
@@ -283,71 +198,31 @@ export function TaskAnalyticsDashboard({ className }: TaskAnalyticsDashboardProp
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Ümumi Tapşırıqlar</p>
-                <p className="text-3xl font-bold">{overview.total_tasks}</p>
-                <div className="flex items-center mt-1 text-sm">
-                  {overview.trend.tasks_change >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
-                  )}
-                  <span className={overview.trend.tasks_change >= 0 ? "text-green-500" : "text-red-500"}>
-                    {overview.trend.tasks_change >= 0 ? "+" : ""}
-                    {overview.trend.tasks_change}%
-                  </span>
-                </div>
-              </div>
-              <Target className="h-10 w-10 text-blue-500 opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Tamamlanma Faizi</p>
-                <p className="text-3xl font-bold">{overview.completion_rate}%</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {overview.completed_tasks} / {overview.total_tasks}
-                </p>
-              </div>
-              <CheckCircle className="h-10 w-10 text-green-500 opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Orta Tamamlanma</p>
-                <p className="text-3xl font-bold">{overview.average_completion_days}</p>
-                <p className="text-sm text-muted-foreground mt-1">gün</p>
-              </div>
-              <Clock className="h-10 w-10 text-blue-500 opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Gecikmiş</p>
-                <p className="text-3xl font-bold text-red-500">{overdue_analysis.total_overdue}</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {overdue_analysis.critical_overdue} kritik
-                </p>
-              </div>
-              <AlertTriangle className="h-10 w-10 text-red-500 opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+        <AnalyticsStatsCard
+          title="Ümumi Tapşırıqlar"
+          value={overview.total_tasks}
+          trend={overview.trend.tasks_change}
+          icon={<Target className="h-10 w-10 text-blue-500 opacity-80" />}
+        />
+        <AnalyticsStatsCard
+          title="Tamamlanma Faizi"
+          value={`${overview.completion_rate}%`}
+          subtitle={`${overview.completed_tasks} / ${overview.total_tasks}`}
+          icon={<CheckCircle className="h-10 w-10 text-green-500 opacity-80" />}
+        />
+        <AnalyticsStatsCard
+          title="Orta Tamamlanma"
+          value={overview.average_completion_days}
+          subtitle="gün"
+          icon={<Clock className="h-10 w-10 text-blue-500 opacity-80" />}
+        />
+        <AnalyticsStatsCard
+          title="Gecikmiş"
+          value={overdue_analysis.total_overdue}
+          subtitle={`${overdue_analysis.critical_overdue} kritik`}
+          valueClassName="text-red-500"
+          icon={<AlertTriangle className="h-10 w-10 text-red-500 opacity-80" />}
+        />
       </div>
 
       {/* Charts Row 1 */}
@@ -494,81 +369,28 @@ export function TaskAnalyticsDashboard({ className }: TaskAnalyticsDashboardProp
 
       {/* Performance Tables */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Top Performing Institutions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
-              Müəssisə Performansı
-            </CardTitle>
-            <CardDescription>Ən yaxşı performans göstərən müəssisələr</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {institutional_performance.slice(0, 5).map((item, index) => (
-                <div key={item.institution.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted font-medium">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{item.institution.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.metrics.completed_tasks}/{item.metrics.total_tasks} tamamlanan
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={item.metrics.performance_score >= 80 ? "default" : "secondary"}>
-                      {item.metrics.performance_score.toFixed(0)}%
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {institutional_performance.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">Məlumat yoxdur</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top Performing Users */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              İstifadəçi Performansı
-            </CardTitle>
-            <CardDescription>Ən yaxşı performans göstərən istifadəçilər</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {user_performance.slice(0, 5).map((item, index) => (
-                <div key={item.user.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted font-medium">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{item.user.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.metrics.completed_assignments}/{item.metrics.total_assignments} tamamlanan
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={item.metrics.reliability_score >= 80 ? "default" : "secondary"}>
-                      {item.metrics.reliability_score.toFixed(0)}%
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {user_performance.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">Məlumat yoxdur</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <PerformanceTable
+          title="Müəssisə Performansı"
+          description="Ən yaxşı performans göstərən müəssisələr"
+          icon={<Building className="h-5 w-5" />}
+          items={institutional_performance.map(item => ({
+            id: item.institution.id,
+            name: item.institution.name,
+            completedLabel: `${item.metrics.completed_tasks}/${item.metrics.total_tasks} tamamlanan`,
+            score: item.metrics.performance_score,
+          }))}
+        />
+        <PerformanceTable
+          title="İstifadəçi Performansı"
+          description="Ən yaxşı performans göstərən istifadəçilər"
+          icon={<Users className="h-5 w-5" />}
+          items={user_performance.map(item => ({
+            id: item.user.id,
+            name: item.user.name,
+            completedLabel: `${item.metrics.completed_assignments}/${item.metrics.total_assignments} tamamlanan`,
+            score: item.metrics.reliability_score,
+          }))}
+        />
       </div>
     </div>
   );
