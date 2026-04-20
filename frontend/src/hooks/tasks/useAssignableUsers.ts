@@ -14,6 +14,7 @@ export interface UseAssignableUsersOptions {
   institutionId?: number | null;
   regionId?: number | null;
   search?: string;
+  context?: 'project';
   perPage?: number;
   enabled?: boolean;
 }
@@ -26,6 +27,7 @@ export function useAssignableUsers({
   institutionId = null,
   regionId = null,
   search = '',
+  context,
   perPage = DEFAULT_PER_PAGE,
   enabled = true,
 }: UseAssignableUsersOptions) {
@@ -37,6 +39,7 @@ export function useAssignableUsers({
       institutionId,
       regionId,
       search,
+      context,
       perPage,
     },
   ] as const;
@@ -64,6 +67,7 @@ export function useAssignableUsers({
         institution_id: institutionId ?? undefined,
         region_id: regionId ?? undefined,
         search: search?.trim() || undefined,
+        context: context ?? undefined,
         per_page: perPage,
         page: Number(pageParam ?? 1),
       }),

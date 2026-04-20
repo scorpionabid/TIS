@@ -26,27 +26,105 @@ class ProjectService extends BaseService
     }
 
     /**
-     * Get all projects for a user based on their role
+     * Get a query builder for projects the user is allowed to access.
+     */
+    public function getAccessibleProjectsQuery(User $user)
+    {
+        $query = Project::query();
+
+        // SuperAdmin and Admin (Ministry level) see all projects
+        if ($user->hasAnyRole(['superadmin', 'admin'])) {
+            return $query;
+        }
+
+        // RegionAdmin, SektorAdmin, and others are restricted by their institution hierarchy
+        // They see projects:
+        // 1. Created by them or anyone in their institution hierarchy (descendants)
+        // 2. Projects where they are explicitly assigned
+        // 3. Projects where they are assigned to an activity
+        
+        return $query->where(function ($q) use ($user) {
+            $q->where(function ($subQ) use ($user) {
+                $institution = $user->institution;
+                if ($institution) {
+                    $descendantIds = $institution->getAllChildrenIds();
+                    $subQ->whereIn('created_by', function ($userQuery) use ($descendantIds) {
+                        $userQuery->select('id')
+                            ->from('users')
+                            ->whereIn('institution_id', $descendantIds);
+                    });
+                } else {
+                    // Fallback for users without institution (shouldn't happen for admins)
+                    $subQ->where('created_by', $user->id);
+                }
+            })
+            ->orWhereHas('assignments', function ($subQ) use ($user) {
+                $subQ->where('user_id', $user->id);
+            })
+            ->orWhereHas('activities.assignedEmployees', function ($subQ) use ($user) {
+                $subQ->where('users.id', $user->id);
+            })
+            // Explicitly include projects created by the user themselves
+            ->orWhere('created_by', $user->id);
+        });
+    }
+
+    /**
+     * Check if a user can access a specific project
+     */
+    public function canAccessProject(int $projectId, User $user): bool
+    {
+        return $this->getAccessibleProjectsQuery($user)->where('id', $projectId)->exists();
+    }
+
+    /**
+     * Check if a user can edit a specific project
+     */
+    public function canEditProject(int $projectId, User $user): bool
+    {
+        if ($user->hasAnyRole(['superadmin', 'admin'])) {
+            return true;
+        }
+
+        $project = Project::find($projectId);
+        if (!$project) return false;
+
+        // Project creator can always edit
+        if ($project->created_by === $user->id) {
+            return true;
+        }
+
+        // RegionAdmin and SektorAdmin can edit projects created within their hierarchy
+        if ($user->hasAnyRole(['regionadmin', 'sektoradmin'])) {
+            $institution = $user->institution;
+            if ($institution) {
+                $creator = User::find($project->created_by);
+                if ($creator && $creator->institution) {
+                    return $creator->institution->isDescendantOf($institution);
+                }
+            }
+        }
+
+        // Project members assigned in project_assignments can edit
+        if ($project->assignments()->where('user_id', $user->id)->exists()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all projects for a user based on their role and regional boundaries
      */
     public function getProjectsForUser(User $user): Collection
     {
-        // Global Admin roles (RegionAdmin, SuperAdmin) can see all projects
-        if ($user->hasAnyRole(['regionadmin', 'admin', 'superadmin'])) {
-            return Project::with(['creator', 'employees'])
-                ->withCount(['activities as total_comments' => function ($query) {
-                    $query->join('project_activity_comments', 'project_activities.id', '=', 'project_activity_comments.project_activity_id');
-                }])
-                ->latest()->get();
-        }
-
-        // Regular employees can see projects where they are assigned OR have assigned activities
-        return Project::where(function ($query) use ($user) {
-            $query->whereHas('assignments', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
-            })->orWhereHas('activities.assignedEmployees', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
-            })->orWhere('created_by', $user->id);
-        })->with(['creator', 'employees'])->withCount('activities')->latest()->get();
+        return $this->getAccessibleProjectsQuery($user)
+            ->with(['creator', 'employees'])
+            ->withCount(['activities as total_comments' => function ($query) {
+                $query->join('project_activity_comments', 'project_activities.id', '=', 'project_activity_comments.project_activity_id');
+            }])
+            ->latest()
+            ->get();
     }
 
     /**
@@ -124,9 +202,8 @@ class ProjectService extends BaseService
     {
         $project = Project::findOrFail($id);
 
-        // Authorization check: Admin or creator
-        $isAdmin = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']);
-        if (!$isAdmin && $project->created_by !== $user->id) {
+        // Authorization check: Admin, hierarchy admin or creator
+        if (!$this->canEditProject($id, $user)) {
             throw new \Exception('Bu layihəni silmək üçün icazəniz yoxdur.');
         }
 
@@ -176,8 +253,7 @@ class ProjectService extends BaseService
      */
     public function getWorkloadStats(User $user): array
     {
-        $projects = $this->getProjectsForUser($user);
-        $projectIds = $projects->pluck('id');
+        $projectIds = $this->getAccessibleProjectsQuery($user)->pluck('id');
 
         if ($projectIds->isEmpty()) {
             return [];
@@ -358,21 +434,27 @@ class ProjectService extends BaseService
     }
 
     /**
-     * Get dashboard stats for admin
+     * Get overall statistics for dashboard
+     * Renamed and filtered for regional isolation
      */
-    public function getAdminDashboardStats(): array
+    public function getOverallStats(User $user): array
     {
-        $projects = Project::with('activities')->get();
+        $accessibleProjectsQuery = $this->getAccessibleProjectsQuery($user);
+        $projectIds = $accessibleProjectsQuery->pluck('id');
+        
+        $projects = $accessibleProjectsQuery->with('activities')->get();
 
         $stats = [
             'total_projects' => $projects->count(),
             'active_projects' => $projects->where('status', 'active')->count(),
             'completed_projects' => $projects->where('status', 'completed')->count(),
-            'total_budget' => ProjectActivity::sum('budget'),
-            'delayed_activities' => ProjectActivity::where('status', '!=', 'completed')
+            'total_budget' => ProjectActivity::whereIn('project_id', $projectIds)->sum('budget'),
+            'delayed_activities' => ProjectActivity::whereIn('project_id', $projectIds)
+                ->where('status', '!=', 'completed')
                 ->where('end_date', '<', now())
                 ->count(),
-            'weekly_activities' => ProjectActivity::whereBetween('end_date', [now()->startOfWeek(), now()->endOfWeek()])
+            'weekly_activities' => ProjectActivity::whereIn('project_id', $projectIds)
+                ->whereBetween('end_date', [now()->startOfWeek(), now()->endOfWeek()])
                 ->count(),
         ];
 
@@ -494,10 +576,11 @@ class ProjectService extends BaseService
      */
     public function getUrgentActivities(User $user): Collection
     {
-        $isAdmin = $user->hasAnyRole(['superadmin', 'regionadmin', 'admin']);
         $sevenDaysFromNow = now()->addDays(7)->endOfDay();
+        $projectIds = $this->getAccessibleProjectsQuery($user)->pluck('id');
 
-        $query = ProjectActivity::whereNotIn('status', ['completed'])
+        return ProjectActivity::whereIn('project_id', $projectIds)
+            ->whereNotIn('status', ['completed'])
             ->where(function ($q) use ($sevenDaysFromNow) {
                 $q->where('end_date', '<', now()->startOfDay()) // overdue
                   ->orWhere(function ($q2) use ($sevenDaysFromNow) {
@@ -505,27 +588,9 @@ class ProjectService extends BaseService
                          ->where('end_date', '<=', $sevenDaysFromNow); // upcoming 7 days
                   });
             })
-            ->with(['project', 'assignedEmployees']);
-
-        if (!$isAdmin) {
-            // Non-admins see:
-            // 1. All activities of projects where they are responsible (creator or project-level assignment)
-            // 2. Specific activities they are assigned to
-            $query->where(function ($q) use ($user) {
-                $q->whereHas('project', function ($pq) use ($user) {
-                    $pq->where('created_by', $user->id)
-                      ->orWhereHas('assignments', function ($aq) use ($user) {
-                          $aq->where('user_id', $user->id);
-                      });
-                })
-                ->orWhere('user_id', $user->id)
-                ->orWhereHas('assignedEmployees', function ($sq) use ($user) {
-                    $sq->where('users.id', $user->id);
-                });
-            });
-        }
-
-        return $query->orderBy('end_date', 'asc')->get();
+            ->with(['project', 'assignedEmployees'])
+            ->orderBy('end_date', 'asc')
+            ->get();
     }
 
     /**
@@ -557,30 +622,14 @@ class ProjectService extends BaseService
      */
     public function canEditActivity(ProjectActivity $activity, User $user): bool
     {
-        if ($user->hasAnyRole(['regionadmin', 'admin', 'superadmin'])) {
+        if ($user->hasAnyRole(['superadmin', 'admin'])) {
             return true;
         }
 
-        $project = $activity->project;
-        if ($project->created_by === $user->id) {
-            return true;
-        }
-
-        // Project member assigned in project_assignments can edit everything
-        if ($project->assignments()->where('user_id', $user->id)->exists()) {
-            return true;
-        }
-
-        // ALLOW: If the user is specifically assigned to this activity
-        if ($activity->user_id === $user->id) {
-            return true;
-        }
-
-        if ($activity->assignedEmployees()->where('users.id', $user->id)->exists()) {
-            return true;
-        }
-
-        return false;
+        // Use the same logic as canEditProject
+        return $this->canEditProject($activity->project_id, $user) || 
+               $activity->user_id === $user->id || 
+               $activity->assignedEmployees()->where('users.id', $user->id)->exists();
     }
 
     /**

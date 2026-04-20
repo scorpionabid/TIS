@@ -57,8 +57,8 @@ class ProjectController extends Controller
         $project = \App\Models\Project::findOrFail($id);
         $user = Auth::user();
 
-        // Authorization: Only global admin roles or project creator
-        if (!$user->hasAnyRole(['regionadmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
+        // Authorization: Only global admin roles or project creator/hierarchy members
+        if (!$this->projectService->canEditProject($id, $user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -107,8 +107,8 @@ class ProjectController extends Controller
               ->orWhereHas('assignedEmployees', fn($sq) => $sq->where('users.id', $user->id));
         })->exists();
 
-        // Strict Privacy Check: 403 if not linked to project
-        if (!$isAdmin && !$isCreator && !$isProjectMember && !$hasAssignedActivity) {
+        // Strict Privacy Check: 403 if not linked to project by hierarchy or assignment
+        if (!$this->projectService->canAccessProject($id, $user)) {
             return response()->json(['message' => 'Bu layihəyə giriş icazəniz yoxdur.'], 403);
         }
 
@@ -152,7 +152,7 @@ class ProjectController extends Controller
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
 
-        if (!$isAdmin && !$isCreator && !$isProjectMember) {
+        if (!$this->projectService->canAccessProject($id, $user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -166,7 +166,7 @@ class ProjectController extends Controller
         $project = \App\Models\Project::findOrFail($id);
         $user = Auth::user();
 
-        if (!$user->hasAnyRole(['regionadmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
+        if (!$this->projectService->canEditProject($id, $user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -183,7 +183,7 @@ class ProjectController extends Controller
         $project = \App\Models\Project::findOrFail($id);
         $user = Auth::user();
 
-        if (!$user->hasAnyRole(['regionadmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
+        if (!$this->projectService->canEditProject($id, $user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -219,6 +219,10 @@ class ProjectController extends Controller
             'location_platform' => 'nullable|string',
             'monitoring_mechanism' => 'nullable|string',
         ]);
+
+        if (!$this->projectService->canEditProject($projectId, Auth::user())) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
         $activity = $this->projectService->addActivity($projectId, $validated, Auth::user());
 
@@ -333,6 +337,9 @@ class ProjectController extends Controller
     public function stats(Request $request)
     {
         if ($request->has('project_id')) {
+            if (!$this->projectService->canAccessProject($request->project_id, Auth::user())) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
             return response()->json($this->projectService->getProjectStats($request->project_id));
         }
 

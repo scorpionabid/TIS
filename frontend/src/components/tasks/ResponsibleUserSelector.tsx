@@ -30,6 +30,7 @@ export interface ResponsibleUserSelectorProps {
   value: string[];
   onChange: (ids: string[]) => void;
   originScope?: OriginScope;
+  context?: 'project';
   allowedRoles?: string[];
   disabled?: boolean;
 }
@@ -46,6 +47,7 @@ export function ResponsibleUserSelector({
   value,
   onChange,
   originScope = null,
+  context,
   allowedRoles,
   disabled = false,
 }: ResponsibleUserSelectorProps) {
@@ -100,6 +102,7 @@ export function ResponsibleUserSelector({
     role: roleFilter,
     search: debouncedSearch,
     regionId: selectedRegionId,
+    context,
     perPage,
     enabled: !disabled,
   });

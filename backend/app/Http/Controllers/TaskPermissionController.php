@@ -79,6 +79,7 @@ class TaskPermissionController extends BaseTaskController
             'search' => 'nullable|string|max:255',
             'per_page' => 'nullable|integer|min:1|max:200',
             'origin_scope' => 'nullable|string|in:region,sector',
+            'context' => 'nullable|string|in:project',
         ]);
 
         try {

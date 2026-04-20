@@ -359,6 +359,7 @@ export interface AssignableUsersRequestParams {
   per_page?: number;
   page?: number;
   origin_scope?: 'region' | 'sector';
+  context?: 'project';
 }
 
 class TaskService extends BaseService<Task> {

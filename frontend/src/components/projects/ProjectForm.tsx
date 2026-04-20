@@ -350,6 +350,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
                         <ResponsibleUserSelector 
                           value={field.value} 
                           onChange={field.onChange}
+                          context="project"
                         />
                       </div>
                     </FormControl>

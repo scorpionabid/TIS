@@ -730,6 +730,8 @@ class TaskPermissionService extends BaseService
     {
         $allowedRoles = $this->getAllowedTargetRoles($user);
         $originScope = $filters['origin_scope'] ?? null;
+        $context = $filters['context'] ?? null;
+        $isProjectContext = $context === 'project';
 
         if ($originScope) {
             $allowedRoles = $this->filterRolesByOriginScope($allowedRoles, $originScope);
@@ -744,7 +746,8 @@ class TaskPermissionService extends BaseService
             return collect();
         }
 
-        $institutionScope = $this->getUserInstitutionScope($user, $originScope);
+        // Broaden scope for project management context to allow cross-regional collaboration
+        $institutionScope = $isProjectContext ? [] : $this->getUserInstitutionScope($user, $originScope);
         $institutionFilter = $filters['institution_id'] ?? null;
 
         // region_id: fetch all users across the region's full institution hierarchy
@@ -757,20 +760,23 @@ class TaskPermissionService extends BaseService
                     [(int) $regionId],
                     $regionInstitution->getAllChildrenIds()
                 ));
-                // Restrict to user's allowed scope
-                if (! empty($institutionScope)) {
+                
+                // Restrict to user's allowed scope ONLY if not in project context
+                if (!empty($institutionScope)) {
                     $regionInstitutionIds = array_values(array_intersect($regionInstitutionIds, $institutionScope));
                 }
             }
         }
 
-        if ($institutionFilter && ! in_array((int) $institutionFilter, $institutionScope, true)) {
+        // Validate institution filter against scope (only if not project context)
+        if (!$isProjectContext && $institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
             return collect();
         }
 
         \Log::info('TaskPermissionService:getAssignableUsers context', [
             'user_id' => $user->id,
             'origin_scope' => $originScope,
+            'is_project_context' => $isProjectContext,
             'allowed_roles' => $allowedRoles,
             'institution_scope_count' => count($institutionScope),
         ]);
@@ -787,7 +793,8 @@ class TaskPermissionService extends BaseService
                 }
             });
 
-        if (! empty($institutionScope)) {
+        // Apply institutional scope ONLY if not in project context
+        if (!empty($institutionScope)) {
             $query->where(function ($institutionQuery) use ($institutionScope) {
                 $institutionQuery->whereIn('institution_id', $institutionScope)
                     ->orWhereNull('institution_id');
