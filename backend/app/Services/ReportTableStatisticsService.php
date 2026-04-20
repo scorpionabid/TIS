@@ -71,13 +71,16 @@ class ReportTableStatisticsService
                 $key = "{$institution->id}:{$table->id}";
                 $response = $responses[$key] ?? null;
 
-                $rowCount = 0;
                 $approvedCount = 0;
                 $pendingCount = 0;
                 $rejectedCount = 0;
                 $returnedCount = 0;
+                $rowCount = 0;
                 $status = 'not_started';
                 $submittedAt = null;
+                $points = 0;
+                $bonus = 0;
+                $penalty = 0;
 
                 if ($response) {
                     $rows = $response->rows ?? [];
@@ -90,15 +93,19 @@ class ReportTableStatisticsService
                             $approvedCount++;
                         } elseif ($rowStatus === 'submitted') {
                             $pendingCount++;
+                        } elseif ($rowStatus === 'rejected') {
+                            $rejectedCount++;
+                        } elseif ($rowStatus === 'returned') {
+                            $returnedCount++;
                         }
-                        // Cumulative counters — sum across all rows
+                        // Cumulative counters — sum across all rows (historical)
                         $rejectedCount += $meta['total_rejected_count'] ?? 0;
                         $returnedCount += $meta['total_returned_count'] ?? 0;
                     }
 
                     if ($rowCount === 0) {
                         $status = 'draft';
-                    } elseif ($approvedCount === $rowCount) {
+                    } elseif ($approvedCount === $rowCount && $rowCount > 0) {
                         $status = 'submitted';
                     } elseif ($pendingCount > 0) {
                         $status = 'submitted';
@@ -107,8 +114,25 @@ class ReportTableStatisticsService
                     }
 
                     $submittedAt = $response->submitted_at;
+                    
+                    // Fallback for timing calculation if not explicitly submitted but all rows are out of draft
+                    if (!$submittedAt && $rowCount > 0 && ($approvedCount + $pendingCount + $rejectedCount) === $rowCount) {
+                        // Find earliest row submission time for initial points
+                        $earliestSub = null;
+                        foreach ($rowStatuses as $meta) {
+                            $at = $meta['submitted_at'] ?? $meta['approved_at'] ?? $meta['rejected_at'] ?? null;
+                            if ($at) {
+                                $carb = \Carbon\Carbon::parse($at);
+                                if (!$earliestSub || $carb->lt($earliestSub)) {
+                                    $earliestSub = $carb;
+                                }
+                            }
+                        }
+                        $submittedAt = $earliestSub;
+                    }
+
                     $schoolData['filled_tables']++;
-                    if ($submittedAt) {
+                    if ($submittedAt || $response->status === 'submitted') {
                         $schoolData['submitted_count']++;
                     }
                 } else {
@@ -125,27 +149,33 @@ class ReportTableStatisticsService
                 $bonus = 0;
                 $points = 0;
 
-                if ($response && $rowCount > 0 && $submittedAt) {
-                    $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
+                $isEffectivelySubmitted = ($response && ($response->status === 'submitted' || $submittedAt || ($rowCount > 0 && ($approvedCount + $pendingCount + $rejectedCount) === $rowCount)));
 
-                    // Base Points
-                    $points = 1;
+                if ($response && $rowCount > 0) {
+                    // Base Points — given if effectively submitted (all rows filled and sent/approved)
+                    if ($isEffectivelySubmitted) {
+                        $points = 1;
 
-                    // Timing Bonus
-                    if ($hoursDiff <= 4 && $hoursDiff >= 0) {
-                        $bonus = 1;
+                        if ($submittedAt) {
+                            $hoursDiff = \Carbon\Carbon::parse($submittedAt)->diffInHours($effectiveStart, false);
+                            
+                            // Timing Bonus
+                            if ($hoursDiff >= -4 && $hoursDiff <= 0) { // Submitted within 4 hours before/at effective start
+                                $bonus = 1;
+                            }
+                            // Timing Penalty (Late submission)
+                            $hoursLate = \Carbon\Carbon::parse($submittedAt)->diffInHours($effectiveStart, true);
+                            if ($hoursLate > 24) {
+                                $daysLate = floor(($hoursLate - 24) / 24);
+                                $penalty += $daysLate * 0.1;
+                            }
+                        }
                     }
 
-                    // Timing Penalty
-                    if ($hoursDiff > 24) {
-                        $daysLate = floor(($hoursDiff - 24) / 24);
-                        $penalty += $daysLate * 0.1;
-                    }
-
-                    // Quality Penalties (Proportional)
+                    // Quality Penalties (Always apply if exist, even if not fully submitted)
                     $returnPenalty = ($returnedCount * 0.15) / $rowCount;
                     $rejectPenalty = ($rejectedCount * 0.30) / $rowCount;
-                    $penalty += ($returnPenalty + $rejectPenalty);
+                    $penalty += round($returnPenalty + $rejectPenalty, 2);
                 }
 
                 $tableFinalScore = max(0, $points + $bonus - $penalty);
@@ -304,9 +334,24 @@ class ReportTableStatisticsService
             $bonus = 0;
             $points = 0;
 
-            if ($response && $rowCount > 0 && $submittedAt) {
-                $submittedAtCarbon = \Carbon\Carbon::parse($submittedAt);
-                $hoursDiff = $effectiveStart->diffInHours($submittedAtCarbon, false);
+            $effectiveSubmittedAt = $submittedAt ? \Carbon\Carbon::parse($submittedAt) : null;
+            // Requirement: If all rows are approved but not submitted, use latest approval time
+            if (!$effectiveSubmittedAt && $rowCount > 0 && $approvedCount === $rowCount) {
+                $latestApproval = null;
+                foreach ($response->row_statuses ?? [] as $meta) {
+                    $at = is_array($meta) ? ($meta['approved_at'] ?? null) : null;
+                    if ($at) {
+                        $carb = \Carbon\Carbon::parse($at);
+                        if (!$latestApproval || $carb->gt($latestApproval)) {
+                            $latestApproval = $carb;
+                        }
+                    }
+                }
+                $effectiveSubmittedAt = $latestApproval;
+            }
+
+            if ($response && $rowCount > 0 && $effectiveSubmittedAt) {
+                $hoursDiff = $effectiveStart->diffInHours($effectiveSubmittedAt, false);
 
                 // Base Points
                 $points = 1;
@@ -325,7 +370,7 @@ class ReportTableStatisticsService
                 // Quality Penalties (Proportional)
                 $returnPenalty = ($returnedCount * 0.15) / $rowCount;
                 $rejectPenalty = ($rejectedCount * 0.30) / $rowCount;
-                $penalty += ($returnPenalty + $rejectPenalty);
+                $penalty += round($returnPenalty + $rejectPenalty, 2);
             }
 
             $finalScore = max(0, $points + $bonus - $penalty);
@@ -662,15 +707,22 @@ class ReportTableStatisticsService
                         $approvedCount++;
                     } elseif ($rowStatus === 'submitted') {
                         $pendingCount++;
+                    } elseif ($rowStatus === 'rejected') {
+                        $rejectedCount++;
+                    } elseif ($rowStatus === 'returned') {
+                        $returnedCount++;
                     }
                     // Cumulative counters — sum across all rows
                     $rejectedCount += $meta['total_rejected_count'] ?? 0;
                     $returnedCount += $meta['total_returned_count'] ?? 0;
                 }
 
-                if ($rowCount > 0) {
+                if ($rowCount > 0 && $approvedCount === $rowCount) {
                     $schoolData['filled_tables']++;
-                    $status = $response->status;
+                    $status = 'submitted';
+                } elseif ($rowCount > 0) {
+                    $schoolData['filled_tables']++;
+                    $status = $response->status === 'draft' && $pendingCount > 0 ? 'submitted' : $response->status;
                 }
             }
 
@@ -685,21 +737,44 @@ class ReportTableStatisticsService
             $penalty = 0;
             $bonus = 0;
 
-            if ($rowCount > 0 && $response && $response->submitted_at) {
-                $submittedAt = \Carbon\Carbon::parse($response->submitted_at);
-                $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
+            $isEffectivelySubmitted = ($response && ($response->status === 'submitted' || $response->submitted_at || ($rowCount > 0 && ($approvedCount + $pendingCount + $rejectedCount) === $rowCount)));
 
-                if ($hoursDiff <= 4 && $hoursDiff >= 0) {
-                    $points = 2;
-                } elseif ($hoursDiff <= 24 && $hoursDiff >= 0) {
+            if ($rowCount > 0 && $response) {
+                if ($isEffectivelySubmitted) {
                     $points = 1;
-                } else {
-                    $points = 1;
-                    $daysLate = floor((max(0, $hoursDiff - 24)) / 24);
-                    $penalty += $daysLate * 0.1;
+                    
+                    $subTime = $response->submitted_at;
+                    if (!$subTime && ($approvedCount + $pendingCount + $rejectedCount) === $rowCount) {
+                        // Earliest row submission/approval time
+                        foreach ($rowStatuses as $meta) {
+                            $at = $meta['submitted_at'] ?? $meta['approved_at'] ?? $meta['rejected_at'] ?? null;
+                            if ($at) {
+                                $carb = \Carbon\Carbon::parse($at);
+                                if (!$subTime || $carb->lt($subTime)) {
+                                    $subTime = $carb;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($subTime) {
+                        $submittedAt = \Carbon\Carbon::parse($subTime);
+                        $hoursDiff = $effectiveStart->diffInHours($submittedAt, false);
+
+                        if ($hoursDiff <= 4 && $hoursDiff >= 0) {
+                            $points = 2; // Speed bonus points
+                        } elseif ($hoursDiff <= 24 && $hoursDiff >= 0) {
+                            $points = 1;
+                        } else {
+                            $points = 1;
+                            $daysLate = floor((max(0, $hoursDiff - 24)) / 24);
+                            $penalty += round($daysLate * 0.1, 2);
+                        }
+                    }
                 }
 
-                $penalty += ($returnedCount * 0.15 + $rejectedCount * 0.30) / $rowCount;
+                // Penalties apply regardless of whether fully submitted/approved
+                $penalty += round(($returnedCount * 0.15 + $rejectedCount * 0.30) / $rowCount, 2);
             }
 
             $finalScore = max(0, $points - $penalty);
@@ -721,8 +796,8 @@ class ReportTableStatisticsService
                 'approved_count' => $approvedCount,
                 'rejected_count' => $rejectedCount,
                 'returned_count' => $returnedCount,
-                'penalty' => $penalty,
-                'bonus' => $bonus,
+                'penalty' => round($penalty, 2),
+                'bonus' => round($bonus, 2),
                 'final_score' => round($finalScore, 2),
                 'rating_percentage' => $rowCount > 0 ? (float) round(($approvedCount / $rowCount) * 100, 1) : 0,
             ];
@@ -735,10 +810,13 @@ class ReportTableStatisticsService
             $weightedSum += $t['final_score'] * $t['row_count'];
         }
         $schoolData['total_final_score'] = $totalRows > 0
-            ? (float) round($weightedSum / $totalRows, 4)
+            ? (float) round($weightedSum / $totalRows, 2)
             : 0.0;
 
         $schoolData['total_points'] = (float) round($schoolData['total_points'], 2);
+        $schoolData['total_penalty'] = (float) round($schoolData['total_penalty'], 2);
+        $schoolData['total_bonus'] = (float) round($schoolData['total_bonus'], 2);
+
         // Faiz: sətir çəkili approved nisbəti (bonus/cərimə daxil deyil, 0-100 arasında)
         $schoolData['avg_rating_percentage'] = $totalRows > 0
             ? (float) round(($schoolData['total_approved'] / $totalRows) * 100, 1)

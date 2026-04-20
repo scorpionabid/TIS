@@ -322,6 +322,7 @@ class ReportTableApprovalService
         }
 
         $response->approveRow($rowIndex, $reviewer->id);
+        $this->syncResponseStatus($response);
 
         $fresh = $response->fresh(['reportTable', 'institution', 'respondent']);
         $this->sendRowActionNotification($fresh, $reviewer, 'approved', null);
@@ -342,6 +343,7 @@ class ReportTableApprovalService
         }
 
         $response->rejectRow($rowIndex, $reviewer->id, $reason);
+        $this->syncResponseStatus($response);
 
         $fresh = $response->fresh(['reportTable', 'institution', 'respondent']);
         $this->sendRowActionNotification($fresh, $reviewer, 'rejected', $reason);
@@ -477,6 +479,9 @@ class ReportTableApprovalService
 
                     $successful++;
                 }
+
+                // Sync status after bulk actions on each response
+                $this->syncResponseStatus($response);
             }
         });
 
@@ -627,6 +632,39 @@ class ReportTableApprovalService
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+    }
+
+    /**
+     * Sətirlərin vəziyyətinə görə cədvəlin ümumi statusunu sinxronizasiya edir.
+     * Əgər bütün sətirlər təsdiqlənibsə, statusu 'submitted' edir.
+     */
+    public function syncResponseStatus(ReportTableResponse $response): void
+    {
+        $rows = $response->rows ?? [];
+        $rowCount = count($rows);
+
+        if ($rowCount === 0) {
+            return;
+        }
+
+        $rowStatuses = $response->row_statuses ?? [];
+        $approvedCount = 0;
+
+        foreach ($rowStatuses as $meta) {
+            if (($meta['status'] ?? null) === 'approved') {
+                $approvedCount++;
+            }
+        }
+
+        // Əgər hamısı təsdiqlənibsə və hələ də draft-dadırsa, statusu yenilə
+        if ($approvedCount === $rowCount && $response->status === 'draft') {
+            $response->status = 'submitted';
+            if (!$response->submitted_at) {
+                // Ən sonuncu approval date tapan məntiq (ReportTableResponse-a da əlavə edilə bilər)
+                $response->submitted_at = now();
+            }
+            $response->save();
         }
     }
 }

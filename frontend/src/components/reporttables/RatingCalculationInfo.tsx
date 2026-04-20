@@ -90,7 +90,7 @@ export function RatingCalculationInfo() {
                       <div className="text-emerald-600 font-black text-lg">+1.0</div>
                     </div>
                     <p className="text-xs text-gray-600 leading-relaxed">
-                      Hər bir hesabatın ilk dəfə tam doldurulub təqdim edilməsi üçün verilən standart başlanğıc balıdır.
+                      Sətirlərin doldurulub təqdim edilməsi və ya inzibati təsdiq prosesi başlandığı andan verilən başlanğıc balıdır.
                     </p>
                   </CardContent>
                 </Card>
@@ -156,7 +156,13 @@ export function RatingCalculationInfo() {
                 <li className="flex gap-3">
                   <BarChart3 className="h-5 w-5 text-gray-400 shrink-0" />
                   <div className="text-[11px] text-gray-600 leading-relaxed">
-                    <b className="text-gray-900">Faiz vs Reytinq:</b> Ortalama keyfiyyət faizi yalnız sətirlərin təsdiq nisbətidir. Reytinq balı isə sürət və intizamı da nəzərə alır.
+                    <b className="text-gray-900">Ağıllı Sinxronizasiya:</b> Bütün sətirlər təsdiqləndikdə, cədvəl avtomatik olaraq "Göndərildi" statusuna keçir və bal dərhal yekunlaşır.
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <BarChart3 className="h-5 w-5 text-gray-400 shrink-0" />
+                  <div className="text-[11px] text-gray-600 leading-relaxed">
+                    <b className="text-gray-900">Faiz vs Reytinq:</b> Ortalama keyfiyyət faizi yalnız sətirlərin təsdiq nisbətidir. Reytinq balı isə sürət və intizamı (gecikmə və rədlər) daxil olmaqla bütün faktorları nəzərə alır.
                   </div>
                 </li>
               </ul>
