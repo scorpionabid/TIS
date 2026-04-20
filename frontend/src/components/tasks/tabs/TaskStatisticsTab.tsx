@@ -110,8 +110,9 @@ export function TaskStatisticsTab({
   // Personal stats
   const personalStats = useMemo(() => {
     const createdByMe = filteredTasks.filter(t => Number(t.created_by) === currentUserId);
-
-    const assignedToMe = filteredAssignedTasks.length > 0
+    
+    // If assignedTasks is passed explicitly, use it; otherwise filter the main tasks list
+    const assignedToMe = (assignedTasks && assignedTasks.length > 0)
       ? filteredAssignedTasks
       : filteredTasks.filter(t =>
           t.assignments?.some(a => Number(a.assigned_user_id) === currentUserId) ||
