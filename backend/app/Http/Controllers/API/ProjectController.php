@@ -57,8 +57,8 @@ class ProjectController extends Controller
         $project = \App\Models\Project::findOrFail($id);
         $user = Auth::user();
 
-        // Authorization: Only admin roles or project creator
-        if (!$user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
+        // Authorization: Only global admin roles or project creator
+        if (!$user->hasAnyRole(['regionadmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -76,6 +76,19 @@ class ProjectController extends Controller
         $project = $this->projectService->updateProject($id, $validated);
 
         return response()->json($project);
+    }
+
+    /**
+     * Remove the specified project from storage.
+     */
+    public function destroy($id)
+    {
+        try {
+            $this->projectService->deleteProject((int)$id, Auth::user());
+            return response()->json(['message' => 'Layihə silindi']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
     }
 
     /**
@@ -135,7 +148,7 @@ class ProjectController extends Controller
         $user = Auth::user();
 
         // Authorization (same as show)
-        $isAdmin = $user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']);
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
 
@@ -153,7 +166,7 @@ class ProjectController extends Controller
         $project = \App\Models\Project::findOrFail($id);
         $user = Auth::user();
 
-        if (!$user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
+        if (!$user->hasAnyRole(['regionadmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -170,7 +183,7 @@ class ProjectController extends Controller
         $project = \App\Models\Project::findOrFail($id);
         $user = Auth::user();
 
-        if (!$user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
+        if (!$user->hasAnyRole(['regionadmin', 'admin', 'superadmin']) && $project->created_by !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

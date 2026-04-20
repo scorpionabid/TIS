@@ -5,21 +5,14 @@ import {
   Users,
   MoreVertical,
   ExternalLink,
-  Activity,
-  CheckCircle2,
-  BarChart3,
-  Clock,
+  Calendar,
   Edit,
   Archive,
-  Trash2
+  Trash2,
 } from 'lucide-react';
-import { Project } from '@/services/projects';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import type { Project } from '@/services/projects';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { format } from 'date-fns';
-import { az } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import {
@@ -44,22 +37,40 @@ interface ProjectListProps {
   currentUserId?: number;
 }
 
-export const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectClick, onEditClick, onArchiveClick, onUnarchiveClick, onDeleteClick, onCreateClick, isAdmin, currentUserId }) => {
+const STATUS_STRIPE: Record<string, string> = {
+  active:    'bg-success',
+  completed: 'bg-primary',
+  on_hold:   'bg-warning',
+  cancelled: 'bg-muted-foreground/40',
+  archived:  'bg-border',
+};
+
+export const ProjectList: React.FC<ProjectListProps> = ({
+  projects,
+  onProjectClick,
+  onEditClick,
+  onArchiveClick,
+  onUnarchiveClick,
+  onDeleteClick,
+  onCreateClick,
+  isAdmin,
+  currentUserId,
+}) => {
   if (projects.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 text-center border-2 border-dashed rounded-3xl bg-muted/20 border-muted-foreground/10 animate-in fade-in duration-700">
-        <div className="w-24 h-24 mb-6 rounded-full bg-primary/10 flex items-center justify-center shadow-inner">
-          <Target className="w-12 h-12 text-primary animate-pulse" />
+      <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/50 bg-muted/20 p-16 text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+          <Target className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="text-2xl font-bold mb-3">Hələ ki layihə yoxdur</h3>
-        <p className="text-muted-foreground max-w-sm mb-8 text-sm leading-relaxed">
-          {isAdmin 
-            ? "Yeni bir strateji hədəf yaradaraq komandanı birləşdirin və fəaliyyət planını başlayın." 
-            : "Sizə təyin edilmiş hər hansı bir aktiv layihə tapılmadı."}
+        <h3 className="mb-2 text-lg font-semibold">Layihə tapılmadı</h3>
+        <p className="mb-6 max-w-xs text-sm text-muted-foreground leading-relaxed">
+          {isAdmin
+            ? 'Yeni bir strateji hədəf yaradaraq komandanı birləşdirin.'
+            : 'Sizə təyin edilmiş aktiv layihə tapılmadı.'}
         </p>
         {isAdmin && onCreateClick && (
-          <Button onClick={onCreateClick} className="gap-3 rounded-xl px-8 h-12 font-bold transition-colors">
-            <Plus className="w-5 h-5" /> Yeni Layihə Strategiyası
+          <Button onClick={onCreateClick} className="gap-2 rounded-xl px-6 font-semibold">
+            <Plus className="w-4 h-4" /> Yeni Layihə
           </Button>
         )}
       </div>
@@ -67,13 +78,13 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectCli
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {projects.map((project, index) => (
         <motion.div
           key={project.id}
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1 }}
+          transition={{ delay: index * 0.06, duration: 0.3 }}
         >
           <ProjectCard
             project={project}
@@ -100,63 +111,79 @@ const ProjectCard: React.FC<{
   onDeleteClick: () => void;
   isAdmin: boolean;
   currentUserId?: number;
-}> = ({ project, onClick, onEditClick, onArchiveClick, onUnarchiveClick, onDeleteClick, isAdmin, currentUserId }) => {
-  const config = PROJECT_STATUS_CONFIG[project.status as ProjectStatus] || PROJECT_STATUS_CONFIG.active;
+}> = ({
+  project,
+  onClick,
+  onEditClick,
+  onArchiveClick,
+  onUnarchiveClick,
+  onDeleteClick,
+  isAdmin,
+  currentUserId,
+}) => {
+  const config = PROJECT_STATUS_CONFIG[project.status as ProjectStatus] ?? PROJECT_STATUS_CONFIG.active;
+  const stripeColor = STATUS_STRIPE[project.status] ?? 'bg-border';
   const activities = project.activities ?? [];
-  const progressValue = activities.length > 0
-    ? Math.round((activities.filter(a => a.status === 'completed').length / activities.length) * 100)
-    : 0;
+  const progressValue =
+    activities.length > 0
+      ? Math.round((activities.filter((a) => a.status === 'completed').length / activities.length) * 100)
+      : 0;
+
+  const canManage = isAdmin || project.created_by === currentUserId;
 
   return (
-    <Card
-      className="group hover:shadow-lg transition-all duration-300 border-border cursor-pointer overflow-hidden"
+    <div
       onClick={onClick}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
     >
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-center mb-4">
-          <Badge variant="outline" className={cn(config.bg, config.color, config.border, 'px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5')}>
-            <config.icon className="w-3 h-3" />
-            {config.label}
-          </Badge>
+      {/* Status colour stripe */}
+      <div className={cn('h-1 w-full shrink-0', stripeColor)} />
+
+      <div className="flex flex-col flex-1 p-4 gap-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', config.bg)}>
+              <config.icon className={cn('w-3.5 h-3.5', config.color)} />
+            </div>
+            <span className={cn('text-xs font-semibold', config.color)}>{config.label}</span>
+          </div>
+
+          {/* Dropdown — stop click propagation */}
           <div onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all hover:bg-muted">
-                  <MoreVertical className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
+              <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuLabel className="text-xs text-muted-foreground">Əməliyyatlar</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 cursor-pointer text-sm" onClick={onClick}>
+                <DropdownMenuItem className="gap-2 text-sm cursor-pointer" onClick={onClick}>
                   <ExternalLink className="w-3.5 h-3.5" /> Detallar
                 </DropdownMenuItem>
-                {(isAdmin || project.created_by === currentUserId) && (
-                  <DropdownMenuItem className="gap-2 cursor-pointer text-sm" onClick={onEditClick}>
+                {canManage && (
+                  <DropdownMenuItem className="gap-2 text-sm cursor-pointer" onClick={onEditClick}>
                     <Edit className="w-3.5 h-3.5" /> Redaktə et
                   </DropdownMenuItem>
                 )}
-                {(isAdmin || project.created_by === currentUserId) && project.status !== 'archived' && (
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-sm text-muted-foreground"
-                    onClick={onArchiveClick}
-                  >
+                {canManage && project.status !== 'archived' && (
+                  <DropdownMenuItem className="gap-2 text-sm cursor-pointer text-muted-foreground" onClick={onArchiveClick}>
                     <Archive className="w-3.5 h-3.5" /> Arxivləşdir
                   </DropdownMenuItem>
                 )}
-                {(isAdmin || project.created_by === currentUserId) && project.status === 'archived' && (
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-sm text-success focus:text-success"
-                    onClick={onUnarchiveClick}
-                  >
+                {canManage && project.status === 'archived' && (
+                  <DropdownMenuItem className="gap-2 text-sm cursor-pointer text-success" onClick={onUnarchiveClick}>
                     <Archive className="w-3.5 h-3.5" /> Arxivdən çıxar
                   </DropdownMenuItem>
                 )}
-                {(isAdmin || project.created_by === currentUserId) && (
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-sm text-destructive focus:text-destructive"
-                    onClick={onDeleteClick}
-                  >
+                {canManage && (
+                  <DropdownMenuItem className="gap-2 text-sm cursor-pointer text-destructive" onClick={onDeleteClick}>
                     <Trash2 className="w-3.5 h-3.5" /> Sil
                   </DropdownMenuItem>
                 )}
@@ -164,72 +191,85 @@ const ProjectCard: React.FC<{
             </DropdownMenu>
           </div>
         </div>
-        <CardTitle className="text-base font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2 min-h-[48px]">
-          {project.name}
-        </CardTitle>
-        <CardDescription className="line-clamp-2 text-xs leading-relaxed mt-1">
-          {project.description || 'Bu layihə üçün əlavə açıqlama təyin edilməyib.'}
-        </CardDescription>
-      </CardHeader>
 
-      <CardContent className="space-y-4 pb-4">
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-md border border-border/60">
-            <span>{formatProjectDate(project.start_date)} — {formatProjectDate(project.end_date)}</span>
-          </div>
+        {/* Title + description */}
+        <div className="space-y-1 flex-1">
+          <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+            {project.name}
+          </h3>
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+            {project.description || 'Açıqlama yoxdur'}
+          </p>
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-1.5">
-              <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">İcra vəziyyəti</span>
-            </div>
-            <span className="text-xs font-semibold tabular-nums">{progressValue}%</span>
+        {/* Progress */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">İcra</span>
+            <span className="font-semibold tabular-nums">{progressValue}%</span>
           </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <motion.div
-              className="h-full bg-primary rounded-full"
+              className={cn('h-full rounded-full', stripeColor)}
               initial={{ width: 0 }}
               animate={{ width: `${progressValue}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              transition={{ duration: 0.7, ease: 'easeOut' }}
             />
           </div>
-          <p className="text-[11px] text-right text-muted-foreground">{project.total_goal || 'Hədəf təyin edilməyib'}</p>
-        </div>
-      </CardContent>
-
-      <CardFooter className="pt-3 flex justify-between items-center bg-muted/20 border-t px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-2">
-            {project.employees && project.employees.slice(0, 3).map((emp, i) => (
-              <Avatar key={i} className="border-2 border-background w-7 h-7">
-                <AvatarImage src={(emp as any).avatar || (emp as any).profile_picture} />
-                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">{emp.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            ))}
-            {project.employees && project.employees.length > 3 && (
-              <div className="w-7 h-7 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium text-muted-foreground">
-                +{project.employees.length - 3}
-              </div>
-            )}
-          </div>
-          {project.employees && project.employees.length > 0 ? (
-            <span className="text-xs text-muted-foreground">
-              {project.employees[0].name}
-              {project.employees.length > 1 && <span className="text-primary"> +{project.employees.length - 1}</span>}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" /> Təyin edilməyib
-            </span>
+          {project.total_goal && (
+            <p className="text-right text-[10px] text-muted-foreground">{project.total_goal}</p>
           )}
         </div>
 
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
-          Detallar <ExternalLink className="w-3.5 h-3.5" />
-        </Button>
-      </CardFooter>
-    </Card>
+        {/* Date row */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="w-3 h-3 shrink-0" />
+          <span>{formatProjectDate(project.start_date)} — {formatProjectDate(project.end_date)}</span>
+        </div>
+
+        {/* Footer — team + cta */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/40">
+          <div className="flex items-center gap-2">
+            {project.employees && project.employees.length > 0 ? (
+              <>
+                <div className="flex -space-x-2">
+                  {project.employees.slice(0, 4).map((emp, i) => (
+                    <Avatar key={i} className="h-6 w-6 border-2 border-background">
+                      <AvatarImage src={(emp as any).avatar || (emp as any).profile_picture} />
+                      <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-semibold">
+                        {emp.name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {project.employees.length > 4 && (
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground">
+                      +{project.employees.length - 4}
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                  {project.employees[0].name}
+                  {project.employees.length > 1 && (
+                    <span className="text-primary"> +{project.employees.length - 1}</span>
+                  )}
+                </span>
+              </>
+            ) : (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
+                <Users className="w-3 h-3" /> Təyin edilməyib
+              </span>
+            )}
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-primary"
+          >
+            Bax <ExternalLink className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };

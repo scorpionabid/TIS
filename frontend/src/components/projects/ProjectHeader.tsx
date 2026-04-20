@@ -1,11 +1,11 @@
 import React from 'react';
-import { 
-  Plus, 
-  Search, 
-  RefreshCw, 
-  List, 
+import {
+  Plus,
+  RefreshCw,
+  List,
   LayoutGrid,
-  SearchIcon
+  Search,
+  FolderKanban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ interface ProjectHeaderProps {
   onRefresh: () => void;
   isAdmin: boolean;
   onNewProject: () => void;
+  projectCount?: number;
 }
 
 export function ProjectHeader({
@@ -30,79 +31,98 @@ export function ProjectHeader({
   isLoading,
   onRefresh,
   isAdmin,
-  onNewProject
+  onNewProject,
+  projectCount,
 }: ProjectHeaderProps) {
   return (
-    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 py-2 px-1">
-      <div className="space-y-1">
-        <h1 className="text-xl font-bold text-foreground">
-          Layihələr
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Strateji hədəflər və resursların mərkəzləşdirilmiş idarəetmə mərkəzi.
-        </p>
-      </div>
+    <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/[0.06] via-background to-background shadow-sm">
+      {/* Decorative blobs */}
+      <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-8 left-1/3 w-32 h-32 rounded-full bg-accent/10 blur-2xl" />
 
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Layout Toggle */}
-        <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border/40 backdrop-blur-sm shadow-sm">
-          <Button 
-            variant={listLayout === 'table' ? 'secondary' : 'ghost'} 
-            size="icon" 
-            onClick={() => setListLayout('table')}
-            className={cn(
-              "h-8 w-8 rounded-lg transition-all duration-300",
-              listLayout === 'table' && "shadow-sm border border-border/20"
-            )}
-            title="Cədvəl Görünüşü"
-          >
-            <List className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant={listLayout === 'grid' ? 'secondary' : 'ghost'} 
-            size="icon" 
-            onClick={() => setListLayout('grid')}
-            className={cn(
-              "h-8 w-8 rounded-lg transition-all duration-300",
-              listLayout === 'grid' && "shadow-sm border border-border/20"
-            )}
-            title="Kart Görünüşü"
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </Button>
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-5">
+        {/* Title */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/30">
+            <FolderKanban className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-foreground leading-none">Layihələr</h1>
+              {projectCount !== undefined && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary tabular-nums">
+                  {projectCount}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Strateji hədəflər və resursların idarəetmə mərkəzi
+            </p>
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-72 group">
-           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
-           <Input 
-              placeholder="Layihələrdə axtar..." 
-              className="pl-9 h-10 rounded-xl bg-card border-border/60 focus-visible:ring-primary/20 shadow-sm hover:border-primary/30 transition-all duration-300"
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border/50 bg-muted/40 p-0.5">
+            <button
+              onClick={() => setListLayout('table')}
+              title="Cədvəl"
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-md transition-all duration-150',
+                listLayout === 'table'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setListLayout('grid')}
+              title="Kart"
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-md transition-all duration-150',
+                listLayout === 'grid'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative w-56">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Layihə axtar..."
+              className="h-9 pl-8 rounded-lg border-border/60 bg-background/80 text-sm focus-visible:ring-primary/20"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-           />
-        </div>
+            />
+          </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={onRefresh} 
-              disabled={isLoading} 
-              className="h-10 w-10 rounded-xl border-border/60 hover:bg-muted/50 hover:border-primary/30 shadow-sm transition-all duration-300"
+          {/* Refresh */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="h-9 w-9 rounded-lg border-border/60"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+          </Button>
+
+          {/* New project */}
+          {isAdmin && (
+            <Button
+              onClick={onNewProject}
+              className="h-9 gap-1.5 rounded-lg px-4 font-semibold shadow-sm"
             >
-              <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+              <Plus className="w-3.5 h-3.5" />
+              Yeni Layihə
             </Button>
-            
-            {isAdmin && (
-              <Button 
-                onClick={onNewProject} 
-                className="gap-2 h-10 rounded-xl px-5 transition-colors duration-200"
-              >
-                <Plus className="w-4 h-4" /> <span className="font-bold">Yeni Layihə</span>
-              </Button>
-            )}
+          )}
         </div>
       </div>
     </div>

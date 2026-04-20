@@ -145,6 +145,10 @@ class ProjectService extends BaseService<Project> {
     return this.unwrapResponseData<Project>(response);
   }
 
+  async deleteProject(id: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/${id}`);
+  }
+
   async getProjectDetails(id: number): Promise<Project> {
     const response = await apiClient.get<Project>(`${this.baseEndpoint}/${id}`);
     return this.unwrapResponseData<Project>(response);

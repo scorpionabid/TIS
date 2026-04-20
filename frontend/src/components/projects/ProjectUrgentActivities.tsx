@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProjectUrgentActivitiesProps {
   onActivityClick?: (activity: ProjectActivity) => void;
@@ -61,34 +62,46 @@ const getDaysInfo = (endDate: string) => {
 function ActivityRow({ 
   activity, 
   type,
-  onProjectOpen 
+  currentUserId,
+  onActivityClick 
 }: { 
   activity: ProjectActivity; 
   type: 'overdue' | 'upcoming';
-  onProjectOpen?: (id: number) => void;
+  currentUserId?: number;
+  onActivityClick?: (activity: ProjectActivity) => void;
 }) {
   const days = activity.end_date ? getDaysInfo(activity.end_date) : null;
   const isOverdue = type === 'overdue';
 
+  const isMyActivity = useMemo(() => {
+    if (!currentUserId) return false;
+    // Safe comparison converting everything to Number in case IDs are strings
+    return Number(activity.user_id) === Number(currentUserId) || 
+           activity.assigned_employees?.some(e => Number(e.id) === Number(currentUserId));
+  }, [activity, currentUserId]);
+
   return (
     <TableRow
       className={cn(
-        "group transition-all cursor-pointer border-b",
+        "group transition-all cursor-pointer border-b relative overflow-hidden",
         isOverdue 
           ? "hover:bg-red-50/60 dark:hover:bg-red-950/20" 
-          : "hover:bg-orange-50/60 dark:hover:bg-orange-950/20"
+          : "hover:bg-orange-50/60 dark:hover:bg-orange-950/20",
+        isMyActivity && "bg-blue-100/80 dark:bg-blue-900/40"
       )}
       onClick={() => onActivityClick?.(activity)}
     >
       {/* Activity Name */}
-      <TableCell className="py-3 pl-4">
+       <TableCell className="py-3 pl-4">
         <div className="flex flex-col gap-0.5">
-          <span className={cn(
-            "font-semibold text-sm group-hover:text-primary transition-colors",
-            isOverdue && "text-red-700/90 dark:text-red-400"
-          )}>
-            {activity.name}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "font-semibold text-sm group-hover:text-primary transition-colors",
+              isOverdue && "text-red-700/90 dark:text-red-400"
+            )}>
+              {activity.name}
+            </span>
+          </div>
           {activity.description && (
             <span className="text-[11px] text-muted-foreground line-clamp-1 opacity-70">
               {activity.description}
@@ -203,6 +216,7 @@ function SectionHeader({
 export const ProjectUrgentActivities: React.FC<ProjectUrgentActivitiesProps> = ({
   onActivityClick
 }) => {
+  const { currentUser } = useAuth();
   const [activities, setActivities] = useState<ProjectActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -312,9 +326,9 @@ export const ProjectUrgentActivities: React.FC<ProjectUrgentActivitiesProps> = (
         )}
       </div>
 
-      {/* Overdue Section */}
+       {/* Overdue Section */}
       {overdue.length > 0 && (
-        <div className="rounded-xl border border-red-200/70 dark:border-red-800/40 overflow-hidden shadow-sm">
+        <div className="rounded-xl border border-red-200/70 dark:border-red-800/40 overflow-hidden shadow-sm bg-card/40 backdrop-blur-md">
           <SectionHeader
             title="Gecikənlər"
             count={overdue.length}
@@ -329,7 +343,8 @@ export const ProjectUrgentActivities: React.FC<ProjectUrgentActivitiesProps> = (
                   key={a.id}
                   activity={a}
                   type="overdue"
-                  onProjectOpen={onActivityClick}
+                  currentUserId={currentUser?.id}
+                  onActivityClick={onActivityClick}
                 />
               ))}
             </TableBody>
@@ -339,7 +354,7 @@ export const ProjectUrgentActivities: React.FC<ProjectUrgentActivitiesProps> = (
 
       {/* Upcoming Section */}
       {upcoming.length > 0 && (
-        <div className="rounded-xl border border-orange-200/70 dark:border-orange-800/40 overflow-hidden shadow-sm">
+        <div className="rounded-xl border border-orange-200/70 dark:border-orange-800/40 overflow-hidden shadow-sm bg-card/40 backdrop-blur-md">
           <SectionHeader
             title="Bu həftə bitir"
             count={upcoming.length}
@@ -354,7 +369,8 @@ export const ProjectUrgentActivities: React.FC<ProjectUrgentActivitiesProps> = (
                   key={a.id}
                   activity={a}
                   type="upcoming"
-                  onProjectOpen={onActivityClick}
+                  currentUserId={currentUser?.id}
+                  onActivityClick={onActivityClick}
                 />
               ))}
             </TableBody>

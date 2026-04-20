@@ -1,11 +1,11 @@
 import React from 'react';
-import { 
-  ArrowLeft, 
-  Calendar as CalendarIcon, 
-  Briefcase, 
-  BarChart3 as DashboardIcon, 
+import {
+  ArrowLeft,
+  Calendar,
+  Users,
+  BarChart3,
   Edit,
-  ChevronRight
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,13 @@ interface ProjectDetailsHeaderProps {
   formatDate: (date?: string) => string;
 }
 
+const STATUS_STRIPE: Record<string, string> = {
+  active:    'bg-success',
+  completed: 'bg-primary',
+  on_hold:   'bg-warning',
+  cancelled: 'bg-muted-foreground',
+  archived:  'bg-accent-foreground',
+};
 
 export function ProjectDetailsHeader({
   project,
@@ -30,103 +37,113 @@ export function ProjectDetailsHeader({
   toggleStats,
   isAdmin,
   onEdit,
-  formatDate
+  formatDate,
 }: ProjectDetailsHeaderProps) {
+  const statusCfg = PROJECT_STATUS_CONFIG[project.status as ProjectStatus];
+  const stripeColor = STATUS_STRIPE[project.status] ?? 'bg-border';
+
   return (
-    <div className="flex flex-col gap-4 mb-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground/60 font-medium">
-         <span className="cursor-pointer hover:text-primary transition-colors" onClick={onBack}>Layihələr</span>
-         <ChevronRight className="w-3 h-3" />
-         <span className="text-foreground font-bold truncate max-w-[200px]">{project.name}</span>
-      </div>
+    <div className="space-y-2">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-xs text-muted-foreground px-0.5">
+        <button onClick={onBack} className="hover:text-primary transition-colors">
+          Layihələr
+        </button>
+        <ChevronRight className="w-3 h-3 shrink-0" />
+        <span className="text-foreground font-medium truncate max-w-xs">{project.name}</span>
+      </nav>
 
-      <div className="flex flex-wrap items-center justify-between gap-6 bg-card/40 backdrop-blur-md border border-border/40 p-4 rounded-2xl shadow-xl hover:bg-card/60 transition-all duration-500">
-        {/* Left: Back Button & Title */}
-        <div className="flex items-center gap-5 min-w-0 flex-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onBack}
-            className="h-10 w-10 shrink-0 rounded-xl hover:bg-primary/5 hover:text-primary group/back border border-transparent hover:border-primary/20 transition-all duration-300"
-          >
-            <ArrowLeft className="w-5 h-5 transition-transform group-hover/back:-translate-x-1" />
-          </Button>
+      {/* Header card */}
+      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
+        {/* Status colour stripe */}
+        <div className={cn('h-1 w-full', stripeColor)} />
 
-          <div className="flex flex-col min-w-0">
-             <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className={cn(
-                  'text-xs h-5 px-2 font-medium shrink-0',
-                  PROJECT_STATUS_CONFIG[project.status as ProjectStatus]?.bg,
-                  PROJECT_STATUS_CONFIG[project.status as ProjectStatus]?.color,
-                  PROJECT_STATUS_CONFIG[project.status as ProjectStatus]?.border,
-                )}>
-                  {PROJECT_STATUS_CONFIG[project.status as ProjectStatus]?.label ?? project.status}
-                </Badge>
-                <span className="text-xs text-muted-foreground/50">#{project.id}</span>
-             </div>
-             <h1 className="text-2xl font-bold text-foreground truncate leading-tight cursor-default">
-               {project.name}
-             </h1>
-          </div>
-        </div>
-
-        {/* Center Section: Info Cards */}
-        <div className="flex items-center gap-8 px-6">
-           {/* Date Info */}
-           <div className="flex items-center gap-3 group/info">
-              <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center border border-border/20 group-hover/info:bg-primary/5 group-hover/info:border-primary/20 transition-all duration-300">
-                <CalendarIcon className="w-4 h-4 text-muted-foreground group-hover/info:text-primary transition-colors" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground leading-none mb-1">Müddət</span>
-                <span className="text-[12px] font-black whitespace-nowrap leading-none tabular-nums">
-                  {formatDate(project.start_date)} — {formatDate(project.end_date)}
-                </span>
-              </div>
-           </div>
-
-           {/* Responsible Person */}
-           <div className="flex items-center gap-3 group/info">
-              <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center border border-border/20 group-hover/info:bg-primary/5 group-hover/info:border-primary/20 transition-all duration-300">
-                 <Briefcase className="w-4 h-4 text-muted-foreground group-hover/info:text-primary transition-colors" />
-              </div>
-              <div className="flex flex-col min-w-0 max-w-[150px]">
-                <span className="text-xs text-muted-foreground leading-none mb-1">İcraçı</span>
-                <span className="text-[12px] font-black truncate leading-none">
-                  {project.employees && project.employees.length > 0 
-                    ? project.employees.map((e: any) => e.name).join(', ') 
-                    : 'Təyin edilməyib'}
-                </span>
-              </div>
-           </div>
-        </div>
-        
-        {/* Right Section: Actions */}
-        <div className="flex items-center gap-3 pl-4 border-l border-border/30">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleStats}
-            className={cn(
-              "h-10 gap-2 rounded-xl px-4 transition-all duration-300 font-bold",
-              isStatsVisible ? "text-primary bg-primary/5 border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "text-muted-foreground hover:bg-muted border border-transparent"
-            )}
-          >
-            <DashboardIcon className="w-4.5 h-4.5" />
-            <span className="text-xs font-medium">{isStatsVisible ? 'Statistikanı gizlə' : 'Statistika'}</span>
-          </Button>
-
-          {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onEdit}
-              className="h-10 gap-2 rounded-xl px-4 border-border/60 hover:border-primary hover:text-primary hover:bg-primary/5 shadow-sm transition-all duration-300 font-bold"
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
+          {/* Left — back + title */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/30 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <Edit className="w-4 h-4" />
-              <span className="text-xs font-medium">Redaktə et</span>
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2">
+                {statusCfg && (
+                  <Badge
+                    variant="outline"
+                    className={cn('h-5 px-2 text-xs font-medium', statusCfg.bg, statusCfg.color, statusCfg.border)}
+                  >
+                    {statusCfg.label}
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground/50 tabular-nums">#{project.id}</span>
+              </div>
+              <h1 className="truncate text-xl font-bold leading-snug text-foreground">
+                {project.name}
+              </h1>
+            </div>
+          </div>
+
+          {/* Centre — meta info */}
+          <div className="hidden lg:flex items-center divide-x divide-border/40">
+            <div className="flex items-center gap-2 pr-6">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Müddət</p>
+                <p className="text-xs font-semibold whitespace-nowrap tabular-nums">
+                  {formatDate(project.start_date)} — {formatDate(project.end_date)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pl-6">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+                <Users className="w-3.5 h-3.5 text-muted-foreground" />
+              </div>
+              <div className="max-w-[160px]">
+                <p className="text-[10px] text-muted-foreground leading-none mb-0.5">İcraçılar</p>
+                <p className="text-xs font-semibold truncate">
+                  {project.employees?.length
+                    ? project.employees.map((e: any) => e.name).join(', ')
+                    : 'Təyin edilməyib'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right — actions */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isStatsVisible ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={toggleStats}
+              className={cn(
+                'h-9 gap-1.5 rounded-lg text-xs transition-all',
+                isStatsVisible && 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15',
+              )}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {isStatsVisible ? 'Statistikanı gizlə' : 'Statistika'}
+              </span>
             </Button>
-          )}
+
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onEdit}
+                className="h-9 gap-1.5 rounded-lg border-border/60 text-xs hover:border-primary/40 hover:text-primary"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Redaktə</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

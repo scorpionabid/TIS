@@ -123,11 +123,19 @@ export default function Projects() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'mine' | 'overdue'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const isAdmin = hasRole([
+  const isGlobalAdmin = hasRole([
+    USER_ROLES.SUPERADMIN,
+    USER_ROLES.REGIONADMIN
+  ]);
+  
+  const canManageProjects = hasRole([
     USER_ROLES.SUPERADMIN,
     USER_ROLES.REGIONADMIN,
-    USER_ROLES.SEKTORADMIN
+    USER_ROLES.SEKTORADMIN,
+    USER_ROLES.SCHOOLADMIN
   ]);
+
+  const isAdmin = canManageProjects; // Preserve legacy usage where appropriate
   
   const { users: availableUsers } = useAssignableUsers({
     perPage: 200,
@@ -379,7 +387,7 @@ export default function Projects() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
-            <ProjectHeader 
+            <ProjectHeader
               listLayout={listLayout}
               setListLayout={setListLayout}
               searchQuery={searchQuery}
@@ -388,25 +396,31 @@ export default function Projects() {
               onRefresh={fetchProjects}
               isAdmin={isAdmin}
               onNewProject={() => setIsProjectModalOpen(true)}
+              projectCount={projects.length}
             />
 
             <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as any)} className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="projects" className="gap-2">
-                  <Briefcase className="w-4 h-4" />
+              <TabsList className="mb-5 h-10 rounded-xl bg-muted/50 p-1 gap-0.5">
+                <TabsTrigger value="projects" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <Briefcase className="w-3.5 h-3.5" />
                   <span>Layihələr</span>
+                  {projects.length > 0 && (
+                    <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-semibold text-primary tabular-nums">
+                      {projects.length}
+                    </span>
+                  )}
                 </TabsTrigger>
-                <TabsTrigger value="my_activities" className="gap-2">
-                  <ListTodo className="w-4 h-4" />
+                <TabsTrigger value="my_activities" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <ListTodo className="w-3.5 h-3.5" />
                   <span>Fəaliyyətlərim</span>
                 </TabsTrigger>
-                <TabsTrigger value="urgent" className="gap-2 relative">
-                  <AlertCircle className="w-4 h-4" />
+                <TabsTrigger value="urgent" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <AlertCircle className="w-3.5 h-3.5" />
                   <span>Təcili</span>
                 </TabsTrigger>
-                <TabsTrigger value="stats" className="gap-2">
-                  <Activity className="w-4 h-4" />
-                  <span>Ümumi Statistika</span>
+                <TabsTrigger value="stats" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Statistika</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -476,50 +490,53 @@ export default function Projects() {
             <AnimatePresence mode="wait">
               {stats && isStatsVisible && (
                 <motion.div
-                  key={statsLayout}
-                  initial={{ height: 0, opacity: 0, y: -20 }}
-                  animate={{ height: "auto", opacity: 1, y: 0 }}
-                  exit={{ height: 0, opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                  className="relative group/stats-container mb-2"
+                  key="stats-strip"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                  className="overflow-hidden mb-1"
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                    {/* Progress Card */}
-                    <Card className="border-primary/20 bg-primary/5 shadow-sm relative overflow-hidden group/card transition-all hover:border-primary/30">
-                      <CardContent className="p-4 flex flex-col items-center text-center gap-1.5 h-full justify-center">
-                        <span className="text-xs text-muted-foreground font-semibold">İcra faizi</span>
-                        <div className="relative w-full h-1.5 bg-primary/10 rounded-full mt-1 mb-2">
-                           <motion.div 
-                              className="absolute left-0 top-0 h-full bg-primary shadow-[0_0_8px_rgba(59,130,246,0.5)]" 
-                              initial={{ width: 0 }} 
-                              animate={{ width: `${stats.progress_percentage}%` }}
-                              transition={{ duration: 1 }}
-                           />
-                        </div>
-                        <span className="text-4xl font-bold text-primary leading-none">{stats.progress_percentage}%</span>
-                      </CardContent>
-                    </Card>
+                  <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                    {/* Progress tile */}
+                    <div className="min-w-[130px] flex-shrink-0 rounded-xl border border-primary/20 bg-primary/5 p-3.5 flex flex-col gap-2">
+                      <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">İcra faizi</span>
+                      <span className="text-3xl font-bold text-primary leading-none tabular-nums">
+                        {stats.progress_percentage}%
+                      </span>
+                      <div className="h-1.5 rounded-full bg-primary/15 overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full bg-primary"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${stats.progress_percentage}%` }}
+                          transition={{ duration: 1, ease: 'easeOut' }}
+                        />
+                      </div>
+                    </div>
 
+                    {/* Status tiles */}
                     {[
-                      { label: 'Cəmi', value: stats.total_activities, color: 'text-foreground', icon: ListTodo, bgColor: 'bg-muted/50' },
-                      { label: 'Gözləyir', value: stats.status_breakdown?.pending || 0, color: 'text-muted-foreground', icon: Clock, bgColor: 'bg-muted/30' },
-                      { label: 'İcrada', value: stats.status_breakdown?.in_progress || 0, color: 'text-warning', icon: RefreshCw, bgColor: 'bg-warning/10' },
-                      { label: 'Yoxlamada', value: stats.status_breakdown?.checking || 0, color: 'text-primary', icon: Target, bgColor: 'bg-primary/10' },
-                      { label: 'Tamamlandı', value: stats.status_breakdown?.completed || 0, color: 'text-success', icon: CheckCircle2, bgColor: 'bg-success/10' },
-                      { label: 'Problem', value: stats.status_breakdown?.stuck || 0, color: 'text-destructive', icon: AlertCircle, bgColor: 'bg-destructive/10' },
-                    ].map((item, idx) => (
-                      <Card key={idx} className="border-border/60 shadow-sm transition-all hover:shadow-md hover:border-primary/20 group/statcard">
-                        <CardContent className="p-4 flex flex-col items-center justify-between gap-1 h-full min-h-[100px]">
-                          <div className="flex items-center gap-1.5">
-                             <div className={cn("p-1.5 rounded-lg transition-transform group-hover/statcard:scale-110", item.bgColor, item.color)}>
-                                <item.icon className="w-3.5 h-3.5" />
-                             </div>
-                             <span className="text-xs text-muted-foreground font-semibold">{item.label}</span>
-                          </div>
-                          <span className={cn("text-5xl font-bold leading-none tracking-tight self-center mb-1", item.color)}>{item.value}</span>
-                          <div className="h-1" />
-                        </CardContent>
-                      </Card>
+                      { label: 'Cəmi', value: stats.total_activities, dot: 'bg-foreground/30', num: 'text-foreground', icon: ListTodo },
+                      { label: 'Gözləyir', value: stats.status_breakdown?.pending ?? 0, dot: 'bg-muted-foreground', num: 'text-muted-foreground', icon: Clock },
+                      { label: 'İcrada', value: stats.status_breakdown?.in_progress ?? 0, dot: 'bg-warning', num: 'text-warning', icon: RefreshCw },
+                      { label: 'Yoxlamada', value: stats.status_breakdown?.checking ?? 0, dot: 'bg-primary', num: 'text-primary', icon: Target },
+                      { label: 'Tamamlandı', value: stats.status_breakdown?.completed ?? 0, dot: 'bg-success', num: 'text-success', icon: CheckCircle2 },
+                      { label: 'Problem', value: stats.status_breakdown?.stuck ?? 0, dot: 'bg-destructive', num: 'text-destructive', icon: AlertCircle },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="min-w-[100px] flex-shrink-0 rounded-xl border border-border/50 bg-card p-3.5 flex flex-col gap-1.5 hover:border-border transition-colors"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn('h-2 w-2 rounded-full shrink-0', item.dot)} />
+                          <span className="text-[10px] text-muted-foreground font-medium leading-none">
+                            {item.label}
+                          </span>
+                        </div>
+                        <span className={cn('text-2xl font-bold leading-none tabular-nums', item.num)}>
+                          {item.value}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </motion.div>
@@ -527,38 +544,54 @@ export default function Projects() {
             </AnimatePresence>
 
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 py-1.5 px-3 bg-muted/30 rounded-xl border border-border/40 mb-1">
-              <div className="flex items-center gap-3">
-                <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)} className="w-auto">
-                  <TabsList className="h-8 p-0.5 bg-background/50 rounded-lg border">
-                    <TabsTrigger value="table" className="h-7 px-3 text-xs gap-1.5">
-                       <TableIcon className="w-3 h-3" /> Cədvəl
-                    </TabsTrigger>
-                    <TabsTrigger value="timeline" className="h-7 px-3 text-xs gap-1.5">
-                       <CalendarIcon className="w-3 h-3" /> Zaman Oxu
-                    </TabsTrigger>
-                    <TabsTrigger value="kanban" className="h-7 px-3 text-xs gap-1.5">
-                       <KanbanIcon className="w-3 h-3" /> Kanban
-                    </TabsTrigger>
-                    <TabsTrigger value="dashboard" className="h-7 px-3 text-xs gap-1.5">
-                       <DashboardIcon className="w-3 h-3" /> Analitika
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/60 px-3 py-2 shadow-sm">
+              {/* View mode segmented control */}
+              <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
+                {([
+                  { value: 'table',     label: 'Cədvəl',   icon: TableIcon },
+                  { value: 'timeline',  label: 'Zaman Oxu',icon: CalendarIcon },
+                  { value: 'kanban',    label: 'Kanban',   icon: KanbanIcon },
+                  { value: 'dashboard', label: 'Analitika',icon: DashboardIcon },
+                ] as const).map((v) => (
+                  <button
+                    key={v.value}
+                    onClick={() => setActiveView(v.value)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium transition-all',
+                      activeView === v.value
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <v.icon className="w-3 h-3" />
+                    <span className="hidden sm:inline">{v.label}</span>
+                  </button>
+                ))}
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Right controls */}
+              <div className="flex items-center gap-1.5">
                 <ActivityGlobalFilters
                   activeFilter={activeFilter}
                   onFilterChange={setActiveFilter}
                 />
-                <div className="h-4 w-px bg-border/60 mx-1" />
-                <Button variant="outline" size="sm" className="h-8 gap-2 px-3 text-xs font-medium rounded-lg border-border/60 hover:text-primary hover:border-primary transition-colors" onClick={() => projectService.exportProject(selectedProject.id)}>
-                   <Download className="w-3.5 h-3.5" /> Excel-ə köçür
+                <div className="h-4 w-px bg-border/60" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 px-3 text-xs font-medium hover:text-primary"
+                  onClick={() => projectService.exportProject(selectedProject.id)}
+                >
+                  <Download className="w-3.5 h-3.5" /> Excel
                 </Button>
-                <div className="h-4 w-px bg-border/60 mx-1" />
-                <Button variant="outline" size="icon" onClick={() => fetchProjectDetails(selectedProject.id)} disabled={isLoading} className="h-8 w-8 rounded-lg border-border/60">
-                  <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  onClick={() => fetchProjectDetails(selectedProject.id)}
+                  disabled={isLoading}
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
                 </Button>
               </div>
             </div>

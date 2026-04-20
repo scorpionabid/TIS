@@ -30,8 +30,7 @@ class ProjectService extends BaseService
      */
     public function getProjectsForUser(User $user): Collection
     {
-        // Admin roles (RegionAdmin, SectorAdmin, etc.) can see all projects
-        // Note: regionoperator and sektoradmin are intentionally excluded from 'see-all' to respect assignment-based privacy
+        // Global Admin roles (RegionAdmin, SuperAdmin) can see all projects
         if ($user->hasAnyRole(['regionadmin', 'admin', 'superadmin'])) {
             return Project::with(['creator', 'employees'])
                 ->withCount(['activities as total_comments' => function ($query) {
@@ -115,6 +114,32 @@ class ProjectService extends BaseService
             }
 
             return $project->load(['employees', 'creator']);
+        });
+    }
+
+    /**
+     * Delete a project and all its related activities, assignments, etc.
+     */
+    public function deleteProject(int $id, User $user): void
+    {
+        $project = Project::findOrFail($id);
+
+        // Authorization check: Admin or creator
+        $isAdmin = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']);
+        if (!$isAdmin && $project->created_by !== $user->id) {
+            throw new \Exception('Bu layihəni silmək üçün icazəniz yoxdur.');
+        }
+
+        DB::transaction(function () use ($project) {
+            // Activities deletion will trigger activity log deletions if cascading is not set
+            // In ATIS, we usually rely on cascade deletes in DB, but let's be explicit if needed
+            // However, the project model should have cascading relationships or we do it here
+            $project->activities()->each(function($activity) {
+                $activity->delete(); // This calls the delete on activities
+            });
+            
+            $project->assignments()->delete();
+            $project->delete();
         });
     }
 
@@ -384,11 +409,11 @@ class ProjectService extends BaseService
     }
 
     /**
-     * Delete an activity.
+     * Delete an activity and its sub-activities.
      */
     public function deleteActivity(int $activityId, User $user): void
     {
-        $activity = ProjectActivity::with('project')->findOrFail($activityId);
+        $activity = ProjectActivity::with(['project', 'subActivities'])->findOrFail($activityId);
         
         // Authorization: Admin or Project Creator
         $canDelete = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']) || 
@@ -398,13 +423,18 @@ class ProjectService extends BaseService
             throw new \Exception('Bu fəaliyyəti silmək üçün icazəniz yoxdur.');
         }
 
-        $activityName = $activity->name;
-        $projectId = $activity->project_id;
-        
-        $activity->delete();
+        DB::transaction(function () use ($activity, $user) {
+            // Recursively delete sub-activities first
+            foreach ($activity->subActivities as $subActivity) {
+                $this->deleteActivity($subActivity->id, $user);
+            }
 
-        // Log deletion
-        $this->logActivityAction($activityId, $user->id, 'deleted', null, null, null, "Fəaliyyət silindi: {$activityName}");
+            $activityName = $activity->name;
+            $activity->delete();
+
+            // Log deletion
+            $this->logActivityAction($activity->id, $user->id, 'deleted', null, null, null, "Fəaliyyət silindi: {$activityName}");
+        });
     }
 
     /**
@@ -464,7 +494,7 @@ class ProjectService extends BaseService
      */
     public function getUrgentActivities(User $user): Collection
     {
-        $isAdmin = $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'admin']);
+        $isAdmin = $user->hasAnyRole(['superadmin', 'regionadmin', 'admin']);
         $sevenDaysFromNow = now()->addDays(7)->endOfDay();
 
         $query = ProjectActivity::whereNotIn('status', ['completed'])
@@ -478,12 +508,20 @@ class ProjectService extends BaseService
             ->with(['project', 'assignedEmployees']);
 
         if (!$isAdmin) {
-            // Non-admins only see their own activities
+            // Non-admins see:
+            // 1. All activities of projects where they are responsible (creator or project-level assignment)
+            // 2. Specific activities they are assigned to
             $query->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->orWhereHas('assignedEmployees', function ($sq) use ($user) {
-                      $sq->where('users.id', $user->id);
-                  });
+                $q->whereHas('project', function ($pq) use ($user) {
+                    $pq->where('created_by', $user->id)
+                      ->orWhereHas('assignments', function ($aq) use ($user) {
+                          $aq->where('user_id', $user->id);
+                      });
+                })
+                ->orWhere('user_id', $user->id)
+                ->orWhereHas('assignedEmployees', function ($sq) use ($user) {
+                    $sq->where('users.id', $user->id);
+                });
             });
         }
 
