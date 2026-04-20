@@ -69,9 +69,15 @@ class AttendanceRankingService
                 }
             }
 
-            // Calculate regional rank if in sector view
-            if ($mySchoolRank && $region && (! $activeSector || (int)$activeSector->id !== (int)$region->id)) {
-                $regionSchoolIds = $region->getAllChildrenIds();
+            // Calculate regional rank (filter to actual schools only — getAllChildrenIds also returns sectors)
+            if ($mySchoolRank && $region) {
+                $regionAllIds = $region->getAllChildrenIds();
+                $regionSchoolIds = Institution::whereIn('id', $regionAllIds)
+                    ->where('level', 4)
+                    ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
+                    ->where('is_active', true)
+                    ->pluck('id')
+                    ->toArray();
                 $regionRankings = $this->calculateRankingsForSchools($regionSchoolIds, $startDate, $endDate, $shiftType);
                 
                 foreach ($regionRankings as $idx => $rr) {

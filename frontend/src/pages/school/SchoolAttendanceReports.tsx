@@ -46,6 +46,7 @@ export default function SchoolAttendanceReports({ activeTab = 'schoolGrade' }: S
     matrixData,
     // Rankings
     rankingsData,
+    rankingsSummary,
     rankingsLoading,
     rankingsError,
     refetchRankings,
@@ -176,6 +177,7 @@ export default function SchoolAttendanceReports({ activeTab = 'schoolGrade' }: S
             startDate={startDate}
             endDate={endDate}
             mySchoolRank={mySchoolRank}
+            summary={rankingsSummary}
           />
         </div>
       )}

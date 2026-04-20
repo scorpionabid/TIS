@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Grade;
 use App\Models\SchoolAttendance;
+use App\Models\Institution;
+use App\Services\Attendance\AttendanceRankingService;
 use App\Services\Attendance\SchoolAttendanceCrudService;
 use App\Services\Attendance\SchoolAttendanceCsvExportService;
-use App\Services\Attendance\SchoolAttendanceRankingsService;
 use App\Services\Attendance\SchoolAttendanceReportsService;
 use App\Services\Attendance\SchoolAttendanceScopeFilter;
 use App\Services\Attendance\SchoolAttendanceStatsService;
@@ -22,7 +24,7 @@ class SchoolAttendanceController extends BaseController
         private readonly SchoolAttendanceStatsService $statsService,
         private readonly SchoolAttendanceReportsService $reportsService,
         private readonly SchoolAttendanceCsvExportService $exportService,
-        private readonly SchoolAttendanceRankingsService $rankingsService,
+        private readonly AttendanceRankingService $rankingsService,
         private readonly SchoolAttendanceScopeFilter $scope,
     ) {
         $this->middleware('auth:sanctum');
@@ -265,25 +267,18 @@ class SchoolAttendanceController extends BaseController
      */
     public function getSchoolClasses($schoolId): JsonResponse
     {
-        try {
-            $classes = SchoolAttendance::where('school_id', $schoolId)
-                ->distinct()
-                ->pluck('class_name')
-                ->sort()
-                ->values();
+        $classes = Grade::where('institution_id', $schoolId)
+            ->orderBy('class_level')
+            ->orderBy('name')
+            ->get(['class_level', 'name'])
+            ->map(fn ($g) => $g->class_level . '-' . $g->name)
+            ->values();
 
-            return response()->json([
-                'success' => true,
-                'data' => $classes,
-                'message' => 'Sinif məlumatları alındı',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Sinif məlumatları alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => $classes,
+            'message' => 'Sinif məlumatları alındı',
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -483,7 +478,9 @@ class SchoolAttendanceController extends BaseController
     // -------------------------------------------------------------------------
 
     /**
-     * Get rankings for schools in the same sector
+     * Get rankings for all schools in the same sector.
+     *
+     * Supports single-day and date-range queries.
      */
     public function rankings(Request $request): JsonResponse
     {
@@ -499,10 +496,38 @@ class SchoolAttendanceController extends BaseController
                 ], 400);
             }
 
-            $date = $request->get('date', Carbon::now()->format('Y-m-d'));
-            $shiftType = $request->get('shift_type', 'all');
+            $validated = $request->validate([
+                'start_date' => ['nullable', 'date'],
+                'end_date'   => ['nullable', 'date'],
+                'shift_type' => ['nullable', 'string', 'in:morning,evening,all'],
+            ]);
 
-            $data = $this->rankingsService->getRankings($date, $shiftType, $schoolId, $sectorId);
+            $startDate = $validated['start_date'] ?? Carbon::now()->format('Y-m-d');
+            $endDate   = $validated['end_date']   ?? $startDate;
+            $shiftType = $validated['shift_type'] ?? 'all';
+
+            $sector = Institution::find($sectorId);
+
+            $schoolIds = Institution::where('parent_id', $sectorId)
+                ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
+                ->where('is_active', true)
+                ->pluck('id')
+                ->toArray();
+
+            $scope = [
+                'start_date'    => $startDate,
+                'end_date'      => $endDate,
+                'school_ids'    => $schoolIds,
+                'region'        => $sector?->parent?->level === 2 ? $sector->parent : null,
+                'active_sector' => $sector,
+            ];
+
+            $filters = [
+                'shift_type' => $shiftType,
+                'school_id'  => $schoolId,
+            ];
+
+            $data = $this->rankingsService->getRankings($user, $filters, $scope);
 
             return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {

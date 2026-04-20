@@ -31,9 +31,21 @@ export interface SchoolRanking {
   deadline_time: string | null;
   is_late: boolean;
   late_minutes: number;
+  late_count: number;
   status: 'on_time' | 'late' | 'not_submitted';
   score: number;
   score_percent: number;
+  abs_first: string | null;
+  abs_last: string | null;
+}
+
+export interface RankingsSummary {
+  total_schools: number;
+  submitted_count: number;
+  on_time_count: number;
+  late_count: number;
+  not_submitted_count: number;
+  has_data: boolean;
 }
 
 export function useSchoolAttendanceData() {
@@ -68,9 +80,8 @@ export function useSchoolAttendanceData() {
       start_date: startDate,
       end_date: endDate,
       shift_type: selectedShiftType,
-      school_id: schoolId,
     };
-  }, [startDate, endDate, selectedShiftType, schoolId]);
+  }, [startDate, endDate, selectedShiftType]);
 
   // School Grade Stats Query
   const {
@@ -159,43 +170,61 @@ export function useSchoolAttendanceData() {
   const matrixData = useMemo(() => {
     const levels = Array.from({ length: 12 }, (_, i) => i); 
 
-    const calculateMatrixGrades = (data: any) => {
-      if (!data?.data?.grades) return levels.map(() => null);
+    const calculateMatrixGrades = (grades: any[] | undefined) => {
+      if (!grades) return levels.map(() => null);
       return levels.map(level => {
-        const levelGrades = data.data.grades.filter((g: any) => g.grade_level === level);
+        const levelGrades = grades.filter((g: any) => g.grade_level === level);
         if (levelGrades.length === 0) return null;
         const sum = levelGrades.reduce((acc: number, curr: any) => acc + curr.average_attendance_rate, 0);
         return sum / levelGrades.length;
       });
     };
 
-    const currentGrades = calculateMatrixGrades(gradeStatsData);
-    const weeklyGrades = calculateMatrixGrades(weeklyStatsData);
-    const monthlyGrades = calculateMatrixGrades(monthlyStatsData);
+    const currentGrades = calculateMatrixGrades(gradeStatsData?.data?.grades);
+    const weeklyGrades = calculateMatrixGrades(weeklyStatsData?.data?.grades);
+    const monthlyGrades = calculateMatrixGrades(monthlyStatsData?.data?.grades);
 
-    const schools = [];
+    const schools: any[] = [];
     
     // Row 1: Current Selected Period
     if (gradeStatsData?.data) {
+      const mainSchoolId = Number(filters.school_id) || 0;
       schools.push({
-        id: Number(filters.school_id) || 0,
+        id: mainSchoolId,
         name: gradeStatsData.data.school_name || 'Məktəb',
-        grades: currentGrades
+        grades: currentGrades,
+        isMain: true,
+        hasWeekly: (gradeStatsData.data.weekly_breakdown?.length || 0) > 0
       });
+
+      // Add Weekly Breakdown Rows
+      if (gradeStatsData.data.weekly_breakdown) {
+        gradeStatsData.data.weekly_breakdown.forEach((week: any, idx: number) => {
+          schools.push({
+            id: -(idx + 100), // Unique negative ID for weekly rows
+            name: week.week_label,
+            grades: calculateMatrixGrades(week.grades),
+            isWeekly: true,
+            parentId: mainSchoolId
+          });
+        });
+      }
     }
 
-    // Row 2: Weekly Average
+    // Row 2: Average for Current Week (Relative to now)
     schools.push({
       id: -1,
-      name: 'Həftəlik (Orta)',
-      grades: weeklyGrades
+      name: 'Həftəlik (Cari)',
+      grades: weeklyGrades,
+      isSecondary: true
     });
 
-    // Row 3: Monthly Average
+    // Row 3: Average for Current Month (Relative to now)
     schools.push({
       id: -2,
-      name: 'Aylıq (Orta)',
-      grades: monthlyGrades
+      name: 'Aylıq (Cari)',
+      grades: monthlyGrades,
+      isSecondary: true
     });
 
     return {
@@ -227,6 +256,7 @@ export function useSchoolAttendanceData() {
     matrixData,
     // Rankings
     rankingsData: rankingsData?.data?.schools || [],
+    rankingsSummary: rankingsData?.data?.summary || null,
     rankingsLoading,
     rankingsFetching,
     rankingsError,
