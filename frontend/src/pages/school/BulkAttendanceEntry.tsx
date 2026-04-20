@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -82,6 +82,30 @@ const BulkAttendanceEntry: React.FC = () => {
 
   const hasDirtySessions = dirtySessions.morning || dirtySessions.evening;
   const totalFetchedClasses = classesData?.data.classes?.length ?? 0;
+
+  // Evening session lock: can only submit 3 hours after the latest morning_recorded_at (today only)
+  const eveningLockInfo = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if (selectedDate !== today) return { locked: false, allowedAt: null };
+
+    let latestMorning: Date | null = null;
+    for (const cls of classes) {
+      const mra = (cls.attendance as any)?.morning_recorded_at;
+      if (mra) {
+        const d = new Date(mra);
+        if (!latestMorning || d > latestMorning) latestMorning = d;
+      }
+    }
+
+    if (!latestMorning) return { locked: false, allowedAt: null };
+
+    const allowedAt = new Date(latestMorning.getTime() + 3 * 60 * 60 * 1000);
+    if (new Date() >= allowedAt) return { locked: false, allowedAt: null };
+
+    const hh = String(allowedAt.getHours()).padStart(2, '0');
+    const mm = String(allowedAt.getMinutes()).padStart(2, '0');
+    return { locked: true, allowedAt: `${hh}:${mm}` };
+  }, [classes, selectedDate]);
   const hiddenClasses = Math.max(totalFetchedClasses - classes.length, 0);
   const savingSession = saveAttendanceMutation.variables?.session ?? null;
 
@@ -407,6 +431,8 @@ const BulkAttendanceEntry: React.FC = () => {
         eveningHasData={classes.some((cls) => attendanceData[cls.id]?.evening_present !== undefined)}
         morningDirty={dirtySessions.morning}
         eveningDirty={dirtySessions.evening}
+        eveningLocked={eveningLockInfo.locked}
+        eveningAllowedAt={eveningLockInfo.allowedAt}
       />
 
       {/* Table View - Desktop */}
@@ -468,19 +494,26 @@ const BulkAttendanceEntry: React.FC = () => {
             )}
             İlk dərsi saxla
           </Button>
-          <Button
-            onClick={() => handleSaveSession("evening")}
-            disabled={saveAttendanceMutation.isPending}
-            className="flex items-center justify-center gap-2"
-            data-testid="bulk-attendance-save-evening"
-          >
-            {saveAttendanceMutation.isPending && savingSession === "evening" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <span className="mr-1">✅</span>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              onClick={() => handleSaveSession("evening")}
+              disabled={saveAttendanceMutation.isPending || eveningLockInfo.locked}
+              className="flex items-center justify-center gap-2"
+              data-testid="bulk-attendance-save-evening"
+            >
+              {saveAttendanceMutation.isPending && savingSession === "evening" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <span className="mr-1">✅</span>
+              )}
+              Son dərsi saxla
+            </Button>
+            {eveningLockInfo.locked && eveningLockInfo.allowedAt && (
+              <span className="text-[11px] text-amber-600 font-medium">
+                🔒 {eveningLockInfo.allowedAt}-dən sonra aktiv olacaq
+              </span>
             )}
-            Son dərsi saxla
-          </Button>
+          </div>
         </div>
       </div>
 

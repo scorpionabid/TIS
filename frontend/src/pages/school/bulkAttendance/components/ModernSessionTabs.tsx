@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Lock } from 'lucide-react';
 import { AttendanceSession } from '../types';
 
 interface ModernSessionTabsProps {
@@ -9,6 +9,8 @@ interface ModernSessionTabsProps {
   eveningHasData: boolean;
   morningDirty: boolean;
   eveningDirty: boolean;
+  eveningLocked?: boolean;
+  eveningAllowedAt?: string | null;
 }
 
 const ModernSessionTabs: React.FC<ModernSessionTabsProps> = ({
@@ -18,6 +20,8 @@ const ModernSessionTabs: React.FC<ModernSessionTabsProps> = ({
   eveningHasData,
   morningDirty,
   eveningDirty,
+  eveningLocked = false,
+  eveningAllowedAt = null,
 }) => {
   const getTabStyle = (isActive: boolean) => {
     if (isActive) {
@@ -52,13 +56,20 @@ const ModernSessionTabs: React.FC<ModernSessionTabsProps> = ({
         className={`
           flex-1 sm:flex-none px-6 sm:px-8 py-3 text-sm font-semibold
           rounded-t-2xl transition-all duration-300
-          flex items-center justify-center gap-2
+          flex flex-col items-center justify-center gap-0.5
           ${getTabStyle(activeSession === 'evening')}
         `}
       >
-        <Clock className="h-4 w-4" />
-        Son dərs
-        {getIndicator(eveningHasData, eveningDirty)}
+        <span className="flex items-center gap-2">
+          {eveningLocked ? <Lock className="h-4 w-4 text-amber-500" /> : <Clock className="h-4 w-4" />}
+          Son dərs
+          {!eveningLocked && getIndicator(eveningHasData, eveningDirty)}
+        </span>
+        {eveningLocked && eveningAllowedAt && (
+          <span className="text-[10px] font-medium text-amber-500 leading-none">
+            {eveningAllowedAt}-dən sonra
+          </span>
+        )}
       </button>
     </div>
   );
