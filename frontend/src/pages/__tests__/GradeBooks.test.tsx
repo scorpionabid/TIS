@@ -91,8 +91,15 @@ vi.mock('@/services/hierarchy', () => ({
   hierarchyService: { getHierarchy: vi.fn().mockResolvedValue({ data: [] }) },
 }));
 
+vi.mock('@/services/gradeBook', () => ({
+  gradeBookService: { 
+    getGradeBooks: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    exportGradeBook: vi.fn()
+  }
+}));
+
 vi.mock('@/services/grades', () => ({
-  gradeService: { get: vi.fn().mockResolvedValue({ items: [] }) },
+  gradeService: { get: vi.fn().mockResolvedValue({ success: true, items: [] }) },
 }));
 
 vi.mock('@/hooks/use-toast', () => ({

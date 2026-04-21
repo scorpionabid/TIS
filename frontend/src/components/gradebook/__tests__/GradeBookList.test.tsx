@@ -177,8 +177,8 @@ describe('GradeBookList — qruplama məntiqi', () => {
 
     renderList();
 
-    // 1 qrup başlığı: "5-A"
-    expect(screen.getAllByText('5-A').length).toBeGreaterThanOrEqual(1);
+    // 1 qrup başlığı: "5A"
+    expect(screen.getAllByText('5A').length).toBeGreaterThanOrEqual(1);
     // Hər iki fənn görünür
     expect(screen.getByText('Riyaziyyat')).toBeInTheDocument();
     expect(screen.getByText('Fizika')).toBeInTheDocument();
@@ -193,8 +193,8 @@ describe('GradeBookList — qruplama məntiqi', () => {
 
     renderList();
 
-    expect(screen.getByText('5-A')).toBeInTheDocument();
-    expect(screen.getByText('5-B')).toBeInTheDocument();
+    expect(screen.getByText('5A')).toBeInTheDocument();
+    expect(screen.getByText('5B')).toBeInTheDocument();
   });
 
   it('qrup başlığında fənn sayı düzgün göstərilir', () => {
@@ -206,7 +206,7 @@ describe('GradeBookList — qruplama məntiqi', () => {
 
     renderList();
 
-    expect(screen.getByText('(2 fənn)')).toBeInTheDocument();
+    expect(screen.getByText('2 jurnal')).toBeInTheDocument();
   });
 
   it('jurnallar daxilində fənn adına görə əlifba sırası saxlanır', () => {
@@ -259,7 +259,7 @@ describe('GradeBookList — axtarış filtri', () => {
     renderList();
 
     const searchInput = screen.getByPlaceholderText('Jurnal axtar...');
-    fireEvent.change(searchInput, { target: { value: '7-B' } });
+    fireEvent.change(searchInput, { target: { value: '7B' } });
 
     expect(screen.getByText('Fizika')).toBeInTheDocument();
     expect(screen.queryByText('Riyaziyyat')).not.toBeInTheDocument();
@@ -329,7 +329,7 @@ describe('GradeBookList — sinif qrup açma/bağlama', () => {
     expect(screen.getByText('Riyaziyyat')).toBeInTheDocument();
 
     // Qrup başlığına klik
-    const gradeHeader = screen.getByText('5-A').closest('[class*="cursor-pointer"]');
+    const gradeHeader = screen.getByText('5A').closest('.cursor-pointer');
     if (gradeHeader) fireEvent.click(gradeHeader);
 
     expect(screen.queryByText('Riyaziyyat')).not.toBeInTheDocument();

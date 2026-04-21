@@ -190,7 +190,7 @@ describe('GradeBookService', () => {
 
       await gradeBookService.getGradeBooks();
 
-      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', { params: undefined });
+      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', {});
     });
 
     it('institution_id filtri düzgün ötürülür', async () => {
@@ -198,9 +198,7 @@ describe('GradeBookService', () => {
 
       await gradeBookService.getGradeBooks({ institution_id: 10 });
 
-      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', {
-        params: { institution_id: 10 },
-      });
+      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', { institution_id: 10 });
     });
 
     it('status filtri düzgün ötürülür', async () => {
@@ -208,9 +206,7 @@ describe('GradeBookService', () => {
 
       await gradeBookService.getGradeBooks({ status: 'archived' });
 
-      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', {
-        params: { status: 'archived' },
-      });
+      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', { status: 'archived' });
     });
 
     it('birdən çox filtr birlikdə ötürülür', async () => {
@@ -223,9 +219,7 @@ describe('GradeBookService', () => {
         per_page: 50,
       });
 
-      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', {
-        params: { institution_id: 10, grade_id: 5, status: 'active', per_page: 50 },
-      });
+      expect(mocks.apiClient.get).toHaveBeenCalledWith('/grade-books', { institution_id: 10, grade_id: 5, status: 'active', per_page: 50 });
     });
   });
 
@@ -409,7 +403,7 @@ describe('GradeBookService', () => {
         '/grade-books/1/export-template',
         undefined,
         { responseType: 'blob', cache: false },
-      );
+        );
       expect(result).toBe(mockBlob);
     });
   });

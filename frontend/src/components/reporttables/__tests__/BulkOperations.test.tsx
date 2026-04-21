@@ -4,13 +4,19 @@ import { BulkOperationsToolbar, RowCheckbox, useBulkSelection } from '../BulkOpe
 import { BulkActionConfirmDialog } from '../BulkActionConfirmDialog';
 import React from 'react';
 
+import { LayoutProvider } from '@/contexts/LayoutContext';
+
 describe('BulkOperations component', () => {
   const mockRowIds = [1, 2, 3, 4, 5];
   
+  const renderWithProvider = (ui: React.ReactElement) => {
+    return render(<LayoutProvider>{ui}</LayoutProvider>);
+  };
+
   describe('BulkOperationsToolbar', () => {
     it('should render select all button', () => {
       const onSelectionChange = vi.fn();
-      render(
+      renderWithProvider(
         <BulkOperationsToolbar
           rowIds={mockRowIds}
           selectedIds={new Set()}
@@ -22,7 +28,7 @@ describe('BulkOperations component', () => {
 
     it('should select all rows when clicked', () => {
       const onSelectionChange = vi.fn();
-      render(
+      renderWithProvider(
         <BulkOperationsToolbar
           rowIds={mockRowIds}
           selectedIds={new Set()}
@@ -36,7 +42,7 @@ describe('BulkOperations component', () => {
 
     it('should deselect all when all are selected', () => {
       const onSelectionChange = vi.fn();
-      render(
+      renderWithProvider(
         <BulkOperationsToolbar
           rowIds={mockRowIds}
           selectedIds={new Set(mockRowIds)}
@@ -49,7 +55,7 @@ describe('BulkOperations component', () => {
     });
 
     it('should show bulk action buttons when rows are selected', () => {
-      render(
+      renderWithProvider(
         <BulkOperationsToolbar
           rowIds={mockRowIds}
           selectedIds={new Set([1, 2])}
@@ -66,7 +72,7 @@ describe('BulkOperations component', () => {
     });
 
     it('should show selection count badge', () => {
-      render(
+      renderWithProvider(
         <BulkOperationsToolbar
           rowIds={mockRowIds}
           selectedIds={new Set([1, 2])}
@@ -80,7 +86,7 @@ describe('BulkOperations component', () => {
 
   describe('RowCheckbox', () => {
     it('should show checked state when selected', () => {
-      render(
+      renderWithProvider(
         <RowCheckbox
           rowId={1}
           selectedIds={new Set([1, 2])}
@@ -94,7 +100,7 @@ describe('BulkOperations component', () => {
 
     it('should call onToggle when clicked', () => {
       const onToggle = vi.fn();
-      render(
+      renderWithProvider(
         <RowCheckbox
           rowId={1}
           selectedIds={new Set()}
@@ -120,7 +126,7 @@ describe('BulkOperations component', () => {
         );
       };
 
-      render(<TestComponent />);
+      renderWithProvider(<TestComponent />);
       expect(screen.getByTestId('count').textContent).toBe('0');
       
       fireEvent.click(screen.getByText('Toggle'));
@@ -139,7 +145,7 @@ describe('BulkOperations component', () => {
         );
       };
 
-      render(<TestComponent />);
+      renderWithProvider(<TestComponent />);
       fireEvent.click(screen.getByText('Select All'));
       expect(screen.getByTestId('count').textContent).toBe('3');
     });
@@ -156,7 +162,7 @@ describe('BulkOperations component', () => {
         );
       };
 
-      render(<TestComponent />);
+      renderWithProvider(<TestComponent />);
       fireEvent.click(screen.getByText('Select All'));
       fireEvent.click(screen.getByText('Clear'));
       expect(screen.getByTestId('count').textContent).toBe('0');
@@ -173,7 +179,7 @@ describe('BulkOperations component', () => {
         );
       };
 
-      render(<TestComponent />);
+      renderWithProvider(<TestComponent />);
       fireEvent.click(screen.getByText('Select Range'));
       expect(screen.getByTestId('count').textContent).toBe('3'); // 2, 3, 4
     });
@@ -181,7 +187,7 @@ describe('BulkOperations component', () => {
 
   describe('BulkActionConfirmDialog', () => {
     it('should render dialog with correct action text for approve', () => {
-      render(
+      renderWithProvider(
         <BulkActionConfirmDialog
           isOpen={true}
           onClose={vi.fn()}
@@ -196,7 +202,7 @@ describe('BulkOperations component', () => {
     });
 
     it('should render dialog with correct action text for reject', () => {
-      render(
+      renderWithProvider(
         <BulkActionConfirmDialog
           isOpen={true}
           onClose={vi.fn()}
@@ -211,7 +217,7 @@ describe('BulkOperations component', () => {
 
     it('should call onConfirm when confirm button clicked', () => {
       const onConfirm = vi.fn();
-      render(
+      renderWithProvider(
         <BulkActionConfirmDialog
           isOpen={true}
           onClose={vi.fn()}
@@ -227,7 +233,7 @@ describe('BulkOperations component', () => {
 
     it('should call onClose when cancel button clicked', () => {
       const onClose = vi.fn();
-      render(
+      renderWithProvider(
         <BulkActionConfirmDialog
           isOpen={true}
           onClose={onClose}
@@ -241,8 +247,8 @@ describe('BulkOperations component', () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    it('should show delete warning for delete action', () => {
-      render(
+    it('should show delete warning for delete action', async () => {
+      renderWithProvider(
         <BulkActionConfirmDialog
           isOpen={true}
           onClose={vi.fn()}
@@ -252,8 +258,8 @@ describe('BulkOperations component', () => {
         />
       );
       
-      expect(screen.getByText(/Diqqət/)).toBeInTheDocument();
-      expect(screen.getByText(/geri qaytarıla bilməz/)).toBeInTheDocument();
+      expect(await screen.findByText(/Diqqət/i)).toBeInTheDocument();
+      expect(await screen.findByText(/mümkün olmayacaq/i)).toBeInTheDocument();
     });
   });
 });

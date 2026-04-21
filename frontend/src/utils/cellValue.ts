@@ -37,7 +37,7 @@ export function sanitizeCellValue(value: unknown): string {
  * @returns Formatted and sanitized string for display
  */
 export function formatCellValue(
-  value: string | number | null | undefined,
+  value: string | number | boolean | null | undefined,
   col: ReportTableColumn
 ): string {
   // Handle null/undefined/empty values
@@ -47,6 +47,10 @@ export function formatCellValue(
 
   // Apply type-specific formatting
   if (col.type === 'boolean') {
+    if (typeof value === 'boolean') return value ? 'Bəli' : 'Xeyr';
+    const strVal = String(value ?? '').toLowerCase();
+    if (strVal === 'bəli' || strVal === 'true' || strVal === '1') return 'Bəli';
+    if (strVal === 'xeyr' || strVal === 'false' || strVal === '0') return 'Xeyr';
     return value ? 'Bəli' : 'Xeyr';
   }
 
@@ -55,7 +59,7 @@ export function formatCellValue(
     return value.toLocaleString('az-AZ');
   }
 
-  if (col.type === 'date' && value) {
+  if (col.type === 'date' && value && typeof value !== 'boolean') {
     try {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
@@ -77,5 +81,7 @@ export function formatCellValue(
  * @returns True if the value is considered empty
  */
 export function isCellValueEmpty(value: unknown): boolean {
-  return value === null || value === undefined || value === '';
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  return value === '';
 }

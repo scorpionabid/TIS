@@ -69,7 +69,7 @@ export function colMinWidth(type: string): string {
     case 'number':
       return 'min-w-[80px]';
     case 'date':
-      return 'min-w-[120px]';
+      return 'min-w-[100px]';
     case 'select':
       return 'min-w-[150px]';
     case 'boolean':
@@ -91,12 +91,13 @@ export function colMinWidth(type: string): string {
  * Gets a human-readable label for a column type
  */
 export function colTypeLabel(col: ReportTableColumn): string | null {
-  if (col.type === 'number') return 'rəqəm';
-  if (col.type === 'date') return 'tarix';
-  if (col.type === 'select') return 'seçim';
-  if (col.type === 'boolean') return 'bəli/xeyr';
-  if (col.type === 'calculated') return 'hesablama';
-  if (col.type === 'file') return 'fayl';
+  if (col.type === 'text') return 'Mətn';
+  if (col.type === 'number') return 'Rəqəm';
+  if (col.type === 'date') return 'Tarix';
+  if (col.type === 'select') return 'Seçim';
+  if (col.type === 'boolean') return 'Bəli/Xeyr';
+  if (col.type === 'calculated') return 'Hesablama';
+  if (col.type === 'file') return 'Fayl';
   if (col.type === 'signature') return 'imza';
   if (col.type === 'gps') return 'GPS';
   return null;

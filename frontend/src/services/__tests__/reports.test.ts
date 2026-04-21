@@ -65,7 +65,7 @@ describe('reportsService', () => {
     const filters: ReportFilters = { start_date: '2025-01-01', end_date: '2025-01-31', region: 'Bakı' };
     const getSpy = vi
       .spyOn(reportsService as unknown as { get: ReturnType<typeof vi.fn> }, 'get')
-      .mockResolvedValue(mockOverviewResponse);
+      .mockResolvedValue({ data: mockOverviewResponse, success: true });
 
     const result = await reportsService.getOverviewStats(filters);
 

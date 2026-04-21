@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calculator, School, BarChart3, Building2, MapPin, GraduationCap, BookOpen, FileDown, ChevronRight, ChevronDown } from 'lucide-react';
+import { Calculator, School, BarChart3, Building2, MapPin, GraduationCap, BookOpen, FileDown, ChevronRight, ChevronDown, LayoutDashboard, LayoutGrid } from 'lucide-react';
 import { GradeBookList } from '@/components/gradebook';
 import { GradeBookAnalysis } from '@/components/gradebook/analysis/GradeBookAnalysis';
+import { AdminDashboard } from '@/components/gradebook/admin/AdminDashboard';
 import { GradeBookRoleProvider, useGradeBookRole } from '@/contexts/GradeBookRoleContext';
 import { HierarchyNavigator, useHierarchyState, HierarchyNode } from '@/components/gradebook/HierarchyNavigator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type GradeBookTab = 'list' | 'analysis' | 'create';
+type GradeBookTab = 'list' | 'analysis' | 'admin_overview';
 
 const GradeBooksPage: React.FC = () => {
   const { hasPermission, currentUser } = useAuth();
@@ -390,15 +391,16 @@ const GradeBooksPage: React.FC = () => {
   const allowedTabs = useMemo(() => {
     const tabs: GradeBookTab[] = [];
     if (canViewList) tabs.push('list', 'analysis');
+    if (isRegionAdmin || isSectorAdmin) tabs.push('admin_overview');
     return tabs;
-  }, [canViewList]);
+  }, [canViewList, isRegionAdmin, isSectorAdmin]);
 
   const requestedTab = (searchParams.get('tab') as GradeBookTab | null) ?? null;
 
   const defaultTab: GradeBookTab = useMemo(() => {
+    if (allowedTabs.includes('admin_overview')) return 'admin_overview';
     if (allowedTabs.includes('list')) return 'list';
-    if (allowedTabs.includes('create')) return 'create';
-    return 'list';
+    return allowedTabs[0] || 'list';
   }, [allowedTabs]);
 
   const activeTab: GradeBookTab = useMemo(() => {
@@ -469,13 +471,22 @@ const GradeBooksPage: React.FC = () => {
                 Sinif Jurnalları
               </TabsTrigger>
             )}
-            {allowedTabs.includes('list') && (
+            {allowedTabs.includes('analysis') && (
               <TabsTrigger
                 value="analysis"
                 className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
               >
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Nəticə Analizi
+              </TabsTrigger>
+            )}
+            {allowedTabs.includes('admin_overview') && (
+              <TabsTrigger
+                value="admin_overview"
+                className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                Admin İcmalı
               </TabsTrigger>
             )}
           </TabsList>
@@ -725,6 +736,14 @@ const GradeBooksPage: React.FC = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
+                          <Button
+                            variant={selectedClassLevel === null ? 'default' : 'outline'}
+                            className="w-full justify-start gap-2"
+                            onClick={() => { setSelectedClassLevel(null); setSelectedLetter(null); }}
+                          >
+                            <LayoutGrid className="w-4 h-4" />
+                            Bütün siniflər
+                          </Button>
                           {filteredLevelsWithLetters.map(({ lvl }) => (
                             <Button
                               key={lvl.level}
@@ -770,10 +789,34 @@ const GradeBooksPage: React.FC = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 flex-1 overflow-y-auto">
-                      {selectedClassLevel === null || selectedClassLevel === undefined ? (
-                        <div className="text-sm text-slate-500 text-center py-10">
-                          Sinif səviyyəsi seçin
-                        </div>
+                      {(selectedClassLevel === null || selectedClassLevel === undefined) ? (
+                        gradesForInstitution.length <= 20 || levelSearch ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-1 gap-2">
+                            {gradesForInstitution
+                              .filter(g => !levelSearch || g.label.toLowerCase().includes(levelSearch.toLowerCase()))
+                              .map((grade) => (
+                                <Button
+                                  key={grade.id}
+                                  variant={selectedLetter === grade.name && selectedClassLevel === grade.classLevel ? 'default' : 'outline'}
+                                  className="justify-between h-auto py-2 px-3"
+                                  onClick={() => { 
+                                    setSelectedClassLevel(grade.classLevel); 
+                                    setSelectedLetter(grade.name); 
+                                  }}
+                                >
+                                  <span className="font-medium">{grade.label}</span>
+                                  <Badge variant="secondary" className="ml-2 px-1 text-[10px] font-normal">
+                                    {grade.studentCount}
+                                  </Badge>
+                                </Button>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
+                            <GraduationCap className="w-8 h-8 mb-2 opacity-20" />
+                            <p className="text-sm">Sinif səviyyəsi seçin</p>
+                          </div>
+                        )
                       ) : filteredClassLetters.length === 0 ? (
                         <div className="text-sm text-slate-500 text-center py-10">
                           {letterSearch ? 'Axtarışa uyğun bölmə tapılmadı' : 'Bu səviyyədə sinif tapılmadı'}
@@ -810,7 +853,7 @@ const GradeBooksPage: React.FC = () => {
 
                 {/* Block III: Jurnallar */}
                 <div className="md:col-span-4 flex flex-col min-h-[580px]">
-                  {!selectedGradeId ? (
+                  {!selectedInstitutionId ? (
                     <Card className="border-slate-200 flex flex-col flex-1 min-h-[580px]">
                       <CardHeader className="pb-3 flex-shrink-0">
                         <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -829,7 +872,7 @@ const GradeBooksPage: React.FC = () => {
                       </CardHeader>
                       <CardContent className="p-4 flex-1 flex items-center justify-center">
                         <div className="text-sm text-slate-500 text-center">
-                          Jurnalları görmək üçün sinif seçin
+                          Jurnalları görmək üçün məktəb seçin
                         </div>
                       </CardContent>
                     </Card>
@@ -851,9 +894,15 @@ const GradeBooksPage: React.FC = () => {
           </TabsContent>
         )}
 
-        {allowedTabs.includes('list') && (
+        {allowedTabs.includes('analysis') && (
           <TabsContent value="analysis" className="mt-4">
             <GradeBookAnalysis />
+          </TabsContent>
+        )}
+
+        {allowedTabs.includes('admin_overview') && (
+          <TabsContent value="admin_overview" className="mt-4">
+            <AdminDashboard />
           </TabsContent>
         )}
 

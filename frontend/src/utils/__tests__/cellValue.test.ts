@@ -26,7 +26,7 @@ describe('cellValue utilities', () => {
 
   describe('sanitizeCellValue', () => {
     it('should escape HTML tags', () => {
-      expect(sanitizeCellValue('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert("xss")&lt;/script&gt;');
+      expect(sanitizeCellValue('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
       expect(sanitizeCellValue('<div>test</div>')).toBe('&lt;div&gt;test&lt;/div&gt;');
     });
 
@@ -62,6 +62,8 @@ describe('cellValue utilities', () => {
     });
 
     it('should format booleans', () => {
+      expect(formatCellValue(true, booleanCol)).toBe('Bəli');
+      expect(formatCellValue(false, booleanCol)).toBe('Xeyr');
       expect(formatCellValue('Bəli', booleanCol)).toBe('Bəli');
       expect(formatCellValue('Xeyr', booleanCol)).toBe('Xeyr');
     });
