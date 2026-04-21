@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendSurveyPublishedNotificationsJob;
 use App\Models\ActivityLog;
 use App\Models\Survey;
 use App\Models\SurveyAuditLog;
@@ -53,24 +54,13 @@ class SurveyStatusService
                 'published_at' => now(),
             ]);
 
-            // Send notifications to target institutions if specified
+            // Dispatch notifications to background queue to avoid timeout with large institution sets
             if (! empty($survey->target_institutions)) {
-                \Log::info('Sending survey publish notification from SurveyStatusService', [
+                SendSurveyPublishedNotificationsJob::dispatch($survey->id);
+                \Log::info('Survey publish notifications queued', [
                     'survey_id' => $survey->id,
-                    'target_institutions' => $survey->target_institutions,
+                    'target_institutions_count' => count($survey->target_institutions),
                 ]);
-                try {
-                    $this->surveyNotificationService->notifySurveyPublished($survey);
-                    \Log::info('Survey publish notification sent successfully from SurveyStatusService', [
-                        'survey_id' => $survey->id,
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to send survey publish notification from SurveyStatusService', [
-                        'survey_id' => $survey->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                    // Don't fail the publish if notification fails
-                }
             }
 
             return $survey->fresh();
