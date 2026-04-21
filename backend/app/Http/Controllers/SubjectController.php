@@ -125,9 +125,9 @@ class SubjectController extends BaseController
             'code' => 'required|string|max:10|unique:subjects,code',
             'description' => 'nullable|string',
             'grade_levels' => 'nullable|array',
-            'grade_levels.*' => 'integer|min:1|max:11',
+            'grade_levels.*' => 'integer|min:0|max:11',
             'weekly_hours' => 'nullable|integer|min:1|max:10',
-            'category' => 'nullable|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'category' => 'nullable|string|in:lesson,extracurricular,club',
             'metadata' => 'nullable|array',
             'is_active' => 'boolean',
         ]);
@@ -172,9 +172,9 @@ class SubjectController extends BaseController
             'code' => ['sometimes', 'required', 'string', 'max:10', Rule::unique('subjects')->ignore($subject->id)],
             'description' => 'nullable|string',
             'grade_levels' => 'nullable|array',
-            'grade_levels.*' => 'integer|min:1|max:11',
+            'grade_levels.*' => 'integer|min:0|max:11',
             'weekly_hours' => 'nullable|integer|min:1|max:10',
-            'category' => 'nullable|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'category' => 'nullable|string|in:lesson,extracurricular,club',
             'metadata' => 'nullable|array',
             'is_active' => 'sometimes|boolean',
         ]);
@@ -266,9 +266,9 @@ class SubjectController extends BaseController
             'subjects.*.code' => 'required|string|max:50|unique:subjects,code',
             'subjects.*.description' => 'nullable|string',
             'subjects.*.grade_levels' => 'required|array',
-            'subjects.*.grade_levels.*' => 'integer|min:1|max:12',
+            'subjects.*.grade_levels.*' => 'integer|min:0|max:12',
             'subjects.*.weekly_hours' => 'required|integer|min:1|max:10',
-            'subjects.*.category' => 'required|string|in:core,elective,extra,vocational',
+            'subjects.*.category' => 'required|string|in:lesson,extracurricular,club',
             'subjects.*.metadata' => 'nullable|array',
         ]);
 
@@ -293,9 +293,9 @@ class SubjectController extends BaseController
             'subjects.*.code' => 'sometimes|string|max:10',
             'subjects.*.description' => 'nullable|string',
             'subjects.*.grade_levels' => 'sometimes|array',
-            'subjects.*.grade_levels.*' => 'integer|min:1|max:11',
+            'subjects.*.grade_levels.*' => 'integer|min:0|max:11',
             'subjects.*.weekly_hours' => 'sometimes|integer|min:1|max:10',
-            'subjects.*.category' => 'sometimes|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'subjects.*.category' => 'sometimes|string|in:lesson,extracurricular,club',
             'subjects.*.is_active' => 'sometimes|boolean',
             'subjects.*.metadata' => 'nullable|array',
         ]);

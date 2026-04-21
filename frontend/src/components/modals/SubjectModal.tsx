@@ -19,17 +19,12 @@ interface SubjectModalProps {
 }
 
 const CATEGORY_OPTIONS = [
-  { value: 'core', label: 'Əsas fənlər' },
-  { value: 'science', label: 'Elm fənləri' },
-  { value: 'humanities', label: 'Humanitar fənlər' },
-  { value: 'language', label: 'Dil fənləri' },
-  { value: 'arts', label: 'İncəsənət' },
-  { value: 'physical', label: 'Fiziki tərbiyə' },
-  { value: 'technical', label: 'Texniki fənlər' },
-  { value: 'elective', label: 'Seçmə fənlər' },
+  { value: 'lesson', label: 'Dərs' },
+  { value: 'extracurricular', label: 'Dərsdənkənar məşğələ' },
+  { value: 'club', label: 'Dərnək' },
 ] as const;
 
-const ALL_GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const ALL_GRADES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 interface FormData {
   name: string;
@@ -51,7 +46,7 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
     name: '',
     code: '',
     description: '',
-    category: 'core',
+    category: 'lesson',
     grade_levels: ALL_GRADES,
     weekly_hours: 1,
     is_active: true,
@@ -67,7 +62,7 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
           name: subject.name || '',
           code: subject.code || '',
           description: subject.description || '',
-          category: subject.category || 'core',
+          category: subject.category || 'lesson',
           grade_levels: subject.grade_levels && subject.grade_levels.length > 0
             ? [...subject.grade_levels]
             : ALL_GRADES,
@@ -79,7 +74,7 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
           name: '',
           code: '',
           description: '',
-          category: 'core',
+          category: 'lesson',
           grade_levels: ALL_GRADES,
           weekly_hours: 1,
           is_active: true,
@@ -106,9 +101,7 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
       newErrors.grade_levels = 'Ən azı bir sinif səviyyəsi seçilməlidir';
     }
 
-    if (!formData.weekly_hours || formData.weekly_hours < 0.5 || formData.weekly_hours > 40) {
-      newErrors.weekly_hours = 'Həftəlik saat 0.5-40 arasında olmalıdır';
-    }
+
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -167,6 +160,7 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
 
   // Grade level groups: Primary (1-4), Middle (5-9), High (10-11)
   const gradeGroups = [
+    { label: 'Məktəbəhazırlıq (MH)', grades: [0] },
     { label: 'İbtidai (1-4)', grades: [1, 2, 3, 4] },
     { label: 'Orta (5-9)', grades: [5, 6, 7, 8, 9] },
     { label: 'Yuxarı (10-11)', grades: [10, 11] },
@@ -225,49 +219,27 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
             </div>
           </div>
 
-          {/* Row 2: Category + Weekly Hours */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Tag className="h-3.5 w-3.5" />
-                Kateqoriya
-              </Label>
-              <Select
-                value={formData.category}
-                onValueChange={(val) => handleFieldChange('category', val as Subject['category'])}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Kateqoriya seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="weekly_hours" className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
-                Həftəlik Saat Sayı
-              </Label>
-              <Input
-                id="weekly_hours"
-                type="number"
-                min={0.5}
-                step={0.5}
-                max={40}
-                value={formData.weekly_hours}
-                onChange={(e) => handleFieldChange('weekly_hours', parseInt(e.target.value) || 1)}
-                className={errors.weekly_hours ? 'border-red-500' : ''}
-              />
-              {errors.weekly_hours && (
-                <p className="text-sm text-red-600">{errors.weekly_hours}</p>
-              )}
-            </div>
+          {/* Row 2: Category */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Tag className="h-3.5 w-3.5" />
+              Kateqoriya
+            </Label>
+            <Select
+              value={formData.category}
+              onValueChange={(val) => handleFieldChange('category', val as Subject['category'])}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Kateqoriya seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORY_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Row 3: Description */}
@@ -331,7 +303,7 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
                             }
                           `}
                         >
-                          {grade}
+                          {grade === 0 ? 'MH' : grade}
                         </button>
                       );
                     })}

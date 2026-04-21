@@ -15,14 +15,9 @@ import { Subject } from '@/services/subjects';
 import { SubjectModal } from '@/components/modals/SubjectModal';
 
 const CATEGORY_LABELS = {
-  core: 'Əsas fənlər',
-  science: 'Elm fənləri',
-  humanities: 'Humanitar fənlər',
-  language: 'Dil fənləri',
-  arts: 'İncəsənət',
-  physical: 'Fiziki tərbiyə',
-  technical: 'Texniki fənlər',
-  elective: 'Seçmə fənlər'
+  lesson: 'Dərs',
+  extracurricular: 'Dərsdənkənar məşğələ',
+  club: 'Dərnək'
 };
 
 export default function SubjectManagement() {
@@ -140,14 +135,9 @@ export default function SubjectManagement() {
 
   const getCategoryBadgeVariant = (category: string) => {
     const variants: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
-      core: 'default',
-      science: 'secondary',
-      humanities: 'outline',
-      language: 'secondary',
-      arts: 'outline',
-      physical: 'secondary',
-      technical: 'default',
-      elective: 'outline'
+      lesson: 'default',
+      extracurricular: 'secondary',
+      club: 'outline'
     };
     return variants[category] || 'default';
   };
@@ -257,7 +247,7 @@ export default function SubjectManagement() {
       // CSV məlumatları yaradırıq
       const csvContent = [
         // Header
-        ['Ad', 'Kod', 'Təsvir', 'Kateqoriya', 'Sinif Səviyyələri', 'Həftəlik Saat', 'Status'].join(','),
+        ['Ad', 'Kod', 'Təsvir', 'Kateqoriya', 'Sinif Səviyyələri', 'Status'].join(','),
         // Data
         ...filteredSubjects.map(subject => [
           `"${subject.name}"`,
@@ -265,7 +255,6 @@ export default function SubjectManagement() {
           `"${subject.description || ''}"`,
           `"${CATEGORY_LABELS[subject.category as keyof typeof CATEGORY_LABELS] || subject.category}"`,
           `"${subject.grade_levels ? subject.grade_levels.join(';') : ''}"`,
-          subject.weekly_hours || 0,
           subject.is_active ? 'Aktiv' : 'Qeyri-aktiv'
         ].join(','))
       ].join('\n');
@@ -450,6 +439,7 @@ export default function SubjectManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün siniflər</SelectItem>
+                <SelectItem value="0">MH</SelectItem>
                 {[...Array(11)].map((_, i) => (
                   <SelectItem key={i + 1} value={(i + 1).toString()}>
                     {i + 1}. sinif
@@ -501,7 +491,6 @@ export default function SubjectManagement() {
                     <TableHead>Kod</TableHead>
                     <TableHead>Kateqoriya</TableHead>
                     <TableHead>Sinif Səviyyələri</TableHead>
-                    <TableHead>Həftəlik Saat</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Əməliyyatlar</TableHead>
                   </TableRow>
@@ -528,16 +517,13 @@ export default function SubjectManagement() {
                           <div className="flex flex-wrap gap-1">
                             {subject.grade_levels.sort().map((grade: number) => (
                               <Badge key={grade} variant="outline" className="text-xs">
-                                {grade}
+                                {grade === 0 ? 'MH' : grade}
                               </Badge>
                             ))}
                           </div>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{subject.weekly_hours} saat</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={subject.is_active ? "default" : "secondary"}>
