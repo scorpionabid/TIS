@@ -263,6 +263,11 @@ class SchoolStudentController extends Controller
 
         $d = $validator->validated();
 
+        // Auto-resolve grade_id if not provided
+        if (empty($d['grade_id'])) {
+            $d['grade_id'] = $this->resolveGradeId($school->id, $d['grade_level'], $d['class_name']);
+        }
+
         try {
             $student = \App\Models\Student::create([
                 'utis_code' => $d['utis_code'] ?? null,
@@ -333,7 +338,14 @@ class SchoolStudentController extends Controller
         }
 
         try {
-            $student->update($validator->validated());
+            $d = $validator->validated();
+
+            // Auto-resolve grade_id if not provided
+            if (empty($d['grade_id'])) {
+                $d['grade_id'] = $this->resolveGradeId($user->institution_id, $d['grade_level'], $d['class_name']);
+            }
+
+            $student->update($d);
 
             return response()->json([
                 'success' => true,
@@ -497,5 +509,20 @@ class SchoolStudentController extends Controller
                 'error' => 'Failed to unenroll student: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Resolve grade_id based on level and name within an institution.
+     */
+    private function resolveGradeId(int $institutionId, $level, string $name): ?int
+    {
+        // Normalize name
+        $name = mb_strtoupper(trim($name));
+        $level = (int) $level;
+
+        return \App\Models\Grade::where('institution_id', $institutionId)
+            ->where('class_level', $level)
+            ->where('name', $name)
+            ->value('id');
     }
 }
