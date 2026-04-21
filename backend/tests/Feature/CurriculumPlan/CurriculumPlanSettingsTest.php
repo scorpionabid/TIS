@@ -140,6 +140,20 @@ class CurriculumPlanSettingsTest extends TestCase
         $this->assertTrue($response->json('can_operator_edit'));
     }
 
+    /** @test */
+    public function teacher_gets_own_region_settings(): void
+    {
+        $teacher = $this->createUserWithRole('müəllim', [], [
+            'institution_id' => $this->school->id,
+        ]);
+
+        $response = $this->actingAs($teacher, 'sanctum')
+            ->getJson('/api/curriculum-plans/settings');
+
+        $response->assertOk()
+            ->assertJsonStructure(['status', 'deadline', 'is_locked', 'can_sektor_edit', 'can_operator_edit']);
+    }
+
     // =========================================================================
     // POST /settings
     // =========================================================================

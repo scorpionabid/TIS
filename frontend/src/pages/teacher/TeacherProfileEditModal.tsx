@@ -119,7 +119,7 @@ export default function TeacherProfileEditModal({
   // Form state
   const [formData, setFormData] = useState<TeacherProfileData>({
     ...profileData,
-    education: profileData.education.map((edu, index) => ({
+    education: Array.isArray(profileData?.education) ? profileData.education.map((edu, index) => ({
       id: `edu-${index}`,
       degree: edu.degree,
       institution: edu.institution,
@@ -127,7 +127,7 @@ export default function TeacherProfileEditModal({
       field: edu.field,
       status: 'completed' as const,
       type: 'bachelor' as const
-    }))
+    })) : []
   });
   const [newQualification, setNewQualification] = useState('');
   const [newAchievement, setNewAchievement] = useState({
@@ -172,7 +172,7 @@ export default function TeacherProfileEditModal({
         ...prev,
         teacherInfo: {
           ...prev.teacherInfo,
-          qualifications: [...prev.teacherInfo.qualifications, newQualification.trim()]
+          qualifications: [...(Array.isArray(prev.teacherInfo.qualifications) ? prev.teacherInfo.qualifications : []), newQualification.trim()]
         }
       }));
       setNewQualification('');
@@ -184,7 +184,9 @@ export default function TeacherProfileEditModal({
       ...prev,
       teacherInfo: {
         ...prev.teacherInfo,
-        qualifications: prev.teacherInfo.qualifications.filter((_, i) => i !== index)
+        qualifications: Array.isArray(prev.teacherInfo.qualifications) 
+          ? prev.teacherInfo.qualifications.filter((_, i) => i !== index)
+          : []
       }
     }));
   };
@@ -193,7 +195,7 @@ export default function TeacherProfileEditModal({
     if (newAchievement.title.trim() && newAchievement.description.trim() && newAchievement.date) {
       setFormData(prev => ({
         ...prev,
-        achievements: [...prev.achievements, {
+        achievements: [...(Array.isArray(prev.achievements) ? prev.achievements : []), {
           id: Date.now().toString(),
           ...newAchievement
         }]
@@ -217,7 +219,7 @@ export default function TeacherProfileEditModal({
   const handleAchievementRemove = (id: string) => {
     setFormData(prev => ({
       ...prev,
-      achievements: prev.achievements.filter(a => a.id !== id)
+      achievements: Array.isArray(prev.achievements) ? prev.achievements.filter(a => a.id !== id) : []
     }));
   };
 
@@ -225,7 +227,7 @@ export default function TeacherProfileEditModal({
     if (newEducation.degree && newEducation.institution && newEducation.year && newEducation.field) {
       setFormData(prev => ({
         ...prev,
-        education: [...prev.education, {
+        education: [...(Array.isArray(prev.education) ? prev.education : []), {
           id: Date.now().toString(),
           ...newEducation,
           status: 'completed' as const,
@@ -244,7 +246,7 @@ export default function TeacherProfileEditModal({
   const handleEducationRemove = (id: string) => {
     setFormData(prev => ({
       ...prev,
-      education: prev.education.filter(edu => edu.id !== id)
+      education: Array.isArray(prev.education) ? prev.education.filter(edu => edu.id !== id) : []
     }));
   };
 
@@ -252,7 +254,7 @@ export default function TeacherProfileEditModal({
     if (newCertificate.name && newCertificate.issuer && newCertificate.date) {
       setFormData(prev => ({
         ...prev,
-        certificates: [...prev.certificates, newCertificate]
+        certificates: [...(Array.isArray(prev.certificates) ? prev.certificates : []), newCertificate]
       }));
       setNewCertificate({
         name: '',
@@ -266,7 +268,7 @@ export default function TeacherProfileEditModal({
   const handleCertificateRemove = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      certificates: prev.certificates.filter((_, i) => i !== index)
+      certificates: Array.isArray(prev.certificates) ? prev.certificates.filter((_, i) => i !== index) : []
     }));
   };
 
@@ -419,7 +421,7 @@ export default function TeacherProfileEditModal({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {formData.teacherInfo.qualifications.map((qual, index) => (
+                  {Array.isArray(formData.teacherInfo.qualifications) && formData.teacherInfo.qualifications.map((qual, index) => (
                     <Badge key={index} variant="secondary" className="flex items-center gap-1">
                       {qual}
                       <X 
@@ -525,7 +527,7 @@ export default function TeacherProfileEditModal({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  {formData.certificates.map((cert, index) => (
+                  {Array.isArray(formData.certificates) && formData.certificates.map((cert, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <h4 className="font-medium">{cert.name}</h4>

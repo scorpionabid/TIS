@@ -83,11 +83,11 @@ Route::prefix('grades')->group(function () {
     Route::get('/bulk/statistics', [GradeUnifiedController::class, 'getImportExportStats'])->middleware('permission:grades.read');
 });
 
-Route::prefix('curriculum-plans')
-    ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator')
-    ->group(function () {
-        // Region Administration (Lock/Deadline) - Moved to top to ensure priority
-        Route::get('/settings', [CurriculumPlanController::class, 'getSettings']);
+Route::prefix('curriculum-plans')->group(function () {
+    Route::get('/settings', [CurriculumPlanController::class, 'getSettings'])
+        ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator|müəllim');
+
+    Route::middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator')->group(function () {
         Route::post('/settings', [CurriculumPlanController::class, 'updateSettings']);
 
         Route::get('/', [CurriculumPlanController::class, 'index']);
@@ -100,6 +100,7 @@ Route::prefix('curriculum-plans')
         Route::post('/return', [CurriculumPlanController::class, 'return']);
         Route::post('/reset', [CurriculumPlanController::class, 'reset']);
     });
+});
 
 // Room Management Routes
 Route::prefix('rooms')->group(function () {

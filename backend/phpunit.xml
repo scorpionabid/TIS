@@ -12,7 +12,7 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
-    
+
     <source>
         <include>
             <directory>app</directory>
@@ -23,8 +23,13 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Test bazası: atis_test (prod-a toxunmur) -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="atis_postgres"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="atis_test"/>
+        <env name="DB_USERNAME" value="atis_prod_user"/>
+        <env name="DB_PASSWORD" value="Pqan1xlUez1lRskN8X1koC2JS"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

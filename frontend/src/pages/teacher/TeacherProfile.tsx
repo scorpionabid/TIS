@@ -211,7 +211,7 @@ export default function TeacherProfile() {
               <Avatar className="h-20 w-20">
                 <AvatarImage src={teacherInfo.photo} alt={teacherInfo.name} />
                 <AvatarFallback className="text-lg">
-                  {teacherInfo.name.split(' ').map(n => n[0]).join('')}
+                  {teacherInfo.name ? teacherInfo.name.split(' ').map(n => n[0]).join('') : 'Mü'}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
@@ -325,11 +325,14 @@ export default function TeacherProfile() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Yüksək bacarıqlar</label>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {teacherInfo.qualifications.map((qual, index) => (
+                  {Array.isArray(teacherInfo.qualifications) && teacherInfo.qualifications.map((qual, index) => (
                     <Badge key={index} variant="outline">
                       {qual}
                     </Badge>
                   ))}
+                  {(!Array.isArray(teacherInfo.qualifications) || teacherInfo.qualifications.length === 0) && (
+                    <span className="text-sm text-muted-foreground italic">Məlumat yoxdur</span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -427,7 +430,7 @@ export default function TeacherProfile() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {achievements.map((achievement) => (
+                {Array.isArray(achievements) && achievements.length > 0 ? achievements.map((achievement) => (
                   <div key={achievement.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4 flex-1">
                       <div className="flex-shrink-0">
@@ -458,7 +461,9 @@ export default function TeacherProfile() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">Nailiyyət tapılmadı</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -484,7 +489,7 @@ export default function TeacherProfile() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {education.map((edu, index) => (
+                {Array.isArray(education) && education.length > 0 ? education.map((edu, index) => (
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4 flex-1">
                       <GraduationCap className="h-8 w-8 text-blue-500 flex-shrink-0" />
@@ -511,7 +516,9 @@ export default function TeacherProfile() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">Təhsil məlumatı tapılmadı</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -537,7 +544,7 @@ export default function TeacherProfile() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {certificates.map((cert, index) => (
+                {Array.isArray(certificates) && certificates.length > 0 ? certificates.map((cert, index) => (
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4 flex-1">
                       <FileText className="h-8 w-8 text-green-500 flex-shrink-0" />
@@ -570,7 +577,9 @@ export default function TeacherProfile() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">Sertifikat tapılmadı</div>
+                )}
               </div>
             </CardContent>
           </Card>
