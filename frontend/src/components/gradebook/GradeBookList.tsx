@@ -130,6 +130,7 @@ export function GradeBookList({
     const params: GradeBookParams = {};
     if (effectiveInstitutionId) params.institution_id = effectiveInstitutionId;
     if (statusFilter) params.status = statusFilter;
+    if (selectedGradeId) params.grade_id = selectedGradeId;
     if (academicYearFilter && academicYearFilter !== 'all') {
       params.academic_year_id = Number(academicYearFilter);
     }

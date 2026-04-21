@@ -805,9 +805,14 @@ const GradeBooksPage: React.FC = () => {
                                   }}
                                 >
                                   <span className="font-medium">{grade.label}</span>
-                                  <Badge variant="secondary" className="ml-2 px-1 text-[10px] font-normal">
-                                    {grade.studentCount}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 ml-2">
+                                    <Badge variant="secondary" className="px-1 text-[10px] font-normal">
+                                      {grade.studentCount} şagird
+                                    </Badge>
+                                    <Badge variant="secondary" className="px-1 text-[10px] font-normal">
+                                      {grade.journalCount} jurnal
+                                    </Badge>
+                                  </div>
                                 </Button>
                               ))}
                           </div>
@@ -825,14 +830,17 @@ const GradeBooksPage: React.FC = () => {
                         <div className="space-y-2">
                           {filteredClassLetters.map((g) => (
                             <div key={g.id} className="flex gap-1">
-                              <Button
-                                variant={selectedLetter === g.name ? 'default' : 'outline'}
-                                className="flex-1 justify-between"
-                                onClick={() => setSelectedLetter(g.name)}
-                              >
-                                <span className="truncate">{g.name}</span>
-                                <Badge variant="secondary" className="ml-1 text-xs">{g.studentCount}</Badge>
-                              </Button>
+                               <Button
+                                 variant={selectedLetter === g.name ? 'default' : 'outline'}
+                                 className="flex-1 justify-between"
+                                 onClick={() => setSelectedLetter(g.name)}
+                               >
+                                 <span className="truncate">{g.name}</span>
+                                 <div className="flex items-center gap-1 ml-1">
+                                   <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal whitespace-nowrap">{g.studentCount} şagird</Badge>
+                                   <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal whitespace-nowrap">{g.journalCount} jurnal</Badge>
+                                 </div>
+                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -853,7 +861,7 @@ const GradeBooksPage: React.FC = () => {
 
                 {/* Block III: Jurnallar */}
                 <div className="md:col-span-4 flex flex-col min-h-[580px]">
-                  {!selectedInstitutionId ? (
+                  {!selectedGradeId ? (
                     <Card className="border-slate-200 flex flex-col flex-1 min-h-[580px]">
                       <CardHeader className="pb-3 flex-shrink-0">
                         <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -872,7 +880,9 @@ const GradeBooksPage: React.FC = () => {
                       </CardHeader>
                       <CardContent className="p-4 flex-1 flex items-center justify-center">
                         <div className="text-sm text-slate-500 text-center">
-                          Jurnalları görmək üçün məktəb seçin
+                          {!selectedInstitutionId
+                            ? 'Jurnalları görmək üçün məktəb seçin'
+                            : 'Jurnalları görmək üçün sinif seçin'}
                         </div>
                       </CardContent>
                     </Card>
