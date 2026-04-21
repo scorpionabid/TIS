@@ -81,7 +81,7 @@ function validateAndSetupApiUrls() {
   return { apiBaseUrl, sanctumBaseUrl };
 }
 
-const { apiBaseUrl: API_BASE_URL, sanctumBaseUrl: SANCTUM_BASE_URL } = validateAndSetupApiUrls();
+export const { apiBaseUrl: API_BASE_URL, sanctumBaseUrl: SANCTUM_BASE_URL } = validateAndSetupApiUrls();
 
 export interface ApiResponse<T = any> {
   data?: T;

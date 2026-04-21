@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { WebSocketMessage, WebSocketEventHandler } from '@/types/events';
 import { logger } from '@/utils/logger';
-import { apiClient } from '@/services/api';
+import { apiClient, SANCTUM_BASE_URL } from '@/services/api';
 
 // Configure Pusher
 (window as any).Pusher = Pusher;
@@ -253,7 +253,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         encrypted: wsConfig.encrypted,
         enableLogging: wsConfig.enableLogging || false,
         enabledTransports: ['ws', 'wss'],
-        authEndpoint: wsConfig.authEndpoint || '/broadcasting/auth',
+        authEndpoint: wsConfig.authEndpoint || (typeof SANCTUM_BASE_URL !== 'undefined' ? `${SANCTUM_BASE_URL}/broadcasting/auth` : '/broadcasting/auth'),
         auth: (() => {
           const bearerEnabled = typeof apiClient.isBearerAuthEnabled === 'function'
             ? apiClient.isBearerAuthEnabled()
