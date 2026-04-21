@@ -286,3 +286,8 @@ backup_dev_snapshot.bat
 
 # Documentation (Obsidian Vault - Local Only)
 docs/vault/
+
+# Claude/AI Temporary Files
+test_status.json
+frontend_test_*.txt
+backend/verify_fix.php
