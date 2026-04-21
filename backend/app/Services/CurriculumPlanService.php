@@ -39,6 +39,26 @@ class CurriculumPlanService
             )
             ->get();
 
+        // (subject_id, education_type) cütlüklərini tap: bu institution+il üçün ən azı bir sinifə əlavə edilmiş fənlər.
+        // grade_subjects.education_type NULL olarsa 'umumi' sayılır.
+        $gradeSubjectKeys = DB::table('grade_subjects')
+            ->join('grades', 'grade_subjects.grade_id', '=', 'grades.id')
+            ->where('grades.institution_id', $institutionId)
+            ->where('grades.academic_year_id', $yearId)
+            ->select(
+                'grade_subjects.subject_id',
+                DB::raw("COALESCE(NULLIF(grade_subjects.education_type, ''), 'umumi') as education_type")
+            )
+            ->distinct()
+            ->get()
+            ->mapWithKeys(fn ($row) => ["{$row->subject_id}_{$row->education_type}" => true]);
+
+        $plans = $plans->map(function ($plan) use ($gradeSubjectKeys) {
+            $eduType = $plan->education_type ?? 'umumi';
+            $plan->has_grade_subjects = isset($gradeSubjectKeys["{$plan->subject_id}_{$eduType}"]);
+            return $plan;
+        });
+
         $settings = $this->getRegionSettings($institutionId);
 
         return [

@@ -389,14 +389,15 @@ class TeachingLoadApiController extends Controller
                     });
             })
             ->where('classes.institution_id', $institutionId)
+            ->whereNull('teaching_loads.deleted_at')
             ->when($academicYearId, fn ($q) => $q->where('classes.academic_year_id', $academicYearId))
             ->select([
                 'teaching_loads.id',
                 'teaching_loads.weekly_hours',
-                // Teacher identity
+                // Teacher identity — name fields live in user_profiles; users table has no patronymic column
                 'users.username as employee_id',
-                'user_profiles.first_name',
-                'user_profiles.last_name',
+                DB::raw("COALESCE(user_profiles.first_name, users.first_name) as first_name"),
+                DB::raw("COALESCE(user_profiles.last_name, users.last_name) as last_name"),
                 'user_profiles.patronymic',
                 'user_profiles.position_type',
                 'user_profiles.specialty',

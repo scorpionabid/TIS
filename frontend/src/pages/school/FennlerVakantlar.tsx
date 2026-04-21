@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Combobox } from '@/components/ui/combobox';
 
 // --- Types ---
 type EducationType = 'umumi' | 'ferdi' | 'evde' | 'xususi';
@@ -344,28 +345,84 @@ export default function FennlerVakantlar({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/50 p-4 rounded-3xl border border-slate-200/60 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 rounded-2xl">
-            <BookOpen className="w-5 h-5 text-blue-600" />
+      {/* Compact Header & Stats Section */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 bg-white/40 p-2 rounded-[1.5rem] border border-slate-200/50 backdrop-blur-md shadow-sm">
+        {/* Left: Title Area */}
+        <div className="flex items-center gap-3 pl-2 pr-4 border-r border-slate-200/50 shrink-0">
+          <div className="p-2 bg-blue-50/50 rounded-xl border border-blue-100/50">
+            <BookOpen className="w-4 h-4 text-blue-600" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">Fənlər və Vakansiyalar</h2>
-            <p className="text-xs text-slate-500">Məktəb üzrə fənn yükü və vakant saatların idarə edilməsi</p>
+          <div className="hidden sm:block">
+            <h2 className="text-sm font-bold text-slate-800 leading-tight">Fənlər və Vakansiyalar</h2>
+            <p className="text-[10px] text-slate-400 font-medium">İdarəetmə Paneli</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Middle: Compact Stats Area */}
+        <div className="flex-1 grid grid-cols-3 gap-2">
+          {/* Cəmi Saat */}
+          <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-600 rounded-xl text-white shadow-indigo-200/20 shadow-lg">
+            <div>
+              <p className="text-[8px] font-bold opacity-70 leading-none mb-0.5 uppercase tracking-wider">CƏMİ</p>
+              <h3 className="text-base font-black tabular-nums leading-none">
+                {displayStats.totalSelected}
+                <span className="text-[8px] ml-0.5 font-medium opacity-60 italic uppercase">s</span>
+              </h3>
+            </div>
+            <Calculator className="w-3.5 h-3.5 opacity-40" />
+          </div>
+
+          {/* Təyin Edildi */}
+          <div className="flex items-center justify-between px-3 py-1.5 bg-white/80 border border-slate-100 rounded-xl shadow-sm">
+            <div>
+              <p className="text-[8px] font-bold text-slate-400 leading-none mb-0.5 uppercase tracking-wider">TƏYİN</p>
+              <h3 className="text-base font-black tabular-nums text-slate-700 leading-none">
+                {displayStats.totalAssigned}
+                <span className="text-[8px] ml-0.5 font-medium text-slate-300 italic uppercase">s</span>
+              </h3>
+            </div>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/50" />
+          </div>
+
+          {/* Vakansiya */}
+          <div className={cn(
+            "flex items-center justify-between px-3 py-1.5 rounded-xl border transition-all shadow-sm",
+            displayStats.vacancy > 0 ? "bg-orange-50/50 border-orange-100" : "bg-emerald-50/50 border-emerald-100"
+          )}>
+            <div>
+              <p className={cn(
+                "text-[8px] font-bold leading-none mb-0.5 uppercase tracking-wider",
+                displayStats.vacancy > 0 ? "text-orange-400" : "text-emerald-400"
+              )}>VAKANT</p>
+              <h3 className={cn(
+                "text-base font-black tabular-nums leading-none",
+                displayStats.vacancy > 0 ? "text-orange-600" : "text-emerald-600"
+              )}>
+                {displayStats.vacancy.toFixed(1)}
+              </h3>
+            </div>
+            {displayStats.vacancy > 0 ? (
+              <AlertCircle className="w-3.5 h-3.5 text-orange-400/50" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/50" />
+            )}
+          </div>
+        </div>
+
+        {/* Right: Save Status indicator - Fixed width to prevent layout shifts/shaking */}
+        <div className="flex items-center justify-end px-2 shrink-0 border-l border-slate-200/50 min-w-[110px] h-9">
           {isSaving ? (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100 italic font-medium transition-all">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span className="text-[10px] uppercase tracking-tighter">Yadda saxlanılır...</span>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50/50 text-blue-600 rounded-lg border border-blue-100/50 italic font-medium animate-pulse">
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              <span className="text-[8px] uppercase tracking-wider">Saxlanılır</span>
             </div>
           ) : lastSaved ? (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 transition-all opacity-60">
+            <div className="flex items-center gap-2 px-2 text-emerald-600 transition-all duration-300">
               <CheckCircle2 className="w-3 h-3" />
-              <span className="text-[10px] uppercase tracking-tighter">Yadda saxlanıldı ({lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })})</span>
+              <div className="flex flex-col">
+                <span className="text-[7px] font-black uppercase leading-none mb-0.5">Yadda saxlanıldı</span>
+                <span className="text-[7px] opacity-60 tabular-nums leading-none">{lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
             </div>
           ) : null}
         </div>
@@ -474,21 +531,20 @@ export default function FennlerVakantlar({
                   {(activeTab as string) !== 'statistika' && (
                     <tr className="bg-slate-50/30 border-y border-slate-100">
                       <td colSpan={activeLevels.length + 4} className="px-5 py-3 text-center">
-                        <select 
-                          className="text-[10px] font-black uppercase tracking-widest h-8 px-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all disabled:opacity-50"
-                          onChange={(e) => handleAddSubject(Number(e.target.value))}
-                          value=""
-                          disabled={isLocked}
-                        >
-                          <option value="" disabled>{isLocked ? '🚫 REDAKTƏ QAPALIDIR' : '+ YENİ FƏNN ƏLAVƏ ET'}</option>
-                          {allSubjects
-                            .filter(s => !rows.some(r => r.subjectId === s.id && r.educationType === currentEducationType))
-                            .sort((a,b) => a.name.localeCompare(b.name))
-                            .map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))
-                          }
-                        </select>
+                        <div className="max-w-xs mx-auto">
+                          <Combobox
+                            options={allSubjects
+                              .filter(s => !rows.some(r => r.subjectId === s.id && r.educationType === currentEducationType))
+                              .sort((a,b) => a.name.localeCompare(b.name))
+                              .map(s => ({ value: s.id.toString(), label: s.name }))
+                            }
+                            placeholder={isLocked ? '🚫 REDAKTƏ QAPALIDIR' : '+ YENİ FƏNN ƏLAVƏ ET'}
+                            searchPlaceholder="Fənn axtar..."
+                            noResultsMessage="Fənn tapılmadı"
+                            onChange={(val) => val && handleAddSubject(Number(val))}
+                            disabled={isLocked}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -650,57 +706,6 @@ export default function FennlerVakantlar({
         )}
       </Tabs>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-3xl border-slate-200/60 shadow-sm overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 border-none text-white">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-100/80 text-xs font-semibold mb-1">CƏMİ SAAT</p>
-                <h3 className="text-3xl font-bold tabular-nums">{displayStats.totalSelected}<span className="text-sm ml-1 font-normal opacity-80">saat</span></h3>
-              </div>
-              <div className="p-2.5 bg-white/10 rounded-2xl">
-                <Calculator className="w-5 h-5 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-3xl border-slate-200/60 shadow-sm overflow-hidden border-none text-slate-800">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-slate-400 text-xs font-semibold mb-1">TƏYİN EDİLDİ</p>
-                <h3 className="text-3xl font-bold tabular-nums">{displayStats.totalAssigned}<span className="text-sm ml-1 font-normal text-slate-400">saat</span></h3>
-              </div>
-              <div className="p-2.5 bg-blue-50 rounded-2xl">
-                <CheckCircle2 className="w-5 h-5 text-blue-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-3xl border-slate-200/60 shadow-sm overflow-hidden border-none bg-orange-50 text-orange-900">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-orange-400 text-xs font-semibold mb-1 uppercase tracking-wider">VAKANSİYA</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-3xl font-black tabular-nums text-orange-600">
-                    {displayStats.vacancy.toFixed(1)}
-                  </h3>
-                  <span className="text-xs font-bold text-orange-400 opacity-60">saat</span>
-                </div>
-                {clubVacancy > 0 && (
-                   <p className="text-[10px] font-black text-orange-400 mt-2 uppercase tracking-widest">+ {clubVacancy.toFixed(1)} dərnək</p>
-                )}
-              </div>
-              <div className="p-2.5 bg-orange-500/10 rounded-2xl">
-                <AlertCircle className="w-5 h-5 text-orange-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </motion.div>
   );
 }

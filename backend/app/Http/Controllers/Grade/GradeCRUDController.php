@@ -69,6 +69,7 @@ class GradeCRUDController extends Controller
             ->paginate($perPage);
 
         // Transform using GradeResource
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -505,6 +506,74 @@ class GradeCRUDController extends Controller
 
         if ($request->has('teaching_shift')) {
             $query->where('teaching_shift', $request->teaching_shift);
+        }
+
+        // Filter by subject_id: only return grades that have this subject in their grade_subjects (Sinif Tədris Planı)
+        if ($request->has('subject_id')) {
+            $subjectId = (int) $request->subject_id;
+            $eduType = $request->input('education_type');
+
+            // Only return grades that explicitly have this subject in their Sinif Tədris Planı (grade_subjects).
+            // curriculum_plans is the institution-level budget/template, not a per-grade assignment.
+            $query->where(function ($mainQ) use ($subjectId, $eduType, $institutionId, $request) {
+                // Option 1: Explicitly assigned in Sinif Tədris Planı (grade_subjects)
+                $mainQ->whereHas('gradeSubjects', function ($q) use ($subjectId, $eduType) {
+                    $q->where('grade_subjects.subject_id', $subjectId);
+                    if ($eduType) {
+                        $q->where(function ($q2) use ($eduType) {
+                            $q2->where('grade_subjects.education_type', $eduType);
+                            if ($eduType === 'umumi') {
+                                $q2->orWhereNull('grade_subjects.education_type');
+                            }
+                        });
+                    }
+                })
+                // Option 2: Planned for this class level in Master Plan (curriculum_plans)
+                ->orWhereExists(function ($q) use ($subjectId, $eduType, $institutionId, $request) {
+                    $q->select(\DB::raw(1))
+                        ->from('curriculum_plans')
+                        ->whereColumn('curriculum_plans.class_level', 'grades.class_level')
+                        ->where('curriculum_plans.subject_id', $subjectId)
+                        ->where('curriculum_plans.institution_id', (int) $institutionId);
+                    
+                    // Filter by academic year in subquery if provided
+                    if ($request->has('academic_year_id')) {
+                        $q->where('curriculum_plans.academic_year_id', $request->academic_year_id);
+                    }
+
+                    if ($eduType) {
+                        $q->where('curriculum_plans.education_type', $eduType);
+                    }
+                });
+            });
+
+            // Exclude grades where this subject's hours are already fully covered by teaching_loads.
+            // Checks: SUM(teaching_loads.weekly_hours) >= grade_subjects.weekly_hours × group_count
+            $eduTypeVal = $eduType ?? 'umumi';
+            $query->whereRaw(
+                'NOT EXISTS (
+                    SELECT 1
+                    FROM grade_subjects gs2
+                    INNER JOIN classes c2
+                        ON  c2.institution_id   = grades.institution_id
+                        AND c2.academic_year_id = grades.academic_year_id
+                        AND c2.grade_level      = grades.class_level
+                        AND c2.section          = grades.name
+                    WHERE gs2.grade_id    = grades.id
+                      AND gs2.subject_id  = ?
+                      AND (gs2.education_type = ? OR (? = \'umumi\' AND gs2.education_type IS NULL))
+                      AND (
+                          SELECT COALESCE(SUM(tl.weekly_hours), 0)
+                          FROM teaching_loads tl
+                          WHERE tl.class_id    = c2.id
+                            AND tl.subject_id  = ?
+                            AND tl.deleted_at  IS NULL
+                            AND (tl.education_type = ? OR (? = \'umumi\' AND tl.education_type IS NULL))
+                      ) >= gs2.weekly_hours
+                         * CASE WHEN gs2.is_split_groups THEN gs2.group_count ELSE 1 END
+                )',
+                [$subjectId, $eduTypeVal, $eduTypeVal, $subjectId, $eduTypeVal, $eduTypeVal]
+            );
         }
 
         return $query;

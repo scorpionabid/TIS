@@ -139,6 +139,8 @@ export interface GradeFilters {
   page?: number;
   per_page?: number;
   include?: string;
+  subject_id?: number;
+  education_type?: string;
 }
 
 interface GradeListResult {

@@ -97,12 +97,44 @@ class GradeSubjectController extends Controller
             ->pluck('subject_id')
             ->toArray();
 
-        // Get available subjects for this class level
-        // Note: We no longer exclude assignedSubjectIds here to allow
-        // a subject to be visible for all education types.
-        // The store() method validation will prevent duplicates in the same category.
-        $availableSubjects = Subject::active()
-            ->forClassLevel($grade->class_level)
+        // Yalnız curriculum_plans-da (Fənn və Vakansiyalar) bu sinif səviyyəsi üçün
+        // saatları qeyd edilmiş fənlər göstərilsin.
+        // Əgər həmin təhsil növü üçün heç bir plan yoxdursa (məs. ferdi/evde/xususi),
+        // filter tətbiq edilmir — bütün aktiv fənlər göstərilir.
+        $hasPlanForType = \DB::table('curriculum_plans')
+            ->where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('class_level', $grade->class_level)
+            ->where('hours', '>', 0)
+            ->where(function ($q) use ($educationType) {
+                $q->where('education_type', $educationType);
+                if ($educationType === 'umumi') {
+                    $q->orWhereNull('education_type');
+                }
+            })
+            ->exists();
+
+        $subjectQuery = Subject::active()->forClassLevel($grade->class_level);
+
+        if ($hasPlanForType) {
+            $subjectQuery->whereExists(function ($q) use ($grade, $educationType) {
+                $q->select(\DB::raw(1))
+                    ->from('curriculum_plans')
+                    ->whereColumn('curriculum_plans.subject_id', 'subjects.id')
+                    ->where('curriculum_plans.institution_id', $grade->institution_id)
+                    ->where('curriculum_plans.academic_year_id', $grade->academic_year_id)
+                    ->where('curriculum_plans.class_level', $grade->class_level)
+                    ->where('curriculum_plans.hours', '>', 0)
+                    ->where(function ($q2) use ($educationType) {
+                        $q2->where('curriculum_plans.education_type', $educationType);
+                        if ($educationType === 'umumi') {
+                            $q2->orWhereNull('curriculum_plans.education_type');
+                        }
+                    });
+            });
+        }
+
+        $availableSubjects = $subjectQuery
             ->orderBy('name')
             ->get(['id', 'name', 'short_name', 'code', 'category', 'weekly_hours'])
             ->map(function ($subject) {
@@ -176,7 +208,7 @@ class GradeSubjectController extends Controller
             ], 422);
         }
 
-        // Check against Curriculum Plan (Master Plan)
+        // Check against Curriculum Plan (Master Plan) - Pool-based check (All classes in same level)
         $plan = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
@@ -184,14 +216,27 @@ class GradeSubjectController extends Controller
             ->where('education_type', $validated['education_type'])
             ->first();
 
-        if ($plan && $validated['weekly_hours'] > $plan->hours) {
-            return response()->json([
-                'success' => false,
-                'message' => "Tədris planına görə bu fənn üçün maksimal saat {$plan->hours} olmalıdır.",
-            ], 422);
+        if ($plan) {
+            $totalUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
+                $q->where('institution_id', $grade->institution_id)
+                    ->where('academic_year_id', $grade->academic_year_id)
+                    ->where('class_level', $grade->class_level);
+            })
+                ->where('subject_id', $validated['subject_id'])
+                ->where('education_type', $validated['education_type'])
+                ->sum('weekly_hours');
+
+            if (($totalUsedInLevel + $validated['weekly_hours']) > $plan->hours) {
+                $remaining = max(0, $plan->hours - $totalUsedInLevel);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "Tədris planına görə bu fənn üçün qalan limit {$remaining} saatdır (Səviyyə üzrə cəmi {$plan->hours}s olmalıdır).",
+                ], 422);
+            }
         }
 
-        // Kateqoriya büdcəsi yoxlanışı: bu təhsil növü üzrə cəmi saat tədris planının limitini aşmamalıdır
+        // Kateqoriya büdcəsi yoxlanışı (Səviyyə üzrə cəmi)
         $categoryBudget = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
@@ -199,16 +244,20 @@ class GradeSubjectController extends Controller
             ->sum('hours');
 
         if ($categoryBudget > 0) {
-            $currentUsed = $grade->gradeSubjects()
+            $currentUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
+                $q->where('institution_id', $grade->institution_id)
+                    ->where('academic_year_id', $grade->academic_year_id)
+                    ->where('class_level', $grade->class_level);
+            })
                 ->where('education_type', $validated['education_type'])
                 ->sum('weekly_hours');
 
-            if (($currentUsed + $validated['weekly_hours']) > $categoryBudget) {
-                $remaining = max(0, $categoryBudget - $currentUsed);
+            if (($currentUsedInLevel + $validated['weekly_hours']) > $categoryBudget) {
+                $remaining = max(0, $categoryBudget - $currentUsedInLevel);
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Cari istifadə: {$currentUsed}s, qalan: {$remaining}s.",
+                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Səviyyə üzrə cari istifadə: {$currentUsedInLevel}s, qalan: {$remaining}s.",
                 ], 422);
             }
         }
@@ -246,12 +295,31 @@ class GradeSubjectController extends Controller
                     'notes' => $gradeSubject->notes,
                 ],
             ], 201);
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
             DB::rollBack();
+            Log::error('GradeSubject store QueryException: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $message = 'Məlumat bazası xətası: ' . $e->getMessage();
+            if ($e->getCode() === '23505') {
+                $message = 'Bu fənn artıq bu sinif və təhsil növü üçün əlavə edilib.';
+            }
 
             return response()->json([
                 'success' => false,
-                'message' => 'Fənn əlavə edilərkən xəta baş verdi.',
+                'message' => $message,
+                'error' => $e->getMessage(),
+            ], 400);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('GradeSubject store Unexpected Exception: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem xətası: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -293,7 +361,7 @@ class GradeSubjectController extends Controller
             ], 422);
         }
 
-        // Check against Curriculum Plan (Master Plan)
+        // Check against Curriculum Plan (Master Plan) - Pool-based check (All classes in same level)
         $plan = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
@@ -301,14 +369,32 @@ class GradeSubjectController extends Controller
             ->where('education_type', $validated['education_type'])
             ->first();
 
-        if ($plan && $validated['weekly_hours'] > $plan->hours) {
-            return response()->json([
-                'success' => false,
-                'message' => "Tədris planına görə bu fənn üçün maksimal saat {$plan->hours} olmalıdır.",
-            ], 422);
+        if ($plan) {
+            $totalUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
+                $q->where('institution_id', $grade->institution_id)
+                    ->where('academic_year_id', $grade->academic_year_id)
+                    ->where('class_level', $grade->class_level);
+            })
+                ->where('subject_id', $gradeSubject->subject_id)
+                ->where('education_type', $validated['education_type'])
+                ->where('id', '!=', $gradeSubject->id)
+                ->sum('weekly_hours');
+
+            $newTotal = $totalUsedInLevel + $validated['weekly_hours'];
+            $oldTotal = $totalUsedInLevel + $gradeSubject->weekly_hours;
+
+            // Only block if we are increasing hours AND we are over the limit
+            if ($newTotal > $plan->hours && $newTotal > $oldTotal) {
+                $remaining = max(0, $plan->hours - $totalUsedInLevel);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "Tədris planına görə bu fənn üçün qalan limit {$remaining} saatdır (Səviyyə üzrə cəmi {$plan->hours}s olmalıdır).",
+                ], 422);
+            }
         }
 
-        // Kateqoriya büdcəsi yoxlanışı (redaktə zamanı özünü xaric et)
+        // Kateqoriya büdcəsi yoxlanışı (Səviyyə üzrə cəmi)
         $categoryBudget = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
@@ -316,17 +402,25 @@ class GradeSubjectController extends Controller
             ->sum('hours');
 
         if ($categoryBudget > 0) {
-            $currentUsed = $grade->gradeSubjects()
+            $currentUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
+                $q->where('institution_id', $grade->institution_id)
+                    ->where('academic_year_id', $grade->academic_year_id)
+                    ->where('class_level', $grade->class_level);
+            })
                 ->where('education_type', $validated['education_type'])
                 ->where('id', '!=', $gradeSubject->id)
                 ->sum('weekly_hours');
 
-            if (($currentUsed + $validated['weekly_hours']) > $categoryBudget) {
-                $remaining = max(0, $categoryBudget - $currentUsed);
+            $newTotalCat = $currentUsedInLevel + $validated['weekly_hours'];
+            $oldTotalCat = $currentUsedInLevel + $gradeSubject->weekly_hours;
+
+            // Only block if increasing AND over limit
+            if ($newTotalCat > $categoryBudget && $newTotalCat > $oldTotalCat) {
+                $remaining = max(0, $categoryBudget - $currentUsedInLevel);
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Cari istifadə: {$currentUsed}s, qalan: {$remaining}s.",
+                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Səviyyə üzrə cari istifadə: {$currentUsedInLevel}s, qalan: {$remaining}s.",
                 ], 422);
             }
         }
@@ -364,12 +458,29 @@ class GradeSubjectController extends Controller
                     'notes' => $gradeSubject->notes,
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
             DB::rollBack();
+            Log::error('GradeSubject update QueryException: ' . $e->getMessage());
+            $message = 'Fənn yenilənərkən xəta baş verdi.';
+            if ($e->getCode() === '23505') { // PostgreSQL unique constraint violation
+                $message = 'Bu fənn artıq bu sinif və təhsil növü üçün mövcuddur.';
+            }
 
             return response()->json([
                 'success' => false,
-                'message' => 'Fənn yenilənərkən xəta baş verdi.',
+                'message' => $message,
+                'error' => $e->getMessage(),
+            ], 400);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('GradeSubject update Unexpected Exception: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem xətası: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 500);
         }

@@ -129,7 +129,17 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
       onSuccess();
     } catch (err: any) {
       console.error('Error updating subject:', err);
-      setError(err.response?.data?.message || 'Fənn yenilənərkən xəta baş verdi');
+      // Laravel validation errors object check
+      const validationErrors = err.response?.data?.errors;
+      let errorMsg = 'Fənn yenilənərkən xəta baş verdi';
+      
+      if (validationErrors) {
+        errorMsg = Object.values(validationErrors).flat().join(', ');
+      } else {
+        errorMsg = err.response?.data?.error || err.response?.data?.message || errorMsg;
+      }
+      
+      setError(errorMsg);
     } finally {
       setSubmitting(false);
     }
@@ -169,7 +179,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
             {error && (
               <div className="bg-rose-50 border border-rose-100 rounded-lg p-3 flex items-start gap-2 animate-in fade-in slide-in-from-top-1 mb-4">
                 <AlertCircle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
-                <p className="text-xs font-bold text-rose-800 leading-tight">{error}</p>
+                <p className="text-sm font-semibold text-rose-800 leading-snug">{error}</p>
               </div>
             )}
 

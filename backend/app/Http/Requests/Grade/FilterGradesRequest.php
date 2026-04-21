@@ -32,12 +32,15 @@ class FilterGradesRequest extends FormRequest
             'search' => 'sometimes|string|max:255',
             'sort_by' => 'sometimes|string|in:name,class_level,student_count,created_at,updated_at',
             'sort_order' => 'sometimes|string|in:asc,desc',
-            'per_page' => 'sometimes|integer|min:1|max:100',
+            'per_page' => 'sometimes|integer|min:1|max:500',
             'page' => 'sometimes|integer|min:1',
             'with_students' => 'sometimes|boolean',
             'with_subjects' => 'sometimes|boolean',
             'class_type' => 'sometimes|string|max:120',
             'teaching_shift' => 'sometimes|string|max:50',
+            'subject_id' => 'sometimes|integer|exists:subjects,id',
+            'education_type' => 'sometimes|string|in:umumi,ferdi,evde,xususi',
+            'include' => 'sometimes|string',
         ];
     }
 

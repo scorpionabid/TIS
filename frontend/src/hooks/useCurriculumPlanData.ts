@@ -11,7 +11,16 @@ import {
 } from '@/components/curriculum/curriculumConstants';
 import { GradeUpdateData } from '@/services/grades';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+export interface GradeHours {
+  plan: number;
+  extra: number;
+  indiv: number;
+  home: number;
+  special: number;
+  club: number;
+  split: number;
+  total: number;
+}
 
 export interface LevelTotal {
   studentCount: number;
@@ -68,6 +77,55 @@ export interface CurriculumApproval {
   status: string;
   return_comment?: string;
   [key: string]: unknown;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Calculates all hour types for a single grade
+ */
+export function calculateGradeHours(grade: Grade): GradeHours {
+  const gs = grade.grade_subjects || [];
+
+  const basePlan = gs.filter(i => {
+    const ed = i.education_type?.toLowerCase() || '';
+    const sid = Number(i.subject_id);
+    return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== SUBJECT_IDS.CLUB && !!i.is_teaching_activity;
+  }).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+
+  const plan = grade.curriculum_hours != null ? Number(grade.curriculum_hours) : basePlan;
+
+  const g = grade as any;
+
+  const baseExtra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB)
+    .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+  const extra = g.extra_hours != null ? Number(g.extra_hours) : baseExtra;
+
+  const baseIndiv = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi')
+    .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+  const indiv = g.individual_hours != null ? Number(g.individual_hours) : baseIndiv;
+
+  const baseHome = gs.filter(i => i.education_type?.toLowerCase() === 'evde')
+    .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+  const home = g.home_hours != null ? Number(g.home_hours) : baseHome;
+
+  const baseSpecial = gs.filter(i => i.education_type?.toLowerCase() === 'xususi')
+    .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+  const special = g.special_hours != null ? Number(g.special_hours) : baseSpecial;
+
+  const baseClub = gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB)
+    .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+  const club = g.club_hours != null ? Number(g.club_hours) : baseClub;
+
+  let split = 0;
+  SPLIT_KEYS.forEach(k => {
+    split += grade[k] != null ? Number(grade[k]) : 0;
+  });
+
+  return {
+    plan, extra, indiv, home, special, club, split,
+    total: plan + split + extra + indiv + home + special + club,
+  };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -253,7 +311,7 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
     const totals: Record<number, LevelTotal> = {};
     activeLevels.forEach(lvl => {
       const levelGrades = reactiveGrades.filter(g => g.class_level === lvl.level);
-      const studentCount = levelGrades.reduce((sum, g) => sum + (g.student_count || 0), 0);
+      const studentCount = levelGrades.reduce((sum, g) => sum + (g.real_student_count || g.student_count || 0), 0);
       const classCount = levelGrades.length;
 
       let planHours = 0;
@@ -267,39 +325,17 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
       let splitTotal = 0;
 
       levelGrades.forEach(g => {
-        const gs = g.grade_subjects || [];
-
-        const gPlan = gs.filter(i => {
-          const ed = i.education_type?.toLowerCase() || '';
-          const sid = Number(i.subject_id);
-          return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== SUBJECT_IDS.CLUB && !!i.is_teaching_activity;
-        }).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-        planHours += gPlan;
-
-        const extra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB)
-          .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-        extraHours += extra;
-
-        const indiv = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi')
-          .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-        indivHours += indiv;
-
-        const home = gs.filter(i => i.education_type?.toLowerCase() === 'evde')
-          .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-        homeHours += home;
-
-        const special = gs.filter(i => i.education_type?.toLowerCase() === 'xususi')
-          .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-        specialHours += special;
-
-        const club = gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB)
-          .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-        clubHours += club;
+        const gh = calculateGradeHours(g);
+        planHours += gh.plan;
+        extraHours += gh.extra;
+        indivHours += gh.indiv;
+        homeHours += gh.home;
+        specialHours += gh.special;
+        clubHours += gh.club;
+        splitTotal += gh.split;
 
         SPLIT_KEYS.forEach(k => {
-          const val = g[k] != null ? Number(g[k]) : 0;
-          splitBySubject[k] += val;
-          splitTotal += val;
+          splitBySubject[k] += g[k] != null ? Number(g[k]) : 0;
         });
       });
 
