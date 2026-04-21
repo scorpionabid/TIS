@@ -7,6 +7,26 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $title
+ * @property string $description
+ * @property \Illuminate\Support\Carbon|null $date
+ * @property string $type
+ * @property string $impact_level
+ * @property string|null $institution
+ * @property string|null $certificate_url
+ * @property bool $verification_status
+ * @property string|null $notes
+ * @property string|null $category
+ * @property array|null $tags
+ * @property string $approval_status
+ * @property string|null $approval_rejection_reason
+ * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property int|null $approved_by
+ * @property-read \App\Models\User $user
+ */
 class TeacherAchievement extends Model
 {
     use HasFactory;

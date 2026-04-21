@@ -95,6 +95,19 @@ class ScheduleSession extends Model
         'metadata' => 'array',
     ];
 
+    protected $appends = [
+        'period',
+    ];
+
+    /**
+     * Period alias for period_number (frontend compatibility)
+     */
+    public function getPeriodAttribute(): int
+    {
+        return $this->period_number;
+    }
+
+
     const SESSION_TYPES = [
         'regular' => 'Regular Class Session',
         'lab' => 'Laboratory Session',

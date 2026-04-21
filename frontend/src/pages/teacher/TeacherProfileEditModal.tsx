@@ -334,7 +334,7 @@ export default function TeacherProfileEditModal({
                     <Label htmlFor="name">Ad Soyad</Label>
                     <Input
                       id="name"
-                      value={formData.teacherInfo.name}
+                      value={formData.teacherInfo.name ?? ""}
                       onChange={(e) => handleInputChange('name', e.target.value)}
                       placeholder="Ad və soyadınızı daxil edin"
                     />
@@ -344,7 +344,7 @@ export default function TeacherProfileEditModal({
                     <Input
                       id="email"
                       type="email"
-                      value={formData.teacherInfo.email}
+                      value={formData.teacherInfo.email ?? ""}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       placeholder="Email ünvanınız"
                     />
@@ -363,8 +363,8 @@ export default function TeacherProfileEditModal({
                     <Input
                       id="experience"
                       type="number"
-                      value={formData.teacherInfo.experienceYears}
-                      onChange={(e) => handleInputChange('experienceYears', parseInt(e.target.value))}
+                      value={formData.teacherInfo.experienceYears ?? 0}
+                      onChange={(e) => handleInputChange('experienceYears', parseInt(e.target.value) || 0)}
                       placeholder="Təcrübə illəri"
                     />
                   </div>
@@ -385,7 +385,7 @@ export default function TeacherProfileEditModal({
                   <Label htmlFor="school">Məktəb</Label>
                   <Input
                     id="school"
-                    value={formData.teacherInfo.school}
+                    value={formData.teacherInfo.school ?? ""}
                     onChange={(e) => handleInputChange('school', e.target.value)}
                     placeholder="Məktəbin adı"
                   />

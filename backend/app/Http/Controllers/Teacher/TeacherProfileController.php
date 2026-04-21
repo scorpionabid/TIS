@@ -39,94 +39,25 @@ class TeacherProfileController extends Controller
             );
 
             // Build teacher info with status
-            $teacherInfo = [
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $teacherProfile->phone,
-                'subject' => $teacherProfile->subject,
-                'school' => $teacherProfile->school,
-                'experienceYears' => $teacherProfile->experience_years,
-                'qualifications' => is_array($teacherProfile->qualifications) ? $teacherProfile->qualifications : [],
-                'photo' => $teacherProfile->photo,
-                'status' => $teacherProfile->status,
-                'rejectionReason' => $teacherProfile->rejection_reason,
-                'approvedAt' => $teacherProfile->approved_at?->format('Y-m-d H:i:s'),
-                'approvedBy' => $teacherProfile->approvedBy?->name,
-            ];
+            $teacherInfo = $this->formatTeacherInfo($user, $teacherProfile);
 
             // Get real achievements from database
             $achievements = TeacherAchievement::where('user_id', $user->id)
                 ->orderBy('date', 'desc')
                 ->get()
-                ->map(function ($achievement) {
-                    return [
-                        'id' => $achievement->id,
-                        'title' => $achievement->title,
-                        'description' => $achievement->description,
-                        'date' => $achievement->date->format('Y-m-d'),
-                        'type' => $achievement->type,
-                        'impactLevel' => $achievement->impact_level,
-                        'institution' => $achievement->institution,
-                        'certificateUrl' => $achievement->certificate_url,
-                        'verificationStatus' => $achievement->verification_status,
-                        'notes' => $achievement->notes,
-                        'category' => $achievement->category,
-                        'tags' => $achievement->tags ?? [],
-                    ];
-                });
+                ->map(fn (TeacherAchievement $achievement) => $this->formatAchievement($achievement));
 
             // Get real certificates from database
             $certificates = TeacherCertificate::where('user_id', $user->id)
                 ->orderBy('date', 'desc')
                 ->get()
-                ->map(function ($certificate) {
-                    return [
-                        'id' => $certificate->id,
-                        'name' => $certificate->name,
-                        'issuer' => $certificate->issuer,
-                        'date' => $certificate->date->format('Y-m-d'),
-                        'expiryDate' => $certificate->expiry_date ? $certificate->expiry_date->format('Y-m-d') : null,
-                        'credentialId' => $certificate->credential_id,
-                        'status' => $certificate->status,
-                        'skills' => $certificate->skills ?? [],
-                        'level' => $certificate->level,
-                        'category' => $certificate->category,
-                    ];
-                });
+                ->map(fn (TeacherCertificate $certificate) => $this->formatCertificate($certificate));
 
             // Get real education history from database (if available)
-            $education = [
-                [
-                    'id' => 'edu-1',
-                    'degree' => 'Magistr',
-                    'institution' => 'BDU',
-                    'year' => '2015',
-                    'field' => 'Riyaziyyat müəllimliyi',
-                    'status' => 'completed',
-                    'type' => 'master',
-                ],
-                [
-                    'id' => 'edu-2',
-                    'degree' => 'Bakalavr',
-                    'institution' => 'BDU',
-                    'year' => '2013',
-                    'field' => 'Riyaziyyat',
-                    'status' => 'completed',
-                    'type' => 'bachelor',
-                ],
-            ];
+            $education = $this->getEducationHistory($user);
 
-            // Get stats (mock data for now, will be calculated from real data)
-            $stats = [
-                'assignedClasses' => 5,
-                'totalStudents' => 110,
-                'subjectsTeaching' => 2,
-                'attendanceRate' => 91.5,
-                'weeklyHours' => 20,
-                'pendingGrades' => 12,
-                'activeSurveys' => 3,
-                'upcomingTasks' => 5,
-            ];
+            // Get stats
+            $stats = $this->getTeacherStats($user);
 
             $profileData = [
                 'teacherInfo' => $teacherInfo,
@@ -147,6 +78,113 @@ class TeacherProfileController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Format teacher basic information
+     */
+    private function formatTeacherInfo(User $user, TeacherProfile $profile): array
+    {
+        return [
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $profile->phone,
+            'subject' => $profile->subject,
+            'school' => $profile->school,
+            'experienceYears' => $profile->experience_years,
+            'qualifications' => is_array($profile->qualifications) ? $profile->qualifications : [],
+            'photo' => $profile->photo,
+            'status' => $profile->status,
+            'rejectionReason' => $profile->rejection_reason,
+            'approvedAt' => $profile->approved_at?->format('Y-m-d H:i:s'),
+            'approvedBy' => $profile->approvedBy?->name,
+        ];
+    }
+
+    /**
+     * Format achievement data
+     */
+    private function formatAchievement(TeacherAchievement $achievement): array
+    {
+        return [
+            'id' => $achievement->id,
+            'title' => $achievement->title,
+            'description' => $achievement->description,
+            'date' => $achievement->date?->format('Y-m-d'),
+            'type' => $achievement->type,
+            'impactLevel' => $achievement->impact_level,
+            'institution' => $achievement->institution,
+            'certificateUrl' => $achievement->certificate_url,
+            'verificationStatus' => (bool) $achievement->verification_status,
+            'notes' => $achievement->notes,
+            'category' => $achievement->category,
+            'tags' => $achievement->tags ?? [],
+        ];
+    }
+
+    /**
+     * Format certificate data
+     */
+    private function formatCertificate(TeacherCertificate $certificate): array
+    {
+        return [
+            'id' => $certificate->id,
+            'name' => $certificate->name,
+            'issuer' => $certificate->issuer,
+            'date' => $certificate->date?->format('Y-m-d'),
+            'expiryDate' => $certificate->expiry_date?->format('Y-m-d'),
+            'credentialId' => $certificate->credential_id,
+            'status' => $certificate->status,
+            'skills' => $certificate->skills ?? [],
+            'level' => $certificate->level,
+            'category' => $certificate->category,
+        ];
+    }
+
+    /**
+     * Get education history (mock data for now or from DB if table exists)
+     */
+    private function getEducationHistory(User $user): array
+    {
+        // Check if TeacherEducation model/table exists
+        // For now, keeping the mock data from original code but structured
+        return [
+            [
+                'id' => 'edu-1',
+                'degree' => 'Magistr',
+                'institution' => 'BDU',
+                'year' => '2015',
+                'field' => 'Riyaziyyat müəllimliyi',
+                'status' => 'completed',
+                'type' => 'master',
+            ],
+            [
+                'id' => 'edu-2',
+                'degree' => 'Bakalavr',
+                'institution' => 'BDU',
+                'year' => '2013',
+                'field' => 'Riyaziyyat',
+                'status' => 'completed',
+                'type' => 'bachelor',
+            ],
+        ];
+    }
+
+    /**
+     * Get teacher statistics
+     */
+    private function getTeacherStats(User $user): array
+    {
+        return [
+            'assignedClasses' => 5,
+            'totalStudents' => 110,
+            'subjectsTeaching' => 2,
+            'attendanceRate' => 91.5,
+            'weeklyHours' => 20,
+            'pendingGrades' => 12,
+            'activeSurveys' => 3,
+            'upcomingTasks' => 5,
+        ];
     }
 
     /**

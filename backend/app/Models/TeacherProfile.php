@@ -7,6 +7,32 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $phone
+ * @property string|null $bio
+ * @property array|null $qualifications
+ * @property int $experience_years
+ * @property string|null $specialization
+ * @property string|null $photo
+ * @property string|null $school
+ * @property int|null $institution_id
+ * @property string|null $subject
+ * @property int|null $subject_id
+ * @property string|null $address
+ * @property string|null $emergency_contact_name
+ * @property string|null $emergency_contact_phone
+ * @property string|null $emergency_contact_email
+ * @property array|null $social_links
+ * @property array|null $preferences
+ * @property string $status
+ * @property string|null $rejection_reason
+ * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property int|null $approved_by
+ * @property-read \App\Models\User $user
+ * @property-read \App\Models\Institution|null $institution
+ */
 class TeacherProfile extends Model
 {
     use HasFactory;

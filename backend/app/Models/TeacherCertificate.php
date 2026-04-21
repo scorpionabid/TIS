@@ -7,6 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $name
+ * @property string $issuer
+ * @property \Illuminate\Support\Carbon|null $date
+ * @property \Illuminate\Support\Carbon|null $expiry_date
+ * @property string|null $credential_id
+ * @property string $status
+ * @property string|null $certificate_url
+ * @property string|null $verification_url
+ * @property string|null $description
+ * @property array|null $skills
+ * @property string|null $level
+ * @property string|null $category
+ * @property string $approval_status
+ * @property string|null $approval_rejection_reason
+ * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property int|null $approved_by
+ * @property-read \App\Models\User $user
+ */
 class TeacherCertificate extends Model
 {
     use HasFactory;
@@ -48,6 +69,8 @@ class TeacherCertificate extends Model
     const STATUS_EXPIRED = 'expired';
 
     const STATUS_REVOKED = 'revoked';
+
+    const STATUS_PENDING = 'pending';
 
     /**
      * Approval statuses

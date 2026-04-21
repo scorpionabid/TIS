@@ -307,13 +307,9 @@ class ScheduleControllerRefactored extends BaseController
                 $this->permissionService->applyAuthorityFilter($scheduleQuery, $user);
             });
 
-            $sessions = $query->orderBy('day_of_week')->orderBy('period')->get();
+            $sessions = $query->orderBy('day_of_week')->orderBy('period_number')->get();
 
-            return $this->successResponse([
-                'class_id' => $classId,
-                'sessions' => $sessions,
-                'sessions_by_day' => $sessions->groupBy('day_of_week'),
-            ], 'Sinif cədvəli alındı');
+            return $this->successResponse($sessions, 'Sinif cədvəli alındı');
         }, 'schedule.class_schedule');
     }
 
@@ -356,14 +352,9 @@ class ScheduleControllerRefactored extends BaseController
                 $this->permissionService->applyAuthorityFilter($scheduleQuery, $user);
             });
 
-            $sessions = $query->orderBy('day_of_week')->orderBy('period')->get();
+            $sessions = $query->orderBy('day_of_week')->orderBy('period_number')->get();
 
-            return $this->successResponse([
-                'teacher_id' => $teacherId,
-                'sessions' => $sessions,
-                'sessions_by_day' => $sessions->groupBy('day_of_week'),
-                'teaching_load' => $sessions->count(),
-            ], 'Müəllim cədvəli alındı');
+            return $this->successResponse($sessions, 'Müəllim cədvəli alındı');
         }, 'schedule.teacher_schedule');
     }
 
@@ -406,7 +397,7 @@ class ScheduleControllerRefactored extends BaseController
                 $this->permissionService->applyAuthorityFilter($scheduleQuery, $user);
             });
 
-            $sessions = $query->orderBy('day_of_week')->orderBy('period')->get();
+            $sessions = $query->orderBy('day_of_week')->orderBy('period_number')->get();
 
             $utilizationRate = 0;
             if ($sessions->isNotEmpty()) {
@@ -415,12 +406,7 @@ class ScheduleControllerRefactored extends BaseController
                 $utilizationRate = round(($sessions->count() / $totalPossibleSlots) * 100, 2);
             }
 
-            return $this->successResponse([
-                'room_id' => $roomId,
-                'sessions' => $sessions,
-                'sessions_by_day' => $sessions->groupBy('day_of_week'),
-                'utilization_rate' => $utilizationRate,
-            ], 'Otaq cədvəli alındı');
+            return $this->successResponse($sessions, 'Otaq cədvəli alındı');
         }, 'schedule.room_schedule');
     }
 
