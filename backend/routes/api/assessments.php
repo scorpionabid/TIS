@@ -194,6 +194,8 @@ Route::prefix('grade-books')->middleware('auth:sanctum')->group(function () {
     // Teachers
     Route::post('/{gradeBook}/teachers', [GradeBookController::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin');
     Route::delete('/teachers/{teacherAssignment}', [GradeBookController::class, 'removeTeacher'])->middleware('permission:assessments.delete');
+    Route::post('/{gradeBook}/students/{studentId}/teacher', [GradeBookController::class, 'assignStudentTeacher'])->middleware('permission:assessments.update');
+    Route::post('/{gradeBook}/bulk-assign-teacher', [GradeBookController::class, 'assignStudentTeacher'])->middleware('permission:assessments.update');
 
     // Recalculation
     Route::post('/{gradeBook}/recalculate', [GradeBookController::class, 'recalculate'])->middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin|teacher');

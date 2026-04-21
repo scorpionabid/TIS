@@ -376,11 +376,18 @@ class GradeBookService {
     await apiClient.delete(`${this.baseUrl}/teachers/${teacherAssignmentId}`);
   }
 
-  // Assign teacher to specific student
-  async assignStudentTeacher(gradeBookId: number, studentId: number, teacherId: number | null): Promise<{ message: string }> {
-    const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/students/${studentId}/teacher`, {
-      teacher_id: teacherId,
-    });
+  // Assign teacher to specific student(s)
+  async assignStudentTeacher(gradeBookId: number, studentIds: number | number[], teacherId: number | null): Promise<{ message: string }> {
+    const isBulk = Array.isArray(studentIds);
+    const url = isBulk 
+      ? `${this.baseUrl}/${gradeBookId}/bulk-assign-teacher`
+      : `${this.baseUrl}/${gradeBookId}/students/${studentIds}/teacher`;
+    
+    const payload = isBulk 
+      ? { student_ids: studentIds, teacher_id: teacherId }
+      : { teacher_id: teacherId };
+
+    const response = await apiClient.post(url, payload);
     this.invalidateGradeBookCache(gradeBookId);
     return response.data;
   }

@@ -1,17 +1,20 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { gradeBookService, StudentWithScores, GradeBookColumn } from '@/services/gradeBook';
-import { teacherService } from '@/services/teachers';
+import { gradeBookService, StudentWithScores, GradeBookColumn, GradeBookTeacher } from '@/services/gradeBook';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Pencil, Trash2 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Pencil, Trash2, UserCheck, Users, Info, Sparkles } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface GradeBookDataTableProps {
   students: StudentWithScores[];
   columns: GradeBookColumn[];
   semester: 'I' | 'II' | 'ALL';
   gradeBookId: number;
+  availableTeachers?: GradeBookTeacher[];
   onUpdate: () => void;
   onEditColumn?: (column: GradeBookColumn) => void;
   onDeleteColumn?: (column: GradeBookColumn) => void;
@@ -23,6 +26,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
   columns,
   semester,
   gradeBookId,
+  availableTeachers = [],
   onUpdate,
   onEditColumn,
   onDeleteColumn,
@@ -34,21 +38,20 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
   const [editInitialValue, setEditInitialValue] = useState<string>('');
   const [isSavingCell, setIsSavingCell] = useState<boolean>(false);
   const [localScoreOverrides, setLocalScoreOverrides] = useState<Record<string, number | null>>({});
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [isBulkAssigning, setIsBulkAssigning] = useState<boolean>(false);
 
   const editingCellRef = useRef<{ studentId: number; columnId: number } | null>(null);
   const editValueRef = useRef<string>('');
   const editInitialValueRef = useRef<string>('');
 
-  // Fetch available teachers for this grade book
-  const { data: availableTeachers } = useQuery({
-    queryKey: ['gradebook-teachers', gradeBookId],
-    queryFn: () => teacherService.getTeachers(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
-
-  const teachers = availableTeachers?.data || [];
+  const teachers = useMemo(() => 
+    availableTeachers.map(gb => ({
+      id: gb.teacher_id,
+      fullName: gb.teacher ? `${gb.teacher.last_name} ${gb.teacher.first_name}` : `Müəllim #${gb.teacher_id}`,
+      shortName: gb.teacher ? `${gb.teacher.last_name} ${gb.teacher.first_name?.[0]}.` : `Müəllim #${gb.teacher_id}`
+    })), [availableTeachers]
+  );
 
   const formatDate = (date: string): string => {
     if (!date) return '';
@@ -81,6 +84,84 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
         description: 'Müəllim təyin edilərkən xəta baş verdi',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleToggleSelect = (studentId: number) => {
+    setSelectedStudentIds(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId) 
+        : [...prev, studentId]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedStudentIds(students.map(s => Number(s.id)));
+    } else {
+      setSelectedStudentIds([]);
+    }
+  };
+
+  const handleBulkAssign = async (teacherId: string) => {
+    if (selectedStudentIds.length === 0) return;
+    
+    setIsBulkAssigning(true);
+    try {
+      await gradeBookService.assignStudentTeacher(gradeBookId, selectedStudentIds, parseInt(teacherId) || null);
+      toast({
+        title: 'Uğurlu',
+        description: `${selectedStudentIds.length} şagird üçün müəllim təyin edildi`,
+      });
+      setSelectedStudentIds([]);
+      onUpdate();
+    } catch (error) {
+      toast({
+        title: 'Xəta',
+        description: 'Toplu müəllim təyinatı zamanı xəta baş verdi',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkAssigning(false);
+    }
+  };
+
+  const handleSmartSplit = async () => {
+    if (teachers.length < 2) {
+      toast({
+        title: 'Məlumat',
+        description: 'Avtomatik bölgü üçün ən azı 2 müəllim lazımdır',
+      });
+      return;
+    }
+
+    setIsBulkAssigning(true);
+    try {
+      const midPoint = Math.ceil(students.length / 2);
+      const firstHalfIds = students.slice(0, midPoint).map(s => Number(s.id));
+      const secondHalfIds = students.slice(midPoint).map(s => Number(s.id));
+
+      const t1 = teachers[0].id;
+      const t2 = teachers[1].id;
+
+      await Promise.all([
+        gradeBookService.assignStudentTeacher(gradeBookId, firstHalfIds, t1),
+        gradeBookService.assignStudentTeacher(gradeBookId, secondHalfIds, t2)
+      ]);
+
+      toast({
+        title: 'Uğurlu',
+        description: 'Şagirdlər 50/50 nisbətində müəllimlər arasında bölündü',
+      });
+      onUpdate();
+    } catch (error) {
+      toast({
+        title: 'Xəta',
+        description: 'Avtomatik bölgü zamanı xəta baş verdi',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkAssigning(false);
     }
   };
 
@@ -314,19 +395,107 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
   const annualCalcColumns = useMemo(() => calculatedColumns.filter(c => c.column_label.startsWith('ILLIK_')), [calculatedColumns]);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[1200px] border-collapse table-fixed">
-        <thead>
-          <tr className="bg-gray-50">
-            {/* Student Column (I sütun) */}
-            <th className="border p-2 text-left font-semibold sticky left-0 bg-gray-50 z-10 w-[200px]">
-              Şagird
-            </th>
+    <div className="space-y-4">
+      {/* Selection Control & Bulk Header */}
+      {!readOnly && (
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3 rounded-lg border shadow-sm transition-all">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100">
+              <Users className="h-4 w-4" />
+              <span className="text-sm font-medium">Cəmi: {students.length} şagird</span>
+            </div>
+            
+            {teachers.length >= 2 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 border-dashed border-blue-300 hover:bg-blue-50 text-blue-600"
+                onClick={handleSmartSplit}
+                disabled={isBulkAssigning}
+              >
+                <Sparkles className="h-4 w-4" />
+                Ağıllı 50/50 Bölgü
+              </Button>
+            )}
+          </div>
 
-            {/* Teacher Column (II sütun) */}
-            <th className="border p-2 text-left font-semibold sticky left-[200px] bg-gray-50 z-10 w-[150px]">
-              Müəllim
-            </th>
+          <div className={cn(
+            "flex items-center gap-3 transition-opacity duration-300",
+            selectedStudentIds.length > 0 ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}>
+            <Badge variant="secondary" className="px-3 py-1 bg-amber-50 text-amber-700 border-amber-200">
+              {selectedStudentIds.length} şagird seçilib
+            </Badge>
+
+            {teachers.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Select onValueChange={handleBulkAssign} disabled={isBulkAssigning}>
+                  <SelectTrigger className="w-[180px] h-9 bg-amber-50 border-amber-200 text-amber-900 focus:ring-amber-500">
+                    <SelectValue placeholder="Seçilənlərə müəllim təyin et" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Təmizlə (Müəllimsiz)</SelectItem>
+                    {teachers.map((t) => (
+                      <SelectItem key={t.id} value={t.id.toString()}>
+                        {t.fullName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-500 hover:text-gray-700"
+              onClick={() => setSelectedStudentIds([])}
+            >
+              Ləğv et
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {teachers.length >= 2 && (
+        <Alert className="bg-amber-50 border-amber-200 text-amber-800 py-2">
+          <Info className="h-4 w-4 text-amber-700" />
+          <AlertDescription className="text-xs">
+            Bu jurnal bölünən sinifə aiddir (Birdən çox müəllim təyin olunub). Şagirdləri sol tərəfdən seçərək onlara müvafiq müəllimləri toplu şəkildə təyin edə bilərsiniz.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="overflow-x-auto rounded-lg border shadow-sm bg-white">
+        <table className="w-full min-w-[1200px] border-collapse table-fixed">
+          <thead>
+            <tr className="bg-gray-50">
+              {/* Checkbox Header */}
+              {!readOnly && (
+                <th className="border p-2 sticky left-0 bg-gray-50 z-20 w-[40px] text-center">
+                  <Checkbox 
+                    checked={selectedStudentIds.length === students.length && students.length > 0}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Hamısını seç"
+                  />
+                </th>
+              )}
+
+              {/* Student Column (I sütun) */}
+              <th className={cn(
+                "border p-2 text-left font-semibold sticky bg-gray-50 z-10 w-[200px]",
+                !readOnly ? "left-[40px]" : "left-0"
+              )}>
+                Şagird
+              </th>
+
+              {/* Teacher Column (II sütun) */}
+              <th className={cn(
+                "border p-2 text-left font-semibold sticky bg-gray-50 z-10 w-[150px]",
+                !readOnly ? "left-[240px]" : "left-[200px]"
+              )}>
+                Müəllim
+              </th>
 
             {/* Input Columns - I Yarımil */}
             <th colSpan={inputColumnsI.length || 1} className="border p-2 text-center font-semibold bg-blue-100" style={{width: `${(inputColumnsI.length || 1) * 80}px`}}>
@@ -354,8 +523,15 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
             </th>
           </tr>
           <tr className="bg-gray-50">
-            <th className="border p-2 text-left font-semibold sticky left-0 bg-gray-50 z-10">Ad Soyad</th>
-            <th className="border p-2 text-left font-semibold sticky left-[200px] bg-gray-50 z-10">Müəllim / Qrup</th>
+            {!readOnly && <th className="border p-2 sticky left-0 bg-gray-50 z-20 w-[40px]"></th>}
+            <th className={cn(
+              "border p-2 text-left font-semibold sticky bg-gray-50 z-10",
+              !readOnly ? "left-[40px]" : "left-0"
+            )}>Ad Soyad</th>
+            <th className={cn(
+              "border p-2 text-left font-semibold sticky bg-gray-50 z-10",
+              !readOnly ? "left-[240px]" : "left-[200px]"
+            )}>Müəllim / Qrup</th>
 
             {/* Input Column Headers - I Yarımil */}
             {inputColumnsI.length > 0 ? (
@@ -472,31 +648,56 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
         </thead>
         <tbody>
           {students.map((student, index) => (
-            <tr key={student.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+            <tr key={student.id} className={cn(index % 2 === 0 ? 'bg-white' : 'bg-gray-50', selectedStudentIds.includes(Number(student.id)) && "bg-amber-50/50")}>
+              {/* Checkbox Cell */}
+              {!readOnly && (
+                <td className="border p-2 sticky left-0 bg-inherit z-20 w-[40px] text-center">
+                  <Checkbox 
+                    checked={selectedStudentIds.includes(Number(student.id))}
+                    onCheckedChange={() => handleToggleSelect(Number(student.id))}
+                  />
+                </td>
+              )}
+
               {/* Student Info (I sütun) */}
-              <td className="border p-2 sticky left-0 bg-inherit z-10 w-[200px]">
+              <td className={cn(
+                "border p-2 sticky bg-inherit z-10 w-[200px]",
+                !readOnly ? "left-[40px]" : "left-0"
+              )}>
                 <div className="font-medium">{student.full_name}</div>
                 <div className="text-xs text-gray-500">№ {student.student_number}</div>
               </td>
 
               {/* Teacher Selection (II sütun) */}
-              <td className="border p-2 sticky left-[200px] bg-inherit z-10 w-[150px]">
-                <Select
-                  value={student.teacher_id?.toString()}
-                  onValueChange={(value) => handleAssignTeacher(student.id, value)}
-                >
-                  <SelectTrigger className="w-full h-8 text-xs">
-                    <SelectValue placeholder="Müəllim seç..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Müəllim təyin edilməyib</SelectItem>
-                    {teachers.map((teacher) => (
-                      <SelectItem key={teacher.id} value={teacher.id.toString()}>
-                        {teacher.last_name} {teacher.first_name?.[0]}.
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <td className={cn(
+                "border p-2 sticky bg-inherit z-10 w-[150px]",
+                !readOnly ? "left-[240px]" : "left-[200px]"
+              )}>
+                {teachers.length > 1 && !readOnly ? (
+                  <Select
+                    value={student.teacher_id?.toString()}
+                    onValueChange={(value) => handleAssignTeacher(student.id, value)}
+                  >
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue placeholder="Müəllim seç..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Müəllim təyin edilməyib</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                          {teacher.shortName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex items-center h-8 px-2 text-xs text-gray-700 bg-gray-50/50 rounded border border-transparent">
+                    <UserCheck className="h-3 w-3 mr-2 text-gray-400" />
+                    <span className="truncate">
+                      {teachers.find(t => t.id === student.teacher_id)?.shortName || 'Təyin edilməyib'}
+                    </span>
+                  </div>
+                )}
               </td>
 
               {/* Input Cells - I Yarımil */}
@@ -660,6 +861,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 });

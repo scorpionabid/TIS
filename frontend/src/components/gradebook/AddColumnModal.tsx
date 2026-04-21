@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,7 +65,7 @@ export function AddColumnModal({
   // Fetch assessment types
   const { data: assessmentTypesResponse } = useQuery({
     queryKey: ['assessment-types'],
-    queryFn: () => assessmentTypeService.getAssessmentTypes({ per_page: 100 }),
+    queryFn: () => assessmentTypeService.getAssessmentTypes({ per_page: 100, is_active: true }),
   });
   const assessmentTypes = assessmentTypesResponse?.data || [];
 
@@ -93,18 +93,16 @@ export function AddColumnModal({
     return '';
   };
 
-  // Map tag to full display name
-  const getFullDisplayName = (tag: string): string => {
-    switch (tag) {
-      case 'KSQ': return 'Kiçik Summativ Qiymətləndirmə (KSQ)';
-      case 'BSQ': return 'Böyük Summativ Qiymətləndirmə (BSQ)';
-      case 'Monitorinq': return 'Monitorinq (Monitorinq)';
-      case 'Diaqnostik': return 'Diaqnostik (Diaqnostik)';
-      case 'Buraxılış': return 'Buraxılış imtahanı (Buraxılış)';
-      case 'Milli': return 'Milli (Milli)';
-      default: return tag;
-    }
-  };
+  // Group and sort assessment types - but for now just show them directly
+  const displayAssessmentTypes = useMemo(() => {
+    if (!assessmentTypes) return [];
+    return [...assessmentTypes].sort((a, b) => {
+      const nameA = (a.name || '').toLowerCase();
+      if (nameA.includes('ksq')) return -1;
+      if (nameA.includes('bsq')) return -1;
+      return 1;
+    });
+  }, [assessmentTypes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,8 +171,8 @@ export function AddColumnModal({
     }
   };
 
-  // Auto-suggest column label based on assessment type and semester
-  const suggestColumnLabel = (assessmentTypeId: string, semester: 'I' | 'II') => {
+  // Auto-suggest column label based on assessment type, semester and DATE
+  const suggestColumnLabel = (assessmentTypeId: string, semester: 'I' | 'II', date: string) => {
     const selectedType = assessmentTypes.find(t => String(t.id) === assessmentTypeId);
     if (!selectedType) return '';
 
@@ -182,17 +180,22 @@ export function AddColumnModal({
 
     if (category === 'ksq' || category === 'bsq') {
       const prefix = category.toUpperCase();
+      
+      // Get all existing exams of this category in this semester
       const regex = new RegExp(`^${prefix}(\\d+)$`, 'i');
-      const maxN = existingColumns
-        .filter(c => c.semester === semester)
-        .map(c => {
-          const label = (c.column_label || '').trim();
-          const match = label.match(regex);
-          return match ? Number(match[1]) : 0;
-        })
-        .reduce((acc, n) => Math.max(acc, n), 0);
+      const exams = existingColumns
+        .filter(c => c.semester === semester && regex.test(c.column_label || ''))
+        .map(c => ({
+          label: (c.column_label || '').trim(),
+          date: (c as any).assessment_date || '9999-99-99' // Fallback to far future if no date
+        }));
 
-      return `${prefix}${maxN + 1}`;
+      // Add the new one to the list and sort by date
+      exams.push({ label: 'NEW', date });
+      exams.sort((a, b) => a.date.localeCompare(b.date));
+
+      const position = exams.findIndex(e => e.label === 'NEW') + 1;
+      return `${prefix}${position}`;
     }
 
     const base = (selectedType.name || '').trim();
@@ -223,7 +226,7 @@ export function AddColumnModal({
     setFormData(prev => ({
       ...prev,
       assessment_type_id: value,
-      column_label: editColumn ? prev.column_label : suggestColumnLabel(value, prev.semester),
+      column_label: editColumn ? prev.column_label : suggestColumnLabel(value, prev.semester, prev.assessment_date),
     }));
   };
 
@@ -244,7 +247,7 @@ export function AddColumnModal({
                   const newSemester = value as 'I' | 'II';
                   const next: typeof prev = { ...prev, semester: newSemester };
                   if (!editColumn && prev.assessment_type_id) {
-                    next.column_label = suggestColumnLabel(prev.assessment_type_id, newSemester);
+                    next.column_label = suggestColumnLabel(prev.assessment_type_id, newSemester, prev.assessment_date);
                   }
                   return next;
                 })
@@ -270,9 +273,9 @@ export function AddColumnModal({
                 <SelectValue placeholder="İmtahan növü seçin" />
               </SelectTrigger>
               <SelectContent>
-                {assessmentTypes.map((type) => (
+                {displayAssessmentTypes.map((type) => (
                   <SelectItem key={type.id} value={String(type.id)}>
-                    {getFullDisplayName(getAssessmentTypeTag(type))}
+                    {type.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -295,7 +298,14 @@ export function AddColumnModal({
               id="assessment_date"
               type="date"
               value={formData.assessment_date}
-              onChange={(e) => setFormData(prev => ({ ...prev, assessment_date: e.target.value }))}
+              onChange={(e) => {
+                const newDate = e.target.value;
+                setFormData(prev => ({
+                  ...prev,
+                  assessment_date: newDate,
+                  column_label: editColumn ? prev.column_label : suggestColumnLabel(prev.assessment_type_id || '', prev.semester, newDate)
+                }));
+              }}
             />
           </div>
 

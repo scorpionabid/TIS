@@ -267,6 +267,7 @@ export function GradeBookView({ id: propId }: { id?: number }) {
             columns={memoizedColumns}
             semester="ALL"
             gradeBookId={gradeBook.id}
+            availableTeachers={gradeBook.teachers}
             onEditColumn={handleEditColumn}
             onDeleteColumn={handleDeleteColumn}
             onUpdate={memoizedOnUpdate}
@@ -294,7 +295,11 @@ export function GradeBookView({ id: propId }: { id?: number }) {
         onSuccess={handleColumnAdded}
         existingColumns={columns
           .filter(c => c.column_type === 'input' && !c.is_archived)
-          .map(c => ({ semester: c.semester, column_label: c.column_label }))}
+          .map(c => ({ 
+            semester: c.semester, 
+            column_label: c.column_label, 
+            assessment_date: c.assessment_date 
+          }))}
         editColumn={
           editingColumn
             ? {

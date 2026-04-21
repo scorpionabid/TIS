@@ -123,6 +123,10 @@ class GradeBookController extends Controller
 
         $gradeBook->load(['subject', 'academicYear', 'teachers.teacher', 'columns.assessmentType']);
 
+        // Sync teachers from official teaching loads to ensure they are available in the UI
+        $this->managementService->syncTeachersFromTeachingLoads($gradeBook);
+        $gradeBook->load('teachers.teacher');
+
         $students = $this->managementService->getStudentsWithScores($gradeBook);
 
         $activeColumns = $gradeBook->columns->where('is_archived', false);
@@ -220,7 +224,7 @@ class GradeBookController extends Controller
         return response()->json(['success' => true, 'message' => 'Teacher assignment removed successfully.']);
     }
 
-    public function assignStudentTeacher(Request $request, GradeBookSession $gradeBook, int $studentId): JsonResponse
+    public function assignStudentTeacher(Request $request, GradeBookSession $gradeBook): JsonResponse
     {
         if (! $this->canModify($gradeBook)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
@@ -228,16 +232,30 @@ class GradeBookController extends Controller
 
         $validated = $request->validate([
             'teacher_id' => 'nullable|exists:users,id',
+            'student_id' => 'nullable|integer|exists:students,id',
+            'student_ids' => 'nullable|array',
+            'student_ids.*' => 'integer|exists:students,id',
         ]);
 
         $teacherId = $validated['teacher_id'] ?? null;
+        
+        // Combine single ID and array of IDs
+        $studentIds = $validated['student_ids'] ?? [];
+        if (isset($validated['student_id'])) {
+            $studentIds[] = $validated['student_id'];
+        }
+        $studentIds = array_unique($studentIds);
 
-        // Update all cells for this student in this grade book to the new teacher
+        if (empty($studentIds)) {
+            return response()->json(['success' => false, 'message' => 'Tələbə seçilməyib.'], 422);
+        }
+
+        // Update all cells for these students in this grade book to the new teacher
         \App\Models\GradeBookCell::whereHas('column', function ($q) use ($gradeBook) {
             $q->where('grade_book_session_id', $gradeBook->id);
-        })->where('student_id', $studentId)->update(['teacher_id' => $teacherId]);
+        })->whereIn('student_id', $studentIds)->update(['teacher_id' => $teacherId]);
 
-        return response()->json(['success' => true, 'message' => 'Student teacher assigned successfully.']);
+        return response()->json(['success' => true, 'message' => 'Müəllim təyinatı uğurla icra olundu.']);
     }
 
     public function archiveColumn(GradeBookColumn $column): JsonResponse
@@ -269,6 +287,7 @@ class GradeBookController extends Controller
         ]);
 
         $column->update($validated);
+        $this->managementService->reorderExamColumns($column->session);
 
         return response()->json(['success' => true, 'data' => $column->fresh(), 'message' => 'Column updated successfully.']);
     }
