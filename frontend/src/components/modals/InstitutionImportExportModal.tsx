@@ -58,6 +58,10 @@ export function InstitutionImportExportModal({
   const [importStatus, setImportStatus] = useState<'uploading' | 'processing' | 'validating' | 'complete' | 'error'>('uploading');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
+  // CSV seçimləri
+  const [delimiter, setDelimiter] = useState<'comma' | 'semicolon'>('comma');
+  const [upsertOnUtis, setUpsertOnUtis] = useState(false);
+  const [conflicts, setConflicts] = useState<Array<{ row: number; utis_code: string; existing_name: string }>>([]);
 
   // Load institution types for selection
   const { data: institutionTypesResponse, isLoading } = useInstitutionTypes({ 
@@ -76,6 +80,9 @@ export function InstitutionImportExportModal({
       setImportStatus('uploading');
       setImportResult(null);
       setShowResultModal(false);
+      setDelimiter('comma');
+      setUpsertOnUtis(false);
+      setConflicts([]);
     }
   }, [open]);
 
@@ -135,6 +142,29 @@ export function InstitutionImportExportModal({
     }
   };
 
+  // CSV template yüklə
+  const handleDownloadCsvTemplate = async () => {
+    if (!selectedInstitutionType) {
+      toast({ title: 'Xəta', description: 'Əvvəlcə müəssisə növünü seçin', variant: 'destructive' });
+      return;
+    }
+    try {
+      setGenerating(true);
+      const selectedType = availableTypes.find(t => t.key === selectedInstitutionType);
+      const blob = await institutionService.downloadCsvTemplateByType(selectedInstitutionType, delimiter);
+      const label = selectedType?.label || selectedInstitutionType;
+      const delimLabel = delimiter === 'semicolon' ? 'noqteli_vergul' : 'vergul';
+      downloadBlob(blob, `${label}_csv_sablon_${delimLabel}_${new Date().toISOString().split('T')[0]}.csv`);
+      toast({ title: 'Uğurlu', description: 'CSV şablon yükləndi' });
+      setActiveTab('upload');
+    } catch (error) {
+      console.error('CSV template error:', error);
+      toast({ title: 'Xəta', description: 'CSV şablon yüklənərkən xəta baş verdi', variant: 'destructive' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   // Enhanced file upload with progress tracking
   const handleFileUpload = async () => {
     if (!uploadFile) {
@@ -172,7 +202,17 @@ export function InstitutionImportExportModal({
       setTimeout(() => setImportStatus('processing'), 500);
       setTimeout(() => setImportStatus('validating'), 1500);
 
-      const result = await institutionService.importFromTemplateByType(uploadFile, selectedInstitutionType);
+      const isCsv = uploadFile.name.toLowerCase().endsWith('.csv');
+      const result = await institutionService.importFromTemplateByType(
+        uploadFile,
+        selectedInstitutionType,
+        isCsv ? { delimiter, upsertOnUtis } : {}
+      );
+
+      // Conflict-ləri aşkar et
+      if (result.data?.conflicts?.length > 0) {
+        setConflicts(result.data.conflicts);
+      }
 
       clearInterval(progressTimer);
       setImportProgress(100);
@@ -413,42 +453,96 @@ export function InstitutionImportExportModal({
           {/* Template Management Tab */}
           <TabsContent value="template" className="mt-6">
             <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Download Template */}
-                <div className="p-6 border rounded-lg">
-                  <div className="flex items-center gap-3 mb-4">
+
+              {/* Delimiter seçimi — CSV üçün */}
+              <div className="p-4 bg-gray-50 border rounded-lg">
+                <h4 className="font-medium mb-3">CSV Delimiter (Ayırıcı) Seçimi</h4>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="delimiter"
+                      value="comma"
+                      checked={delimiter === 'comma'}
+                      onChange={() => setDelimiter('comma')}
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <span className="text-sm">Vergül <code className="bg-gray-200 px-1 rounded">,</code> (standart)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="delimiter"
+                      value="semicolon"
+                      checked={delimiter === 'semicolon'}
+                      onChange={() => setDelimiter('semicolon')}
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <span className="text-sm">Nöqtəli vergül <code className="bg-gray-200 px-1 rounded">;</code> (MS Excel AZ)</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 Microsoft Excel-in Azərbaycanca versiyası CSV-ni nöqtəli vergüllə saxlayır.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Excel Template */}
+                <div className="p-5 border rounded-lg">
+                  <div className="flex items-center gap-3 mb-3">
                     <Download className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-semibold">Template Yüklə</h3>
+                    <h3 className="font-semibold text-sm">Excel Şablon</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Seçilmiş müəssisələr üçün idxal templatesi yükləyin. Template-də mövcud məlumatlar və düzgün format göstəriləcək.
-                  </p>
-                  <Button 
-                    onClick={handleDownloadTemplate} 
+                  <p className="text-xs text-gray-600 mb-3">Standart .xlsx formatı</p>
+                  <Button
+                    onClick={handleDownloadTemplate}
                     disabled={!selectedInstitutionType || generating}
                     className="w-full"
+                    size="sm"
                   >
-                    {generating ? 'Hazırlanır...' : 'Template Yüklə'}
+                    {generating ? 'Hazırlanır...' : '.xlsx Yüklə'}
                   </Button>
                   {!selectedInstitutionType && (
-                    <p className="text-xs text-red-500 mt-2">Əvvəlcə müəssisə növünü seçin</p>
+                    <p className="text-xs text-red-500 mt-2">Əvvəlcə növ seçin</p>
+                  )}
+                </div>
+
+                {/* CSV Template */}
+                <div className="p-5 border rounded-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Download className="h-5 w-5 text-green-600" />
+                    <h3 className="font-semibold text-sm">CSV Şablon</h3>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    {delimiter === 'semicolon' ? 'Nöqtəli vergüllü' : 'Vergüllü'} .csv formatı — UTF-8
+                  </p>
+                  <Button
+                    onClick={handleDownloadCsvTemplate}
+                    disabled={!selectedInstitutionType || generating}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    {generating ? 'Hazırlanır...' : '.csv Yüklə'}
+                  </Button>
+                  {!selectedInstitutionType && (
+                    <p className="text-xs text-red-500 mt-2">Əvvəlcə növ seçin</p>
                   )}
                 </div>
 
                 {/* Export Data */}
-                <div className="p-6 border rounded-lg">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Download className="h-5 w-5 text-green-600" />
-                    <h3 className="font-semibold">Məlumatları İxrac Et</h3>
+                <div className="p-5 border rounded-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Download className="h-5 w-5 text-purple-600" />
+                    <h3 className="font-semibold text-sm">Məlumat İxracı</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Seçilmiş müəssisələrin mövcud məlumatlarını Excel formatında ixrac edin.
-                  </p>
-                  <Button 
+                  <p className="text-xs text-gray-600 mb-3">Mövcud məlumatları Excel-ə ixrac et</p>
+                  <Button
                     onClick={handleExportInstitutions}
                     disabled={!selectedInstitutionType || generating}
                     variant="outline"
                     className="w-full"
+                    size="sm"
                   >
                     {generating ? 'İxrac edilir...' : 'İxrac Et'}
                   </Button>
@@ -457,13 +551,12 @@ export function InstitutionImportExportModal({
 
               {/* Template Instructions */}
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <h4 className="font-medium text-amber-800 mb-2">Template istifadə qaydaları:</h4>
+                <h4 className="font-medium text-amber-800 mb-2">Şablon istifadə qaydaları:</h4>
                 <ul className="text-sm text-amber-700 space-y-1">
-                  <li>• Template-də yalnız seçilmiş müəssisələr üçün sətırlər olacaq</li>
-                  <li>• Mövcud məlumatlar template-də əvvəlcədən doldurulacaq</li>
-                  <li>• Yalnız dəyişdirmək istədiyiniz sahələri yeniləyin</li>
                   <li>• Sütun başlıqlarını dəyişdirməyin</li>
-                  <li>• UTIS kodları 7-10 rəqəmli olmalıdır (məcburi deyil)</li>
+                  <li>• UTIS kodu eyni olarsa sistem mövcud institutu yeniləyəcək (upsert)</li>
+                  <li>• CSV faylı UTF-8 kodlaması ilə saxlanılmalıdır</li>
+                  <li>• 400+ qeyd üçün fayl 10MB-dan az olmalıdır</li>
                 </ul>
               </div>
             </div>
@@ -472,34 +565,116 @@ export function InstitutionImportExportModal({
           {/* File Upload Tab */}
           <TabsContent value="upload" className="mt-6">
             <div className="space-y-6">
+
+              {/* Fayl seçim sahəsi */}
               <div className="text-center p-8 border-2 border-dashed rounded-lg">
                 <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <div className="mb-4">
+                <div className="mb-3">
                   <Label htmlFor="upload-file" className="cursor-pointer">
-                    <span className="text-blue-600 hover:underline">
-                      Fayl seçin
-                    </span>
+                    <span className="text-blue-600 hover:underline">Fayl seçin</span>
                     {' '}və ya buraya sürüşdürün
                   </Label>
                   <Input
                     id="upload-file"
                     type="file"
-                    accept=".xlsx,.xls"
+                    accept=".xlsx,.xls,.csv"
                     className="hidden"
-                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      setUploadFile(e.target.files?.[0] || null);
+                      setConflicts([]);
+                    }}
                   />
                 </div>
                 <p className="text-sm text-gray-500">
-                  Yalnız Excel faylları (.xlsx, .xls) qəbul edilir
+                  Excel (.xlsx, .xls) və ya CSV (.csv) faylları qəbul edilir
                 </p>
               </div>
 
+              {/* Seçilmiş fayl məlumatları */}
               {uploadFile && (
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <FileText className="h-4 w-4 text-blue-600" />
                     <span className="font-medium">Seçilmiş fayl:</span>
                     <span>{uploadFile.name}</span>
+                    <Badge variant="secondary">
+                      {uploadFile.name.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel'}
+                    </Badge>
+                    <span className="text-sm text-gray-500">
+                      ({(uploadFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
+
+                  {/* CSV faylı seçilib: delimiter + upsert seçimləri */}
+                  {uploadFile.name.toLowerCase().endsWith('.csv') && (
+                    <div className="mt-4 space-y-3 border-t pt-3">
+                      <div>
+                        <p className="text-sm font-medium mb-2">Ayırıcı (Delimiter):</p>
+                        <div className="flex gap-6">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="upload-delimiter"
+                              value="comma"
+                              checked={delimiter === 'comma'}
+                              onChange={() => setDelimiter('comma')}
+                              className="w-4 h-4 accent-blue-600"
+                            />
+                            <span className="text-sm">Vergül <code className="bg-gray-200 px-1 rounded">,</code></span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="upload-delimiter"
+                              value="semicolon"
+                              checked={delimiter === 'semicolon'}
+                              onChange={() => setDelimiter('semicolon')}
+                              className="w-4 h-4 accent-blue-600"
+                            />
+                            <span className="text-sm">Nöqtəli vergül <code className="bg-gray-200 px-1 rounded">;</code></span>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="upsert-on-utis"
+                          checked={upsertOnUtis}
+                          onCheckedChange={(v) => setUpsertOnUtis(Boolean(v))}
+                        />
+                        <Label htmlFor="upsert-on-utis" className="text-sm cursor-pointer">
+                          UTIS kodu eyni olan müəssisələri avtomatik <strong>yenilə</strong>
+                        </Label>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        ⚠️ CSV faylı UTF-8 kodlamasında olmalıdır (Excel-dən CSV olaraq saxlayın → UTF-8).
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* UTIS Conflict panel */}
+              {conflicts.length > 0 && (
+                <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                  <p className="font-medium text-yellow-800 mb-2">
+                    ⚠️ {conflicts.length} UTIS konflikti aşkar edildi
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-1 mb-3">
+                    {conflicts.map((c) => (
+                      <div key={c.utis_code} className="text-sm text-yellow-700">
+                        Sətir {c.row}: UTIS <code className="bg-yellow-100 px-1 rounded">{c.utis_code}</code> — artıq mövcuddur: <strong>{c.existing_name}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="upsert-conflicts"
+                      checked={upsertOnUtis}
+                      onCheckedChange={(v) => setUpsertOnUtis(Boolean(v))}
+                    />
+                    <Label htmlFor="upsert-conflicts" className="text-sm cursor-pointer">
+                      Hamısını yenilə (upsert)
+                    </Label>
                   </div>
                 </div>
               )}
@@ -514,7 +689,7 @@ export function InstitutionImportExportModal({
                 />
               )}
 
-              <Button 
+              <Button
                 onClick={handleFileUpload}
                 disabled={!uploadFile || !selectedInstitutionType || uploading}
                 className="w-full"

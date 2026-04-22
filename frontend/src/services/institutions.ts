@@ -686,28 +686,30 @@ class InstitutionService extends BaseService<Institution> {
     }
   }
 
-  async importFromTemplateByType(file: File, institutionType: string): Promise<any> {
+  async importFromTemplateByType(
+    file: File,
+    institutionType: string,
+    options?: { delimiter?: 'comma' | 'semicolon'; upsertOnUtis?: boolean }
+  ): Promise<any> {
     try {
-      // Validate inputs
-      if (!file) {
-        throw new Error('Fayl seçilməlidir');
-      }
-      
-      if (!institutionType) {
-        throw new Error('Müəssisə növü seçilməlidir');
-      }
+      if (!file) throw new Error('Fayl seçilməlidir');
+      if (!institutionType) throw new Error('Müəssisə növü seçilməlidir');
 
-      // Check file type
-      const allowedTypes = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
+      // Fayl növü yoxlaması — Excel və CSV qəbul edilir
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      const isCsv   = ext === 'csv';
+      const isExcel = ext === 'xlsx' || ext === 'xls';
+      const csvMimes = ['text/csv', 'text/plain', 'application/csv', ''];
+      const excelMimes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
       ];
-      
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Yalnız Excel faylları (.xlsx, .xls) yüklənə bilər');
+
+      const mimeOk = excelMimes.includes(file.type) || csvMimes.includes(file.type);
+      if (!mimeOk && !isCsv && !isExcel) {
+        throw new Error('Yalnız Excel (.xlsx, .xls) və ya CSV (.csv) faylı yüklənə bilər');
       }
 
-      // Check file size (10MB limit)
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
         throw new Error('Fayl ölçüsü 10MB-dan çox ola bilməz');
@@ -716,17 +718,17 @@ class InstitutionService extends BaseService<Institution> {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', institutionType);
+      if (options?.delimiter) {
+        formData.append('delimiter', options.delimiter);
+      }
+      if (options?.upsertOnUtis !== undefined) {
+        formData.append('upsert_on_utis', options.upsertOnUtis ? '1' : '0');
+      }
 
-      // Debug FormData contents
-      console.log('FormData contents:', {
-        file: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        institutionType,
-        formDataEntries: Array.from(formData.entries()).map(([key, value]) => ({
-          key,
-          value: value instanceof File ? `File: ${value.name}` : value
-        }))
+      console.log('Import FormData:', {
+        file: file.name, ext, fileType: file.type,
+        institutionType, delimiter: options?.delimiter,
+        upsertOnUtis: options?.upsertOnUtis,
       });
 
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
@@ -736,7 +738,6 @@ class InstitutionService extends BaseService<Institution> {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           ...apiClient.getAuthHeaders(),
-          // Don't set Content-Type for FormData, let browser set it
         },
         credentials: 'include',
         body: formData,
@@ -745,9 +746,7 @@ class InstitutionService extends BaseService<Institution> {
       const result = await response.json();
 
       if (!response.ok) {
-        // Handle different error types
         if (response.status === 422) {
-          // Validation errors
           const errorMessage = result.errors ? result.errors.join(', ') : result.message;
           throw new Error(errorMessage || 'Doğrulama xətası');
         } else if (response.status === 404) {
@@ -761,9 +760,48 @@ class InstitutionService extends BaseService<Institution> {
 
       return result;
     } catch (error: any) {
-      // Re-throw with detailed error information
       console.error('Import service error:', error);
       throw new Error(`İdxal xətası: ${error.message}`);
+    }
+  }
+
+  async downloadCsvTemplateByType(
+    institutionType: string,
+    delimiter: 'comma' | 'semicolon' = 'comma'
+  ): Promise<Blob> {
+    console.log('CSV template download:', { institutionType, delimiter });
+
+    try {
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+
+      const response = await fetch(`${baseURL}/institutions/import/csv-template-by-type`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/csv,application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ type: institutionType, delimiter }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = errorText;
+        try {
+          const json = JSON.parse(errorText);
+          errorMsg = json.message || errorText;
+        } catch (_) { /* not JSON */ }
+        throw new Error(`CSV şablon yüklənməsi uğursuz oldu (${response.status}): ${errorMsg}`);
+      }
+
+      const blob = await response.blob();
+      console.log('CSV template blob:', { size: blob.size, type: blob.type });
+      return blob;
+    } catch (error: any) {
+      console.error('CSV template download error:', error);
+      throw new Error(`CSV şablon xətası: ${error.message}`);
     }
   }
 

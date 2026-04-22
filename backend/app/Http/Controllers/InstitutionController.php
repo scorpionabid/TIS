@@ -602,6 +602,14 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Download CSV import template by type
+     */
+    public function downloadCsvTemplateByType(Request $request)
+    {
+        return $this->bulkController->downloadCsvTemplateByType($request);
+    }
+
+    /**
      * Get user import permissions and statistics
      */
     public function getImportPermissions(Request $request): JsonResponse

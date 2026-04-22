@@ -170,6 +170,7 @@ Route::middleware('permission:institutions.write')->group(function () {
 
     // Type-based Import/Export templates
     Route::post('institutions/import/template-by-type', [InstitutionController::class, 'downloadImportTemplateByType']);
+    Route::post('institutions/import/csv-template-by-type', [InstitutionController::class, 'downloadCsvTemplateByType']);
     Route::post('institutions/import-by-type', [InstitutionController::class, 'importFromTemplateByType']);
 
     // Enterprise import features

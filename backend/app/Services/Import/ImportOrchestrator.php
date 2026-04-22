@@ -15,6 +15,7 @@ use App\Services\Import\Domains\Processing\InstitutionCreator;
 use App\Services\Import\Domains\StateManagement\ImportStateManager;
 use App\Services\Import\Domains\UserManagement\SchoolAdminCreator;
 use App\Services\Import\Domains\Validation\ImportDataValidator;
+use App\Services\Import\InstitutionCsvParserService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,10 +26,10 @@ use Illuminate\Support\Facades\Log;
  * REFACTORED: Sprint 2 - Modular service architecture with dependency injection
  *
  * Coordinates between different domain services:
- * - FileOperations: Excel loading and parsing
+ * - FileOperations: Excel loading and parsing / CSV parsing
  * - Parsing: Data type conversions
  * - Validation: Laravel validation
- * - Duplicates: Duplicate detection
+ * - Duplicates: Duplicate detection + upsert support
  * - Processing: Import execution and chunking
  * - UserManagement: SchoolAdmin creation
  * - Formatting: Response building
@@ -37,6 +38,9 @@ use Illuminate\Support\Facades\Log;
  */
 class ImportOrchestrator
 {
+    /** @internal UTIS kodu eyniliyi olarsa yeniləmə rejimi */
+    protected bool $upsertOnUtis = false;
+
     /**
      * Constructor with dependency injection
      *
@@ -60,46 +64,51 @@ class ImportOrchestrator
     /**
      * Main entry point for institution import by type
      *
-     * PUBLIC API: This method signature MUST remain unchanged for backward compatibility.
+     * PUBLIC API: Backward compatible — signature genişləndi, amma köhnə çağırışlar işləyir.
      *
-     * Workflow:
-     * 1. Reset state
-     * 2. Load Excel file
-     * 3. Parse data
-     * 4. Validate data
-     * 5. Execute import (dispatcher: small vs chunked)
-     * 6. Build response
-     *
-     * @return array API response
+     * @param  array $options  ['delimiter' => ',', 'upsert_on_utis' => false]
+     * @return array           API response
      */
-    public function importInstitutionsByType(UploadedFile $file, string $institutionTypeKey): array
-    {
+    public function importInstitutionsByType(
+        UploadedFile $file,
+        string $institutionTypeKey,
+        array $options = []
+    ): array {
         try {
             // 1. Reset import state
             $this->resetImportState();
+            $this->upsertOnUtis = $options['upsert_on_utis'] ?? false;
 
             // 2. Get institution type
             $institutionType = InstitutionType::where('key', $institutionTypeKey)->firstOrFail();
 
-            // 3. Load and validate Excel file
-            $spreadsheet = $this->fileLoader->loadExcelFile($file);
+            // 3. Fayl növünə görə parser seç
+            $extension = strtolower($file->getClientOriginalExtension());
 
-            // 4. Parse Excel data
-            $data = $this->dataParser->parseExcelData($spreadsheet, $institutionType);
+            if ($extension === 'csv') {
+                $delimiter = $options['delimiter'] ?? ',';
+                $csvParser = app(InstitutionCsvParserService::class);
+                $data      = $csvParser->parseCsvFile($file, $institutionType, $delimiter);
+            } else {
+                // Excel axını — köhnə davranış
+                $spreadsheet = $this->fileLoader->loadExcelFile($file);
+                $data        = $this->dataParser->parseExcelData($spreadsheet, $institutionType);
+            }
 
-            Log::info('Excel data parsed', [
+            Log::info('Data parsed', [
                 'institution_type' => $institutionTypeKey,
                 'institution_level' => $institutionType->level ?? $institutionType->default_level,
-                'parsed_rows' => count($data),
-                'sample_data' => $data ? array_slice($data, 0, 2) : [],
+                'parsed_rows'  => count($data),
+                'file_type'    => $extension,
+                'upsert_on_utis' => $this->upsertOnUtis,
             ]);
 
             // Check if data is empty
             if (empty($data)) {
-                Log::warning('No data parsed from Excel file');
+                Log::warning('No data parsed from file');
 
                 return $this->responseBuilder->buildErrorResponse(
-                    'Excel faylından məlumat oxuna bilmədi və ya fayl boşdur',
+                    'Fayldan məlumat oxuna bilmədi və ya fayl boşdur',
                     [],
                     []
                 );
@@ -110,7 +119,7 @@ class ImportOrchestrator
 
             Log::info('Validation completed', [
                 'validation_errors_count' => count($this->validator->getValidationErrors()),
-                'validation_errors' => $this->validator->getValidationErrors(),
+                'validation_errors'       => $this->validator->getValidationErrors(),
             ]);
 
             // Check for validation errors
@@ -124,18 +133,18 @@ class ImportOrchestrator
 
             // 6. Import institutions with transaction
             Log::info('Starting import execution', [
-                'data_count' => count($data),
+                'data_count'       => count($data),
                 'institution_level' => $institutionType->level ?? $institutionType->default_level,
             ]);
 
-            $importResult = $this->executeImport($data, $institutionType);
+            $importResult  = $this->executeImport($data, $institutionType);
             $importedCount = $importResult['imported_count'];
             $duplicateCount = $importResult['duplicate_count'];
 
             Log::info('Import execution completed', [
-                'imported_count' => $importedCount,
+                'imported_count'  => $importedCount,
                 'duplicate_count' => $duplicateCount,
-                'import_results' => $this->stateManager->getImportResults(),
+                'import_results'  => $this->stateManager->getImportResults(),
             ]);
 
             // 7. Build success response
@@ -145,8 +154,8 @@ class ImportOrchestrator
             );
         } catch (\Exception $e) {
             Log::error('Institution import error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error'            => $e->getMessage(),
+                'trace'            => $e->getTraceAsString(),
                 'institution_type' => $institutionTypeKey,
             ]);
 
@@ -177,7 +186,7 @@ class ImportOrchestrator
             $importedCount = $this->chunkProcessor->executeChunkedImport($data, $institutionType, $importResults);
 
             return [
-                'imported_count' => $importedCount,
+                'imported_count'  => $importedCount,
                 'duplicate_count' => 0, // ChunkProcessor doesn't track duplicates yet
             ];
         }
@@ -195,12 +204,12 @@ class ImportOrchestrator
      */
     protected function processSmallDataset(array $data, InstitutionType $institutionType): array
     {
-        $importedCount = 0;
-        $duplicateCount = 0;
+        $importedCount   = 0;
+        $duplicateCount  = 0;
         $institutionLevel = $institutionType->level ?? $institutionType->default_level;
 
         Log::info('Processing small dataset', [
-            'row_count' => count($data),
+            'row_count'        => count($data),
             'institution_level' => $institutionLevel,
             'first_row_sample' => $data[0] ?? null,
         ]);
@@ -208,9 +217,9 @@ class ImportOrchestrator
         foreach ($data as $index => $rowData) {
             try {
                 Log::info('Processing row', [
-                    'row_index' => $index,
-                    'row_number' => $rowData['row'] ?? 'unknown',
-                    'name' => $rowData['name'] ?? 'N/A',
+                    'row_index'         => $index,
+                    'row_number'        => $rowData['row'] ?? 'unknown',
+                    'name'              => $rowData['name'] ?? 'N/A',
                     'has_preschooladmin' => isset($rowData['preschooladmin']),
                 ]);
 
@@ -224,14 +233,37 @@ class ImportOrchestrator
                     continue;
                 }
 
-                // Check for duplicate UTIS codes
-                if ($this->duplicateDetector->isDuplicateUtisCode($rowData['utis_code'])) {
-                    $existingInstitution = $this->duplicateDetector->getInstitutionByUtisCode($rowData['utis_code']);
+                // UTIS kodu yoxlaması — upsert vs conflict
+                $utisCode = $rowData['utis_code'] ?? '';
+                if (! empty($utisCode) && $this->duplicateDetector->isDuplicateUtisCode($utisCode)) {
+                    $existingInstitution = $this->duplicateDetector->getInstitutionByUtisCode($utisCode);
+
+                    if ($this->upsertOnUtis && $existingInstitution) {
+                        // Upsert: mövcud institutu yenilə
+                        $updateData = array_filter([
+                            'name'             => $rowData['name'] ?: null,
+                            'short_name'       => $rowData['short_name'] ?: null,
+                            'institution_code' => $rowData['institution_code'] ?: null,
+                            'region_code'      => $rowData['region_code'] ?: null,
+                            'contact_info'     => $rowData['contact_info'] ?: null,
+                            'location'         => $rowData['location'] ?: null,
+                            'established_date' => $rowData['established_date'] ?? null,
+                            'is_active'        => $rowData['is_active'] ?? true,
+                        ], fn ($v) => $v !== null && $v !== '');
+
+                        $existingInstitution->update($updateData);
+                        $importedCount++;
+                        $this->stateManager->addResult(
+                            "✏️ Sətir {$rowData['row']}: '{$existingInstitution->name}' yenil\u0259ndi (UTIS: {$utisCode})"
+                        );
+                        continue;
+                    }
+
+                    // Upsert deyilsə — conflict olaraq qeyd et
                     $this->stateManager->addResult(
                         $this->messageFormatter->formatDuplicateMessage($rowData, $existingInstitution)
                     );
                     $duplicateCount++;
-
                     continue;
                 }
 
@@ -246,10 +278,10 @@ class ImportOrchestrator
                         $institution
                     );
                     $schoolAdminInfo = [
-                        'username' => $schoolAdmin->username,
-                        'email' => $schoolAdmin->email,
+                        'username'          => $schoolAdmin->username,
+                        'email'             => $schoolAdmin->email,
                         'original_username' => $rowData['schooladmin']['username'] ?? '',
-                        'original_email' => $rowData['schooladmin']['email'] ?? '',
+                        'original_email'    => $rowData['schooladmin']['email'] ?? '',
                     ];
                 }
 
@@ -260,10 +292,10 @@ class ImportOrchestrator
                         $institution
                     );
                     $schoolAdminInfo = [
-                        'username' => $preschoolAdmin->username,
-                        'email' => $preschoolAdmin->email,
+                        'username'          => $preschoolAdmin->username,
+                        'email'             => $preschoolAdmin->email,
                         'original_username' => $rowData['preschooladmin']['username'] ?? '',
-                        'original_email' => $rowData['preschooladmin']['email'] ?? '',
+                        'original_email'    => $rowData['preschooladmin']['email'] ?? '',
                     ];
                 }
 
@@ -272,36 +304,36 @@ class ImportOrchestrator
                     $this->messageFormatter->formatSuccessMessage($rowData, $institution, $schoolAdminInfo)
                 );
             } catch (\Exception $e) {
+                $rowNum = $rowData['row'] ?? $index;
                 Log::error('Institution import row error', [
-                    'row' => $rowData['row'],
-                    'error' => $e->getMessage(),
+                    'row'              => $rowNum,
+                    'error'            => $e->getMessage(),
                     'institution_name' => $rowData['name'] ?? 'N/A',
+                    'utis_code'        => $rowData['utis_code'] ?? '',
+                    'parent_id'        => $rowData['parent_id'] ?? null,
                 ]);
 
+                // Dəqiq xəta mesajı — sahə ipucunu da əlavə et
+                $hint = $this->resolveErrorHint($e->getMessage(), $rowData);
                 $this->stateManager->addResult(
-                    $this->messageFormatter->formatErrorMessage($rowData, $e)
+                    "❌ Sətir {$rowNum}: {$e->getMessage()}{$hint}"
                 );
             }
         }
 
         Log::info('processSmallDataset completed', [
             'total_imported' => $importedCount,
-            'total_rows' => count($data),
+            'total_rows'     => count($data),
         ]);
 
         return [
-            'imported_count' => $importedCount,
+            'imported_count'  => $importedCount,
             'duplicate_count' => $duplicateCount,
         ];
     }
 
     /**
      * Reset import state for new operation
-     *
-     * Resets:
-     * - Import results (via ImportStateManager)
-     * - Validation errors (via ImportDataValidator)
-     * - Batch caches (via BatchOptimizer and DuplicateDetector)
      */
     protected function resetImportState(): void
     {
@@ -316,10 +348,8 @@ class ImportOrchestrator
      */
     protected function buildValidationErrorResponse(array $validationErrors): array
     {
-        // Add helpful context for common errors
-        $errorMessage = 'Excel faylında validasiya xətaları tapıldı. Zəhmət olmasa düzəltdikdən sonra yenidən cəhd edin.';
+        $errorMessage = 'Faylda validasiya xətaları tapıldı. Zəhmət olmasa düzəltdikdən sonra yenidən cəhd edin.';
 
-        // Check if parent_id errors are common and add specific help
         $parentIdErrors = 0;
         foreach ($validationErrors as $rowErrors) {
             if (isset($rowErrors['parent_id'])) {
@@ -329,10 +359,9 @@ class ImportOrchestrator
 
         if ($parentIdErrors > 0) {
             $errorMessage .= "\n\n📋 KÖMƏK - ÜST MÜƏSSİSƏ ID PROBLEMİ:";
-            $errorMessage .= "\n1. Excel faylında 'Üst Müəssisələr' sheet-ini açın";
-            $errorMessage .= "\n2. Lazımi müəssisənin ID-sini (A sütunu) kopyalayın";
-            $errorMessage .= "\n3. Əsas sheet-də J sütununa yapışdırın";
-            $errorMessage .= "\n4. Həmçinin müəssisə adını da yaza bilərsiniz (sistem avtomatik tapacaq)";
+            $errorMessage .= "\n1. Faylda üst müəssisə ID-sini düzgün daxil edin";
+            $errorMessage .= "\n2. CSV-də J sütununa yalnız rəqəm (ID) yazın";
+            $errorMessage .= "\n3. Excel-də 'Üst Müəssisələr' sheet-indən ID götürün";
         }
 
         return $this->responseBuilder->buildErrorResponse(
@@ -340,5 +369,35 @@ class ImportOrchestrator
             $validationErrors,
             $this->stateManager->getImportResults()
         );
+    }
+
+    /**
+     * Xəta mətnindən istifadəçi üçün düzəliş ipucunu təyin et.
+     */
+    protected function resolveErrorHint(string $message, array $rowData): string
+    {
+        $msg = strtolower($message);
+
+        if (str_contains($msg, 'parent_id') || str_contains($msg, '"parent"')) {
+            $val = $rowData['parent_id'] ?? null;
+
+            return " → J sütununda üst müəssisə ID-si düzgün deyil (dəyər: " . ($val ?? 'boş') . ')';
+        }
+
+        if (str_contains($msg, 'utis_code') || str_contains($msg, 'utis')) {
+            return " → UTIS kodu " . ($rowData['utis_code'] ?? 'boş') . ": 7-10 rəqəmli olmalıdır";
+        }
+
+        if (str_contains($msg, 'name') && str_contains($msg, 'unique')) {
+            return " → '" . ($rowData['name'] ?? '') . "' adında müəssisə artıq mövcuddur. Fərqli ad seçin";
+        }
+
+        if (str_contains($msg, 'email')) {
+            $email = $rowData['schooladmin']['email'] ?? $rowData['preschooladmin']['email'] ?? 'bilinməz';
+
+            return " → Email ({$email}) artıq mövcuddur və ya düzgün deyil";
+        }
+
+        return '';
     }
 }

@@ -87,6 +87,25 @@ class DataTypeParser
     }
 
     /**
+     * Parse date from plain string (CSV üçün — Excel cell yoxdur)
+     *
+     * @param  string $value  YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY formatları
+     * @return string|null    Y-m-d format
+     */
+    public function parseDateFromString(string $value): ?string
+    {
+        if (empty(trim($value))) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Check if row contains sample data
      *
      * Detects common sample indicators:

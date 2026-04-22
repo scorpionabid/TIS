@@ -562,8 +562,10 @@ class InstitutionBulkController extends Controller
             $validTypesString = implode(',', $validTypes);
 
             $validated = $request->validate([
-                'file' => 'required|file|mimes:xlsx,xls|max:10240',
-                'type' => "required|string|in:{$validTypesString}",
+                'file'           => 'required|file|mimes:xlsx,xls,csv|max:10240',
+                'type'           => "required|string|in:{$validTypesString}",
+                'delimiter'      => 'nullable|string|in:comma,semicolon',
+                'upsert_on_utis' => 'nullable|boolean',
             ]);
 
             \Log::info('Large import started', [
@@ -575,11 +577,18 @@ class InstitutionBulkController extends Controller
                 'time_limit' => ini_get('max_execution_time'),
             ]);
 
+            $delimiter    = $request->input('delimiter') === 'semicolon' ? ';' : ',';
+            $upsertOnUtis = filter_var($request->input('upsert_on_utis', false), FILTER_VALIDATE_BOOLEAN);
+
             // Use the ImportOrchestrator to handle the import process
             $importOrchestrator = app(\App\Services\Import\ImportOrchestrator::class);
             $result = $importOrchestrator->importInstitutionsByType(
                 $validated['file'],
-                $validated['type']
+                $validated['type'],
+                [
+                    'delimiter'      => $delimiter,
+                    'upsert_on_utis' => $upsertOnUtis,
+                ]
             );
 
             \Log::info('Import result from orchestrator', [
@@ -614,15 +623,64 @@ class InstitutionBulkController extends Controller
                 ],
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Excel Import Failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+            \Log::error('Import Failed', [
+                'error'     => $e->getMessage(),
+                'trace'     => $e->getTraceAsString(),
+                'file_type' => $request->file('file') ? $request->file('file')->getClientOriginalExtension() : 'unknown',
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'İdxal zamanı səhv: ' . $e->getMessage(),
-                'errors' => [$e->getMessage()],
+                'errors'  => [$e->getMessage()],
+            ], 500);
+        }
+    }
+
+    /**
+     * CSV template yüklə
+     */
+    public function downloadCsvTemplateByType(Request $request)
+    {
+        try {
+            $validTypes       = InstitutionType::active()->pluck('key')->toArray();
+            $validTypesString = implode(',', $validTypes);
+
+            $validated = validator(
+                [
+                    'type'      => $request->input('type'),
+                    'delimiter' => $request->input('delimiter', 'comma'),
+                ],
+                [
+                    'type'      => "required|string|in:{$validTypesString}",
+                    'delimiter' => 'nullable|string|in:comma,semicolon',
+                ]
+            )->validate();
+
+            $delimiter       = ($validated['delimiter'] ?? 'comma') === 'semicolon' ? ';' : ',';
+            $templateService = new \App\Services\Import\InstitutionCsvTemplateService;
+            $filePath        = $templateService->generateTemplateByType($validated['type'], $delimiter);
+
+            $delimLabel = $delimiter === ';' ? 'noqteli_vergul' : 'vergul';
+            $fileName   = "muessise_csv_sablonu_{$validated['type']}_{$delimLabel}_" . date('Y-m-d') . '.csv';
+
+            return response()->download($filePath, $fileName, [
+                'Content-Type'        => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => "attachment; filename=\"$fileName\"",
+            ])->deleteFileAfterSend(true);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success'         => false,
+                'message'         => 'Validasiya xətası',
+                'errors'          => $e->errors(),
+                'available_types' => InstitutionType::active()->pluck('key')->toArray(),
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('CSV template download error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'CSV şablon yaradılarkən xəta: ' . $e->getMessage(),
             ], 500);
         }
     }
