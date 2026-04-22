@@ -398,8 +398,8 @@ const GradeBooksPage: React.FC = () => {
   const requestedTab = (searchParams.get('tab') as GradeBookTab | null) ?? null;
 
   const defaultTab: GradeBookTab = useMemo(() => {
-    if (allowedTabs.includes('admin_overview')) return 'admin_overview';
     if (allowedTabs.includes('list')) return 'list';
+    if (allowedTabs.includes('admin_overview')) return 'admin_overview';
     return allowedTabs[0] || 'list';
   }, [allowedTabs]);
 
