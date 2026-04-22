@@ -72,9 +72,12 @@ class BulkAttendanceService
                 }
 
                 if ($session === 'evening' && $record->morning_recorded_at) {
-                    $diffInMinutes = $now->diffInMinutes($record->morning_recorded_at);
+                    $diffInMinutes = Carbon::parse($record->morning_recorded_at)->diffInMinutes($now);
                     if ($diffInMinutes < 180) {
-                        $allowedAt = Carbon::parse($record->morning_recorded_at)->addHours(3)->format('H:mm');
+                        $allowedAt = Carbon::parse($record->morning_recorded_at)
+                            ->addHours(3)
+                            ->setTimezone('Asia/Baku')
+                            ->format('H:i');
                         $failedRecords[] = [
                             'grade_id' => $grade->id,
                             'grade_name' => $grade->name,
