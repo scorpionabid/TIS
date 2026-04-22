@@ -115,6 +115,7 @@ docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force 2>
 docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=RegionAdminTeacherPermissionsSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=RegionOperatorPermissionSeeder --force 2>&1
+docker exec atis_backend php artisan db:seed --class=RegionOperatorViewPermissionsSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=RegionAdminPermissionBalanceSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=SystemConfigSeeder --force 2>&1
 docker exec atis_backend php artisan db:seed --class=OlympiadLevelConfigSeeder --force 2>&1

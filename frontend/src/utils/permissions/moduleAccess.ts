@@ -210,7 +210,7 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
   },
   folders: {
     view: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
+      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin, ADMIN_ROLES.schooladmin],
       permissions: ["documents.read"],
       regionOperatorFlags: getRegionOperatorFlags("folders", "view"),
     },

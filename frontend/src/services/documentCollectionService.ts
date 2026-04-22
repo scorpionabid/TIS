@@ -23,7 +23,7 @@ class DocumentCollectionService {
 
   async getAll(): Promise<DocumentCollection[]> {
     const response = await api.get<{ success: boolean; data: DocumentCollection[] }>(this.basePath);
-    return (response as LaravelData<{ data: DocumentCollection[] }>).data.data ?? [];
+    return (response as { success: boolean; data: DocumentCollection[] }).data ?? [];
   }
 
   async getById(folderId: number): Promise<FolderWithDocuments> {
@@ -103,7 +103,7 @@ class DocumentCollectionService {
       `${this.basePath}/regional`,
       data
     );
-    return (response as LaravelData<{ data: DocumentCollection[] }>).data.data;
+    return (response as { success: boolean; data: DocumentCollection[] }).data;
   }
 
   async update(folderId: number, data: UpdateFolderRequest): Promise<DocumentCollection> {
@@ -111,7 +111,7 @@ class DocumentCollectionService {
       `${this.basePath}/${folderId}`,
       data
     );
-    return (response as LaravelData<{ data: DocumentCollection }>).data.data;
+    return (response as { success: boolean; data: DocumentCollection }).data;
   }
 
   async delete(folderId: number, data?: DeleteFolderRequest): Promise<void> {
@@ -131,7 +131,7 @@ class DocumentCollectionService {
     const response = await api.get<{ success: boolean; data: FolderAuditLog[] }>(
       `${this.basePath}/${folderId}/audit-logs`
     );
-    return (response as LaravelData<{ data: FolderAuditLog[] }>).data.data;
+    return (response as { success: boolean; data: FolderAuditLog[] }).data;
   }
 
   async uploadDocument(folderId: number, file: File): Promise<Document> {

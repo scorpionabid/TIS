@@ -72,7 +72,7 @@ export default function MyResources() {
 
   // Fetch folders
   const { data: folders, isLoading: isFoldersLoading } = useQuery({
-    queryKey: ['my-folders'],
+    queryKey: ['my-folders', currentUser?.role, currentUser?.institution?.id],
     queryFn: async () => {
       const allFolders = await documentCollectionService.getAll();
       if (currentUser?.role === 'superadmin' || currentUser?.role === 'regionadmin') {
@@ -83,6 +83,7 @@ export default function MyResources() {
         targetInstitutions?: Array<{ id: number }>;
       };
       const userInstitutionId = currentUser?.institution?.id;
+      if (!userInstitutionId) return [];
       return (allFolders as FolderWithTargets[]).filter(folder => {
         const targets = folder.target_institutions ?? folder.targetInstitutions ?? [];
         return targets.some(inst => inst.id === userInstitutionId);

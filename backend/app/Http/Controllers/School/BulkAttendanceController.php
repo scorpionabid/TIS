@@ -59,11 +59,21 @@ class BulkAttendanceController extends BaseController
                     'level' => $class->class_level,
                     'total_students' => (int) ($class->student_count ?? 0),
                     'attendance' => $record ? [
+                        'morning_present' => (int) $record->morning_present,
+                        'morning_excused' => (int) $record->morning_excused,
+                        'morning_unexcused' => (int) $record->morning_unexcused,
+                        'evening_present' => (int) $record->evening_present,
+                        'evening_excused' => (int) $record->evening_excused,
+                        'evening_unexcused' => (int) $record->evening_unexcused,
+                        'uniform_violation' => (int) $record->uniform_violation,
+                        'morning_notes' => $record->morning_notes,
+                        'evening_notes' => $record->evening_notes,
                         'morning_recorded_at' => $record->morning_recorded_at,
                         'evening_recorded_at' => $record->evening_recorded_at,
                         'is_complete' => $record->is_complete,
                         'morning_attendance_rate' => $record->morning_attendance_rate,
                         'evening_attendance_rate' => $record->evening_attendance_rate,
+                        'daily_attendance_rate' => $record->daily_attendance_rate,
                     ] : null,
                 ];
             });
