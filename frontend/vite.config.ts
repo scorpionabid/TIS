@@ -15,11 +15,11 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 3000,
     open: false,
-    hmr: {
+    hmr: mode === 'production' ? {
       protocol: 'wss',
       host: 'atis.sim.edu.az',
       clientPort: 443,
-    },
+    } : true,
     allowedHosts: ["atis.sim.edu.az", ".sim.edu.az", "localhost", "127.0.0.1", "5.9.43.157", "192.168.61.43"],
     // Proxy disabled - using production API URL directly (Nginx handles routing)
     proxy: undefined,

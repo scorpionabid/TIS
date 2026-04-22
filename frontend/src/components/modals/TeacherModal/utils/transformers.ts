@@ -11,14 +11,13 @@ import { DEFAULT_TEACHER_VALUES } from './constants';
 export function transformTeacherDataToBackend(formData: any) {
   // Top-level user fields
   const userData: any = {
-    name: `${formData.first_name || ''} ${formData.last_name || ''}`.trim() || formData.email,
-    username: formData.username,
-    email: formData.email,
+    name: `${formData.first_name || ''} ${formData.last_name || ''}`.trim() || formData.email || 'Müəllim',
+    username: formData.username || null,
+    email: formData.email || null,
     password: formData.password,
     password_confirmation: formData.password_confirmation,
-    role: 'müəllim', // Always teacher role
-    is_active: formData.is_active !== false,
-    // institution_id will be auto-assigned by backend from schooladmin context
+    role: 'müəllim',
+    is_active: formData.is_active !== 'false' && formData.is_active !== false,
   };
 
   // Build profile object with teacher-specific fields
@@ -40,15 +39,18 @@ export function transformTeacherDataToBackend(formData: any) {
     contract_end_date: formData.contract_end_date || null,
 
     // Professional
-    subjects: formData.subjects || [], // Optional - managed in curriculum tab
-    specialty: formData.specialty || '',
-    specialty_score: formData.specialty_score ? parseFloat(formData.specialty_score) : null,
+    subjects: formData.subjects || [],
+    specialty: formData.specialty === 'none' ? '' : (formData.specialty || ''),
+    specialty_score: (formData.specialty_score !== undefined && formData.specialty_score !== null && formData.specialty_score !== '')
+      ? parseFloat(String(formData.specialty_score))
+      : null,
     specialty_level: formData.specialty_level || null,
-    experience_years: formData.experience_years ? parseInt(formData.experience_years) : null,
+    experience_years: (formData.experience_years !== undefined && formData.experience_years !== null && formData.experience_years !== '')
+      ? parseInt(String(formData.experience_years))
+      : null,
 
     // Assessment fields (NEW - REQUIRED)
     assessment_type: formData.assessment_type || null,
-    // assessment_score may be 0 which is falsy — use explicit undefined/null check
     assessment_score: (formData.assessment_score !== undefined && formData.assessment_score !== null && formData.assessment_score !== '')
       ? parseFloat(String(formData.assessment_score))
       : null,
@@ -71,7 +73,7 @@ export function transformTeacherDataToBackend(formData: any) {
     notes: formData.notes || '',
   };
 
-  // Remove empty/null values
+  // Remove empty/null values for profile specifically
   Object.keys(profile).forEach(key => {
     if (profile[key] === '' || profile[key] === null || profile[key] === undefined) {
       delete profile[key];
@@ -79,6 +81,12 @@ export function transformTeacherDataToBackend(formData: any) {
   });
 
   userData.profile = profile;
+
+  // Final check: if password is empty string, don't send it at all (for updates)
+  if (!userData.password || userData.password === '') {
+    delete userData.password;
+    delete userData.password_confirmation;
+  }
 
   return userData;
 }

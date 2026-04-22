@@ -232,6 +232,22 @@ class CurriculumService {
   }
 
   /**
+   * Bulk remove subjects from grade curriculum
+   */
+  async bulkRemoveSubjectsFromCurriculum(
+    gradeId: number,
+    gradeSubjectIds: number[]
+  ): Promise<string> {
+    const response = await api.delete<DeleteGradeSubjectResponse>(
+      `${this.baseUrl}/${gradeId}/subjects/bulk`,
+      { ids: gradeSubjectIds }
+    );
+    // Clear ALL cache for this grade
+    api.clearCache(`/grades/${gradeId}`);
+    return response.message || '';
+  }
+
+  /**
    * Get curriculum statistics for a grade
    */
   async getCurriculumStatistics(

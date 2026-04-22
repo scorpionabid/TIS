@@ -7,7 +7,7 @@ import { TeacherDetailsDialog } from './TeacherDetailsDialog';
 import { TeacherImportExportModal } from '@/components/modals/TeacherImportExportModal';
 import { DeleteModal } from '@/components/modals/DeleteModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { cn } from '@/lib/utils';
 import { Upload, Calendar, Briefcase, Clock, CalendarRange, Download } from 'lucide-react';
@@ -45,6 +45,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
   className,
   onAfterCreate,
 }) => {
+  const queryClient = useQueryClient();
   // Local modal state
   const [teacherModalOpen, setTeacherModalOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<SchoolTeacher | null>(null);
@@ -291,6 +292,11 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         onAfterCreate?.();
       }
 
+      // Invalidate queries to refresh data and stats
+      queryClient.invalidateQueries({ queryKey: teacherEntityConfig.queryKey });
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+      queryClient.invalidateQueries({ queryKey: ['schoolAdmin'] });
+      
       // Close modal on success
       setTeacherModalOpen(false);
       setEditingUser(null);

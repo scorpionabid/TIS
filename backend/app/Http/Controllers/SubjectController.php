@@ -17,14 +17,15 @@ class SubjectController extends BaseController
     public function index(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'category' => 'sometimes|in:core,elective,extra,vocational',
-            'class_level' => 'sometimes|integer|min:1|max:12',
+            'category' => ['sometimes', 'string', Rule::in(Subject::validCategories())],
+            'class_level' => 'sometimes|integer|min:0|max:12',
+            'grade' => 'sometimes|integer|min:0|max:12',
             'class_level_start' => 'sometimes|integer|min:1|max:12',
             'class_level_end' => 'sometimes|integer|min:1|max:12',
             'is_active' => 'sometimes|boolean',
             'search' => 'sometimes|string|max:255',
             'page' => 'sometimes|integer|min:1',
-            'per_page' => 'sometimes|integer|min:1|max:100',
+            'per_page' => 'sometimes|integer|min:1|max:500',
             'include' => 'sometimes|string',
         ]);
 
@@ -39,8 +40,11 @@ class SubjectController extends BaseController
             $query->where('category', $request->category);
         }
 
-        if ($request->has('class_level')) {
-            $query->whereJsonContains('grade_levels', (int) $request->class_level);
+        if ($request->has('class_level') || $request->has('grade')) {
+            $level = $request->class_level ?? $request->grade;
+            $query->where(function($q) use ($level) {
+                $q->whereJsonContains('grade_levels', (int) $level);
+            });
         }
 
         if ($request->has('class_level_start')) {
@@ -53,17 +57,10 @@ class SubjectController extends BaseController
 
         if ($request->has('is_active')) {
             $query->where('is_active', $request->is_active);
-        } else {
-            $query->active();
         }
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('code', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
-            });
+        if ($request->filled('search')) {
+            $query->search($request->search);
         }
 
         // Eager load relationships if requested

@@ -547,4 +547,42 @@ class GradeSubjectController extends Controller
             'data' => $stats,
         ]);
     }
+    /**
+     * Bulk remove subjects from grade curriculum.
+     */
+    public function bulkDestroy(Request $request, Grade $grade)
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Heç bir fənn seçilməyib.',
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Verify all IDs belong to this grade to prevent unauthorized deletion
+            $deletedCount = $grade->gradeSubjects()
+                ->whereIn('id', $ids)
+                ->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$deletedCount} fənn tədris planından silindi.",
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Fənnlər silinərkən xəta baş verdi.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

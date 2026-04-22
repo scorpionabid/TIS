@@ -13,6 +13,7 @@ import { CurriculumWorkloadTab } from '@/components/curriculum/CurriculumWorkloa
 import { TeacherWorkloadDrawer } from '@/components/curriculum/TeacherWorkloadDrawer';
 import { CurriculumSummaryTiles } from '@/components/curriculum/CurriculumSummaryTiles';
 import { CurriculumYigimTable } from '@/components/curriculum/CurriculumYigimTable';
+import { CurriculumInstructionTab } from '@/components/curriculum/CurriculumInstructionTab';
 import { GradeManager } from '@/components/grades/GradeManager';
 import { curriculumGradeEntityConfig } from '@/components/grades/configurations/gradeConfig';
 import { TeacherWorkloadDetailTable } from '@/components/teachers/TeacherWorkloadDetailTable';
@@ -25,7 +26,7 @@ const containerVariants = {
   visible: { opacity: 1, y: 0, transition: { staggerChildren: 0.1, duration: 0.4 } },
 };
 
-type TabKey = 'stats' | 'yigim' | 'subjects' | 'workload' | 'class_subject' | 'grades';
+type TabKey = 'stats' | 'yigim' | 'subjects' | 'workload' | 'class_subject' | 'grades' | 'instructions';
 
 export default function CurriculumPlan() {
   const { currentUser } = useAuth();
@@ -136,7 +137,7 @@ export default function CurriculumPlan() {
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="w-full">
             <TabsList className="flex items-center gap-1 p-1.5 bg-slate-100/50 backdrop-blur-sm rounded-2xl w-fit border border-slate-200/50 mb-8 overflow-x-auto no-scrollbar">
-              {(['stats', 'yigim', 'subjects', 'grades', 'workload', 'class_subject'] as const).map((tab) => (
+              {(['stats', 'yigim', 'subjects', 'grades', 'workload', 'class_subject', 'instructions'] as const).map((tab) => (
                 <TabsTrigger
                   key={tab}
                   value={tab}
@@ -147,7 +148,8 @@ export default function CurriculumPlan() {
                     : tab === 'subjects' ? 'FƏNN VƏ VAKANSİYALAR'
                     : tab === 'grades' ? 'SİNİF TƏDRİS PLANI'
                     : tab === 'workload' ? 'DƏRS BÖLGÜSÜ'
-                    : 'DƏRS BÖLGÜSÜ DETALLI'}
+                    : tab === 'class_subject' ? 'DƏRS BÖLGÜSÜ DETALLI'
+                    : 'TƏLİMAT'}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -210,7 +212,6 @@ export default function CurriculumPlan() {
                     grandTotal={grandTotal}
                     isLocked={isLocked}
                     loadingGrades={loadingGrades}
-                    onUpdateGrade={handleUpdateGrade}
                   />
                 )}
 
@@ -256,6 +257,11 @@ export default function CurriculumPlan() {
                 {/* Class-Subject Detailed Tab */}
                 {activeTab === 'class_subject' && (
                   <TeacherWorkloadDetailTable institutionId={institutionId} academicYearId={academicYearId} />
+                )}
+
+                {/* Instructions Tab */}
+                {activeTab === 'instructions' && (
+                  <CurriculumInstructionTab />
                 )}
               </motion.div>
             </AnimatePresence>

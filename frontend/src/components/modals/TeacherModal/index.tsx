@@ -8,6 +8,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useQuery } from '@tanstack/react-query';
+import { subjectService } from '@/services/subjects';
 import {
   Dialog,
   DialogContent,
@@ -72,13 +74,15 @@ const createTeacherSchema = (isNewTeacher: boolean) => {
     first_name: z.string().min(1, 'Ad məcburidir'),
     last_name: z.string().min(1, 'Soyad məcburidir'),
     patronymic: z.string().min(1, 'Ata adı məcburidir'),
-    email: z.string().email('Email formatı düz deyil'),
-    username: z.string().min(1, 'İstifadəçi adı məcburidir'),
+    email: z.string().email('Email formatı düz deyil').nullable().optional().or(z.literal('')),
+    username: z.string().nullable().optional().or(z.literal('')),
+    password: z.string().optional().or(z.literal('')),
+    password_confirmation: z.string().optional().or(z.literal('')),
 
     // Position fields
     position_type: z.string().min(1, 'Vəzifə məcburidir'),
     workplace_type: z.string().min(1, 'İş yeri növü məcburidir'),
-    specialty: z.string().min(1, 'İxtisas məcburidir'),
+    specialty: z.string().nullable().optional().or(z.literal('')),
 
     // Assessment fields
     assessment_type: z.string().min(1, 'Qiymətləndirmə növü məcburidir'),
@@ -120,9 +124,10 @@ const createTeacherSchema = (isNewTeacher: boolean) => {
     notes: z.string().optional(),
   };
 
+  const schema = z.object(baseSchema);
+
   if (isNewTeacher) {
-    return z.object({
-      ...baseSchema,
+    return schema.extend({
       password: z.string().min(8, 'Şifrə minimum 8 simvol olmalıdır'),
       password_confirmation: z.string().min(8, 'Şifrə təkrarı minimum 8 simvol olmalıdır'),
     }).refine((data) => data.password === data.password_confirmation, {
@@ -131,8 +136,7 @@ const createTeacherSchema = (isNewTeacher: boolean) => {
     });
   }
 
-  return z.object({
-    ...baseSchema,
+  return schema.extend({
     password: z.string().optional(),
     password_confirmation: z.string().optional(),
   });
@@ -150,6 +154,13 @@ export function TeacherModal({
   const [activeTab, setActiveTab] = useState('basic');
 
   const isNewTeacher = !teacher;
+
+  // Fetch subjects for specialty dropdown
+  const { data: subjectOptions = [] } = useQuery({
+    queryKey: ['subjects', 'options'],
+    queryFn: () => subjectService.getSubjectOptions(),
+    staleTime: 1000 * 60 * 30, // 30 minutes
+  });
 
   // Initialize form
   const form = useForm({
@@ -506,14 +517,22 @@ export function TeacherModal({
                         name="specialty"
                         render={({ field }) => (
                           <FormItem className="md:col-span-2">
-                            <FormLabel className="text-sm font-semibold text-slate-700">İxtisas *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                placeholder="İxtisasını daxil edin" 
-                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                              />
-                            </FormControl>
+                            <FormLabel className="text-sm font-semibold text-slate-700">İxtisas</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                              <FormControl>
+                                <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
+                                  <SelectValue placeholder="İxtisas seçin" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="rounded-lg">
+                                <SelectItem value="none">Seçilməyib</SelectItem>
+                                {subjectOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.label}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}

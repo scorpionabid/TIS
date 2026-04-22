@@ -76,9 +76,9 @@ class SchoolTeacherController extends Controller
 
                 return [
                     'id' => $teacher->id,
-                    'employee_id' => $teacher->username,
-                    'first_name' => $teacher->first_name ?: ($user_profile->first_name ?? ($teacher_profile->first_name ?? '')),
-                    'last_name' => $teacher->last_name ?: ($user_profile->last_name ?? ($teacher_profile->last_name ?? '')),
+                    'employee_id' => $teacher->username ?: ($teacher->utis_code ?: ($user_profile->utis_code ?? ($user_profile->national_id ?? ($teacher_profile->national_id ?? '')))),
+                    'first_name' => $user_profile->first_name ?? ($teacher->first_name ?? ($teacher_profile->first_name ?? '')),
+                    'last_name' => $user_profile->last_name ?? ($teacher->last_name ?? ($teacher_profile->last_name ?? '')),
                     'name' => $teacher->name,
                     'email' => $teacher->email,
                     'phone' => $user_profile->contact_phone ?? ($teacher_profile->phone ?? ''),
@@ -88,7 +88,8 @@ class SchoolTeacherController extends Controller
                     'position' => $teacher->roles->first()->name ?? '',
                     'position_type' => $workplace->position_type ?? ($user_profile->position_type ?? null),
                     'employment_status' => $workplace->employment_type ?? ($user_profile->employment_status ?? null),
-                    'specialty' => $teacher_profile->specialization ?? ($user_profile->specialty ?? null),
+                    'specialty' => $user_profile->specialty ?? ($teacher_profile->specialization ?? null),
+                    'assessment_type' => $user_profile->assessment_type ?? null,
                     'assessment_score' => $user_profile->assessment_score ?? null,
                     'hire_date' => $workplace->start_date ?? ($user_profile->hire_date ?? null),
                     'birth_date' => $user_profile->birth_date ?? null,
@@ -276,8 +277,8 @@ class SchoolTeacherController extends Controller
 
             $request->validate([
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
-                'username' => 'required|string|unique:users,username|max:50',
+                'email' => 'nullable|email|unique:users,email',
+                'username' => 'nullable|string|unique:users,username|max:50',
                 'password' => 'required|string|min:8',
                 'role' => 'required|string|in:müəllim,muavin,təşkilatçı,psixoloq,tesarrufat',
                 'department_id' => 'nullable|exists:departments,id',
@@ -308,7 +309,7 @@ class SchoolTeacherController extends Controller
                 'profile.has_additional_workplaces' => 'nullable|boolean',
 
                 // Professional development fields - REQUIRED specialty
-                'profile.specialty' => 'required|string|max:255',
+                'profile.specialty' => 'nullable|string|max:255',
                 'profile.specialty_level' => 'nullable|string|in:bakalavr,magistr,doktorantura,elmi_ishci',
                 'profile.experience_years' => 'nullable|integer|min:0',
 
@@ -497,8 +498,8 @@ class SchoolTeacherController extends Controller
 
             $request->validate([
                 'name' => 'sometimes|required|string|max:255',
-                'email' => 'sometimes|required|email|unique:users,email,' . $teacherId,
-                'username' => 'sometimes|required|string|unique:users,username,' . $teacherId . '|max:50',
+                'email' => 'sometimes|nullable|email|unique:users,email,' . $teacherId,
+                'username' => 'sometimes|nullable|string|unique:users,username,' . $teacherId . '|max:50',
                 'password' => 'nullable|string|min:8',
                 'role' => 'sometimes|string|in:müəllim,muavin,təşkilatçı,psixoloq,tesarrufat',
                 'department_id' => 'nullable|exists:departments,id',

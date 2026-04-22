@@ -73,6 +73,7 @@ Route::prefix('grades')->group(function () {
     Route::get('/{grade}/subjects/available', [GradeSubjectController::class, 'availableSubjects'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.manage');
     Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.manage');
+    Route::delete('/{grade}/subjects/bulk', [GradeSubjectController::class, 'bulkDestroy'])->middleware('permission:grades.manage');
     Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.manage');
     Route::get('/{grade}/subjects/statistics', [GradeSubjectController::class, 'statistics'])->middleware('permission:grades.read');
 

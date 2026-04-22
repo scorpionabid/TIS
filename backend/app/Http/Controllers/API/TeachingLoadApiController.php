@@ -377,6 +377,11 @@ class TeachingLoadApiController extends Controller
                     ->on('grade_map.name', '=', 'classes.section');
             })
             ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'teaching_loads.teacher_id')
+            ->leftJoin('teacher_profiles', 'teacher_profiles.user_id', '=', 'teaching_loads.teacher_id')
+            ->leftJoin('teacher_workplaces', function ($join) use ($institutionId) {
+                $join->on('teacher_workplaces.user_id', '=', 'teaching_loads.teacher_id')
+                    ->where('teacher_workplaces.institution_id', $institutionId);
+            })
             ->leftJoin('grade_subjects', function ($join) {
                 $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
                     ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id')
@@ -395,12 +400,13 @@ class TeachingLoadApiController extends Controller
                 'teaching_loads.id',
                 'teaching_loads.weekly_hours',
                 // Teacher identity — name fields live in user_profiles; users table has no patronymic column
-                'users.username as employee_id',
+                DB::raw("COALESCE(NULLIF(users.username, ''), NULLIF(users.utis_code, ''), NULLIF(user_profiles.utis_code, ''), user_profiles.national_id) as employee_id"),
                 DB::raw("COALESCE(user_profiles.first_name, users.first_name) as first_name"),
                 DB::raw("COALESCE(user_profiles.last_name, users.last_name) as last_name"),
                 'user_profiles.patronymic',
-                'user_profiles.position_type',
-                'user_profiles.specialty',
+                // Consolidate position and specialty from multiple sources
+                DB::raw("COALESCE(teacher_workplaces.position_type, user_profiles.position_type) as position_type"),
+                DB::raw("COALESCE(user_profiles.specialty, teacher_profiles.specialization) as specialty"),
                 'user_profiles.assessment_type',
                 'user_profiles.assessment_score',
                 // Class info
@@ -425,7 +431,6 @@ class TeachingLoadApiController extends Controller
             ->orderBy('classes.grade_level')
             ->orderBy('classes.section')
             ->get();
-
         return response()->json([
             'success' => true,
             'data' => $teachingLoads,

@@ -13,6 +13,7 @@ import { subjectService, CreateSubjectData, UpdateSubjectData } from '@/services
 import { useToast } from '@/hooks/use-toast';
 import { Subject } from '@/services/subjects';
 import { SubjectModal } from '@/components/modals/SubjectModal';
+import { useDebounce } from '@/hooks/useDebounce';
 
 const CATEGORY_LABELS = {
   lesson: 'Dərs',
@@ -26,6 +27,7 @@ export default function SubjectManagement() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedSubjects, setSelectedSubjects] = useState<Set<number>>(new Set());
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const { toast } = useToast();
@@ -33,22 +35,23 @@ export default function SubjectManagement() {
 
   // Load subjects
   const { data: subjectsResponse, isLoading, error } = useQuery({
-    queryKey: ['subjects-management', { category: categoryFilter, search: searchQuery, grade: gradeFilter }],
+    queryKey: ['subjects-management', { category: categoryFilter, search: debouncedSearchQuery, grade: gradeFilter, showOnlyActive }],
     queryFn: async () => {
-      console.log('🔍 SubjectManagement: Fetching subjects...');
       try {
         const params: any = {};
         if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
-        if (gradeFilter && gradeFilter !== 'all') params.grade = parseInt(gradeFilter);
+        if (gradeFilter && gradeFilter !== 'all') params.class_level = parseInt(gradeFilter);
+        if (debouncedSearchQuery) params.search = debouncedSearchQuery;
+        if (showOnlyActive) params.is_active = 1;
         
         const result = await subjectService.getSubjects(params);
-        console.log('✅ SubjectManagement: Fetch successful:', result);
         return result;
       } catch (error) {
         console.error('❌ SubjectManagement: Fetch failed:', error);
         throw error;
       }
     },
+    placeholderData: (previousData) => previousData,
   });
 
   // Load statistics
@@ -283,7 +286,7 @@ export default function SubjectManagement() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !subjectsResponse) {
     return (
       <div className="container mx-auto px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
         <div className="flex items-center justify-center h-64">

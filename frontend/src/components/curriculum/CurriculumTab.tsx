@@ -9,10 +9,12 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Trash2, Edit, BookOpen, Users, Clock, ArrowUp, ArrowDown, Filter, LayoutDashboard } from 'lucide-react';
+import { Plus, Trash2, Edit, BookOpen, Users, Clock, ArrowUp, ArrowDown, Filter, LayoutDashboard, Loader2 } from 'lucide-react';
 import curriculumService from '../../services/curriculumService';
 import type { GradeSubject, CurriculumMeta, CurriculumStatistics as ICurriculumStatistics, EducationType } from '../../types/curriculum';
 import { EDUCATION_TYPE_LABELS } from '../../types/curriculum';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 import AddSubjectModal from './AddSubjectModal';
 import EditSubjectModal from './EditSubjectModal';
 import CurriculumStatistics from './CurriculumStatistics';
@@ -43,9 +45,16 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<GradeSubject | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Active education type tab
   const [activeType, setActiveType] = useState<EducationType>('umumi');
+
+  // Reset selection when tab changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [activeType]);
 
   // Sort states
   const [sortField, setSortField] = useState<SortField>(null);
@@ -113,6 +122,41 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    if (!confirm(`${selectedIds.length} fənni tədris planından silmək istədiyinizə əminsiniz?`)) return;
+    
+    try {
+      setIsBulkDeleting(true);
+      await curriculumService.bulkRemoveSubjectsFromCurriculum(gradeId, selectedIds);
+      toast.success(`${selectedIds.length} fənn silindi`);
+      setSelectedIds([]);
+      loadCurriculum();
+      loadStatistics();
+      onUpdate?.();
+    } catch (err: any) {
+      console.error('Error in bulk delete:', err);
+      toast.error(err.response?.data?.message || 'Fənnlər silinərkən xəta baş verdi');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredSubjects.length && filteredSubjects.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredSubjects.map(s => s.id));
+    }
+  };
+
+  const toggleSelectOne = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
   };
 
   const handleSort = (field: SortField) => {
@@ -245,15 +289,39 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
           </div>
 
           {/* Table Header */}
-          <div className="p-4 border-b bg-white flex items-center justify-between">
+          <div className="p-4 border-b bg-white flex items-center justify-between min-h-[64px]">
             <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span className="font-bold text-sm text-gray-700 uppercase tracking-tight">
-                {EDUCATION_TYPE_LABELS[activeType]}
-              </span>
-              <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] font-black">
-                {filteredSubjects.length} QEYD
-              </span>
+              {selectedIds.length > 0 ? (
+                <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
+                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-black">
+                    {selectedIds.length} SEÇİLİB
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={isBulkDeleting}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-rose-500 text-white rounded-lg text-[11px] font-black uppercase tracking-wider hover:bg-rose-600 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  >
+                    {isBulkDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    Seçilənləri Sil
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds([])}
+                    className="text-[11px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-tight"
+                  >
+                    Ləğv et
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <span className="font-bold text-sm text-gray-700 uppercase tracking-tight">
+                    {EDUCATION_TYPE_LABELS[activeType]}
+                  </span>
+                  <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] font-black">
+                    {filteredSubjects.length} QEYD
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
@@ -290,6 +358,13 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-white border-b z-20 shadow-sm shadow-slate-100">
                   <tr className="bg-slate-50/30">
+                    <th className="px-6 py-4 w-10">
+                      <Checkbox 
+                        checked={filteredSubjects.length > 0 && selectedIds.length === filteredSubjects.length}
+                        onCheckedChange={toggleSelectAll}
+                        disabled={filteredSubjects.length === 0}
+                      />
+                    </th>
                     <th
                       className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors"
                       onClick={() => handleSort('name')}
@@ -314,7 +389,13 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredSubjects.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-50/80 transition-all group">
+                    <tr key={s.id} className={`hover:bg-slate-50/80 transition-all group ${selectedIds.includes(s.id) ? 'bg-primary/5' : ''}`}>
+                      <td className="px-6 py-4">
+                        <Checkbox 
+                          checked={selectedIds.includes(s.id)}
+                          onCheckedChange={() => toggleSelectOne(s.id)}
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="font-black text-slate-800 text-sm tracking-tight">{s.subject_name}</div>
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter opacity-70 group-hover:opacity-100 transition-opacity">{s.subject_code}</div>

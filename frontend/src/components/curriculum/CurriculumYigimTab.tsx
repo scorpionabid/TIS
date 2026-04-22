@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Database } from 'lucide-react';
+import { Database, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Grade } from '@/services/grades';
 import { GradeUpdateData } from '@/services/grades';
-import { EditableNumber } from '@/components/curriculum/EditableNumber';
 import {
   BASE_DATA, GRADE_GROUPS, SPLIT_KEYS, SPLIT_LABELS,
   n, nn,
@@ -19,7 +19,6 @@ interface Props {
   grandTotal: GrandTotal;
   isLocked: boolean;
   loadingGrades: boolean;
-  onUpdateGrade: (gradeId: number, data: Partial<GradeUpdateData>) => void;
 }
 
 export function CurriculumYigimTab({
@@ -28,8 +27,7 @@ export function CurriculumYigimTab({
   levelTotals,
   grandTotal,
   isLocked,
-  loadingGrades,
-  onUpdateGrade,
+  loadingGrades
 }: Props) {
   const [levelExpanded, setLevelExpanded] = useState<Set<number>>(new Set());
 
@@ -43,7 +41,16 @@ export function CurriculumYigimTab({
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-2xl rounded-3xl shadow-premium overflow-hidden border border-slate-200/60 transition-all">
+    <div className="space-y-6">
+      <Alert className="bg-blue-50/50 border-blue-200 text-blue-900 rounded-3xl p-5 shadow-sm">
+        <AlertCircle className="h-5 w-5 text-blue-600" />
+        <AlertDescription className="text-sm font-medium ml-2">
+          <span className="font-bold underline decoration-blue-300 decoration-2">Yığım cədvəli baxış rejimindədir.</span>{' '}
+          Buradakı saatlar avtomatik olaraq "Siniflər" və "Fənn və Vakansiyalar" tablarındakı təyinatlar əsasında hesablanır.
+        </AlertDescription>
+      </Alert>
+
+      <div className="bg-white/80 backdrop-blur-2xl rounded-3xl shadow-premium overflow-hidden border border-slate-200/60 transition-all">
       <div className="overflow-x-auto relative scrollbar-premium">
         <table className="w-full text-xs border-collapse whitespace-nowrap">
           <thead className="sticky top-0 z-30 shadow-sm border-b border-slate-200">
@@ -132,66 +139,21 @@ export function CurriculumYigimTab({
                         </td>
                         <td className="px-2 text-center font-medium text-slate-400 tabular-nums">{c.real_student_count || c.student_count || 0}</td>
                         <td className="px-2 text-center font-medium text-slate-400 tabular-nums opacity-30">1</td>
-                        <td className="px-3 text-center tabular-nums bg-indigo-50/10 text-slate-700">
-                          <EditableNumber
-                            value={c.curriculum_hours}
-                            placeholder={gh.plan.toString()}
-                            onChange={(val) => !isLocked && onUpdateGrade(c.id, { curriculum_hours: val })}
-                            disabled={isLocked}
-                          />
+                        <td className="px-3 text-center tabular-nums bg-indigo-50/10 text-slate-700 font-bold">
+                          {n(gh.plan)}
                         </td>
                         {SPLIT_KEYS.map(k => (
-                          <td key={k} className="px-1 text-center tabular-nums">
-                            <EditableNumber
-                              value={c[k]}
-                              onChange={(val) => !isLocked && onUpdateGrade(c.id, { [k]: val })}
-                              placeholder="0"
-                              disabled={isLocked}
-                            />
+                          <td key={k} className="px-1 text-center tabular-nums text-slate-400">
+                            {nn(gh.splitBySubject?.[k] || 0)}
                           </td>
                         ))}
                         <td className="px-3 text-center font-bold text-indigo-500 tabular-nums bg-indigo-50/10">{nn(gh.split)}</td>
                         <td className="px-3 text-center font-bold text-indigo-600 bg-indigo-50/30 tabular-nums">{(gh.plan + gh.split).toFixed(1)}</td>
-                        <td className="px-2 text-center bg-emerald-50/5">
-                          <EditableNumber
-                            value={cGrade.extra_hours as number | null | undefined}
-                            placeholder={gh.extra.toString()}
-                            onChange={(val) => !isLocked && onUpdateGrade(c.id, { extra_hours: val })}
-                            disabled={isLocked}
-                          />
-                        </td>
-                        <td className="px-2 text-center bg-emerald-50/5">
-                          <EditableNumber
-                            value={cGrade.individual_hours as number | null | undefined}
-                            placeholder={gh.indiv.toString()}
-                            onChange={(val) => !isLocked && onUpdateGrade(c.id, { individual_hours: val })}
-                            disabled={isLocked}
-                          />
-                        </td>
-                        <td className="px-2 text-center bg-emerald-50/5">
-                          <EditableNumber
-                            value={cGrade.home_hours as number | null | undefined}
-                            placeholder={gh.home.toString()}
-                            onChange={(val) => !isLocked && onUpdateGrade(c.id, { home_hours: val })}
-                            disabled={isLocked}
-                          />
-                        </td>
-                        <td className="px-2 text-center bg-emerald-50/5">
-                          <EditableNumber
-                            value={cGrade.special_hours as number | null | undefined}
-                            placeholder={gh.special.toString()}
-                            onChange={(val) => !isLocked && onUpdateGrade(c.id, { special_hours: val })}
-                            disabled={isLocked}
-                          />
-                        </td>
-                        <td className="px-2 text-center bg-emerald-50/5">
-                          <EditableNumber
-                            value={cGrade.club_hours as number | null | undefined}
-                            placeholder={gh.club.toString()}
-                            onChange={(val) => !isLocked && onUpdateGrade(c.id, { club_hours: val })}
-                            disabled={isLocked}
-                          />
-                        </td>
+                        <td className="px-2 text-center bg-emerald-50/5 text-slate-500 font-medium">{nn(gh.extra)}</td>
+                        <td className="px-2 text-center bg-emerald-50/5 text-slate-500 font-medium">{nn(gh.indiv)}</td>
+                        <td className="px-2 text-center bg-emerald-50/5 text-slate-500 font-medium">{nn(gh.home)}</td>
+                        <td className="px-2 text-center bg-emerald-50/5 text-slate-500 font-medium">{nn(gh.special)}</td>
+                        <td className="px-2 text-center bg-emerald-50/5 text-slate-500 font-medium">{nn(gh.club)}</td>
                         <td className="px-3 text-center font-bold text-slate-700 bg-slate-50 tabular-nums">{gh.total.toFixed(1)}</td>
                       </tr>
                     );
@@ -307,5 +269,6 @@ export function CurriculumYigimTab({
         )}
       </div>
     </div>
+  </div>
   );
 }

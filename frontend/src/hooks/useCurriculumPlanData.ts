@@ -7,7 +7,7 @@ import { academicYearService } from '@/services/academicYears';
 import { schoolAdminService, SchoolTeacher } from '@/services/schoolAdmin';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  BASE_DATA, SPLIT_KEYS, SUBJECT_IDS,
+  BASE_DATA, SPLIT_KEYS, SUBJECT_IDS, SPLIT_SUBJECTS,
 } from '@/components/curriculum/curriculumConstants';
 import { GradeUpdateData } from '@/services/grades';
 
@@ -19,6 +19,7 @@ export interface GradeHours {
   special: number;
   club: number;
   split: number;
+  splitBySubject: Record<string, number>;
   total: number;
 }
 
@@ -93,37 +94,46 @@ export function calculateGradeHours(grade: Grade): GradeHours {
     return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== SUBJECT_IDS.CLUB && !!i.is_teaching_activity;
   }).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
 
-  const plan = grade.curriculum_hours != null ? Number(grade.curriculum_hours) : basePlan;
+  const plan = basePlan;
 
   const g = grade as any;
 
   const baseExtra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB)
     .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-  const extra = g.extra_hours != null ? Number(g.extra_hours) : baseExtra;
+  const extra = baseExtra;
 
   const baseIndiv = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi')
     .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-  const indiv = g.individual_hours != null ? Number(g.individual_hours) : baseIndiv;
+  const indiv = baseIndiv;
 
   const baseHome = gs.filter(i => i.education_type?.toLowerCase() === 'evde')
     .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-  const home = g.home_hours != null ? Number(g.home_hours) : baseHome;
+  const home = baseHome;
 
   const baseSpecial = gs.filter(i => i.education_type?.toLowerCase() === 'xususi')
     .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-  const special = g.special_hours != null ? Number(g.special_hours) : baseSpecial;
+  const special = baseSpecial;
 
   const baseClub = gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB)
     .reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
-  const club = g.club_hours != null ? Number(g.club_hours) : baseClub;
+  const club = baseClub;
 
-  let split = 0;
-  SPLIT_KEYS.forEach(k => {
-    split += grade[k] != null ? Number(grade[k]) : 0;
+  const splitBySubject: Record<string, number> = {};
+  SPLIT_SUBJECTS.forEach(s => {
+    const matchingSubjects = gs.filter(item => 
+      s.matchers.some(m => item.subject_name?.toLowerCase().includes(m)) && 
+      (Number(item.group_count) || 1) > 1
+    );
+    const splitHours = matchingSubjects.reduce((sum, item) => 
+      sum + (Number(item.weekly_hours) || 0) * ((Number(item.group_count) || 1) - 1), 0
+    );
+    splitBySubject[s.key] = splitHours;
   });
 
+  const split = Object.values(splitBySubject).reduce((a, b) => a + b, 0);
+
   return {
-    plan, extra, indiv, home, special, club, split,
+    plan, extra, indiv, home, special, club, split, splitBySubject,
     total: plan + split + extra + indiv + home + special + club,
   };
 }
@@ -335,7 +345,7 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
         splitTotal += gh.split;
 
         SPLIT_KEYS.forEach(k => {
-          splitBySubject[k] += g[k] != null ? Number(g[k]) : 0;
+          splitBySubject[k] += gh.splitBySubject?.[k] || 0;
         });
       });
 

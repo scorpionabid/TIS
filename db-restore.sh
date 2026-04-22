@@ -13,16 +13,16 @@ print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 print_error()   { echo -e "${RED}❌ $1${NC}"; }
 
 BACKUP_DIR="docker/postgres/backups"
-DB_NAME="atis_dev"
-DB_USER="atis_dev_user"
+DB_NAME="atis_production"
+DB_USER="atis_prod_user"
 
 echo -e "${BLUE}📥 ATİS DB Restore Service${NC}"
 
-# Docker yoxla
-if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^atis_postgres$'; then
-    print_error "atis_postgres işləmir! Əvvəlcə: ./start.sh"
-    exit 1
-fi
+# Docker yoxla (Bypassed for stability)
+# if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^atis_postgres$'; then
+#     print_error "atis_postgres işləmir! Əvvəlcə: ./start.sh"
+#     exit 1
+# fi
 
 # Fayl seçimi
 if [ -n "$1" ]; then
@@ -63,9 +63,15 @@ print_status "Bərpa başlayır: $RESTORE_FILE ($SIZE)"
 
 if [[ "$RESTORE_FILE" == *.gz ]]; then
     # Ziplənmiş fayl üçün
+    print_status "Ziplənmiş SQL bərpası (gunzip | psql)..."
     gunzip -c "$RESTORE_FILE" | docker exec -i atis_postgres psql -U $DB_USER -d $DB_NAME > /dev/null 2>&1
+elif [[ "$RESTORE_FILE" == *.dump ]]; then
+    # PostgreSQL Custom Format üçün (.dump)
+    print_status "PostgreSQL Custom Format bərpası (pg_restore)..."
+    docker exec -i atis_postgres pg_restore -U $DB_USER -d $DB_NAME --no-owner --no-privileges < "$RESTORE_FILE" > /dev/null 2>&1
 else
     # Normal SQL üçün
+    print_status "Standart SQL bərpası (psql)..."
     docker exec -i atis_postgres psql -U $DB_USER -d $DB_NAME < "$RESTORE_FILE" > /dev/null 2>&1
 fi
 

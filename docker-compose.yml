@@ -7,25 +7,26 @@ services:
     container_name: atis_backend
     restart: unless-stopped
     environment:
-      - APP_ENV=production
-      - APP_DEBUG=false
+      - APP_ENV=local
+      - APP_DEBUG=true
       - APP_KEY=base64:IcNxbQiy6sWLjfrgaSlGkm4S2utYBz+DXj4u/Rt7g0k=
-      - APP_URL=https://atis.sim.edu.az
+      - APP_URL=http://localhost:8000
       - DB_CONNECTION=pgsql
       - DB_HOST=atis_postgres
       - DB_PORT=5432
       - DB_DATABASE=atis_production
       - DB_USERNAME=atis_prod_user
       - DB_PASSWORD=Pqan1xlUez1lRskN8X1koC2JS
-      - CACHE_STORE=redis
+      - CACHE_STORE=file
+      - SESSION_DRIVER=file
       - REDIS_CLIENT=phpredis
       - REDIS_HOST=redis
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - SANCTUM_STATEFUL_DOMAINS=https://atis.sim.edu.az,localhost:3000,127.0.0.1:3000
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://atis.sim.edu.az
-      - SESSION_DOMAIN=localhost
+      - SANCTUM_STATEFUL_DOMAINS=localhost:3000,127.0.0.1:3000,localhost:8000
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - SESSION_DOMAIN=null
       - SESSION_SECURE_COOKIE=false
       - SESSION_SAME_SITE=lax
       - BROADCAST_CONNECTION=reverb
@@ -42,6 +43,7 @@ services:
       - "8000:8000"
       - "8080:8080"
     volumes:
+      - ./backend/.env:/var/www/html/.env
       - ./backend/database:/var/www/html/database
       - ./backend/storage:/var/www/html/storage
       - ./backend/app:/var/www/html/app

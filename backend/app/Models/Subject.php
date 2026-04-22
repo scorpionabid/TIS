@@ -252,6 +252,11 @@ class Subject extends Model
             'physical',
             'technical',
             'elective',
+            'lesson',
+            'extracurricular',
+            'club',
+            'vocational',
+            'extra',
         ];
     }
 
