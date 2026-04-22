@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse, SchoolGradeStatsResponse, RankingsResponse } from '@/services/regionalAttendance';
@@ -38,6 +38,17 @@ export function useRegionalAttendanceData() {
     direction: 'asc',
   });
   const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'gradeLevel' | 'schoolGrade' | 'missingReports' | 'rankings'>('overview');
+  const tabInitialized = useRef(false);
+
+  useEffect(() => {
+    if (currentUser && !tabInitialized.current) {
+      tabInitialized.current = true;
+      if (currentUser.role === USER_ROLES.REGIONADMIN) {
+        setActiveTab('classes');
+      }
+    }
+  }, [currentUser]);
+
   const [selectedEducationProgram, setSelectedEducationProgram] = useState<string>('all');
   const [selectedShiftType, setSelectedShiftType] = useState<'morning' | 'evening' | 'all'>('all');
   const [pendingRefresh, setPendingRefresh] = useState(false);
