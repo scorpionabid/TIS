@@ -103,3 +103,17 @@ Institutions: Ministry → Regional Office → Sector → School/Preschool
 
 - Frontend: http://localhost:3000 · API: http://localhost:8000/api
 - SuperAdmin: `superadmin / admin123` · RegionAdmin: `regionadmin1 / admin123`
+
+Add a new ## Git & Commits section near the top of CLAUDE.md\n\n## Git & Commits
+- Always check both root and backend/subdirectory .gitignore files before committing new config files (e.g., .env.testing)
+- Before creating pre-commit hooks, test regex patterns against common commit message content like 'php artisan serve' to avoid false positives
+- After completing a task, commit AND push to remote unless told otherwise
+Add as a new ## Access Control & Permissions section\n\n## Access Control & Permissions
+- When modifying role-based features, always check: (1) backend route role guards, (2) frontend hasAccess/permission checks, (3) role-specific hooks (e.g., isRegionAdmin), (4) navigation visibility
+- Run through all four permission layers before declaring a role-based task complete
+Add as a new ## Execution Style section\n\n## Execution Style
+- When user presents suggestions/improvements in a plan, treat them as items to execute NOW unless explicitly marked as 'future' or 'optional'
+- Before refactoring or removing existing UI elements, use git log/blame to confirm they weren't intentionally added in a recent commit
+Add as a ## Tech Stack section near the top\n\n## Tech Stack
+- Primary language: TypeScript (with Python/PHP backend). Always run `tsc` and lint before committing.
+- Project uses Laravel backend with PHPUnit tests and React/Next.js frontend
