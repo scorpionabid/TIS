@@ -14,6 +14,12 @@ class LinkStudentsToGrades extends Command
 
     protected $description = 'class_name/grade_level məlumatına görə şagirdləri grades cədvəlinə bağla, sonra sinif saylarını yenilə';
 
+    // Azərbaycanca hərfləri normallaşdıran SQL ifadəsi (PostgreSQL LOWER() ə/Ə, ç/Ç-ni dəstəkləmir)
+    private const NORM_SQL = "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        %s,
+        'Ə', 'e'), 'ə', 'e'), 'Ç', 'c'), 'ç', 'c'),
+        'Ğ', 'g'), 'ğ', 'g'), 'Ş', 's'), 'ş', 's'))";
+
     public function handle(): int
     {
         $dryRun      = $this->option('dry-run');
@@ -24,16 +30,19 @@ class LinkStudentsToGrades extends Command
             $this->warn('[DRY-RUN] Heç bir dəyişiklik yazılmayacaq.');
         }
 
-        // ── 1. Uyğunlaşdırıla bilən şagirdləri say ─────────────────────────
         $instFilter = $institution ? "AND s.institution_id = {$institution}" : '';
 
+        $normGrade   = sprintf(self::NORM_SQL, 'g.name');
+        $normStudent = sprintf(self::NORM_SQL, 's.class_name');
+
+        // ── 1. Uyğunlaşdırıla bilən şagirdləri say ─────────────────────────
         $preview = DB::selectOne("
             SELECT COUNT(DISTINCT s.id) AS cnt
             FROM students s
             JOIN grades g
                 ON  g.institution_id    = s.institution_id
                 AND g.class_level::text = s.grade_level::text
-                AND LOWER(g.name)       = LOWER(s.class_name)
+                AND {$normGrade}        = {$normStudent}
                 AND g.is_active         = true
             WHERE s.grade_id IS NULL
               AND s.is_active  = true
@@ -51,7 +60,7 @@ class LinkStudentsToGrades extends Command
         }
 
         if ($dryRun) {
-            $this->showPreview($instFilter);
+            $this->showPreview($instFilter, $normGrade, $normStudent);
             return 0;
         }
 
@@ -69,7 +78,7 @@ class LinkStudentsToGrades extends Command
                 JOIN grades g
                     ON  g.institution_id    = s.institution_id
                     AND g.class_level::text = s.grade_level::text
-                    AND LOWER(g.name)       = LOWER(s.class_name)
+                    AND {$normGrade}        = {$normStudent}
                     AND g.is_active         = true
                 WHERE s.grade_id IS NULL
                   AND s.is_active  = true
@@ -81,7 +90,6 @@ class LinkStudentsToGrades extends Command
 
             if (empty($rows)) break;
 
-            // Group by grade_id for a single UPDATE per grade batch
             $byGrade = [];
             foreach ($rows as $row) {
                 $byGrade[$row->grade_id][] = $row->student_id;
@@ -111,10 +119,9 @@ class LinkStudentsToGrades extends Command
         // ── 3. Sinif say sütunlarını yenilə ───────────────────────────────
         $this->info('Sinif sayları yenilənir...');
 
-        $gradeFilter = $institution
-            ? "WHERE institution_id = {$institution}"
-            : '';
+        $gradeInstFilter = $institution ? "AND institution_id = {$institution}" : '';
 
+        // Update counts for grades that have linked students
         DB::statement("
             UPDATE grades g
             SET
@@ -134,17 +141,24 @@ class LinkStudentsToGrades extends Command
                 GROUP BY grade_id
             ) sub
             WHERE g.id = sub.grade_id
-            " . ($institution ? "AND g.institution_id = {$institution}" : '') . "
+            {$gradeInstFilter}
         ");
 
-        // Sıfır şagirdli sinifləri də sıfırla (keçmiş manual dəyərlər qalmasın)
+        // Only zero grades that have NO students at that institution+grade_level at all
+        // (do not zero grades where students exist but couldn't be matched by class_name)
         DB::statement("
-            UPDATE grades
+            UPDATE grades g
             SET student_count = 0, male_student_count = 0, female_student_count = 0, updated_at = NOW()
-            WHERE id NOT IN (
+            WHERE g.id NOT IN (
                 SELECT DISTINCT grade_id FROM students WHERE is_active = true AND grade_id IS NOT NULL
             )
-            " . ($institution ? "AND institution_id = {$institution}" : '') . "
+            AND NOT EXISTS (
+                SELECT 1 FROM students s
+                WHERE s.institution_id  = g.institution_id
+                  AND s.grade_level::text = g.class_level::text
+                  AND s.is_active       = true
+            )
+            {$gradeInstFilter}
         ");
 
         $this->info('Sinif sayları yeniləndi.');
@@ -167,7 +181,7 @@ class LinkStudentsToGrades extends Command
         return 0;
     }
 
-    private function showPreview(string $instFilter): void
+    private function showPreview(string $instFilter, string $normGrade, string $normStudent): void
     {
         $rows = DB::select("
             SELECT
@@ -179,7 +193,7 @@ class LinkStudentsToGrades extends Command
             JOIN grades g
                 ON  g.institution_id    = s.institution_id
                 AND g.class_level::text = s.grade_level::text
-                AND LOWER(g.name)       = LOWER(s.class_name)
+                AND {$normGrade}        = {$normStudent}
                 AND g.is_active         = true
             JOIN institutions i ON i.id = s.institution_id
             WHERE s.grade_id IS NULL
