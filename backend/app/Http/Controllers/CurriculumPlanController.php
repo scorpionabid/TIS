@@ -77,7 +77,7 @@ class CurriculumPlanController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-            ], 403);
+            ], 500);
         }
     }
 
@@ -246,10 +246,15 @@ class CurriculumPlanController extends Controller
         } catch (\Exception $e) {
             Log::warning("Region settings fetch failed for User ID: {$user->id}: " . $e->getMessage());
 
+            // Return safe defaults instead of 422 to prevent blocking SektorAdmins
+            // who cannot find their region settings but should still be able to work.
             return response()->json([
-                'status' => 'error',
-                'message' => 'Bu müəssisə üçün region tənzimləmələri tapılmadı.',
-            ], 422);
+                'status' => 'success',
+                'deadline' => null,
+                'is_locked' => false,
+                'can_sektor_edit' => true,
+                'can_operator_edit' => true,
+            ]);
         }
     }
 

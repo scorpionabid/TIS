@@ -22,6 +22,7 @@ interface GradeDetailsDialogWithTabsProps {
   onClose: () => void;
   onUpdate?: () => void;
   categoryLimits?: Record<number, any>;
+  isLocked?: boolean;
 }
 
 export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProps> = ({
@@ -29,6 +30,7 @@ export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProp
   onClose,
   onUpdate,
   categoryLimits,
+  isLocked = false,
 }) => {
   return (
     <Sheet open onOpenChange={onClose}>
@@ -49,6 +51,7 @@ export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProp
             gradeName={grade.display_name || grade.full_name}
             onUpdate={onUpdate}
             categoryLimits={categoryLimits}
+            isLocked={isLocked}
           />
         </div>
       </SheetContent>

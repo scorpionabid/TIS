@@ -123,12 +123,9 @@ class InstitutionCRUDController extends Controller
                             ->where('subject_id', $clubId),
                     ]);
 
-                // To avoid Cardinality Violation errors from nested subqueries selecting from grades table,
-                // we attach these raw calculations directly to the parent query builder.
-                // Using addSelect('institutions.*') first ensures we don't drop the base table columns,
-                // and addSelect prevents overwriting the previous addSelect[] array elements from above.
-                $query->addSelect('institutions.*')
-                    ->selectRaw("(
+                // Vacancy raw subqueries chained directly — no duplicate 'institutions.*' select
+                // (the prior addSelect(['institutions.*']) at L99 already covers the base columns)
+                $query->selectRaw("(
                     (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans
                     WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id <> {$clubId})
                     -

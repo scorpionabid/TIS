@@ -50,6 +50,7 @@ export default function CurriculumPlan() {
     isLocked, isSaving, isProcessingApproval,
     handleWorkflowAction, handleUpdateGrade,
     teachers, loadingTeachers,
+    detailedWorkload, loadingDetailedWorkload,
     reactiveGrades, loadingGrades, activeLevels, levelTotals, grandTotal,
     mpStats, vacantStats, vacantTotal, categoryLimits,
     masterPlan, assignedHours,
@@ -256,7 +257,13 @@ export default function CurriculumPlan() {
 
                 {/* Class-Subject Detailed Tab */}
                 {activeTab === 'class_subject' && (
-                  <TeacherWorkloadDetailTable institutionId={institutionId} academicYearId={academicYearId} />
+                  <TeacherWorkloadDetailTable 
+                    institutionId={institutionId} 
+                    academicYearId={academicYearId} 
+                    data={detailedWorkload}
+                    loading={loadingDetailedWorkload}
+                    teachers={teachers}
+                  />
                 )}
 
                 {/* Instructions Tab */}

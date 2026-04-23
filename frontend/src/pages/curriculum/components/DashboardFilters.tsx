@@ -1,5 +1,4 @@
-import React from 'react';
-import { Search, Filter, CheckCircle2, X } from 'lucide-react';
+import { Search, Filter, CheckCircle2, X, Download, Loader2 } from 'lucide-react';
 import { 
   Select, 
   SelectContent, 
@@ -19,6 +18,8 @@ interface DashboardFiltersProps {
   sectors: any[];
   isRegionAdmin: boolean;
   resultCount: number;
+  onExport: () => void;
+  isExporting: boolean;
 }
 
 export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
@@ -30,7 +31,9 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
   setStatusFilter,
   sectors,
   isRegionAdmin,
-  resultCount
+  resultCount,
+  onExport,
+  isExporting
 }) => {
   const hasActiveFilters = search || sectorFilter !== 'all' || statusFilter !== 'all';
 
@@ -100,7 +103,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
           </SelectContent>
         </Select>
 
-        {/* Clear + Count */}
+        {/* Clear + Count + Export */}
         <div className="flex items-center gap-2 ml-auto">
           {hasActiveFilters && (
             <button
@@ -110,6 +113,20 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
               <X size={12} /> Təmizlə
             </button>
           )}
+
+          <button
+            onClick={onExport}
+            disabled={isExporting || resultCount === 0}
+            className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm shadow-emerald-200 active:scale-95"
+          >
+            {isExporting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Download size={13} />
+            )}
+            Excel İxrac
+          </button>
+
           <div className={cn(
             'h-9 px-3 rounded-lg flex items-center text-xs font-semibold border',
             resultCount === 0

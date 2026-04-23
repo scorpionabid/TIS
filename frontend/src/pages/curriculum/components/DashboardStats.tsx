@@ -13,6 +13,7 @@ interface DashboardStatsProps {
   schools: any[];
   onStatClick?: (statId: string) => void;
   activeStat?: string | null;
+  isLoading?: boolean;
 }
 
 const safeNum = (val: any): number => {
@@ -23,8 +24,28 @@ const safeNum = (val: any): number => {
 export const DashboardStats: React.FC<DashboardStatsProps> = ({ 
   schools = [], 
   onStatClick,
-  activeStat 
+  activeStat,
+  isLoading
 }) => {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="h-32 bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <div className="space-y-2">
+                <div className="h-2 w-16 bg-slate-100 rounded animate-pulse" />
+                <div className="h-8 w-24 bg-slate-100 rounded animate-pulse" />
+              </div>
+              <div className="h-8 w-8 bg-slate-100 rounded-lg animate-pulse" />
+            </div>
+            <div className="h-2 w-full bg-slate-50 rounded animate-pulse mt-auto" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const safeSchools = Array.isArray(schools) ? schools : [];
 
   const activeSchools = safeSchools.filter(s => {
@@ -36,6 +57,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
   const approvedCount = activeSchools.filter(s => (s.curriculum_status || 'draft') === 'approved').length;
   const submittedCount = activeSchools.filter(s => (s.curriculum_status || 'draft') === 'submitted').length;
   const totalCount = activeSchools.length;
+  const absoluteTotalCount = safeSchools.length;
 
   const mainHoursTotal = activeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_main_hours), 0);
   const clubHoursTotal = activeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_club_hours), 0);
@@ -46,14 +68,23 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
   const totalVacSum = mainVacTotal + clubVacTotal;
 
   // Completion rate (approved / total)
-  const completionPct = totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
+  const completionPct = absoluteTotalCount > 0 ? Math.round((approvedCount / absoluteTotalCount) * 100) : 0;
 
   const stats = [
     {
       id: 'approved',
       label: 'Tamamlanma',
-      value: `${approvedCount} / ${totalCount}`,
-      sub: totalCount > 0 ? `${completionPct}% təsdiqlənib` : 'Aktiv plan yoxdur',
+      value: `${approvedCount} / ${totalCount} / ${absoluteTotalCount}`,
+      customContent: (
+        <div className="flex items-end gap-2 mb-1">
+           <span className="text-3xl font-black text-emerald-600 leading-none">{approvedCount}</span>
+           <span className="text-sm font-semibold text-emerald-700/60 leading-none pb-0.5">/ {absoluteTotalCount}</span>
+           <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full ml-auto">
+             {completionPct}%
+           </span>
+        </div>
+      ),
+      sub: totalCount > 0 ? `${totalCount} məktəb aktiv işləyir` : 'Aktiv plan yoxdur',
       icon: CheckCircle2,
       progressPct: completionPct,
       progressColor: 'bg-emerald-400',
@@ -67,7 +98,13 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
     {
       id: 'submitted',
       label: 'Gözləmədə',
-      value: submittedCount,
+      value: submittedCount, // kept for compatibility if needed
+      customContent: (
+        <div className="flex items-end gap-2 mb-1">
+           <span className="text-3xl font-black text-blue-600 leading-none">{submittedCount}</span>
+           <span className="text-sm font-semibold text-blue-700/60 leading-none pb-0.5">/ {absoluteTotalCount}</span>
+        </div>
+      ),
       sub: submittedCount > 0 ? 'Sektor təsdiqi gözlənir' : 'Gözləyən plan yoxdur',
       icon: Clock,
       progressPct: totalCount > 0 ? Math.round((submittedCount / totalCount) * 100) : 0,
@@ -83,6 +120,12 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
       id: 'total',
       label: 'Plan Saatları',
       value: totalHoursSum.toFixed(1),
+      customContent: (
+        <div className="flex items-end gap-2 mb-1">
+           <span className="text-3xl font-black text-violet-600 leading-none">{totalHoursSum.toFixed(1)}</span>
+           <span className="text-sm font-semibold text-violet-700/60 leading-none pb-0.5">saat</span>
+        </div>
+      ),
       sub: clubHoursTotal > 0 ? `Daxildir: ${clubHoursTotal.toFixed(1)} dərnək · ${totalCount} məktəb` : `${totalCount} məktəb üzrə`,
       subHighlight: clubHoursTotal > 0,
       icon: BookOpen,
@@ -99,7 +142,13 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
       id: 'vacancies',
       label: 'Vakansiya',
       value: mainVacTotal.toFixed(1),
-      sub: clubVacTotal > 0 ? `+ ${clubVacTotal.toFixed(1)} dərnək · ${totalCount} məktəb` : `${totalCount} məktəb üzrə`,
+      customContent: (
+        <div className="flex items-end gap-2 mb-1">
+           <span className="text-3xl font-black text-rose-600 leading-none">{(mainVacTotal + clubVacTotal).toFixed(1)}</span>
+           <span className="text-sm font-semibold text-rose-700/60 leading-none pb-0.5">vakant</span>
+        </div>
+      ),
+      sub: clubVacTotal > 0 ? `Daxildir: ${clubVacTotal.toFixed(1)} dərnək · ${totalCount} məktəb` : `${totalCount} məktəb üzrə`,
       subHighlight: clubVacTotal > 0,
       icon: AlertCircle,
       progressPct: null,
@@ -134,9 +183,13 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
                 <p className={cn('text-[11px] font-semibold uppercase tracking-wider mb-1', stat.labelColor)}>
                   {stat.label}
                 </p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums leading-none">
-                  {stat.value}
-                </p>
+                {(stat as any).customContent ? (
+                  (stat as any).customContent
+                ) : (
+                  <p className="text-2xl font-bold text-slate-900 tabular-nums leading-none">
+                    {stat.value}
+                  </p>
+                )}
               </div>
               <div className={cn('p-2 rounded-lg shrink-0', stat.iconBg)}>
                 <Icon size={16} className="text-white" />

@@ -97,14 +97,11 @@ class GradeSubjectController extends Controller
             ->pluck('subject_id')
             ->toArray();
 
-        // Yalnız curriculum_plans-da (Fənn və Vakansiyalar) bu sinif səviyyəsi üçün
-        // saatları qeyd edilmiş fənlər göstərilsin.
-        // Əgər həmin təhsil növü üçün heç bir plan yoxdursa (məs. ferdi/evde/xususi),
-        // filter tətbiq edilmir — bütün aktiv fənlər göstərilir.
-        $hasPlanForType = \DB::table('curriculum_plans')
+        // Yalnız curriculum_plans-da (Fənn və Vakansiyalar) bu müəssisə/tədris ili üzrə 
+        // ümumiyyətlə hər hansı bir saat təyin edilibmi?
+        $hasGlobalPlanForType = \DB::table('curriculum_plans')
             ->where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
-            ->where('class_level', $grade->class_level)
             ->where('hours', '>', 0)
             ->where(function ($q) use ($educationType) {
                 $q->where('education_type', $educationType);
@@ -116,7 +113,9 @@ class GradeSubjectController extends Controller
 
         $subjectQuery = Subject::active()->forClassLevel($grade->class_level);
 
-        if ($hasPlanForType) {
+        // Əgər plan istifadə olunursa (məktəb artıq fənləri və saatları Master Planda müəyyən edibsə),
+        // o zaman yalnız Master Planda qeyd edilmiş və saatı 0-dan böyük olan fənləri göstər.
+        if ($hasGlobalPlanForType) {
             $subjectQuery->whereExists(function ($q) use ($grade, $educationType) {
                 $q->select(\DB::raw(1))
                     ->from('curriculum_plans')
@@ -209,12 +208,37 @@ class GradeSubjectController extends Controller
         }
 
         // Check against Curriculum Plan (Master Plan) - Pool-based check (All classes in same level)
+        $hasGlobalPlanForType = \DB::table('curriculum_plans')
+            ->where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('hours', '>', 0)
+            ->where(function ($q) use ($validated) {
+                $q->where('education_type', $validated['education_type']);
+                if ($validated['education_type'] === 'umumi') {
+                    $q->orWhereNull('education_type');
+                }
+            })
+            ->exists();
+
         $plan = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
             ->where('subject_id', $validated['subject_id'])
-            ->where('education_type', $validated['education_type'])
+            ->where(function ($q) use ($validated) {
+                $q->where('education_type', $validated['education_type']);
+                if ($validated['education_type'] === 'umumi') {
+                    $q->orWhereNull('education_type');
+                }
+            })
             ->first();
+
+        // Əgər həmin təhsil növü üçün plan varsa, lakin fənn üçün saat daxil edilməyibsə block et
+        if ($hasGlobalPlanForType && (! $plan || $plan->hours <= 0)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu fənn üçün Tədris Planında (Fənn və Vakansiyalar) bu sinif səviyyəsi üzrə saat daxil edilməyib.',
+            ], 422);
+        }
 
         if ($plan) {
             $totalUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
@@ -362,12 +386,37 @@ class GradeSubjectController extends Controller
         }
 
         // Check against Curriculum Plan (Master Plan) - Pool-based check (All classes in same level)
+        $hasGlobalPlanForType = \DB::table('curriculum_plans')
+            ->where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('hours', '>', 0)
+            ->where(function ($q) use ($validated) {
+                $q->where('education_type', $validated['education_type']);
+                if ($validated['education_type'] === 'umumi') {
+                    $q->orWhereNull('education_type');
+                }
+            })
+            ->exists();
+
         $plan = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
             ->where('subject_id', $gradeSubject->subject_id)
-            ->where('education_type', $validated['education_type'])
+            ->where(function ($q) use ($validated) {
+                $q->where('education_type', $validated['education_type']);
+                if ($validated['education_type'] === 'umumi') {
+                    $q->orWhereNull('education_type');
+                }
+            })
             ->first();
+
+        // Əgər həmin təhsil növü üçün plan varsa, lakin fənn üçün saat daxil edilməyibsə block et
+        if ($hasGlobalPlanForType && (! $plan || $plan->hours <= 0)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu fənn üçün Tədris Planında (Fənn və Vakansiyalar) bu sinif səviyyəsi üzrə saat daxil edilməyib.',
+            ], 422);
+        }
 
         if ($plan) {
             $totalUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {

@@ -33,9 +33,20 @@ class TeachingLoadApiController extends Controller
             ])
             ->orderBy('users.username');
 
-        // If user has institution_id, filter by it. Administrative roles see all schools.
-        if ($institutionId !== null && ! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'regionoperator'])) {
-            $query->where('classes.institution_id', $institutionId);
+        // Use institution_id from request if provided, otherwise fallback to user's assigned institution
+        $targetInstitutionId = $request->get('institution_id') ?: $institutionId;
+
+        // Apply institutional filter ONLY if we have a target institution and use DataIsolationHelper for access check
+        if ($targetInstitutionId !== null) {
+            // Robust access check using DataIsolationHelper
+            if (! \App\Helpers\DataIsolationHelper::canAccessInstitution($user, (int) $targetInstitutionId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu müəssisəyə giriş icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $query->where('classes.institution_id', $targetInstitutionId);
         }
 
         $teachingLoads = $query->get();
@@ -291,7 +302,12 @@ class TeachingLoadApiController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
-        $deleted = DB::table('teaching_loads')->where('id', $id)->delete();
+        // Use soft delete to preserve audit trail and stay consistent
+        // with whereNull('teaching_loads.deleted_at') filters throughout the controller.
+        $deleted = DB::table('teaching_loads')
+            ->where('id', $id)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now()]);
 
         if (! $deleted) {
             return response()->json([
@@ -364,6 +380,16 @@ class TeachingLoadApiController extends Controller
 
     public function getByInstitution(string $institutionId): JsonResponse
     {
+        $user = request()->user();
+
+        // Data isolation: Verify user has access to this institution
+        if (! \App\Helpers\DataIsolationHelper::canAccessInstitution($user, (int) $institutionId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu müəssisəyə giriş icazəniz yoxdur.',
+            ], 403);
+        }
+
         $academicYearId = request()->query('academic_year_id');
 
         $teachingLoads = DB::table('teaching_loads')

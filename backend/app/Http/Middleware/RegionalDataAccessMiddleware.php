@@ -27,6 +27,16 @@ class RegionalDataAccessMiddleware
         ]);
 
         $user = $request->user();
+        
+        if (config('app.debug')) {
+            \Log::info('🔍 RegionalDataAccessMiddleware - ENTRY', [
+                'path' => $request->path(),
+                'method' => $request->method(),
+                'user_id' => $user?->id,
+                'resource_type' => $resourceType,
+                'institution_id' => $request->input('institution_id') ?: $request->route('institution') ?: 'none',
+            ]);
+        }
 
         if (! $user) {
             Log::warning('❌ RegionalDataAccessMiddleware - No authenticated user', [
@@ -241,10 +251,24 @@ class RegionalDataAccessMiddleware
         // Get all descendant institutions under this sector (recursive)
         $allowedInstitutions = $userInstitution->getAllChildrenIds();
 
+        if (config('app.debug')) {
+            \Log::debug('🔍 [RegionalAccess] SektorAdmin validation', [
+                'user_id' => $user->id,
+                'user_sector_id' => $userInstitution->id,
+                'allowed_count' => count($allowedInstitutions),
+                'requested_id' => $this->getInstitutionIdFromRequest($request),
+            ]);
+        }
+
         // Check if requested resource is within sector scope
         if ($this->hasInstitutionIdInRequest($request)) {
             $requestedInstitutionId = $this->getInstitutionIdFromRequest($request);
             if (! in_array($requestedInstitutionId, $allowedInstitutions)) {
+                \Log::warning('❌ [RegionalAccess] Access DENIED for SektorAdmin', [
+                    'user_id' => $user->id,
+                    'requested_id' => $requestedInstitutionId,
+                    'allowed_sample' => array_slice($allowedInstitutions, 0, 10),
+                ]);
                 return [
                     'allowed' => false,
                     'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur',

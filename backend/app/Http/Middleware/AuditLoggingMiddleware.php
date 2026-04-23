@@ -309,8 +309,8 @@ class AuditLoggingMiddleware
                 'ip_address' => $auditData['ip_address'] ?? null,
                 'user_agent' => $auditData['user_agent'] ?? null,
                 'institution_id' => $context['institution_id'] ?? null,
-                'new_values' => $auditData['request_data'] ?? null,
-                'old_values' => null, // Generic middleware doesn't easily capture old state
+                'new_values' => $auditData['request_data'] ?? [],
+                'old_values' => [], // Generic middleware doesn't easily capture old state
                 'tags' => isset($context['user_role']) ? [$context['user_role']] : [],
             ]);
 

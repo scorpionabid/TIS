@@ -33,6 +33,9 @@ export interface TeachingLoadDetailRow {
 interface Props {
   institutionId: number | undefined;
   academicYearId?: number;
+  data?: TeachingLoadDetailRow[];
+  loading?: boolean;
+  teachers?: any[];
 }
 
 const positionLabels: Record<string, string> = {
@@ -50,8 +53,14 @@ const positionLabels: Record<string, string> = {
   'təsərrüfat_işçisi': 'Təsərrüfat İşçisi',
 };
 
-export const TeacherWorkloadDetailTable: React.FC<Props> = ({ institutionId, academicYearId }) => {
-  const { data, isLoading, isError } = useQuery({
+export const TeacherWorkloadDetailTable: React.FC<Props> = ({ 
+  institutionId, 
+  academicYearId,
+  data: propsData,
+  loading: propsLoading,
+  teachers: propsTeachers
+}) => {
+  const { data: queryData, isLoading: queryLoading, isError } = useQuery({
     queryKey: ['teaching-loads-detail', institutionId, academicYearId],
     queryFn: async () => {
       if (!institutionId) return [];
@@ -61,10 +70,13 @@ export const TeacherWorkloadDetailTable: React.FC<Props> = ({ institutionId, aca
       );
       return (response as any)?.data ?? [];
     },
-    enabled: !!institutionId,
+    enabled: !!institutionId && !propsData,
     staleTime: 1000 * 60 * 2,
     placeholderData: (prev) => prev,
   });
+
+  const data = propsData || queryData;
+  const isLoading = propsLoading ?? queryLoading;
 
   const { currentUser } = useAuth();
   const { data: activeYear } = useQuery({
@@ -73,12 +85,14 @@ export const TeacherWorkloadDetailTable: React.FC<Props> = ({ institutionId, aca
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: teachers = [] } = useQuery({
+  const { data: queryTeachers = [] } = useQuery({
     queryKey: ['teachers', 'director-check-detail', institutionId],
     queryFn: () => schoolAdminService.getTeachers({ institution_id: institutionId, per_page: 500 } as any),
-    enabled: !!institutionId,
+    enabled: !!institutionId && !propsTeachers,
     staleTime: 5 * 60 * 1000,
   });
+
+  const teachers = propsTeachers || queryTeachers;
 
   const [searchTerm, setSearchTerm] = React.useState('');
 

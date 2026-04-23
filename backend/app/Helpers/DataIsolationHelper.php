@@ -372,11 +372,19 @@ class DataIsolationHelper
             return collect($userSector->getAllChildrenIds());
         }
 
-        if ($user->hasAnyRole(['schooladmin', 'məktəbadmin', 'müəllim'])) {
-            return collect([$user->institution_id]);
+        $result = $user->hasAnyRole(['schooladmin', 'məktəbadmin', 'müəllim']) 
+            ? collect([$user->institution_id])
+            : collect([]);
+
+        if (config('app.debug')) {
+            \Log::debug('🛡️ [DataIsolation] Allowed IDs', [
+                'user_id' => $user->id,
+                'role' => $user->roles->first()->name ?? 'none',
+                'allowed_count' => isset($result) ? $result->count() : 0,
+            ]);
         }
 
-        return collect([]);
+        return $result;
     }
 
     /**

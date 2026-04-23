@@ -494,6 +494,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
           onUpdate={() => {
             queryClient.invalidateQueries({ queryKey: ['grades'] });
           }}
+          isLocked={isLocked}
         />
       )}
 

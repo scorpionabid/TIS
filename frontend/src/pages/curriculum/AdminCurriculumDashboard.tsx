@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { curriculumService } from '@/services/curriculumService';
 import { institutionService } from '@/services/institutions';
 import { academicYearService } from '@/services/academicYears';
@@ -9,7 +9,9 @@ import {
   Calendar, 
   Clock, 
   Settings as LucideSettingsIcon,
-  X as ClearIcon
+  X as ClearIcon,
+  TrendingUp,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { DashboardStats } from './components/DashboardStats';
 import { DashboardFilters } from './components/DashboardFilters';
 import { DashboardTable } from './components/DashboardTable';
+import { exportToExcelUniversal } from '@/utils/curriculumExport';
 
 /**
  * Admin Curriculum Dashboard
@@ -38,16 +41,109 @@ export default function AdminCurriculumDashboard() {
   // 1. Auth & Navigation Hooks (MUST be at the very top)
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // 2. Component Basic State
-  const [search, setSearch] = useState('');
-  const [sectorFilter, setSectorFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // 2. Component Basic State & URL State
+  const search = searchParams.get('search') || '';
+  const sectorFilter = searchParams.get('sector') || 'all';
+  const statusFilter = searchParams.get('status') || 'all';
+
+  const setSearch = (val: string) => {
+    setSearchParams(prev => {
+      if (val) prev.set('search', val);
+      else prev.delete('search');
+      return prev;
+    }, { replace: true });
+  };
+
+  const setSectorFilter = (val: string) => {
+    setSearchParams(prev => {
+      if (val && val !== 'all') prev.set('sector', val);
+      else prev.delete('sector');
+      return prev;
+    }, { replace: true });
+  };
+
+  const setStatusFilter = (val: string) => {
+    setSearchParams(prev => {
+      if (val && val !== 'all') prev.set('status', val);
+      else prev.delete('status');
+      return prev;
+    }, { replace: true });
+  };
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [deadlineState, setDeadlineState] = useState<string | null>(null);
   const [selectedStat, setSelectedStat] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // 6. Export Logic
+  const handleExport = async () => {
+    if (filteredSchools.length === 0 || isExporting) return;
+    
+    setIsExporting(true);
+    try {
+      const metadata = {
+        regionalName: currentUser?.region?.name || 'Regional Təhsil İdarəsi',
+        schoolName: 'Təhsil Müəssisələrinin Monitorinqi',
+        academicYear: activeYear?.name || '',
+        directorName: currentUser?.name || '',
+      };
+
+      const headers = [
+        ['№', 'Müəssisə', 'Sektor', 'UTİS Kodu', 'Status', 'Plan (Əsas)', 'Plan (Dərnək)', 'Plan (Cəmi)', 'Vakant (Əsas)', 'Vakant (Dərnək)', 'Vakant (Cəmi)']
+      ];
+
+      const data = filteredSchools.map((s, idx) => {
+        const sectorName = sectorsMap[s.parent_id] || s.parent?.name || s.sector?.name || '—';
+        const mainHours = parseFloat(s.curriculum_main_hours) || 0;
+        const clubHours = parseFloat(s.curriculum_club_hours) || 0;
+        const totalHours = mainHours + clubHours;
+        const mainVac = parseFloat(s.curriculum_main_vacancies) || 0;
+        const clubVac = parseFloat(s.curriculum_club_vacancies) || 0;
+        const totalVac = mainVac + clubVac;
+        
+        const statusMap: Record<string, string> = {
+          approved: 'Təsdiqlənib',
+          submitted: 'Gözləyir',
+          returned: 'Geri qaytarılıb',
+          draft: 'Qaralama'
+        };
+
+        return [
+          idx + 1,
+          s.name,
+          sectorName,
+          s.utis_code || '—',
+          statusMap[s.curriculum_status] || 'Qaralama',
+          mainHours,
+          clubHours,
+          totalHours,
+          mainVac,
+          clubVac,
+          totalVac
+        ];
+      });
+
+      await exportToExcelUniversal(
+        `Curriculum_Dashboard_Report_${format(new Date(), 'yyyy-MM-dd')}`,
+        'Məktəblər Üzrə Hesabat',
+        headers,
+        data,
+        metadata,
+        [5, 40, 25, 12, 15, 12, 12, 12, 12, 12, 12]
+      );
+
+      toast.success('Excel faylı uğurla yaradıldı');
+    } catch (e) {
+      console.error('Export failed', e);
+      toast.error('Excel ixracı zamanı xəta baş verdi');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Helper to extract schools array from any possible structure (paginated, nested, axios-wrapped, etc.)
   // Helper to extract schools array from any possible structure (paginated, nested, axios-wrapped, etc.)
@@ -130,7 +226,7 @@ export default function AdminCurriculumDashboard() {
   }, [sectors]);
 
   // 6. Data Fetching - Schools List
-  const { data: rawSchoolsPayload, isLoading: loadingSchools } = useQuery({
+  const { data: rawSchoolsPayload, isLoading: loadingSchools, isError: isErrorSchools } = useQuery({
     queryKey: ['curriculum-schools', userInstitutionId, userRole, activeYear?.id],
     queryFn: async () => {
       if (!activeYear?.id) return [];
@@ -291,6 +387,7 @@ export default function AdminCurriculumDashboard() {
         schools={filteredSchools} 
         onStatClick={(statId) => setSelectedStat(selectedStat === statId ? null : statId)}
         activeStat={selectedStat}
+        isLoading={loadingSchools}
       />
       
       {selectedStat && (
@@ -365,11 +462,14 @@ export default function AdminCurriculumDashboard() {
         sectors={sectors}
         isRegionAdmin={isRegionAdmin}
         resultCount={filteredSchools.length}
+        onExport={handleExport}
+        isExporting={isExporting}
       />
 
       <DashboardTable 
         schools={filteredSchools}
         isLoading={loadingSchools}
+        isError={isErrorSchools}
         isRegionAdmin={isRegionAdmin}
         isSektorAdmin={isSektorAdmin}
         sectorsMap={sectorsMap}

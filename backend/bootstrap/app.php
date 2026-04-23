@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Add ForceCors as global middleware
         $middleware->use([
             \App\Http\Middleware\ForceCors::class,
+            \App\Http\Middleware\DebugRequestLogger::class,
         ]);
 
         $middleware->alias([

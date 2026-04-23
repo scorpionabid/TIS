@@ -276,15 +276,15 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
 
     // Teacher management routes
     Route::get('teachers', [SchoolTeacherController::class, 'index']);
-    Route::get('test', function () {
-        return response()->json([
-            'success' => true,
-            'message' => 'SchoolAdmin endpoint işləyir',
-            'timestamp' => now()->toISOString(),
-            'user' => auth()->user() ? auth()->user()->username : 'not authenticated',
-        ]);
-    });
-    Route::get('teachers/{teacher}', [SchoolTeacherController::class, 'show']);
+    Route::post('teachers', [SchoolTeacherController::class, 'createTeacher']);
+    Route::get('teachers/{id}', [SchoolTeacherController::class, 'show']);
+    Route::put('teachers/{id}', [SchoolTeacherController::class, 'updateTeacher']);
+    Route::delete('teachers/{id}', [SchoolTeacherController::class, 'deleteTeacher']);
+    
+    // Import/Export routes
+    Route::get('teachers/export', [SchoolTeacherController::class, 'exportTeachers']);
+    Route::post('teachers/import', [SchoolTeacherController::class, 'importTeachers']);
+
     Route::post('teachers/{teacher}/assign-classes', [SchoolTeacherController::class, 'assignClasses']);
     Route::get('teachers/{teacher}/performance', [SchoolTeacherController::class, 'getPerformance']);
 

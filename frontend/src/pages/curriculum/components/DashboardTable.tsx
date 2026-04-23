@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 interface DashboardTableProps {
   schools: any[];
   isLoading: boolean;
+  isError?: boolean;
   isRegionAdmin: boolean;
   isSektorAdmin: boolean;
   sectorsMap?: Record<string, string>;
@@ -97,6 +98,7 @@ export const DashboardTable: React.FC<DashboardTableProps> = ({
   isRegionAdmin,
   isSektorAdmin,
   sectorsMap = {},
+  isError,
 }) => {
   const navigate = useNavigate();
 
@@ -106,6 +108,18 @@ export const DashboardTable: React.FC<DashboardTableProps> = ({
         {[1, 2, 3, 4, 5].map(i => (
           <div key={i} className="h-14 bg-slate-100/70 rounded-xl animate-pulse" />
         ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-rose-100 shadow-sm">
+        <div className="p-5 bg-rose-50 rounded-2xl mb-4 text-rose-300">
+          <AlertCircle size={36} />
+        </div>
+        <h3 className="text-base font-semibold text-slate-700 mb-1">Məlumatları yükləmək mümkün olmadı</h3>
+        <p className="text-sm text-slate-400">Zəhmət olmasa səhifəni yeniləyin və ya bir az sonra təkrar yoxlayın.</p>
       </div>
     );
   }

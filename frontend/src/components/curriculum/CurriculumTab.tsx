@@ -24,19 +24,22 @@ interface CurriculumTabProps {
   gradeName: string;
   onUpdate?: () => void;
   categoryLimits?: Record<number, any>;
+  isLocked?: boolean;
 }
 
 type SortField = 'name' | 'weekly_hours' | null;
 type SortDirection = 'asc' | 'desc';
+type EducationTabType = EducationType | 'all';
 
-const EDUCATION_TABS: { type: EducationType; label: string }[] = [
+const EDUCATION_TABS: { type: EducationTabType; label: string }[] = [
+  { type: 'all',    label: 'Hamısı' },
   { type: 'umumi',  label: 'Ümumi' },
   { type: 'ferdi',  label: 'Fərdi' },
   { type: 'evde',   label: 'Evdə' },
   { type: 'xususi', label: 'Xüsusi' },
 ];
 
-const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpdate, categoryLimits }) => {
+const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpdate, categoryLimits, isLocked = false }) => {
   const [subjects, setSubjects] = useState<GradeSubject[]>([]);
   const [meta, setMeta] = useState<CurriculumMeta | null>(null);
   const [statistics, setStatistics] = useState<ICurriculumStatistics | null>(null);
@@ -49,7 +52,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Active education type tab
-  const [activeType, setActiveType] = useState<EducationType>('umumi');
+  const [activeType, setActiveType] = useState<EducationTabType>('all');
 
   // Reset selection when tab changes
   useEffect(() => {
@@ -170,7 +173,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
 
   // Count subjects per education type for tab badges
   const countByType = useMemo(() => {
-    const counts: Record<EducationType, number> = { umumi: 0, ferdi: 0, evde: 0, xususi: 0 };
+    const counts: Record<EducationTabType, number> = { all: subjects.length, umumi: 0, ferdi: 0, evde: 0, xususi: 0 };
     subjects.forEach(s => {
       const t = (s.education_type || 'umumi') as EducationType;
       counts[t] = (counts[t] || 0) + 1;
@@ -180,7 +183,10 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
 
   // Filtered + sorted subjects for the active tab
   const filteredSubjects = useMemo(() => {
-    let list = subjects.filter(s => (s.education_type || 'umumi') === activeType);
+    let list = subjects;
+    if (activeType !== 'all') {
+      list = list.filter(s => (s.education_type || 'umumi') === activeType);
+    }
 
     if (filterActivityType !== 'all') {
       list = list.filter(s => {
@@ -242,17 +248,19 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
               <span className="text-sm font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
                 {meta?.grade_name || gradeName}
               </span>
-              <span className="text-[11px] font-medium text-slate-400">| {EDUCATION_TYPE_LABELS[activeType]}</span>
+              <span className="text-[11px] font-medium text-slate-400">| {activeType === 'all' ? 'Bütün fənnlər' : EDUCATION_TYPE_LABELS[activeType]}</span>
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md active:scale-95 font-medium"
-        >
-          <Plus className="h-5 w-5" />
-          Yeni Fənn Əlavə Et
-        </button>
+        {!isLocked && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md active:scale-95 font-medium"
+          >
+            <Plus className="h-5 w-5" />
+            Yeni Fənn Əlavə Et
+          </button>
+        )}
       </div>
 
       {/* Main Content */}
@@ -298,7 +306,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                   </span>
                   <button
                     onClick={handleBulkDelete}
-                    disabled={isBulkDeleting}
+                    disabled={isBulkDeleting || isLocked}
                     className="flex items-center gap-2 px-4 py-1.5 bg-rose-500 text-white rounded-lg text-[11px] font-black uppercase tracking-wider hover:bg-rose-600 transition-all shadow-sm active:scale-95 disabled:opacity-50"
                   >
                     {isBulkDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -315,7 +323,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                 <>
                   <BookOpen className="h-5 w-5 text-primary" />
                   <span className="font-bold text-sm text-gray-700 uppercase tracking-tight">
-                    {EDUCATION_TYPE_LABELS[activeType]}
+                    {activeType === 'all' ? 'Bütün fənnlər' : EDUCATION_TYPE_LABELS[activeType]}
                   </span>
                   <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] font-black">
                     {filteredSubjects.length} QEYD
@@ -359,11 +367,13 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                 <thead className="sticky top-0 bg-white border-b z-20 shadow-sm shadow-slate-100">
                   <tr className="bg-slate-50/30">
                     <th className="px-6 py-4 w-10">
-                      <Checkbox 
-                        checked={filteredSubjects.length > 0 && selectedIds.length === filteredSubjects.length}
-                        onCheckedChange={toggleSelectAll}
-                        disabled={filteredSubjects.length === 0}
-                      />
+                      {!isLocked && (
+                        <Checkbox 
+                          checked={filteredSubjects.length > 0 && selectedIds.length === filteredSubjects.length}
+                          onCheckedChange={toggleSelectAll}
+                          disabled={filteredSubjects.length === 0}
+                        />
+                      )}
                     </th>
                     <th
                       className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors"
@@ -391,13 +401,29 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                   {filteredSubjects.map((s) => (
                     <tr key={s.id} className={`hover:bg-slate-50/80 transition-all group ${selectedIds.includes(s.id) ? 'bg-primary/5' : ''}`}>
                       <td className="px-6 py-4">
-                        <Checkbox 
-                          checked={selectedIds.includes(s.id)}
-                          onCheckedChange={() => toggleSelectOne(s.id)}
-                        />
+                        {!isLocked && (
+                          <Checkbox 
+                            checked={selectedIds.includes(s.id)}
+                            onCheckedChange={() => toggleSelectOne(s.id)}
+                          />
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-black text-slate-800 text-sm tracking-tight">{s.subject_name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-black text-slate-800 text-sm tracking-tight">{s.subject_name}</div>
+                          {activeType === 'all' && (
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${
+                              s.education_type === 'ferdi' ? 'bg-amber-100 text-amber-700' :
+                              s.education_type === 'evde' ? 'bg-purple-100 text-purple-700' :
+                              s.education_type === 'xususi' ? 'bg-rose-100 text-rose-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {s.education_type === 'umumi' || !s.education_type ? 'Ümumi' : 
+                               s.education_type === 'ferdi' ? 'Fərdi' :
+                               s.education_type === 'evde' ? 'Evdə' : 'Xüsusi'}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter opacity-70 group-hover:opacity-100 transition-opacity">{s.subject_code}</div>
                       </td>
                       <td className="px-3 py-4 text-center">
@@ -439,23 +465,25 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-10 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => setEditingSubject(s)}
-                            className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Redaktə et"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(s.id, s.subject_name)}
-                            disabled={deletingId === s.id}
-                            className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Sil"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        {!isLocked && (
+                          <div className="flex items-center justify-end gap-1 opacity-10 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => setEditingSubject(s)}
+                              className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Redaktə et"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(s.id, s.subject_name)}
+                              disabled={deletingId === s.id}
+                              className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -469,15 +497,16 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
         <div className="lg:col-span-3 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
           <CurriculumStatistics
             subjects={subjects}
-            title="Ümumi Tədris Planı"
+            title={activeType === 'all' ? 'Ümumi Tədris Planı (Cəmi)' : `${EDUCATION_TYPE_LABELS[activeType]} Planı`}
           />
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <Filter className="h-3 w-3" /> Info
             </h4>
             <p className="text-[11px] font-medium text-slate-500 leading-relaxed">
-              Hər təhsil proqramı üzrə fənnlər ayrı tablarda göstərilir.
-              Redaktə etmək üçün qələm ikonuna klikləyin.
+              {isLocked 
+                ? 'Tədris planı təsdiq edildiyi üçün dəyişiklik etmək mümkün deyil.' 
+                : 'Hər təhsil proqramı üzrə fənnlər ayrı tablarda göstərilir. Redaktə etmək üçün qələm ikonuna klikləyin.'}
             </p>
           </div>
         </div>
@@ -488,7 +517,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
         <AddSubjectModal
           gradeId={gradeId}
           gradeName={gradeName}
-          initialEducationType={activeType}
+          initialEducationType={activeType === 'all' ? 'umumi' : activeType}
           onClose={() => setIsAddModalOpen(false)}
           onSuccess={handleAddSuccess}
           categoryLimits={categoryLimits}

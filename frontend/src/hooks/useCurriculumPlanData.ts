@@ -188,8 +188,8 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
   // ─── Locking Logic ─────────────────────────────────────────────────────────
   const isLocked = useMemo(() => {
     if (isRegionAdmin) return false;
-    // SECURITY: While settings are loading, assume locked to prevent race condition/bypass
-    if (!regionSettings) return true;
+    // SECURITY: While settings are loading, return undefined to represent loading state
+    if (!regionSettings) return undefined;
     if (isSektorAdmin && !regionSettings.can_sektor_edit) return true;
     if (approval.status === 'approved') return true;
     if (isSchoolAdmin && approval.status === 'submitted') return true;
@@ -233,7 +233,8 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
       institution_id: institutionId,
       academic_year_id: academicYearId,
       per_page: 500,
-    } as Parameters<typeof schoolAdminService.getTeachers>[0]),
+      _t: Date.now(),
+    } as any),
     enabled: !!institutionId,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
@@ -257,6 +258,14 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
       return res.items || [];
     },
     enabled: !!institutionId && !!academicYearId,
+  });
+
+  // ─── Detailed Workload (Teacher + Class + Subject) ──────────────────────────
+  const { data: detailedWorkload = [], isLoading: loadingDetailedWorkload } = useQuery({
+    queryKey: ['detailed-workload', institutionId, academicYearId],
+    queryFn: () => curriculumService.getDetailedWorkload(institutionId!, academicYearId!),
+    enabled: !!institutionId && !!academicYearId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // ─── Grade Overrides + Debounced Save ──────────────────────────────────────
@@ -494,6 +503,9 @@ export function useCurriculumPlanData(institutionId: number | undefined) {
     // teachers
     teachers,
     loadingTeachers,
+    // workload
+    detailedWorkload,
+    loadingDetailedWorkload,
     // grades
     grades,
     reactiveGrades,
