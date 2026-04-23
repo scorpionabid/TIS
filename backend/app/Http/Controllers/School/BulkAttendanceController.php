@@ -42,6 +42,7 @@ class BulkAttendanceController extends BaseController
 
             $classes = Grade::with(['homeroomTeacher', 'room'])
                 ->byInstitution($school->id)
+                ->active()
                 ->orderBy('class_level')
                 ->orderBy('name')
                 ->get();
