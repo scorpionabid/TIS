@@ -343,6 +343,7 @@ export default function MyResources() {
                 resourceType="link"
                 isManager={isManager}
                 currentUserId={currentUser?.id}
+                currentUserRole={currentUser?.role?.toLowerCase()}
                 searchTerm={searchTerm}
                 sortBy={sortBy}
                 onSearchChange={setSearchTerm}
@@ -371,6 +372,9 @@ export default function MyResources() {
                     onCreateNew={() => openCreateModal('link')}
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
+                    currentUserId={currentUser?.id}
+                    currentUserRole={currentUser?.role?.toLowerCase()}
+                    isManager={isManager}
                   />
                 )}
               </TabsContent>

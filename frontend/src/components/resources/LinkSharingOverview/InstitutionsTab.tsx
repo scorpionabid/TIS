@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -68,6 +69,7 @@ export const InstitutionsTab = ({
   hasSectors,
   hasUserTargets,
 }: InstitutionsTabProps) => {
+  const { currentUser } = useAuth();
   const [instSearchTerm, setInstSearchTerm] = useState("");
 
   const filteredSectors = useMemo(() => {
@@ -317,56 +319,69 @@ export const InstitutionsTab = ({
                                   )}
                                 </td>
                                 <td className="px-8 py-5 text-right">
-                                  {onResourceAction && selectedLink && (
-                                    <div className="flex items-center justify-end gap-2">
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() =>
-                                              onResourceAction(
-                                                {
-                                                  ...selectedLink,
-                                                  id: school.link_id,
-                                                  url: school.link_url || selectedLink.url
-                                                } as Resource,
-                                                "edit"
-                                              )
-                                            }
-                                            className="h-10 w-10 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all shadow-sm bg-white border border-gray-50"
-                                          >
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Məlumatı yenilə</TooltipContent>
-                                      </Tooltip>
+                                  {(() => {
+                                    const isUploader = !!currentUser?.id && selectedLink?.created_by === currentUser.id;
+                                    let canModify = false;
+                                    const roleStr = typeof currentUser?.role === 'string' ? currentUser.role : currentUser?.role?.name;
+                                    const role = roleStr?.toLowerCase();
+                                    
+                                    if (isUploader) {
+                                      canModify = true;
+                                    } else if (role) {
+                                      canModify = ['superadmin', 'regionadmin'].includes(role);
+                                    }
 
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() =>
-                                              onResourceAction(
-                                                {
-                                                  ...selectedLink,
-                                                  id: school.link_id,
-                                                } as Resource,
-                                                "delete"
-                                              )
-                                            }
-                                            className="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all shadow-sm bg-white border border-gray-50"
-                                          >
-                                            <XCircle className="h-4 w-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Hədəfdən sil</TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  )}
+                                    return canModify && onResourceAction && selectedLink && (
+                                      <div className="flex items-center justify-end gap-2">
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              onClick={() =>
+                                                onResourceAction(
+                                                  {
+                                                    ...selectedLink,
+                                                    id: school.link_id,
+                                                    url: school.link_url || selectedLink.url
+                                                  } as Resource,
+                                                  "edit"
+                                                )
+                                              }
+                                              className="h-10 w-10 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all shadow-sm bg-white border border-gray-50"
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Məlumatı yenilə</TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              onClick={() =>
+                                                onResourceAction(
+                                                  {
+                                                    ...selectedLink,
+                                                    id: school.link_id,
+                                                  } as Resource,
+                                                  "delete"
+                                                )
+                                              }
+                                              className="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all shadow-sm bg-white border border-gray-50"
+                                            >
+                                              <XCircle className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Hədəfdən sil</TooltipContent>
+                                        </Tooltip>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             ))}

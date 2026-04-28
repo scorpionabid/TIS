@@ -142,27 +142,9 @@ class LinkPermissionService
             return true;
         }
 
-        // SuperAdmin can modify all
-        if ($user->hasRole('superadmin')) {
+        // SuperAdmin and RegionAdmin can modify all
+        if ($user->hasAnyRole(['superadmin', 'regionadmin'])) {
             return true;
-        }
-
-        // Higher level administrators can modify links from their hierarchy
-        $userInstitution = $user->institution;
-        if (! $userInstitution) {
-            return false;
-        }
-
-        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            $childIds = $userInstitution->getAllChildrenIds();
-
-            return in_array($linkShare->institution_id, $childIds);
-        }
-
-        if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-            $childIds = $userInstitution->getAllChildrenIds();
-
-            return in_array($linkShare->institution_id, $childIds);
         }
 
         return false;

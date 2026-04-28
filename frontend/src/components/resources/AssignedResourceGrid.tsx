@@ -336,11 +336,7 @@ export function AssignedResourceGrid({
                     if (isUploader) {
                       canModify = true;
                     } else if (currentUserRole) {
-                      if (resource.type === 'document') {
-                        canModify = ['superadmin', 'regionadmin'].includes(currentUserRole);
-                      } else {
-                        canModify = !!isManager;
-                      }
+                      canModify = ['superadmin', 'regionadmin'].includes(currentUserRole);
                     } else {
                       canModify = !!isManager;
                     }

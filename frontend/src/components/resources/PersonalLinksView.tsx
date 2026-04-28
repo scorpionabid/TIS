@@ -28,6 +28,9 @@ interface PersonalLinksViewProps {
   onCreateNew: () => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  currentUserId?: number;
+  currentUserRole?: string;
+  isManager?: boolean | null;
 }
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -46,6 +49,9 @@ export function PersonalLinksView({
   onBulkUpload,
   searchTerm,
   onSearchChange,
+  currentUserId,
+  currentUserRole,
+  isManager,
 }: PersonalLinksViewProps) {
   const [selectedLinkId, setSelectedLinkId] = useState<number | null>(links[0]?.id ?? null);
 
@@ -181,28 +187,44 @@ export function PersonalLinksView({
                         </div>
 
                         {/* Actions */}
-                        <div className={cn(
-                          'flex items-center gap-0.5 shrink-0 transition-opacity',
-                          'opacity-0 group-hover:opacity-100',
-                          isActive && 'opacity-100'
-                        )}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 rounded"
-                            onClick={e => { e.stopPropagation(); onEdit(link); }}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 rounded text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={e => { e.stopPropagation(); onDelete(link); }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        {(() => {
+                          const isUploader = !!currentUserId && link.created_by === currentUserId;
+                          let canModify = false;
+                          if (isUploader) {
+                            canModify = true;
+                          } else if (currentUserRole) {
+                            canModify = ['superadmin', 'regionadmin'].includes(currentUserRole);
+                          } else {
+                            canModify = !!isManager;
+                          }
+
+                          if (!canModify) return null;
+
+                          return (
+                            <div className={cn(
+                              'flex items-center gap-0.5 shrink-0 transition-opacity',
+                              'opacity-0 group-hover:opacity-100',
+                              isActive && 'opacity-100'
+                            )}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 rounded"
+                                onClick={e => { e.stopPropagation(); onEdit(link); }}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 rounded text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={e => { e.stopPropagation(); onDelete(link); }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex items-center gap-2 mt-1.5 ml-7">
