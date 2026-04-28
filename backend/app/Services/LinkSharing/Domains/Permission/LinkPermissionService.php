@@ -178,11 +178,6 @@ class LinkPermissionService
      */
     public function canAccessLink($user, $linkShare): bool
     {
-        // Public links are accessible to all authenticated users
-        if ($linkShare->share_scope === 'public') {
-            return true;
-        }
-
         if (! $user) {
             return false;
         }
@@ -197,12 +192,17 @@ class LinkPermissionService
             return true;
         }
 
-        // Check target roles if specified
+        // Check target roles if specified - CRITICAL: Always check if roles are defined
         if ($linkShare->target_roles) {
             $targetRoles = is_array($linkShare->target_roles) ? $linkShare->target_roles : json_decode($linkShare->target_roles, true);
-            if (! in_array($user->role->name, $targetRoles) && ! in_array('all', $targetRoles)) {
+            if (! empty($targetRoles) && ! in_array($user->roles?->first()?->name, $targetRoles) && ! in_array('all', $targetRoles)) {
                 return false;
             }
+        }
+
+        // Public links are accessible to all authenticated users (if they passed the role check above)
+        if ($linkShare->share_scope === 'public') {
+            return true;
         }
 
         // Check institutional hierarchy

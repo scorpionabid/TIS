@@ -108,6 +108,7 @@ export function ResourceModal({
                   selectedFile={selectedFile}
                   setSelectedFile={setSelectedFile}
                   availableInstitutions={availableInstitutions}
+                  maybeDefaultInstitutions={maybeDefaultInstitutions}
                   mode={mode}
                   currentFileName={resource?.original_filename}
                 />
@@ -146,6 +147,7 @@ export function ResourceModal({
                     selectedFile={selectedFile}
                     setSelectedFile={setSelectedFile}
                     availableInstitutions={availableInstitutions}
+                    maybeDefaultInstitutions={maybeDefaultInstitutions}
                     mode={mode}
                     currentFileName={resource?.original_filename}
                   />

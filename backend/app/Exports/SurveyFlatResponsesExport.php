@@ -44,6 +44,7 @@ class SurveyFlatResponsesExport implements FromCollection, ShouldAutoSize, WithH
     {
         $headers = [
             'Müəssisə',
+            'Status',
             'Cavab verən',
             'Göndərmə tarixi',
         ];
@@ -57,31 +58,108 @@ class SurveyFlatResponsesExport implements FromCollection, ShouldAutoSize, WithH
 
     public function collection(): Collection
     {
+        // 1. Get all targeted institutions
+        $targetInstitutionIds = $this->survey->target_institutions ?? [];
+        $institutions = \App\Models\Institution::whereIn('id', $targetInstitutionIds)
+            ->with('parent')
+            ->get()
+            ->keyBy('id');
+
+        // 2. Get all responses (including drafts if we want a full report, but usually submitted/approved for "Report")
+        // The user wants a "Report", so let's include everything except deleted.
         $responses = $this->survey->responses()
-            ->whereIn('status', ['submitted', 'approved'])
-            ->with(['institution', 'respondent.profile'])
-            ->orderBy('submitted_at')
-            ->get();
+            ->with(['respondent.profile'])
+            ->get()
+            ->groupBy('institution_id');
 
-        return $responses->map(function ($response) {
-            $row = [
-                $response->institution?->name ?? '',
-                $response->respondent?->full_name ?? $response->respondent?->username ?? '',
-                $response->submitted_at
-                    ? \Carbon\Carbon::parse($response->submitted_at)->format('d.m.Y H:i')
-                    : '',
-            ];
+        $data = collect();
 
-            $answers = $response->responses ?? [];
+        // 3. Iterate through all targeted institutions to ensure they are all in the report
+        foreach ($institutions as $id => $institution) {
+            $instResponses = $responses->get($id);
 
-            foreach ($this->questions as $question) {
-                $questionId = (string) ($question['id'] ?? '');
-                $answer = $answers[$questionId] ?? null;
-                $row[] = $this->formatAnswer($answer, $question['type'] ?? 'text');
+            if ($instResponses && $instResponses->count() > 0) {
+                foreach ($instResponses as $response) {
+                    $statusLabel = match($response->status) {
+                        'approved' => 'Təsdiqlənib',
+                        'submitted' => 'Göndərilib',
+                        'rejected' => 'Rədd edilib',
+                        'returned' => 'Geri qaytarılıb',
+                        'draft' => 'Qaralama',
+                        default => $response->status
+                    };
+
+                    $row = [
+                        $institution->name,
+                        $statusLabel,
+                        $response->respondent?->full_name ?? $response->respondent?->username ?? '',
+                        $response->submitted_at
+                            ? \Carbon\Carbon::parse($response->submitted_at)->format('d.m.Y H:i')
+                            : ($response->created_at ? \Carbon\Carbon::parse($response->created_at)->format('d.m.Y H:i') : ''),
+                    ];
+
+                    $answers = $response->responses ?? [];
+                    foreach ($this->questions as $question) {
+                        $questionId = (string) ($question['id'] ?? '');
+                        $answer = $answers[$questionId] ?? null;
+                        $row[] = $this->formatAnswer($answer, $question['type'] ?? 'text');
+                    }
+
+                    $data->push($row);
+                }
+            } else {
+                // No response for this targeted institution
+                $row = [
+                    $institution->name,
+                    'Cavab verilməyib',
+                    '',
+                    '',
+                ];
+
+                // Empty answers for all questions
+                foreach ($this->questions as $question) {
+                    $row[] = '';
+                }
+
+                $data->push($row);
             }
+        }
 
-            return $row;
-        });
+        // 4. Also handle responses from institutions NOT in the target list (if any)
+        foreach ($responses as $id => $instResponses) {
+            if (!$institutions->has($id)) {
+                foreach ($instResponses as $response) {
+                    $statusLabel = match($response->status) {
+                        'approved' => 'Təsdiqlənib',
+                        'submitted' => 'Göndərilib',
+                        'rejected' => 'Rədd edilib',
+                        'returned' => 'Geri qaytarılıb',
+                        'draft' => 'Qaralama',
+                        default => $response->status
+                    };
+
+                    $row = [
+                        $response->institution?->name ?? "Naməlum müəssisə (#{$id})",
+                        $statusLabel . ' (Hədəf kütlə deyil)',
+                        $response->respondent?->full_name ?? $response->respondent?->username ?? '',
+                        $response->submitted_at
+                            ? \Carbon\Carbon::parse($response->submitted_at)->format('d.m.Y H:i')
+                            : '',
+                    ];
+
+                    $answers = $response->responses ?? [];
+                    foreach ($this->questions as $question) {
+                        $questionId = (string) ($question['id'] ?? '');
+                        $answer = $answers[$questionId] ?? null;
+                        $row[] = $this->formatAnswer($answer, $question['type'] ?? 'text');
+                    }
+
+                    $data->push($row);
+                }
+            }
+        }
+
+        return $data;
     }
 
     private function formatAnswer(mixed $answer, string $type): string

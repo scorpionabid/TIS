@@ -126,17 +126,30 @@ export function useResourceForm({
     }
   }, [isOpen]);
 
-  const { data: institutions } = useQuery({
-    queryKey: shouldUseSuperiorInstitutions ? ['superior-institutions'] : ['institutions'],
+  const { data: institutions, isLoading: isLoadingInstitutions, error: institutionsError } = useQuery({
+    queryKey: ['target-institutions', currentUser?.role, currentUser?.institution_id],
     queryFn: async () => {
-      if (shouldUseSuperiorInstitutions) {
-        return resourceService.getSuperiorInstitutions();
+      // Region/Sektor admins should see institutions in their scope (downward targeting)
+      // School admins might want to share upward or within their school
+      if (currentUser?.role === 'regionadmin' || currentUser?.role === 'sektoradmin') {
+        const response = await institutionService.getAll({ per_page: 500 }); // Get all accessible
+        return response.data;
       }
+      
+      // Default to superior institutions for other roles (upward sharing)
+      if (shouldUseSuperiorInstitutions) {
+        try {
+          return await resourceService.getSuperiorInstitutions();
+        } catch (e) {
+          console.warn('Failed to load superior institutions, falling back to all', e);
+        }
+      }
+      
       const response = await institutionService.getAll({ per_page: 100 });
       return response.data;
     },
     enabled: shouldLoadInstitutions,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes (institutions rarely change)
+    staleTime: 5 * 60 * 1000,
   });
 
   // Available institutions and filtered list
@@ -184,13 +197,14 @@ export function useResourceForm({
   // Set default target institutions for schooladmin/sektoradmin when creating new resource
   const hasDefaultedInstitutionsRef = React.useRef(false);
 
-  const maybeDefaultInstitutions = useCallback(() => {
+  const maybeDefaultInstitutions = useCallback((force = false) => {
     if (
-      hasDefaultedInstitutionsRef.current ||
+      (!force && hasDefaultedInstitutionsRef.current) ||
       !shouldUseSuperiorInstitutions ||
       !availableInstitutions.length
     ) {
       console.log('[useResourceForm] skipping default institutions', {
+        force,
         hasDefaulted: hasDefaultedInstitutionsRef.current,
         shouldUseSuperiorInstitutions,
         availableCount: availableInstitutions.length,

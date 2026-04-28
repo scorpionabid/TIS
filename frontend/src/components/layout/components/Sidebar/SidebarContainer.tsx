@@ -29,7 +29,7 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({ children }) 
         {/* Mobile sidebar using existing CSS classes */}
         <div
           className={cn(
-            "sidebar-mobile w-64 bg-card border-r border-border shadow-lg",
+            "sidebar-mobile w-72 bg-card border-r border-border shadow-lg",
             !isExpanded && "closed"
           )}
           style={{
@@ -47,7 +47,7 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({ children }) 
     <aside
       className={cn(
         "bg-card border-r border-border transition-all duration-300 ease-in-out relative z-30",
-        isExpanded ? "w-64" : "w-16"
+        isExpanded ? "w-72" : "w-16"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

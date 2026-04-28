@@ -1,475 +1,475 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Clock, 
-  Calendar, 
-  Search, 
-  AlertCircle, 
-  ArrowRight, 
-  X, 
-  Filter, 
-  SortAsc, 
-  CheckCircle2,
-  Inbox,
-  LayoutGrid,
-  List
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Clock, Calendar, Search, AlertCircle, ArrowRight,
+  CheckCircle2, Inbox, LayoutGrid, List, Grid2X2,
+  AlignJustify,
 } from 'lucide-react';
 import { format, isAfter } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
 import type { Survey, DeadlineDetails } from '@/services/surveys';
-import { FilterBar } from '@/components/common/FilterBar';
 import { cn } from '@/lib/utils';
 
 interface SurveyWithStatus extends Survey {
   response_status: 'not_started' | 'in_progress' | 'completed' | 'overdue';
   end_date?: string;
-  estimated_duration?: number;
   priority?: 'low' | 'medium' | 'high';
   is_anonymous: boolean;
   max_questions?: number;
-  questions_count?: number;
-  completion_percentage?: number;
   progress_percentage?: number;
-  is_complete?: boolean;
-  actual_responses?: number;
-  estimated_recipients?: number | string;
-  deadline_status?: Survey['deadline_status'];
   deadline_details?: DeadlineDetails;
 }
 
-const SurveySkeleton = () => (
+type ViewMode = 'large-grid' | 'small-grid' | 'list' | 'compact';
+
+const LS_KEY = 'pending-surveys-view';
+const getInitialView = (): ViewMode => {
+  try { return (localStorage.getItem(LS_KEY) as ViewMode) || 'large-grid'; }
+  catch { return 'large-grid'; }
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+const isOverdue = (s: SurveyWithStatus) =>
+  s.response_status === 'overdue' || (s.end_date ? isAfter(new Date(), new Date(s.end_date)) : false);
+
+const statusLabel = (s: SurveyWithStatus) => {
+  if (isOverdue(s)) return { text: 'Gecikmiş', cls: 'bg-red-500' };
+  if (s.response_status === 'in_progress') return { text: 'Davam', cls: 'bg-amber-400 animate-pulse' };
+  return { text: 'Yeni', cls: 'bg-primary/40' };
+};
+
+const deadlineText = (s: SurveyWithStatus) => {
+  if (!s.end_date) return null;
+  const days = s.deadline_details?.days_remaining ?? 0;
+  return isOverdue(s) ? 'Bitib' : days === 0 ? 'Bu gün' : `${days}g`;
+};
+
+const actionLabel = (s: SurveyWithStatus) => {
+  if (isOverdue(s)) return 'Tamamla';
+  if (s.response_status === 'in_progress') return 'Davam et';
+  return 'Başla';
+};
+
+const barColor = (s: SurveyWithStatus) =>
+  isOverdue(s) ? 'bg-red-500' : s.response_status === 'in_progress' ? 'bg-amber-400' : 'bg-primary/30';
+
+const StatusDot: React.FC<{ s: SurveyWithStatus; size?: 'sm' | 'md' }> = ({ s, size = 'md' }) => {
+  const { cls } = statusLabel(s);
+  return <span className={cn('rounded-full shrink-0', size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2', cls)} />;
+};
+
+const StatusBadgeInline: React.FC<{ s: SurveyWithStatus }> = ({ s }) => {
+  if (isOverdue(s)) return <Badge variant="destructive" className="rounded-full text-[10px] px-1.5 py-0">Gecikmiş</Badge>;
+  if (s.response_status === 'in_progress') return (
+    <Badge variant="outline" className="rounded-full gap-1 border-amber-200 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0">
+      <span className="h-1 w-1 rounded-full bg-amber-500 animate-pulse" />Davam
+    </Badge>
+  );
+  return <Badge variant="outline" className="rounded-full text-[10px] px-1.5 py-0 border-primary/20 bg-primary/5 text-primary">Yeni</Badge>;
+};
+
+// ─── 1. LARGE GRID CARD ────────────────────────────────────────────────────────
+const LargeCard: React.FC<{ s: SurveyWithStatus; onStart: (id: number) => void }> = ({ s, onStart }) => {
+  const ov = isOverdue(s);
+  const progress = s.progress_percentage || 0;
+  return (
+    <Card className={cn(
+      'group flex flex-col overflow-hidden border-border/60 transition-all duration-200',
+      'hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5',
+      ov && 'border-red-200/70 dark:border-red-900/50'
+    )}>
+      <div className={cn('h-0.5 w-full', barColor(s))} />
+      <CardHeader className="p-4 pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <StatusBadgeInline s={s} />
+          {s.max_questions && <span className="text-[10px] text-muted-foreground">{s.max_questions} sual</span>}
+        </div>
+        <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+          {s.title}
+        </CardTitle>
+        {s.description && <CardDescription className="text-xs line-clamp-2">{s.description}</CardDescription>}
+      </CardHeader>
+      <CardContent className="flex-1 px-4 pb-2 space-y-2">
+        {s.response_status === 'in_progress' && progress > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>Gedişat</span><span className="font-medium text-primary">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-1" />
+          </div>
+        )}
+        <div className={cn(
+          'flex items-center justify-between px-2.5 py-2 rounded-lg border text-xs',
+          ov ? 'bg-red-50/50 border-red-100 text-red-700 dark:bg-red-950/20 dark:border-red-900/40 dark:text-red-400'
+             : 'bg-muted/30 border-border/40 text-muted-foreground'
+        )}>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 shrink-0" />
+            <span className="font-medium text-[11px]">
+              {s.end_date ? format(new Date(s.end_date), 'dd MMM yyyy', { locale: az }) : 'Tarix yoxdur'}
+            </span>
+          </div>
+          {s.end_date && (
+            <span className={cn('font-bold px-1.5 py-0.5 rounded text-[10px]', ov ? 'bg-red-500 text-white' : 'bg-primary/10 text-primary')}>
+              {deadlineText(s)}
+            </span>
+          )}
+        </div>
+        {s.is_anonymous && (
+          <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-2.5 w-2.5" />Anonim
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="p-3 pt-2">
+        <Button
+          onClick={() => onStart(s.id)}
+          size="sm"
+          className={cn(
+            'w-full h-8 font-semibold text-xs',
+            ov ? 'bg-red-600 hover:bg-red-700 text-white'
+              : s.response_status === 'in_progress' ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''
+          )}
+        >
+          {actionLabel(s)}<ArrowRight className="h-3 w-3 ml-1.5" />
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+// ─── 2. SMALL GRID CARD ────────────────────────────────────────────────────────
+const SmallCard: React.FC<{ s: SurveyWithStatus; onStart: (id: number) => void }> = ({ s, onStart }) => {
+  const ov = isOverdue(s);
+  return (
+    <div className={cn(
+      'group flex flex-col gap-2 p-3 rounded-xl border transition-all duration-150',
+      'hover:border-primary/30 hover:shadow-sm',
+      ov ? 'border-red-200/60 bg-red-50/20 dark:bg-red-950/10' : 'border-border/60 bg-card'
+    )}>
+      <div className="flex items-center justify-between gap-1.5">
+        <StatusDot s={s} />
+        {s.max_questions && <span className="text-[10px] text-muted-foreground ml-auto">{s.max_questions}s</span>}
+        {ov && <span className="text-[10px] font-bold text-red-600">{deadlineText(s)}</span>}
+        {!ov && s.end_date && <span className="text-[10px] text-primary font-medium">{deadlineText(s)}</span>}
+      </div>
+      <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+        {s.title}
+      </p>
+      {s.end_date && (
+        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Calendar className="h-2.5 w-2.5" />
+          {format(new Date(s.end_date), 'dd MMM', { locale: az })}
+        </p>
+      )}
+      <Button
+        onClick={() => onStart(s.id)}
+        size="sm"
+        variant={ov ? 'destructive' : 'default'}
+        className={cn(
+          'w-full h-7 text-[11px] font-semibold mt-auto',
+          !ov && s.response_status === 'in_progress' && 'bg-amber-500 hover:bg-amber-600 text-white border-0'
+        )}
+      >
+        {actionLabel(s)}<ArrowRight className="h-2.5 w-2.5 ml-1" />
+      </Button>
+    </div>
+  );
+};
+
+// ─── 3. LIST ROW ───────────────────────────────────────────────────────────────
+const ListRow: React.FC<{ s: SurveyWithStatus; onStart: (id: number) => void }> = ({ s, onStart }) => {
+  const ov = isOverdue(s);
+  const progress = s.progress_percentage || 0;
+  return (
+    <div className={cn(
+      'group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-150',
+      'hover:border-primary/30 hover:shadow-sm hover:bg-accent/30',
+      ov ? 'border-red-200/60 bg-red-50/20 dark:bg-red-950/10' : 'border-border/60 bg-card'
+    )}>
+      <StatusDot s={s} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{s.title}</p>
+        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
+          {s.end_date && <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{format(new Date(s.end_date), 'dd MMM', { locale: az })}</span>}
+          {s.max_questions && <span>{s.max_questions} sual</span>}
+          {s.is_anonymous && <span className="text-emerald-600">Anonim</span>}
+        </div>
+        {s.response_status === 'in_progress' && progress > 0 && (
+          <div className="mt-1.5 flex items-center gap-2">
+            <Progress value={progress} className="h-0.5 flex-1" /><span className="text-[10px] text-primary font-medium">{progress}%</span>
+          </div>
+        )}
+      </div>
+      <StatusBadgeInline s={s} />
+      {s.end_date && (
+        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded hidden sm:block', ov ? 'bg-red-500 text-white' : 'bg-primary/10 text-primary')}>
+          {deadlineText(s)}
+        </span>
+      )}
+      <Button
+        onClick={() => onStart(s.id)}
+        size="sm"
+        variant={ov ? 'destructive' : 'default'}
+        className={cn('h-7 px-3 text-xs font-semibold shrink-0', !ov && s.response_status === 'in_progress' && 'bg-amber-500 hover:bg-amber-600 text-white border-0')}
+      >
+        {actionLabel(s)}<ArrowRight className="h-2.5 w-2.5 ml-1" />
+      </Button>
+    </div>
+  );
+};
+
+// ─── 4. COMPACT ROW ───────────────────────────────────────────────────────────
+const CompactRow: React.FC<{ s: SurveyWithStatus; onStart: (id: number) => void }> = ({ s, onStart }) => {
+  const ov = isOverdue(s);
+  return (
+    <div className={cn(
+      'group flex items-center gap-2.5 px-3 py-1.5 rounded-lg border transition-all duration-100',
+      'hover:border-primary/20 hover:bg-accent/20',
+      ov ? 'border-red-200/50 bg-red-50/10' : 'border-border/40 bg-card'
+    )}>
+      <StatusDot s={s} size="sm" />
+      <span className="flex-1 min-w-0 text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
+        {s.title}
+      </span>
+      {s.end_date && (
+        <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block">
+          {format(new Date(s.end_date), 'dd MMM', { locale: az })}
+        </span>
+      )}
+      {s.end_date && (
+        <span className={cn('text-[10px] font-bold shrink-0', ov ? 'text-red-600' : 'text-primary')}>
+          {deadlineText(s)}
+        </span>
+      )}
+      <Button
+        onClick={() => onStart(s.id)}
+        size="sm"
+        variant={ov ? 'destructive' : 'default'}
+        className={cn('h-6 px-2 text-[10px] font-semibold shrink-0', !ov && s.response_status === 'in_progress' && 'bg-amber-500 hover:bg-amber-600 text-white border-0')}
+      >
+        {actionLabel(s)}
+      </Button>
+    </div>
+  );
+};
+
+// ─── View Toggle ───────────────────────────────────────────────────────────────
+const VIEW_MODES: { mode: ViewMode; Icon: React.ElementType; label: string }[] = [
+  { mode: 'large-grid', Icon: LayoutGrid, label: 'Böyük Grid' },
+  { mode: 'small-grid', Icon: Grid2X2,   label: 'Kiçik Grid' },
+  { mode: 'list',       Icon: List,      label: 'Siyahı'     },
+  { mode: 'compact',    Icon: AlignJustify, label: 'Kompakt'  },
+];
+
+const ViewToggle: React.FC<{ value: ViewMode; onChange: (v: ViewMode) => void }> = ({ value, onChange }) => (
+  <TooltipProvider delayDuration={300}>
+    <div className="flex items-center border border-border rounded-lg overflow-hidden">
+      {VIEW_MODES.map(({ mode, Icon, label }) => (
+        <Tooltip key={mode}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onChange(mode)}
+              className={cn(
+                'p-1.5 transition-colors',
+                value === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
+  </TooltipProvider>
+);
+
+// ─── Skeletons ─────────────────────────────────────────────────────────────────
+const LargeGridSkeleton = () => (
   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-    {[1, 2, 3, 4, 5, 6].map((i) => (
-      <Card key={i} className="flex h-[320px] flex-col overflow-hidden border-border/40">
-        <CardHeader className="gap-3 pb-4">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-5 w-24 rounded-full" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-          </div>
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
+    {[1,2,3,4,5,6].map(i => (
+      <Card key={i} className="flex h-[220px] flex-col border-border/40">
+        <CardHeader className="gap-2 pb-2">
+          <div className="flex justify-between"><Skeleton className="h-4 w-16 rounded-full" /><Skeleton className="h-4 w-10 rounded-full" /></div>
+          <Skeleton className="h-5 w-3/4" /><Skeleton className="h-3 w-full" />
         </CardHeader>
-        <CardContent className="flex-1 space-y-4">
-          <Skeleton className="h-16 w-full rounded-lg" />
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-5 w-16 rounded-full" />
-          </div>
-        </CardContent>
-        <CardFooter className="pt-0 pb-6 px-6">
-          <Skeleton className="h-10 w-full rounded-md" />
-        </CardFooter>
+        <CardContent className="flex-1"><Skeleton className="h-10 w-full rounded-lg" /></CardContent>
+        <CardFooter className="p-3"><Skeleton className="h-8 w-full rounded-md" /></CardFooter>
       </Card>
     ))}
   </div>
 );
 
+const SmallGridSkeleton = () => (
+  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+    {[1,2,3,4,5,6,7,8].map(i => (
+      <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border border-border/40 h-[120px]">
+        <Skeleton className="h-3 w-3 rounded-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-3 w-2/3" /><Skeleton className="h-7 w-full rounded-lg mt-auto" />
+      </div>
+    ))}
+  </div>
+);
+
+const ListSkeleton = () => (
+  <div className="flex flex-col gap-2">
+    {[1,2,3,4,5].map(i => (
+      <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border/40">
+        <Skeleton className="h-2 w-2 rounded-full" /><Skeleton className="h-4 flex-1" /><Skeleton className="h-4 w-16" /><Skeleton className="h-7 w-20 rounded-lg" />
+      </div>
+    ))}
+  </div>
+);
+
+const CompactSkeleton = () => (
+  <div className="flex flex-col gap-1">
+    {[1,2,3,4,5,6,7].map(i => (
+      <div key={i} className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg border border-border/40">
+        <Skeleton className="h-1.5 w-1.5 rounded-full" /><Skeleton className="h-3 flex-1" /><Skeleton className="h-3 w-10" /><Skeleton className="h-6 w-14 rounded-md" />
+      </div>
+    ))}
+  </div>
+);
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
 const PendingSurveys: React.FC = () => {
   const navigate = useNavigate();
-  // State for filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'not_started' | 'in_progress' | 'overdue'>('all');
-  const [sortBy, setSortBy] = useState<'newest' | 'deadline' | 'priority'>('deadline');
-  
+  const [searchTerm, setSearchTerm]   = useState('');
+  const [sortBy, setSortBy]           = useState<'newest' | 'deadline' | 'priority'>('deadline');
+  const [viewMode, setViewMode]       = useState<ViewMode>(getInitialView);
+
+  const handleViewChange = (v: ViewMode) => {
+    setViewMode(v);
+    try { localStorage.setItem(LS_KEY, v); } catch (_e) { /* storage unavailable */ }
+  };
+
   const { data: apiResponse, isLoading, error } = useQuery<SurveyWithStatus[]>({
-    queryKey: ['pending-surveys', statusFilter],
+    queryKey: ['pending-surveys'],
     queryFn: async () => {
-      try {
-        const params: Record<string, string> = {};
-        if (statusFilter === 'overdue') {
-          params.deadline_filter = 'overdue';
-        }
-
-        const response = await surveyService.getAssignedSurveys(params);
-        const payload = (response as any)?.data;
-
-        if (payload && Array.isArray(payload.data)) {
-          return payload.data as SurveyWithStatus[];
-        }
-
-        if (payload && Array.isArray(payload)) {
-          return payload as SurveyWithStatus[];
-        }
-
-        return [];
-      } catch (err) {
-        console.error('Error fetching surveys:', err);
-        throw err;
-      }
+      const response = await surveyService.getAssignedSurveys();
+      const payload = (response as any)?.data;
+      if (payload && Array.isArray(payload.data)) return payload.data as SurveyWithStatus[];
+      if (payload && Array.isArray(payload))       return payload as SurveyWithStatus[];
+      return [];
     },
-    refetchInterval: 60000, // Reduced refresh rate for better UX
+    refetchInterval: 60000,
   });
 
-  // Process and filter the surveys data
-  const processedSurveys = React.useMemo(() => {
+  const surveys = React.useMemo(() => {
     if (!apiResponse) return [];
-    
-    // 1. Filter for pending-like states
-    let list = apiResponse.filter(survey => {
-      const status = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
-      return (
-        status === 'not_started' || 
-        status === 'in_progress' ||
-        status === 'overdue' ||
-        status === 'draft' ||
-        status === 'started' ||
-        status === 'pending'
-      );
+    let list = apiResponse.filter(s => {
+      const st = (s.response_status ?? (s as any).status ?? '').toLowerCase();
+      return ['not_started', 'in_progress', 'overdue', 'draft', 'started', 'pending'].includes(st);
     });
-
-    // 2. Apply filters
-    list = list.filter((survey: SurveyWithStatus) => {
-      const matchesSearch = searchTerm === '' || 
-        survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (survey.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-      
-      const matchesPriority = priorityFilter === 'all' || survey.priority === priorityFilter;
-      
-      const normalizedStatus = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
-      const matchesStatus = statusFilter === 'all' || 
-        (statusFilter === 'overdue' && (normalizedStatus === 'overdue' || survey.deadline_status === 'overdue')) ||
-        (statusFilter === 'not_started' && normalizedStatus === 'not_started') ||
-        (statusFilter === 'in_progress' && normalizedStatus === 'in_progress');
-
-      return matchesSearch && matchesPriority && matchesStatus;
-    });
-
-    // 3. Apply sorting
+    if (searchTerm) list = list.filter(s =>
+      s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
+    );
     return list.sort((a, b) => {
-      if (sortBy === 'newest') {
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      }
+      if (sortBy === 'newest')   return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       if (sortBy === 'deadline') {
-        const dateA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
-        const dateB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
-        return dateA - dateB;
+        const dA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+        const dB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
+        return dA - dB;
       }
       if (sortBy === 'priority') {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        const pA = priorityOrder[a.priority || 'low'] ?? 3;
-        const pB = priorityOrder[b.priority || 'low'] ?? 3;
-        return pA - pB;
+        const o = { high: 0, medium: 1, low: 2 };
+        return (o[a.priority || 'low'] ?? 3) - (o[b.priority || 'low'] ?? 3);
       }
       return 0;
     });
-  }, [apiResponse, searchTerm, priorityFilter, statusFilter, sortBy]);
+  }, [apiResponse, searchTerm, sortBy]);
 
-  const resetFilters = () => {
-    setSearchTerm('');
-    setPriorityFilter('all');
-    setStatusFilter('all');
-  };
+  const onStart = (id: number) => navigate(`/survey-response/${id}`);
 
-  const isFilterActive = searchTerm !== '' || priorityFilter !== 'all' || statusFilter !== 'all';
-
-  const getPriorityConfig = (priority?: string | null) => {
-    switch (priority) {
-      case 'high':
-        return { 
-          style: 'border-red-200 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900',
-          label: 'Yüksək Prioritet',
-          glow: 'after:content-[""] after:absolute after:-inset-0.5 after:bg-red-500/10 after:blur after:rounded-xl after:z-[-1]'
-        };
-      case 'medium':
-        return { 
-          style: 'border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900',
-          label: 'Orta Prioritet',
-          glow: ''
-        };
-      case 'low':
-        return { 
-          style: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900',
-          label: 'Aşağı Prioritet',
-          glow: ''
-        };
-      default:
-        return { style: 'border-border bg-muted/40 text-muted-foreground', label: 'Priority bilinmir', glow: '' };
-    }
-  };
-
-  const getStatusBadge = (status?: string | null) => {
-    switch (status) {
-      case 'overdue':
-        return <Badge variant="destructive" className="rounded-full shadow-sm">Gecikmiş</Badge>;
-      case 'in_progress':
-        return (
-          <Badge variant="outline" className="rounded-full gap-1.5 border-amber-200 bg-amber-50 text-amber-700 font-medium">
-            <span className="flex h-1.5 w-1.5 rounded-full bg-amber-600 animate-pulse" />
-            Davam edir
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">Yeni</Badge>;
-    }
-  };
-
-  const handleStartSurvey = (surveyId: number) => {
-    navigate(`/survey-response/${surveyId}`);
-  };
-
+  // ── Loading ──
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="flex items-center justify-between mb-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-64 rounded-md" />
+      <div className="space-y-4 pt-4 animate-in fade-in duration-300">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 flex-1 max-w-xs rounded-lg" />
+          <Skeleton className="h-8 w-32 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
         </div>
-        <SurveySkeleton />
+        {viewMode === 'large-grid' ? <LargeGridSkeleton />
+          : viewMode === 'small-grid' ? <SmallGridSkeleton />
+          : viewMode === 'list' ? <ListSkeleton />
+          : <CompactSkeleton />}
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 animate-in zoom-in-95 duration-500">
-        <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-full mb-4">
-          <AlertCircle className="h-10 w-10 text-red-500" />
-        </div>
-        <h3 className="text-xl font-bold text-foreground mb-2">Məlumat yüklənərkən xəta</h3>
-        <p className="text-muted-foreground mb-6 text-center max-w-sm">
-          Serverlə əlaqə zamanı problem yaşandı. Zəhmət olmasa səhifəni yeniləyin.
-        </p>
-        <Button onClick={() => window.location.reload()} variant="outline">Tekrar yoxla</Button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
+      <h3 className="text-base font-semibold mb-1">Məlumat yüklənərkən xəta</h3>
+      <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-3">Yenidən cəhd et</Button>
+    </div>
+  );
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header & Advanced Filter Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Gözləyən Sorğular</h1>
-          <p className="text-muted-foreground mt-1">Sizə təyin edilmiş və tamamlanmağı gözləyən tapşırıqlar.</p>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative group flex-1 min-w-[260px] md:flex-initial">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+    <div className="space-y-4 pt-4">
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-1 items-center gap-2 max-w-lg">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
             <Input
               placeholder="Sorğu axtar..."
+              className="pl-9 h-8 text-sm"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 h-11 bg-background border-border/60 focus:border-primary transition-all rounded-xl"
+              onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          
-          <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
-            <SelectTrigger className="h-11 w-[180px] rounded-xl bg-background border-border/60">
-              <SortAsc className="h-4 w-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="Sıralama" />
+          <Select value={sortBy} onValueChange={v => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="w-[140px] h-8 text-sm">
+              <SelectValue placeholder="Sırala" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="deadline">Son tarix (Yaxın)</SelectItem>
-              <SelectItem value="priority">Prioritet (Yüksək)</SelectItem>
+              <SelectItem value="deadline">Son tarix</SelectItem>
+              <SelectItem value="priority">Prioritet</SelectItem>
               <SelectItem value="newest">Ən yeni</SelectItem>
             </SelectContent>
           </Select>
-
-          <Button 
-            variant="outline" 
-            className={cn("h-11 w-11 p-0 rounded-xl relative", isFilterActive && "bg-primary/5 border-primary/30")}
-            onClick={() => {}} // Could toggle expanded filter panel
-          >
-            <Filter className="h-4 w-4" />
-            {isFilterActive && <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full border-2 border-background" />}
-          </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{surveys.length} sorğu</span>
+          <ViewToggle value={viewMode} onChange={handleViewChange} />
         </div>
       </div>
 
-      {/* Filter Chips Layer */}
-      <div className="flex flex-col md:flex-row md:items-center gap-4 bg-muted/40 p-4 rounded-2xl border border-border/40">
-        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mr-4">
-          <Filter className="h-3.5 w-3.5" />
-          Filtrlər:
+      {/* ── Content ── */}
+      {surveys.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-border/60 rounded-2xl">
+          <Inbox className="h-12 w-12 text-muted-foreground/30 mb-4" />
+          <h3 className="text-base font-semibold text-foreground">Gözləyən sorğu yoxdur</h3>
+          <p className="text-muted-foreground mt-1 text-sm text-center max-w-xs">Hazırda sizə təyin edilmiş heç bir gözləyən sorğu yoxdur.</p>
         </div>
-        <div className="flex flex-wrap gap-2 flex-1">
-          <Select value={priorityFilter} onValueChange={(val: any) => setPriorityFilter(val)}>
-            <SelectTrigger className="h-8 w-fit min-w-[120px] rounded-lg text-xs border-none shadow-none bg-background/60 hover:bg-background">
-              <SelectValue placeholder="Prioritet" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün Prioritetlər</SelectItem>
-              <SelectItem value="high">Yalnız Yüksək</SelectItem>
-              <SelectItem value="medium">Orta</SelectItem>
-              <SelectItem value="low">Aşağı</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
-            <SelectTrigger className="h-8 w-fit min-w-[120px] rounded-lg text-xs border-none shadow-none bg-background/60 hover:bg-background">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün Statuslar</SelectItem>
-              <SelectItem value="not_started">Başlanmayıb</SelectItem>
-              <SelectItem value="in_progress">Davam edən</SelectItem>
-              <SelectItem value="overdue">Gecikmiş</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {isFilterActive && (
-            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 px-2 text-xs hover:bg-background text-primary animate-in fade-in slide-in-from-left-2">
-              <X className="h-3.5 w-3.5 mr-1" />
-              Sıfırla
-            </Button>
-          )}
+      ) : viewMode === 'large-grid' ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {surveys.map(s => <LargeCard key={s.id} s={s} onStart={onStart} />)}
         </div>
-        
-        <div className="text-xs text-muted-foreground font-medium">
-          {processedSurveys.length} nəticə tapıldı
+      ) : viewMode === 'small-grid' ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {surveys.map(s => <SmallCard key={s.id} s={s} onStart={onStart} />)}
         </div>
-      </div>
-
-      {/* Grid List */}
-      {processedSurveys.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 bg-muted/20 border-2 border-dashed border-border/60 rounded-3xl animate-in fade-in duration-700">
-          <div className="p-6 bg-background/80 rounded-full shadow-sm mb-6">
-            <Inbox className="h-16 w-16 text-muted-foreground/40" />
-          </div>
-          <h3 className="text-2xl font-bold text-foreground">Heç bir sorğu tapılmadı</h3>
-          <p className="text-muted-foreground mt-2 max-w-sm text-center">
-            Hazırda seçilmiş kriteriyalara uyğun gözləyən bir tapşırığınız yoxdur.
-          </p>
-          {isFilterActive && (
-            <Button onClick={resetFilters} variant="secondary" className="mt-8 rounded-xl h-11 px-8">Filtrləri təmizlə</Button>
-          )}
+      ) : viewMode === 'list' ? (
+        <div className="flex flex-col gap-2">
+          {surveys.map(s => <ListRow key={s.id} s={s} onStart={onStart} />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {processedSurveys.map((survey: SurveyWithStatus) => {
-            const priority = getPriorityConfig(survey.priority);
-            const isOverdueVal = survey.response_status === 'overdue' || (survey.end_date && isAfter(new Date(), new Date(survey.end_date)));
-            const progress = survey.progress_percentage || 0;
-            
-            return (
-              <Card
-                key={survey.id}
-                className={cn(
-                  "group relative flex h-full flex-col overflow-hidden border-border/60 transition-all duration-300",
-                  "hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 bg-card/50 backdrop-blur-sm",
-                  priority.glow,
-                  isOverdueVal && "border-red-200/50 dark:border-red-900/50 shadow-red-500/5"
-                )}
-              >
-                {/* Visual Status Indicator Top Bar */}
-                <div className={cn(
-                  "h-1.5 w-full",
-                  isOverdueVal ? "bg-red-500" : (survey.response_status === 'in_progress' ? "bg-amber-400" : "bg-primary/20")
-                )} />
-
-                <CardHeader className="space-y-3 p-6">
-                  <div className="flex items-center justify-between gap-1.5">
-                    <Badge variant="outline" className={cn("rounded-lg border px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold transition-colors group-hover:bg-background", priority.style)}>
-                      {priority.label}
-                    </Badge>
-                    {getStatusBadge(survey.response_status)}
-                  </div>
-                  
-                  <div className="space-y-1.5 pt-1">
-                    <CardTitle className="text-lg font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                      {survey.title}
-                    </CardTitle>
-                    {survey.description ? (
-                      <CardDescription className="text-sm line-clamp-2 text-muted-foreground/80 min-h-[40px]">
-                        {survey.description}
-                      </CardDescription>
-                    ) : (
-                      <div className="h-[40px]" />
-                    )}
-                  </div>
-                </CardHeader>
-
-                <CardContent className="flex-1 px-6 pb-2 space-y-5">
-                  {/* Progress Visualization */}
-                  {survey.response_status === 'in_progress' && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-muted-foreground uppercase tracking-wide">Gedişat</span>
-                        <span className="text-primary font-bold">{progress}%</span>
-                      </div>
-                      <Progress value={progress} className="h-2 bg-muted rounded-full" />
-                    </div>
-                  )}
-
-                  {/* Deadline / Dates */}
-                  <div className={cn(
-                    "flex items-center justify-between p-3 rounded-2xl border transition-colors",
-                    isOverdueVal 
-                      ? "bg-red-50/50 border-red-100 dark:bg-red-950/20 dark:border-red-900/40 text-red-700 dark:text-red-400" 
-                      : "bg-muted/30 border-border/40 text-muted-foreground group-hover:bg-muted/50"
-                  )}>
-                    <div className="flex items-center gap-2.5">
-                      <div className={cn("p-2 rounded-xl bg-background", isOverdueVal ? "text-red-500" : "text-muted-foreground")}>
-                        <Calendar className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase font-bold tracking-wider opacity-60">Son Tarix</p>
-                        <p className="text-xs font-bold whitespace-nowrap">
-                          {survey.end_date ? format(new Date(survey.end_date), 'dd MMM yyyy', { locale: az }) : 'Bitmə tarixi yoxdur'}
-                        </p>
-                      </div>
-                    </div>
-                    {survey.end_date && (
-                      <div className={cn(
-                        "text-[10px] font-black uppercase px-2 py-1 rounded-lg",
-                        isOverdueVal ? "bg-red-500 text-white" : "bg-primary/10 text-primary"
-                      )}>
-                        {isOverdueVal ? 'Müddət bitib' : `${survey.deadline_details?.days_remaining ?? 0} gün qalıb`}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Additional Metadata */}
-                  <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground/60 pt-1">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      ~5 dəqiqə
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                      {survey.max_questions} Sual
-                    </div>
-                    {survey.is_anonymous && (
-                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Anonim
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-
-                <CardFooter className="p-6 pt-4">
-                  <Button
-                    onClick={() => handleStartSurvey(survey.id)}
-                    className={cn(
-                      "w-full h-11 rounded-xl font-bold transition-all shadow-md active:scale-[0.98]",
-                      isOverdueVal 
-                        ? "bg-red-600 hover:bg-red-700 text-white shadow-red-200 dark:shadow-none" 
-                        : "bg-primary hover:bg-primary/90 text-white shadow-primary/20",
-                      survey.response_status === 'in_progress' && "bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-none"
-                    )}
-                  >
-                    <span>
-                      {isOverdueVal ? 'Təcili tamamla' : (survey.response_status === 'in_progress' ? 'Davam et' : 'Sorğuya başla')}
-                    </span>
-                    <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
+        <div className="flex flex-col gap-1">
+          {surveys.map(s => <CompactRow key={s.id} s={s} onStart={onStart} />)}
         </div>
       )}
     </div>

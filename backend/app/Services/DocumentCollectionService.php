@@ -18,7 +18,7 @@ class DocumentCollectionService
     /**
      * Create regional folders from templates for a specific institution
      */
-    public function createRegionalFolders(User $user, Institution $institution, ?array $folderTemplates = null, array $targetInstitutionIds = []): array
+    public function createRegionalFolders(User $user, Institution $institution, ?array $folderTemplates = null, array $targetInstitutionIds = [], array $targetUserIds = []): array
     {
         $folderTemplates = $folderTemplates ?? DocumentCollection::REGIONAL_TEMPLATES;
         $createdFolders = [];
@@ -31,10 +31,12 @@ class DocumentCollectionService
                     $institution,
                     $key,
                     $name,
-                    $targetInstitutionIds
+                    $targetInstitutionIds,
+                    $targetUserIds
                 );
             }
 
+            $this->clearUserFolderCache($user);
             DB::commit();
 
             return $createdFolders;
@@ -51,20 +53,70 @@ class DocumentCollectionService
     {
         DB::beginTransaction();
         try {
+            if (! $this->canManageFolder($user, $folder)) {
+                throw new \Exception('Unauthorized to update this folder');
+            }
+
+            // If folder is locked, only SuperAdmin can change attributes other than 'is_locked'
+            if ($folder->is_locked && ! $user->hasRole('superadmin')) {
+                // If they are trying to unlock it, allow ONLY that change
+                if (isset($data['is_locked']) && $data['is_locked'] === false) {
+                    // We will proceed to update just the is_locked field
+                    $data = ['is_locked' => false];
+                } else {
+                    throw new \Exception('Qovluq kilidlidir. Dəyişiklik etmək üçün əvvəlcə kilidi açın.');
+                }
+            }
+
             $oldData = [
                 'name' => $folder->name,
                 'description' => $folder->description,
                 'allow_school_upload' => $folder->allow_school_upload,
                 'is_locked' => $folder->is_locked,
+                'target_institutions' => $folder->targetInstitutions()->pluck('institutions.id')->toArray(),
+                'target_user_ids' => $folder->targetUsers()->pluck('users.id')->toArray(),
             ];
 
+            // Extract relationship data
+            $targetInstitutionIds = $data['target_institutions'] ?? null;
+            $targetUserIds = $data['target_user_ids'] ?? null;
+            
+            // Remove from data array to prevent mass assignment issues if columns don't exist
+            unset($data['target_institutions'], $data['target_user_ids']);
+
             $folder->update($data);
+
+            // Sync relationships if provided
+            if ($targetInstitutionIds !== null) {
+                $folder->targetInstitutions()->sync($targetInstitutionIds);
+            }
+            if ($targetUserIds !== null) {
+                $syncData = [];
+                foreach ($targetUserIds as $userData) {
+                    if (is_array($userData)) {
+                        $syncData[$userData['id']] = [
+                            'can_delete' => $userData['can_delete'] ?? false,
+                            'can_upload' => $userData['can_upload'] ?? true,
+                            'can_view' => $userData['can_view'] ?? true,
+                        ];
+                    } else {
+                        $syncData[$userData] = [
+                            'can_delete' => false,
+                            'can_upload' => true,
+                            'can_view' => true,
+                        ];
+                    }
+                }
+                $folder->targetUsers()->sync($syncData);
+            }
 
             $newData = [
                 'name' => $folder->name,
                 'description' => $folder->description,
                 'allow_school_upload' => $folder->allow_school_upload,
                 'is_locked' => $folder->is_locked,
+                'target_institutions' => $folder->targetInstitutions()->pluck('institutions.id')->toArray(),
+                'target_user_ids' => $folder->targetUsers()->pluck('users.id')->toArray(),
             ];
 
             // Determine action type
@@ -75,9 +127,10 @@ class DocumentCollectionService
 
             $this->logFolderAction($folder, $user, $action, $oldData, $newData, $reason);
 
+            $this->clearUserFolderCache($user);
             DB::commit();
 
-            return $folder->fresh();
+            return $folder->fresh(['creator', 'ownerInstitution', 'targetInstitutions', 'targetUsers']);
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -89,6 +142,14 @@ class DocumentCollectionService
      */
     public function deleteFolder(DocumentCollection $folder, User $user, ?string $reason = null): bool
     {
+        if (! $this->canManageFolder($user, $folder)) {
+            throw new \Exception('Unauthorized to delete this folder');
+        }
+
+        if ($folder->is_locked && ! $user->hasRole('superadmin')) {
+            throw new \Exception('Qovluq kilidlidir. Silmək üçün əvvəlcə kilidi açın.');
+        }
+
         DB::beginTransaction();
         try {
             $oldData = [
@@ -113,6 +174,7 @@ class DocumentCollectionService
             // Soft delete the folder itself
             $folder->delete();
 
+            $this->clearUserFolderCache($user);
             DB::commit();
 
             return true;
@@ -127,41 +189,73 @@ class DocumentCollectionService
      */
     public function getAccessibleFolders(User $user): Collection
     {
-        $query = DocumentCollection::query()
-            ->with(['ownerInstitution', 'institution', 'creator', 'targetInstitutions'])
-            ->withCount('documents as documents_count');
+        $cacheKey = "user_{$user->id}_accessible_folders_v10";
+        
+        return \Cache::remember($cacheKey, 60, function () use ($user) {
+            $query = DocumentCollection::query()
+                ->with(['ownerInstitution', 'institution', 'creator', 'targetInstitutions', 'targetUsers'])
+                ->withCount('documents as documents_count')
+                ->selectSub(function ($q) {
+                    $q->selectRaw('count(distinct institution_id)')
+                      ->from('documents')
+                      ->whereIn('id', function ($sub) {
+                          $sub->select('document_id')
+                              ->from('document_collection_items')
+                              ->whereColumn('collection_id', 'document_collections.id');
+                      })
+                      ->whereNull('deleted_at');
+                }, 'participating_institutions_count');
 
-        // SuperAdmin sees all folders
-        if ($user->hasRole('superadmin')) {
-            return $query->get();
-        }
+            // SuperAdmin sees all folders
+            if ($user->hasRole('superadmin')) {
+                return $query->get();
+            }
 
-        // RegionAdmin sees folders in their region
-        if ($user->hasRole('regionadmin')) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('owner_institution_id', $user->institution_id)
-                    ->orWhere('institution_id', $user->institution_id);
-            })->get();
-        }
+            $myInstId = (int) $user->institution_id;
+            
+            // All admin roles see folders in their hierarchy (themselves, parents, children)
+            if ($user->hasAnyRole(['regionadmin', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'regionoperator'])) {
+                if ($myInstId > 0) {
+                    $parentIds = $this->getParentInstitutionIds($myInstId);
+                    $childIds = $this->getHierarchicalInstitutionIds($myInstId);
+                    
+                    $relevantIds = array_unique(array_merge([$myInstId], $parentIds, $childIds));
 
-        // SektorAdmin sees folders in their sector and parent region
-        if ($user->hasRole('sektoradmin')) {
-            $institutionIds = $this->getHierarchicalInstitutionIds($user->institution_id);
+                    $query->where(function($q) use ($relevantIds, $myInstId, $user) {
+                        $q->where(function($innerQ) use ($relevantIds) {
+                            $innerQ->whereIn('owner_institution_id', $relevantIds)
+                                   ->orWhereIn('institution_id', $relevantIds);
+                        })
+                          ->orWhereHas('targetInstitutions', function($subQ) use ($myInstId) {
+                              $subQ->where('institution_id', $myInstId);
+                          })
+                          ->orWhereHas('targetUsers', function($subQ) use ($user) {
+                              $subQ->where('user_id', $user->id);
+                          })
+                          ->orWhere('created_by', $user->id);
+                    });
+                } else {
+                    $query->where('created_by', $user->id);
+                }
+            } else {
+                // Non-admin roles (Teachers, etc.): see folders targeting their institution or directly assigned to them
+                $query->where(function ($q) use ($user, $myInstId) {
+                    if ($myInstId > 0) {
+                        $q->whereHas('targetInstitutions', function($subQ) use ($myInstId) {
+                            $subQ->where('institution_id', $myInstId);
+                        });
+                    }
+                    
+                    $q->orWhereHas('targetUsers', function($subQ) use ($user) {
+                        $subQ->where('user_id', $user->id);
+                    });
+                    
+                    $q->orWhere('created_by', $user->id);
+                });
+            }
 
-            return $query->whereIn('owner_institution_id', $institutionIds)->get();
-        }
-
-        // SchoolAdmin sees folders from parent region/sector
-        if ($user->hasRole('schooladmin')) {
-            $parentInstitutionIds = $this->getParentInstitutionIds($user->institution_id);
-
-            return $query->whereIn('owner_institution_id', $parentInstitutionIds)
-                ->where('allow_school_upload', true)
-                ->get();
-        }
-
-        // Default: return empty collection
-        return collect([]);
+            return $query->orderBy('created_at', 'desc')->get();
+        });
     }
 
     /**
@@ -174,19 +268,42 @@ class DocumentCollectionService
             return true;
         }
 
-        // RegionAdmin can manage folders they own or in their region
-        if ($user->hasRole('regionadmin')) {
-            if ($folder->owner_institution_id === $user->institution_id) {
+        // Admin roles can manage folders owned by their institution
+        if ($user->hasAnyRole(['regionadmin', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'regionoperator'])) {
+            if ((int) $folder->owner_institution_id === (int) $user->institution_id) {
                 return true;
             }
         }
 
-        // Folder creator can manage their folders even if ownership changed (unless locked)
-        if ($folder->created_by === $user->id && ! $folder->is_locked) {
+        // Folder creator can manage their folders
+        if ($folder->created_by === $user->id) {
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * Toggle folder lock status
+     */
+    public function toggleFolderLock(DocumentCollection $folder, User $user): DocumentCollection
+    {
+        // Only SuperAdmin or the owner institution admin can lock/unlock
+        if (! $user->hasRole('superadmin') && 
+            (int) $folder->owner_institution_id !== (int) $user->institution_id &&
+            $folder->created_by !== $user->id) {
+            throw new \Exception('Unauthorized to toggle folder lock');
+        }
+
+        $folder->is_locked = ! $folder->is_locked;
+        $folder->save();
+
+        $this->clearUserFolderCache($user);
+
+        $action = $folder->is_locked ? 'locked' : 'unlocked';
+        $this->logFolderAction($folder, $user, $action, null, ['is_locked' => $folder->is_locked]);
+
+        return $folder->fresh(['creator', 'ownerInstitution', 'targetInstitutions']);
     }
 
     /**
@@ -220,9 +337,14 @@ class DocumentCollectionService
     {
         $query = $folder->documents()->whereNull('deleted_at');
 
-        // SchoolAdmin sees only their own institution's documents
-        if ($user->hasRole('schooladmin')) {
-            $query->where('institution_id', $user->institution_id);
+        // SchoolAdmin sees:
+        // 1. Their own institution's documents
+        // 2. Documents from the folder owner (Region/Sector)
+        if ($user->hasAnyRole(['schooladmin', 'məktəbadmin'])) {
+            $query->where(function($q) use ($user, $folder) {
+                $q->where('institution_id', $user->institution_id)
+                  ->orWhere('institution_id', $folder->owner_institution_id);
+            });
         }
 
         return $query->with(['institution', 'uploader'])->get();
@@ -247,8 +369,14 @@ class DocumentCollectionService
         $documentsQuery = $folder->documents()
             ->whereNull('documents.deleted_at')
             ->with(['institution', 'uploader'])
-            ->when($user->hasRole('schooladmin'), function ($query) use ($user) {
-                $query->where('documents.institution_id', $user->institution_id);
+            ->when($user->hasAnyRole(['schooladmin', 'məktəbadmin']), function ($query) use ($user, $folder) {
+                // SchoolAdmin sees:
+                // 1. Their own institution's documents
+                // 2. Documents from the folder owner (Region/Sector) which are intended for everyone
+                $query->where(function($q) use ($user, $folder) {
+                    $q->where('documents.institution_id', $user->institution_id)
+                      ->orWhere('documents.institution_id', $folder->owner_institution_id);
+                });
             })
             ->when($fileType, function ($query) use ($fileType) {
                 $query->where('documents.file_type', $fileType);
@@ -461,7 +589,8 @@ class DocumentCollectionService
         Institution $institution,
         string $templateKey,
         string $name,
-        array $targetInstitutionIds
+        array $targetInstitutionIds,
+        array $targetUserIds = []
     ): DocumentCollection {
         $folder = DocumentCollection::create([
             'name' => $name,
@@ -482,11 +611,32 @@ class DocumentCollectionService
             $folder->targetInstitutions()->sync($targetInstitutionIds);
         }
 
+        if (! empty($targetUserIds)) {
+            $syncData = [];
+            foreach ($targetUserIds as $userData) {
+                if (is_array($userData)) {
+                    $syncData[$userData['id']] = [
+                        'can_delete' => $userData['can_delete'] ?? false,
+                        'can_upload' => $userData['can_upload'] ?? true,
+                        'can_view' => $userData['can_view'] ?? true,
+                    ];
+                } else {
+                    $syncData[$userData] = [
+                        'can_delete' => false,
+                        'can_upload' => true,
+                        'can_view' => true,
+                    ];
+                }
+            }
+            $folder->targetUsers()->sync($syncData);
+        }
+
         $this->logFolderAction($folder, $user, 'created', null, [
             'name' => $folder->name,
             'scope' => $folder->scope,
             'folder_key' => $folder->folder_key,
             'target_institutions_count' => count($targetInstitutionIds),
+            'target_users_count' => count($targetUserIds),
         ]);
 
         return $folder;
@@ -565,6 +715,24 @@ class DocumentCollectionService
 
     private function validateUploadRequest(DocumentCollection $folder, UploadedFile $file, User $user): array
     {
+        // Check if folder is locked (Global lock)
+        if ($folder->is_locked) {
+            \Log::warning('Upload attempt to locked folder', [
+                'folder_id' => $folder->id,
+                'user_id' => $user->id,
+            ]);
+            throw new \RuntimeException('Bu qovluq kilidlidir. Yeni sənəd yükləmək mümkün deyil.');
+        }
+
+        // Check if school uploads are allowed (for school admins)
+        if (! $folder->allow_school_upload && $user->hasRole('schooladmin')) {
+            \Log::warning('School upload attempt to restricted folder', [
+                'folder_id' => $folder->id,
+                'user_id' => $user->id,
+            ]);
+            throw new \RuntimeException('Bu qovluğa məktəblər tərəfindən sənəd yüklənilməsi dayandırılıb.');
+        }
+
         $this->assertAllowedMimeType($file);
         $this->assertUploadWithinUserLimit($file, $user);
 
@@ -773,23 +941,18 @@ class DocumentCollectionService
      */
     private function getHierarchicalInstitutionIds(int $institutionId): array
     {
-        $institution = Institution::find($institutionId);
-        if (! $institution) {
-            return [$institutionId];
+        if ($institutionId <= 0) {
+            return [];
         }
 
-        $ids = [$institutionId];
+        return \Cache::remember("inst_{$institutionId}_hierarchy_v10", 3600, function () use ($institutionId) {
+            $institution = Institution::withoutGlobalScopes()->find($institutionId);
+            if (! $institution) {
+                return [$institutionId];
+            }
 
-        // Add parent if exists
-        if ($institution->parent_id) {
-            $ids[] = $institution->parent_id;
-        }
-
-        // Add children
-        $children = Institution::where('parent_id', $institutionId)->pluck('id')->toArray();
-        $ids = array_merge($ids, $children);
-
-        return $ids;
+            return $institution->getAllChildrenIds();
+        });
     }
 
     /**
@@ -797,14 +960,35 @@ class DocumentCollectionService
      */
     private function getParentInstitutionIds(int $institutionId): array
     {
-        $ids = [];
-        $institution = Institution::find($institutionId);
-
-        while ($institution && $institution->parent_id) {
-            $ids[] = $institution->parent_id;
-            $institution = Institution::find($institution->parent_id);
+        if ($institutionId <= 0) {
+            return [];
         }
 
-        return $ids;
+        return \Cache::remember("inst_{$institutionId}_parents_v10", 3600, function () use ($institutionId) {
+            $ids = [];
+            $visited = [$institutionId];
+            $institution = Institution::withoutGlobalScopes()->find($institutionId);
+
+            while ($institution && $institution->parent_id && ! in_array($institution->parent_id, $visited)) {
+                $ids[] = $institution->parent_id;
+                $visited[] = $institution->parent_id;
+                $institution = Institution::withoutGlobalScopes()->find($institution->parent_id);
+
+                // Maximum hierarchy depth safety
+                if (count($visited) > 20) {
+                    break;
+                }
+            }
+
+            return $ids;
+        });
+    }
+    /**
+     * Clear the cache for user's accessible folders
+     */
+    private function clearUserFolderCache(User $user): void
+    {
+        $cacheKey = "user_{$user->id}_accessible_folders_v10";
+        \Cache::forget($cacheKey);
     }
 }

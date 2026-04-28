@@ -42,6 +42,8 @@ Route::prefix('document-collections')->group(function () {
         ->middleware('permission:documents.read');
     Route::post('/{folder}/documents', [DocumentCollectionController::class, 'uploadDocument'])
         ->middleware('permission:documents.create');
+    Route::post('/{folder}/toggle-lock', [DocumentCollectionController::class, 'toggleLock'])
+        ->middleware('permission:documents.update');
 });
 
 // Document Management Routes

@@ -58,6 +58,7 @@ docker exec atis_frontend npm run typecheck
 docker exec atis_backend php artisan test
 docker exec atis_backend composer audit
 docker exec atis_frontend npm audit --audit-level=moderate
+docker restart atis_frontend
 ```
 
 ## Architecture

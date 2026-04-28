@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { LinkDatabaseTable } from './LinkDatabaseTable';
 import { LinkDatabaseCardGrid } from './LinkDatabaseCardGrid';
+import { LinkDatabaseCompactGrid } from './LinkDatabaseCompactGrid';
 import { LinkDatabaseEmptyState } from './LinkDatabaseEmptyState';
 import { LinkDatabaseTableSkeleton, LinkDatabaseCardSkeleton } from './LinkDatabaseSkeleton';
 import type { ViewMode, LinkShare, SortField, SortDirection } from '../types/linkDatabase.types';
@@ -29,6 +30,7 @@ interface LinkDatabaseContentProps {
   onEdit?: (link: LinkShare) => void;
   onDelete?: (link: LinkShare) => void;
   onRestore?: (link: LinkShare) => void;
+  onTrack?: (link: LinkShare) => void;
   onCreateClick?: () => void;
   onClearFilters?: () => void;
 }
@@ -52,6 +54,7 @@ export function LinkDatabaseContent({
   onEdit,
   onDelete,
   onRestore,
+  onTrack,
   onCreateClick,
   onClearFilters,
 }: LinkDatabaseContentProps) {
@@ -96,6 +99,20 @@ export function LinkDatabaseContent({
           onEdit={onEdit}
           onDelete={onDelete}
           onRestore={onRestore}
+          onTrack={onTrack}
+        />
+      ) : viewMode === 'compact' ? (
+        <LinkDatabaseCompactGrid
+          links={links}
+          selectedIds={selectedIds}
+          paginationMeta={paginationMeta}
+          onToggleSelect={onToggleSelect}
+          onPageChange={onPageChange}
+          onPerPageChange={onPerPageChange}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onRestore={onRestore}
+          onTrack={onTrack}
         />
       ) : (
         <LinkDatabaseCardGrid
@@ -108,6 +125,7 @@ export function LinkDatabaseContent({
           onEdit={onEdit}
           onDelete={onDelete}
           onRestore={onRestore}
+          onTrack={onTrack}
         />
       )}
     </div>

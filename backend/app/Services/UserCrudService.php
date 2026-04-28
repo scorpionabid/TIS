@@ -397,9 +397,9 @@ class UserCrudService
     protected function applyFilters($query, array $params): void
     {
         if (! empty($params['role'])) {
-            $roles = is_array($params['role']) ? $params['role'] : [$params['role']];
+            $roles = is_array($params['role']) ? $params['role'] : explode(',', $params['role']);
             $query->whereHas('roles', function ($q) use ($roles) {
-                $q->whereIn('name', $roles);
+                $q->whereIn('name', array_map('trim', $roles));
             });
         }
 

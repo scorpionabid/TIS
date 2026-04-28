@@ -321,7 +321,7 @@ class DataIsolationHelper
     {
         // SuperAdmin has access to everything
         if ($user->hasRole('superadmin')) {
-            return Institution::pluck('id');
+            return Institution::withoutGlobalScopes()->pluck('id');
         }
 
         // IMPORTANT: Do not rely on roles->first() ordering.
@@ -364,7 +364,7 @@ class DataIsolationHelper
             }
 
             if ($sectorId) {
-                $sector = \App\Models\Institution::find($sectorId);
+                $sector = \App\Models\Institution::withoutGlobalScopes()->find($sectorId);
 
                 return collect($sector ? $sector->getAllChildrenIds() : [$userSector->id]);
             }
@@ -394,12 +394,12 @@ class DataIsolationHelper
     {
         // SuperAdmin has access to everything
         if ($user->hasRole('superadmin')) {
-            return Department::pluck('id');
+            return Department::withoutGlobalScopes()->pluck('id');
         }
 
         $allowedInstitutionIds = self::getAllowedInstitutionIds($user);
 
-        $departmentQuery = Department::whereIn('institution_id', $allowedInstitutionIds);
+        $departmentQuery = Department::withoutGlobalScopes()->whereIn('institution_id', $allowedInstitutionIds);
 
         // RegionOperator has additional restrictions
         if ($user->hasRole('regionoperator') && $user->department_id) {

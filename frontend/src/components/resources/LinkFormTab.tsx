@@ -55,7 +55,9 @@ export function LinkFormTab({
   mode = 'create',
   resource = null,
 }: LinkFormTabProps) {
-  const [targetingMode, setTargetingMode] = useState<TargetingMode>('institutions');
+  const [targetingMode, setTargetingMode] = useState<TargetingMode>(
+    form.getValues('share_scope') === 'specific_users' ? 'users' : 'institutions'
+  );
   const [linkPreview, setLinkPreview] = useState<{
     hostname: string;
     protocol: string;
@@ -68,23 +70,20 @@ export function LinkFormTab({
 
   // Clear the other targeting option when switching modes
   const handleTargetingModeChange = (mode: TargetingMode) => {
-    console.log('[LinkFormTab] targeting mode change', {
-      previousMode: targetingMode,
-      nextMode: mode,
-      timestamp: new Date().toISOString()
-    });
+    console.log('[LinkFormTab] targeting mode change:', mode);
     setTargetingMode(mode);
     if (mode === 'institutions') {
       form.setValue('target_users', []);
-      console.log('[LinkFormTab] cleared target_users because institutions mode selected');
       form.setValue('share_scope', 'institutional');
-      console.log('[LinkFormTab] share_scope set to institutional for institutions mode');
-      maybeDefaultInstitutions?.();
+      // If we don't have institutions selected, try to default them
+      if (form.getValues('target_institutions')?.length === 0) {
+        maybeDefaultInstitutions?.(true);
+      }
     } else {
       form.setValue('target_institutions', []);
-      console.log('[LinkFormTab] cleared target_institutions because users mode selected');
+      form.setValue('target_departments', []);
+      form.setValue('target_roles', []);
       form.setValue('share_scope', 'specific_users');
-      console.log('[LinkFormTab] share_scope set to specific_users for users mode');
     }
   };
 
@@ -280,7 +279,6 @@ export function LinkFormTab({
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
               }`}
-              onClick={() => handleTargetingModeChange('institutions')}
             >
               <RadioGroupItem value="institutions" id="target-institutions" className="shrink-0" />
               <Label htmlFor="target-institutions" className="cursor-pointer flex items-center gap-3 flex-1">
@@ -304,7 +302,6 @@ export function LinkFormTab({
                   ? 'border-green-500 bg-green-50'
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
               }`}
-              onClick={() => handleTargetingModeChange('users')}
             >
               <RadioGroupItem value="users" id="target-users" className="shrink-0" />
               <Label htmlFor="target-users" className="cursor-pointer flex items-center gap-3 flex-1">

@@ -168,8 +168,6 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   // Template selection handler
   const handleTemplateSelect = useCallback((template: SurveyTemplate) => {
     try {
-      console.log('🎨 Template selected:', template);
-
       // Update form data with template
       surveyForm.updateField('title', template.title);
       surveyForm.updateField('description', template.description || '');
@@ -204,18 +202,16 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
 
       setCurrentStep(1);
       setShowTemplateGallery(false);
-    } catch (error) {
-      console.error('Error selecting template:', error);
+    } catch {
+      // template selection failed silently — form state unchanged
     }
   }, [surveyForm]);
 
   // Handle next step
   const handleNextStep = useCallback(() => {
-    console.log('🚀 handleNextStep called, currentStep:', currentStep);
     if (currentStep === 1 && !validateStep1()) return;
     if (currentStep === 2 && !validateStep2()) return;
 
-    console.log('🚀 Setting currentStep to:', currentStep + 1);
     setIsStepChanging(true);
     setCurrentStep(prev => prev + 1);
 
@@ -227,21 +223,10 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚨 handleSubmit called, currentStep:', currentStep, 'isStepChanging:', isStepChanging);
 
-    // Prevent form submission during step transitions
-    if (isStepChanging) {
-      console.log('🚨 handleSubmit: blocked due to step change in progress');
-      return;
-    }
+    if (isStepChanging) return;
+    if (currentStep < 3) return;
 
-    // Only submit if we're on step 3 (final step)
-    if (currentStep < 3) {
-      console.log('🚨 handleSubmit: currentStep < 3, returning early');
-      return;
-    }
-
-    console.log('🚨 handleSubmit: proceeding with submission');
     await surveyForm.handleSubmit();
   };
 
@@ -489,7 +474,6 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                 addOption={addOption}
                 updateOption={updateOption}
                 removeOption={removeOption}
-                toast={undefined as any} // Will use from hook internally
               />
             )}
 

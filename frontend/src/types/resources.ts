@@ -164,6 +164,7 @@ export interface ResourceFilters {
   selection_mode?: boolean;
   statuses?: string[];
   group_by_title?: boolean;
+  is_bulk?: boolean;
 }
 
 // Resource statistics

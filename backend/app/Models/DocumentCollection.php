@@ -54,6 +54,9 @@ class DocumentCollection extends Model
         'is_system_folder' => 'boolean',
         'allow_school_upload' => 'boolean',
         'is_locked' => 'boolean',
+        'institution_id' => 'integer',
+        'owner_institution_id' => 'integer',
+        'created_by' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -118,6 +121,17 @@ class DocumentCollection extends Model
     {
         return $this->belongsToMany(Institution::class, 'folder_institutions', 'folder_id', 'institution_id')
             ->withPivot(['can_upload'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Target users relationship (many-to-many)
+     * These are specific users who can see and use this folder
+     */
+    public function targetUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'folder_users', 'folder_id', 'user_id')
+            ->withPivot(['can_delete', 'can_upload', 'can_view'])
             ->withTimestamps();
     }
 

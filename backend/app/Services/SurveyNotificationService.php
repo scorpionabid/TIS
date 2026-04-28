@@ -440,9 +440,34 @@ class SurveyNotificationService
             'schooladmin', 'məktəbadmin', 'müəllim', 'teacher',
         ]);
 
-        return $this->institutionNotificationHelper->doExpandInstitutionsToUsers(
+        $userIds = $this->institutionNotificationHelper->doExpandInstitutionsToUsers(
             $institutionIds,
             $targetRoles
         );
+
+        // 1. Sorğu yaradanı siyahıdan çıxar
+        $userIds = array_filter($userIds, fn ($id) => $id != $survey->creator_id);
+
+        // 2. Üst qurumdakı (superior body) istifadəçiləri çıxar
+        $creator = $survey->creator;
+        if ($creator && $creator->institution_id) {
+            $creatorInstitution = \App\Models\Institution::find($creator->institution_id);
+            if ($creatorInstitution) {
+                // Yaradanın institutunun bütün valideyn institutlarını (region, sektor və s.) tap
+                $ancestorIds = $creatorInstitution->getAncestors()->pluck('id')->toArray();
+
+                if (! empty($ancestorIds)) {
+                    // Bu institutlarda çalışan bütün istifadəçilərin ID-lərini al
+                    $excludedUserIds = \App\Models\User::whereIn('institution_id', $ancestorIds)
+                        ->pluck('id')
+                        ->toArray();
+
+                    // Ümumi siyahıdan bu istifadəçiləri çıxar
+                    $userIds = array_diff($userIds, $excludedUserIds);
+                }
+            }
+        }
+
+        return array_values($userIds);
     }
 }

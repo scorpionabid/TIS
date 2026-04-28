@@ -1,25 +1,27 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FilterBar } from '@/components/common/FilterBar';
-import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3, Download, CheckCircle, Star, Award, X } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Search, AlertCircle, Download, X, Inbox, ChevronRight,
+  ClipboardList, FileDown, RefreshCw
+} from 'lucide-react';
+import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
-import { SurveyResponse } from '@/services/surveys';
-import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { SurveyResponseForm } from '@/components/surveys/SurveyResponseForm';
+import { toast } from 'sonner';
 
 type ResponseStatus = 'draft' | 'in_progress' | 'submitted' | 'approved' | 'rejected' | 'completed';
 
-// Create a new interface that matches the actual data structure
 interface ResponseWithSurvey {
   id: number;
-  survey: {
+  survey?: {
     id: number;
     title: string;
     description?: string;
@@ -27,8 +29,9 @@ interface ResponseWithSurvey {
     questions_count?: number;
     survey_type: string;
     is_anonymous: boolean;
-    [key: string]: any; // For any additional properties
+    [key: string]: any;
   };
+  survey_id?: number;
   last_saved_at?: string;
   progress_percentage: number;
   completion_time?: string;
@@ -38,639 +41,301 @@ interface ResponseWithSurvey {
   submitted_on_time?: boolean;
   created_at?: string;
   status: ResponseStatus;
-  [key: string]: any; // For any additional properties
+  [key: string]: any;
 }
 
+// ─── Status Helpers ────────────────────────────────────────────────────────────
+const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  submitted:   { label: 'Göndərilmiş',  cls: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
+  approved:    { label: 'Təsdiqlənmiş', cls: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  rejected:    { label: 'Rədd edilmiş', cls: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  completed:   { label: 'Tamamlanmış',  cls: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
+};
+
+// ─── Left Panel: List Row ──────────────────────────────────────────────────────
+const ResponseListRow: React.FC<{
+  response: ResponseWithSurvey;
+  isSelected: boolean;
+  onClick: () => void;
+}> = ({ response, isSelected, onClick }) => {
+  const cfg = STATUS_MAP[response.status] || { label: response.status, cls: 'bg-gray-100 text-gray-800' };
+  const title = response.survey?.title || `Sorğu #${response.survey_id || '???'}`;
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full text-left px-3 py-3 rounded-lg border transition-all duration-150 group",
+        isSelected
+          ? "border-primary/50 bg-primary/5 shadow-sm"
+          : "border-border/50 bg-card hover:border-primary/20 hover:bg-accent/40"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className={cn(
+          "mt-1.5 h-2 w-2 rounded-full shrink-0",
+          response.status === 'approved' || response.status === 'completed' ? "bg-green-500" :
+          response.status === 'rejected' ? "bg-red-500" : "bg-purple-500"
+        )} />
+
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            "text-[13px] font-semibold leading-tight line-clamp-2 transition-colors",
+            isSelected ? "text-primary" : "text-foreground group-hover:text-primary"
+          )}>
+            {title}
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+             <span className={cn(
+              "text-[9px] font-bold px-1.5 py-0 rounded uppercase tracking-wider border",
+              cfg.cls
+            )}>
+              {cfg.label}
+            </span>
+            {response.completion_time && (
+              <span className="text-[10px] text-muted-foreground font-medium">
+                {format(new Date(response.completion_time), 'dd.MM.yy', { locale: az })}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <ChevronRight className={cn(
+          "h-4 w-4 mt-1 shrink-0 transition-all",
+          isSelected ? "text-primary" : "text-muted-foreground/40 group-hover:text-muted-foreground"
+        )} />
+      </div>
+    </button>
+  );
+};
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
 const MyResponses: React.FC = () => {
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
-  const [periodFilter, setPeriodFilter] = useState<string>('all');
-  const [approvalFilter, setApprovalFilter] = useState<string>('all');
-  const [reopeningId, setReopeningId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [exporting, setExporting] = useState<number | null>(null);
 
-  const { data: responses = [], isLoading, error } = useQuery<ResponseWithSurvey[]>({
-    queryKey: ['my-survey-responses'],
+  const { data: responses = [], isLoading, error, refetch } = useQuery<ResponseWithSurvey[]>({
+    queryKey: ['my-survey-responses-submitted'],
     queryFn: async () => {
       const response = await surveyService.getMyResponses();
-
+      let list: ResponseWithSurvey[] = [];
+      
       if (Array.isArray(response)) {
-        return response as ResponseWithSurvey[];
+        list = response as ResponseWithSurvey[];
+      } else {
+        const payload = (response as any)?.data;
+        if (payload && Array.isArray(payload.data)) list = payload.data as ResponseWithSurvey[];
+        else if (payload && Array.isArray(payload)) list = payload as ResponseWithSurvey[];
       }
 
-      const payload = (response as any)?.data;
-      if (payload && Array.isArray(payload.data)) {
-        return payload.data as ResponseWithSurvey[];
-      }
-
-      if (payload && Array.isArray(payload)) {
-        return payload as ResponseWithSurvey[];
-      }
-
-      return [];
+      // User requested only submitted/completed items
+      return list.filter(r => ['submitted', 'approved', 'rejected', 'completed'].includes(r.status));
     },
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
-  const filteredResponses = responses.filter((response: ResponseWithSurvey) => {
-    const matchesSearch = response.survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         response.survey.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || response.status === statusFilter;
+  const filteredResponses = useMemo(() => {
+    return responses.filter((r) => {
+      const title = r.survey?.title || '';
+      const desc = r.survey?.description || '';
+      const matchesSearch =
+        title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        desc.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [responses, searchTerm, statusFilter]);
 
-    // Period filtering
-    let matchesPeriod = true;
-    if (periodFilter !== 'all' && response.completion_time) {
-      const completionDate = new Date(response.completion_time);
-      const now = new Date();
-      const daysDiff = Math.floor((now.getTime() - completionDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      switch (periodFilter) {
-        case 'week':
-          matchesPeriod = daysDiff <= 7;
-          break;
-        case 'month':
-          matchesPeriod = daysDiff <= 30;
-          break;
-        case 'quarter':
-          matchesPeriod = daysDiff <= 90;
-          break;
-      }
-    } else if (periodFilter !== 'all' && !response.completion_time) {
-      matchesPeriod = false; // If no completion time, exclude from period filter
+  // Auto-select first item when list changes
+  React.useEffect(() => {
+    if (filteredResponses.length > 0 && (!selectedId || !filteredResponses.find(r => r.id === selectedId))) {
+      setSelectedId(filteredResponses[0].id);
+    } else if (filteredResponses.length === 0) {
+      setSelectedId(null);
     }
+  }, [filteredResponses, selectedId]);
 
-    return matchesSearch && matchesStatus && matchesPeriod;
-  });
+  const selectedResponse = filteredResponses.find(r => r.id === selectedId) ?? null;
 
-  const hasActiveFilters = searchTerm !== '' || statusFilter !== 'all' || periodFilter !== 'all';
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'submitted': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      case 'completed': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'draft': return 'Qaralama';
-      case 'in_progress': return 'Davam edir';
-      case 'submitted': return 'Göndərilmiş';
-      case 'approved': return 'Təsdiqlənmiş';
-      case 'rejected': return 'Rədd edilmiş';
-      case 'completed': return 'Tamamlanmış';
-      default: return status;
-    }
-  };
-
-  const getProgressColor = (percentage: number) => {
-    if (percentage >= 80) return 'bg-green-500';
-    if (percentage >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getApprovalStatusColor = (status?: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getApprovalStatusText = (status?: string) => {
-    switch (status) {
-      case 'approved': return 'Təsdiqlənib';
-      case 'rejected': return 'Rədd edilib';
-      case 'pending': return 'Gözləyir';
-      default: return 'Naməlum';
-    }
-  };
-
-  const getScoreColor = (score?: number) => {
-    if (!score) return 'text-gray-500';
-    if (score >= 90) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getScoreIcon = (score?: number) => {
-    if (!score) return null;
-    if (score >= 90) return <Award className="h-4 w-4 text-yellow-500" />;
-    if (score >= 70) return <Star className="h-4 w-4 text-blue-500" />;
-    return <BarChart3 className="h-4 w-4 text-gray-500" />;
-  };
-
-  const handleContinueResponse = (responseId: number, surveyId: number) => {
-    navigate(`/survey-response/${surveyId}/${responseId}`);
-  };
-
-  const handleViewResponse = (responseId: number, surveyId: number) => {
-    navigate(`/survey-response/${surveyId}/${responseId}`);
-  };
-
-  const handleReopenResponse = async (responseId: number, surveyId: number) => {
+  const handleExport = useCallback(async (responseId: number) => {
     try {
-      setReopeningId(responseId);
-      await surveyService.reopenAsDraft(responseId);
-      navigate(`/survey-response/${surveyId}/${responseId}`);
-    } catch (error) {
-      console.error('Error reopening response:', error);
-    } finally {
-      setReopeningId(null);
-    }
-  };
-
-  const handleDeleteDraft = async (responseId: number) => {
-    if (window.confirm('Bu qara lamənı silmək istədiyinizə əminsiniz?')) {
-      try {
-        await surveyService.deleteResponse(responseId);
-        // Refresh the list
-        window.location.reload();
-      } catch (error) {
-        console.error('Error deleting draft:', error);
-      }
-    }
-  };
-
-  // YENİ: Export response report
-  const handleDownloadReport = async (responseId: number) => {
-    try {
+      setExporting(responseId);
       const blob = await surveyService.downloadResponseReport(responseId);
-
-      // Verify we have a valid blob
-      if (!blob || !(blob instanceof Blob)) {
-        throw new Error('Invalid file data received from server');
-      }
-
+      if (!blob || !(blob instanceof Blob)) throw new Error('Invalid file');
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.style.display = 'none';
       a.href = url;
-      a.download = `survey-response-${responseId}.xlsx`;
+      a.download = `sorğu-cavab-${responseId}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading report:', error);
-      // TODO: Add toast notification for error
+      toast.success('Hesabat uğurla yükləndi');
+    } catch (e) {
+      console.error('Error exporting:', e);
+      toast.error('Hesabat yüklənərkən xəta baş verdi');
+    } finally {
+      setExporting(null);
     }
-  };
+  }, []);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="pt-4 space-y-4">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <div className="flex gap-4 h-[600px]">
+          <div className="w-72 space-y-2 shrink-0">
+            {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+          </div>
+          <Skeleton className="flex-1 rounded-xl" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="max-w-md mx-auto mt-8">
-        <CardContent className="pt-6">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Xəta baş verdi</h3>
-            <p className="text-gray-600">Cavablar yüklənərkən xəta baş verdi.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-bold">Məlumat yüklənmədi</h3>
+        <Button variant="outline" className="mt-4" onClick={() => refetch()}>Yenidən yoxla</Button>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Minimalist Stats Section */}
-      {responses.length > 0 && (
-        <div className="mb-6 space-y-3">
-          <h3 className="text-base font-medium text-gray-700">Cavablarım</h3>
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <div className="flex items-center gap-1.5 text-gray-600">
-              <span className="font-medium">{responses.length}</span>
-              <span>Ümumi</span>
-            </div>
-            <div className="h-4 w-px bg-gray-200"></div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-blue-600">
-                {responses.filter(r => r.status === 'in_progress').length}
-              </span>
-              <span className="text-gray-600">Davam edir</span>
-            </div>
-            <div className="h-4 w-px bg-gray-200"></div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-green-600">
-                {responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length}
-              </span>
-              <span className="text-gray-600">Tamamlanıb</span>
-            </div>
-            {responses.filter(r => r.status === 'draft').length > 0 && (
-              <>
-                <div className="h-4 w-px bg-gray-200"></div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-yellow-600">
-                    {responses.filter(r => r.status === 'draft').length}
-                  </span>
-                  <span className="text-gray-600">Qaralama</span>
-                </div>
-              </>
-            )}
+    <div className="pt-4 flex flex-col h-[calc(100vh-120px)] gap-4 overflow-hidden">
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div className="flex flex-1 items-center gap-2 max-w-lg">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
+            <Input
+              placeholder="Göndərilmiş sorğularda axtar..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="pl-9 h-8 text-sm"
+            />
           </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px] h-8 text-sm">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün göndərilənlər</SelectItem>
+              <SelectItem value="submitted">Göndərilmiş</SelectItem>
+              <SelectItem value="completed">Tamamlanmış</SelectItem>
+              <SelectItem value="approved">Təsdiqlənmiş</SelectItem>
+              <SelectItem value="rejected">Rədd edilmiş</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => refetch()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
         </div>
-      )}
 
-      <FilterBar className="md:w-auto">
-        <FilterBar.Group>
-          <FilterBar.Field>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Axtarış..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 h-10 text-sm"
-              />
-            </div>
-          </FilterBar.Field>
-
-          <FilterBar.Field>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 min-w-[150px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün statuslar</SelectItem>
-                <SelectItem value="draft">Qaralama</SelectItem>
-                <SelectItem value="in_progress">Davam edir</SelectItem>
-                <SelectItem value="submitted">Göndərilmiş</SelectItem>
-                <SelectItem value="completed">Tamamlanmış</SelectItem>
-              </SelectContent>
-            </Select>
-          </FilterBar.Field>
-
-          {(statusFilter === 'submitted' || statusFilter === 'completed' || statusFilter === 'all') && (
-            <FilterBar.Field>
-              <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                <SelectTrigger className="h-10 min-w-[150px]">
-                  <SelectValue placeholder="Dövr" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Bütün vaxtlar</SelectItem>
-                  <SelectItem value="week">Son həftə</SelectItem>
-                  <SelectItem value="month">Son ay</SelectItem>
-                </SelectContent>
-              </Select>
-            </FilterBar.Field>
-          )}
-        </FilterBar.Group>
-
-        <FilterBar.Actions>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setPeriodFilter('all');
-              }}
-              className="gap-1"
+        <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground">
+          <span>Göndərilib: <strong className="text-foreground">{responses.length}</strong></span>
+          {selectedId && (
+            <Button 
+              size="sm" 
+              className="h-8 bg-green-600 hover:bg-green-700 text-white gap-2"
+              disabled={exporting === selectedId}
+              onClick={() => handleExport(selectedId)}
             >
-              <X className="h-4 w-4" />
-              Hamısını təmizlə
+              <FileDown className={cn("h-3.5 w-3.5", exporting === selectedId && "animate-bounce")} />
+              {exporting === selectedId ? 'Yüklənir...' : 'Eksport'}
             </Button>
           )}
-        </FilterBar.Actions>
-      </FilterBar>
-
-      {hasActiveFilters && (
-        <div className="filter-panel">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">
-              Aktiv filtrlər
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setPeriodFilter('all');
-              }}
-              className="h-7 gap-1"
-            >
-              <X className="h-4 w-4" />
-              Hamısını sıfırla
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {searchTerm && (
-              <span className="filter-chip">
-                Axtarış: "{searchTerm}"
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="hover:bg-primary/20 rounded-full p-0.5"
-                  aria-label="Axtarışı sıfırla"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-
-            {statusFilter !== 'all' && (
-              <span className="filter-chip">
-                Status: {statusFilter === 'draft' ? 'Qaralama' : statusFilter === 'in_progress' ? 'Davam edir' : statusFilter === 'submitted' ? 'Göndərilmiş' : 'Tamamlanmış'}
-                <button
-                  onClick={() => setStatusFilter('all')}
-                  className="hover:bg-primary/20 rounded-full p-0.5"
-                  aria-label="Status filtrini sıfırla"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-
-            {periodFilter !== 'all' && (
-              <span className="filter-chip">
-                Dövr: {periodFilter === 'week' ? 'Son həftə' : 'Son ay'}
-                <button
-                  onClick={() => setPeriodFilter('all')}
-                  className="hover:bg-primary/20 rounded-full p-0.5"
-                  aria-label="Dövr filtrini sıfırla"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-          </div>
         </div>
-      )}
+      </div>
 
-      {/* Responses List */}
-      {filteredResponses.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <Edit className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {statusFilter === 'all' ? 'Cavab tapılmadı' : 'Seçilmiş statusda cavab yoxdur'}
-              </h3>
-              <p className="text-gray-600">
-                {statusFilter === 'all'
-                  ? 'Hazırda heç bir sorğu cavabınız yoxdur.'
-                  : 'Seçilmiş filtrlərə uyğun cavab tapılmadı.'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── Master-Detail Layout ── */}
+      {responses.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-2xl bg-muted/20">
+          <ClipboardList className="h-16 w-16 text-muted-foreground/20 mb-4" />
+          <h3 className="text-lg font-bold text-foreground">Göndərilmiş sorğu yoxdur</h3>
+          <p className="text-muted-foreground text-sm mt-1 text-center max-w-xs">Sizin tərəfinizdən göndərilmiş və ya tamamlanmış heç bir sorğu tapılmadı.</p>
+        </div>
+      ) : filteredResponses.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-2xl">
+            <Search className="h-16 w-16 text-muted-foreground/20 mb-4" />
+            <h3 className="text-lg font-bold text-foreground">Nəticə tapılmadı</h3>
+            <p className="text-muted-foreground text-sm mt-1 text-center max-w-xs">Axtarışınıza uyğun heç bir sorğu tapılmadı.</p>
+          </div>
       ) : (
-        <div className="grid gap-4">
-          {filteredResponses.map((response: ResponseWithSurvey) => (
-            <Card key={response.id} className="transition-shadow hover:shadow-md">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2">
-                    <CardTitle className="text-lg font-semibold">
-                      {response.survey.title}
-                    </CardTitle>
-                    <CardDescription className="text-sm">
-                      {response.survey.description}
-                    </CardDescription>
-                  </div>
-
-                  <div className="flex flex-col items-end space-y-2">
-                    <div className="flex space-x-2">
-                      {response.submitted_on_time && (
-                        <Badge className="bg-green-100 text-green-800 border-green-200">
-                          Vaxtında
-                        </Badge>
-                      )}
-                      <Badge className={getStatusColor(response.status)}>
-                        {getStatusText(response.status)}
-                      </Badge>
-                      {response.approval_status && (
-                        <Badge className={getApprovalStatusColor(response.approval_status)}>
-                          {getApprovalStatusText(response.approval_status)}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {response.score && (
-                      <div className="flex items-center space-x-1">
-                        {getScoreIcon(response.score)}
-                        <span className={`text-sm font-medium ${getScoreColor(response.score)}`}>
-                          {response.score}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                {/* Progress Bar */}
-                {response.progress_percentage !== undefined && (
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700">Tərəqqi</span>
-                      <span className="text-sm text-gray-600">{response.progress_percentage}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(response.progress_percentage)}`}
-                        style={{ width: `${response.progress_percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  {response.completion_time && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-gray-600">Tamamlanıb:</span>
-                      <span className="text-gray-900">
-                        {format(new Date(response.completion_time), 'dd.MM.yyyy HH:mm')}
-                      </span>
-                    </div>
-                  )}
-
-                  {response.last_saved_at && !response.completion_time && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Save className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Son saxlanma:</span>
-                      <span className="text-gray-900">
-                        {formatDistanceToNow(new Date(response.last_saved_at), {
-                          addSuffix: true,
-                          locale: az
-                        })}
-                      </span>
-                    </div>
-                  )}
-
-                  {response.survey.due_date && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Son tarix:</span>
-                      <span className="text-gray-900">
-                        {format(new Date(response.survey.due_date), 'dd.MM.yyyy')}
-                      </span>
-                    </div>
-                  )}
-
-                  {response.survey.questions_count && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <BarChart3 className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Sual sayı:</span>
-                      <span className="text-gray-900">{response.survey.questions_count}</span>
-                    </div>
-                  )}
-                </div>
-
-                {response.feedback && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-start space-x-2">
-                      <Star className="h-4 w-4 text-blue-500 mt-0.5" />
-                      <div>
-                        <span className="text-sm font-medium text-blue-900">Rəy:</span>
-                        <p className="text-sm text-blue-800 mt-1">{response.feedback}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {response.completion_time && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">
-                        {formatDistanceToNow(new Date(response.completion_time), {
-                          addSuffix: true,
-                          locale: az
-                        })} tamamlandı
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {response.last_saved_at && !response.completion_time && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm text-blue-600">
-                        Başlanıb: {format(new Date(response.last_saved_at), 'dd.MM.yyyy HH:mm')}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* YENİ: Dynamic button layout based on status */}
-                <div className="flex justify-between items-center">
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewResponse(response.id, response.survey.id)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Baxış
-                    </Button>
-
-                    {/* Delete button only for draft status */}
-                    {response.status === 'draft' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteDraft(response.id)}
-                        className="text-red-600 hover:text-red-700 hover:border-red-300"
-                      >
-                        Sil
-                      </Button>
-                    )}
-
-                    {/* Export button for completed responses */}
-                    {['submitted', 'approved', 'completed'].includes(response.status) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownloadReport(response.id)}
-                        className="text-green-600 hover:text-green-700 hover:border-green-300"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Continue button only for editable statuses */}
-                  {response.status === 'rejected' ? (
-                    <Button
-                      onClick={() => handleReopenResponse(response.id, response.survey.id)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                      disabled={reopeningId === response.id}
-                    >
-                      {reopeningId === response.id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Açılır...
-                        </>
-                      ) : (
-                        <>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Yenidən redaktə et
-                        </>
-                      )}
-                    </Button>
-                  ) : ['draft', 'in_progress'].includes(response.status) ? (
-                    <Button
-                      onClick={() => handleContinueResponse(response.id, response.survey.id)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Davam et
-                    </Button>
-                  ) : (
-                    // Status indicator for completed responses
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-gray-700">Tamamlanmış</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Minimalist Completion Rate */}
-      {responses.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-            <span>Tamamlanma dərəcəsi</span>
-            <span>
-              {Math.round(
-                (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
-              )}%
-            </span>
+        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+          {/* Left: list */}
+          <div className="w-72 xl:w-80 shrink-0 flex flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar">
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1 px-1">
+              Siyahı ({filteredResponses.length})
+            </p>
+            {filteredResponses.map((response) => (
+              <ResponseListRow
+                key={response.id}
+                response={response}
+                isSelected={selectedId === response.id}
+                onClick={() => setSelectedId(response.id)}
+              />
+            ))}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full" 
-              style={{
-                width: `${Math.round(
-                  (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
-                )}%`
-              }}
-            ></div>
+
+          {/* Right: Embedded SurveyResponseForm */}
+          <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-border/40">
+            {selectedResponse && (selectedResponse.survey_id || selectedResponse.survey?.id) ? (
+              <div className="p-1">
+                 <div className="bg-white dark:bg-card border-b border-border/40 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+                    <div className="flex items-center gap-3">
+                       <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+                          <ClipboardList className="h-5 w-5 text-primary" />
+                       </div>
+                       <div className="min-w-0">
+                          <h3 className="text-sm font-bold text-foreground truncate">{selectedResponse.survey?.title || 'Sorğu Detalları'}</h3>
+                          <p className="text-[10px] text-muted-foreground">ID: {selectedResponse.id} | Göndərilib: {selectedResponse.completion_time ? format(new Date(selectedResponse.completion_time), 'dd.MM.yyyy HH:mm') : '-'}</p>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                       <Badge variant="outline" className={cn("text-[10px] font-bold uppercase tracking-tight px-2 py-0.5", STATUS_MAP[selectedResponse.status]?.cls)}>
+                          {STATUS_MAP[selectedResponse.status]?.label}
+                       </Badge>
+                       <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 hover:bg-green-100 hover:text-green-700" 
+                        onClick={() => handleExport(selectedResponse.id)}
+                        disabled={exporting === selectedResponse.id}
+                       >
+                          <Download className="h-4 w-4" />
+                       </Button>
+                    </div>
+                 </div>
+
+                 <div className="p-4 sm:p-6 lg:p-8">
+                    <SurveyResponseForm
+                      key={`${selectedResponse.survey_id || selectedResponse.survey?.id}-${selectedResponse.id}`}
+                      surveyId={(selectedResponse.survey_id || selectedResponse.survey?.id) as number}
+                      responseId={selectedResponse.id}
+                    />
+                 </div>
+              </div>
+            ) : selectedResponse ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+                <h3 className="text-base font-bold text-foreground">Sorğu məlumatı çatışmır</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xs">Bu cavab üçün əlaqəli sorğu tapılmadı (ID xətası).</p>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                <ClipboardList className="h-12 w-12 text-muted-foreground/20 mb-4" />
+                <h3 className="text-base font-bold text-foreground">Sorğu seçin</h3>
+              </div>
+            )}
           </div>
         </div>
       )}

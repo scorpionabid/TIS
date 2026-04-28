@@ -435,6 +435,7 @@ class LinkSharingService extends BaseService
         // Fetch all school-specific links with same title
         // Case 1: School created the link itself (institution_id = school ID)
         // Case 2: Link shared specifically to this one school (target_institutions contains only this school)
+        $schoolLinkIdsMap = [];
         if (! empty($allSchoolIds)) {
             // Case 1: Links created by schools themselves
             $schoolLinks = LinkShare::whereIn('institution_id', $allSchoolIds)
@@ -444,6 +445,7 @@ class LinkSharingService extends BaseService
 
             foreach ($schoolLinks as $institutionId => $link) {
                 $schoolSpecificLinks[(int) $institutionId] = $link->url;
+                $schoolLinkIdsMap[(int) $institutionId] = $link->id;
             }
 
             // Case 2: Links shared to individual schools (bulk imported by regionadmin)
@@ -460,6 +462,7 @@ class LinkSharingService extends BaseService
                     // Only set if not already set by Case 1 (school's own link has priority)
                     if (! isset($schoolSpecificLinks[$schoolId])) {
                         $schoolSpecificLinks[$schoolId] = $link->url;
+                        $schoolLinkIdsMap[$schoolId] = $link->id;
                     }
                 }
             }
@@ -479,14 +482,19 @@ class LinkSharingService extends BaseService
                     continue;
                 }
 
-                $schoolsData = $ungroupedSchools->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount, $schoolSpecificLinks, $linkShare) {
+                $sectorAccessedCount = 0;
+                $sectorNotAccessedCount = 0;
+
+                $schoolsData = $ungroupedSchools->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount, &$sectorAccessedCount, &$sectorNotAccessedCount, $schoolSpecificLinks, $linkShare) {
                     $stats = $accessStats[$school->id] ?? null;
                     $hasAccessed = $stats !== null && $stats['access_count'] > 0;
 
                     if ($hasAccessed) {
                         $accessedCount++;
+                        $sectorAccessedCount++;
                     } else {
                         $notAccessedCount++;
+                        $sectorNotAccessedCount++;
                     }
 
                     return [
@@ -498,7 +506,8 @@ class LinkSharingService extends BaseService
                         'access_count' => $stats['access_count'] ?? 0,
                         'last_accessed_at' => $stats['last_accessed_at'] ?? null,
                         'first_accessed_at' => $stats['first_accessed_at'] ?? null,
-                        'link_url' => $schoolSpecificLinks[$school->id] ?? $linkShare->url, // School-specific URL or fallback
+                        'link_id' => $schoolLinkIdsMap[$school->id] ?? $linkShare->id,
+                        'link_url' => $schoolSpecificLinks[$school->id] ?? $linkShare->url,
                     ];
                 })->values()->toArray();
 
@@ -509,6 +518,9 @@ class LinkSharingService extends BaseService
                     'region_name' => null,
                     'is_full_coverage' => false,
                     'school_count' => count($schoolsData),
+                    'total_schools' => count($schoolsData),
+                    'opened_count' => $sectorAccessedCount,
+                    'unopened_count' => $sectorNotAccessedCount,
                     'schools' => $schoolsData,
                 ];
 
@@ -524,14 +536,19 @@ class LinkSharingService extends BaseService
                 ? ($fullSectorSchools->get($sectorId) ?? collect())
                 : ($schoolsGrouped->get($sectorId) ?? collect());
 
-            $schoolsData = $schoolsCollection->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount, $schoolSpecificLinks, $linkShare) {
+            $sectorAccessedCount = 0;
+            $sectorNotAccessedCount = 0;
+
+            $schoolsData = $schoolsCollection->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount, &$sectorAccessedCount, &$sectorNotAccessedCount, $schoolSpecificLinks, $linkShare) {
                 $stats = $accessStats[$school->id] ?? null;
                 $hasAccessed = $stats !== null && $stats['access_count'] > 0;
 
                 if ($hasAccessed) {
                     $accessedCount++;
+                    $sectorAccessedCount++;
                 } else {
                     $notAccessedCount++;
+                    $sectorNotAccessedCount++;
                 }
 
                 return [
@@ -543,7 +560,8 @@ class LinkSharingService extends BaseService
                     'access_count' => $stats['access_count'] ?? 0,
                     'last_accessed_at' => $stats['last_accessed_at'] ?? null,
                     'first_accessed_at' => $stats['first_accessed_at'] ?? null,
-                    'link_url' => $schoolSpecificLinks[$school->id] ?? $linkShare->url, // School-specific URL or fallback
+                    'link_id' => $schoolLinkIdsMap[$school->id] ?? $linkShare->id,
+                    'link_url' => $schoolSpecificLinks[$school->id] ?? $linkShare->url,
                 ];
             })->values()->toArray();
 
@@ -556,6 +574,9 @@ class LinkSharingService extends BaseService
                 'region_name' => $sector->parent->name ?? null,
                 'is_full_coverage' => $coverage === 'full',
                 'school_count' => count($schoolsData),
+                'total_schools' => count($schoolsData),
+                'opened_count' => $sectorAccessedCount,
+                'unopened_count' => $sectorNotAccessedCount,
                 'schools' => $schoolsData,
             ];
         }
@@ -682,6 +703,7 @@ class LinkSharingService extends BaseService
 
         // Get school-specific links mapping for all schools (for grouped links by title)
         $schoolSpecificLinksMap = [];
+        $schoolLinkIdsMap = [];
         $allTargetSchoolIds = array_filter($allTargetIds, function ($id) use ($targetInstitutions) {
             $inst = $targetInstitutions->firstWhere('id', $id);
 
@@ -697,6 +719,7 @@ class LinkSharingService extends BaseService
 
             foreach ($schoolLinks as $institutionId => $link) {
                 $schoolSpecificLinksMap[(int) $institutionId] = $link->url;
+                $schoolLinkIdsMap[(int) $institutionId] = $link->id;
             }
 
             // Case 2: Links shared to individual schools (bulk imported by regionadmin)
@@ -710,6 +733,7 @@ class LinkSharingService extends BaseService
                     $schoolId = (int) $targets[0];
                     if (! isset($schoolSpecificLinksMap[$schoolId])) {
                         $schoolSpecificLinksMap[$schoolId] = $link->url;
+                        $schoolLinkIdsMap[$schoolId] = $link->id;
                     }
                 }
             }
@@ -807,6 +831,7 @@ class LinkSharingService extends BaseService
                         'access_count' => $stats['access_count'] ?? 0,
                         'last_accessed_at' => $stats['last_accessed_at'] ?? null,
                         'first_accessed_at' => $stats['first_accessed_at'] ?? null,
+                        'link_id' => $schoolLinkIdsMap[$school->id] ?? ($links->first() ? $links->first()->id : null),
                         'link_url' => $schoolSpecificLinksMap[$school->id] ?? ($links->first() ? $links->first()->url : null), // School-specific URL or fallback
                     ];
                 })->values()->toArray();
@@ -852,6 +877,7 @@ class LinkSharingService extends BaseService
                     'access_count' => $stats['access_count'] ?? 0,
                     'last_accessed_at' => $stats['last_accessed_at'] ?? null,
                     'first_accessed_at' => $stats['first_accessed_at'] ?? null,
+                    'link_id' => $schoolLinkIdsMap[$school->id] ?? ($links->first() ? $links->first()->id : null),
                     'link_url' => $schoolSpecificLinksMap[$school->id] ?? ($links->first() ? $links->first()->url : null), // School-specific URL or fallback
                 ];
             })->values()->toArray();

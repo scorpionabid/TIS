@@ -62,7 +62,7 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
       onSuccess();
     } catch (err: any) {
       console.error('Error deleting folder:', err);
-      setError(err.response?.data?.message || 'Folder silinərkən xəta baş verdi');
+      setError(err.response?.data?.message || 'Qovluq silinərkən xəta baş verdi');
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
             <div className="p-2 bg-red-100 rounded-lg">
               <Trash2 className="text-red-600" size={24} />
             </div>
-            <h2 className="text-xl font-semibold text-red-900">Folderi Sil</h2>
+            <h2 className="text-xl font-semibold text-red-900">Qovluğu Sil</h2>
           </div>
           <button
             onClick={onClose}
@@ -102,7 +102,7 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
               <div className="space-y-2">
                 <p className="font-semibold text-yellow-900">DİQQƏT: Bu əməliyyat geri alına bilməz!</p>
                 <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
-                  <li>Folder "<strong>{folder.name}</strong>" silinəcək</li>
+                  <li>Qovluq "<strong>{folder.name}</strong>" silinəcək</li>
                   {loadingDocuments ? (
                     <li>Sənədlər yüklənir...</li>
                   ) : (
@@ -120,12 +120,12 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
           {/* Folder Info */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Folder adı:</span>
+              <span className="text-gray-600">Qovluq adı:</span>
               <span className="font-semibold text-gray-900">{folder.name}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Sahibi:</span>
-              <span className="text-gray-900">{folder.ownerInstitution?.name || 'N/A'}</span>
+              <span className="text-gray-900">{folder.owner_institution?.name || folder.ownerInstitution?.name || 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Sənəd sayı:</span>
@@ -145,7 +145,7 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
               onChange={(e) => setReason(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
               rows={3}
-              placeholder="Folder niyə silinir?"
+              placeholder="Qovluq niyə silinir?"
             />
           </div>
 
@@ -178,7 +178,7 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
               disabled={loading || loadingDocuments || confirmText !== CONFIRM_PHRASE}
               className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Silinir...' : 'Folderi Sil'}
+              {loading ? 'Silinir...' : 'Qovluğu Sil'}
             </button>
           </div>
         </form>

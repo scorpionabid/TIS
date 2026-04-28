@@ -10,6 +10,8 @@ export interface Survey extends BaseEntity {
   target_roles?: string[];
   target_institutions?: number[];
   response_count?: number;
+  pending_responses_count?: number;
+  approved_responses_count?: number;
   questions_count?: number;
   max_responses?: number;
   is_anonymous: boolean;
@@ -77,6 +79,7 @@ export interface CreateSurveyData {
 
 export interface SurveyFilters extends PaginationParams {
   status?: Survey['status'];
+  creator_id?: number;
   created_by?: number;
   target_role?: string;
   target_institution?: number;

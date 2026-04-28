@@ -9,8 +9,6 @@ export default function Folders() {
   const foldersAccess = useModuleAccess('folders');
   const isAuthenticated = !!currentUser;
   const canViewFolders = foldersAccess.canView;
-  const canManageFolders =
-  foldersAccess.canManage || foldersAccess.canCreate || foldersAccess.canEdit;
 
   if (!isAuthenticated) {
     return (

@@ -67,18 +67,21 @@ class LinkShareCrudController extends BaseController
     /**
      * Get single link share details
      */
-    public function show(Request $request, int $id): JsonResponse
+    public function show(Request $request, LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request, $id) {
+        return $this->executeWithErrorHandling(function () use ($request, $linkShare) {
             $request->validate([
                 'include_accesses' => 'boolean',
                 'access_limit' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
-            $linkShare = $this->linkSharingService->getLinkShare($id, $request, $user);
+            // Optional: You might still want to pass it to service if service handles complex logic
+            // but for simple cases $linkShare is already loaded.
+            // Let's keep service call if it does specific filtering or logging.
+            $result = $this->linkSharingService->getLinkShare($linkShare->id, $request, $user);
 
-            return $this->successResponse($linkShare, 'Bağlantı məlumatları alındı');
+            return $this->successResponse($result, 'Bağlantı məlumatları alındı');
         }, 'linkshare.show');
     }
 
@@ -147,9 +150,9 @@ class LinkShareCrudController extends BaseController
     /**
      * Update link share
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request, $id) {
+        return $this->executeWithErrorHandling(function () use ($request, $linkShare) {
             $validated = $request->validate([
                 'title' => 'sometimes|required|string|max:255',
                 'description' => 'nullable|string|max:500',
@@ -176,48 +179,34 @@ class LinkShareCrudController extends BaseController
 
             $user = Auth::user();
             Log::info('LinkShare update request received', [
-                'link_share_id' => $id,
+                'link_share_id' => $linkShare->id,
                 'validated_payload' => $validated,
                 'user_id' => $user?->id,
                 'route' => $request->path(),
             ]);
 
-            $linkShareModel = LinkShare::with(['sharedBy', 'institution'])->find($id);
+            // Model is already injected, ensure relations are loaded if needed
+            $linkShare->load(['sharedBy', 'institution']);
 
-            if (! $linkShareModel) {
-                Log::error('LinkShare not found during update', [
-                    'link_share_id' => $id,
-                    'user_id' => $user?->id,
-                ]);
-                abort(404, "LinkShare #{$id} tapılmadı");
-            }
-
-            Log::info('LinkShare model loaded for update', [
-                'link_share_id' => $linkShareModel->id,
-                'has_sharedBy' => $linkShareModel->relationLoaded('sharedBy'),
-                'has_institution' => $linkShareModel->relationLoaded('institution'),
-            ]);
-
-            $linkShare = $this->linkSharingService->updateLinkShare($linkShareModel, $validated, $user);
+            $updatedLinkShare = $this->linkSharingService->updateLinkShare($linkShare, $validated, $user);
             Log::info('LinkShare updated successfully', [
-                'link_share_id' => $linkShare->id,
+                'link_share_id' => $updatedLinkShare->id,
                 'updated_fields' => array_keys($validated),
             ]);
 
-            $this->sendLinkShareNotification($linkShare, $validated, $user, 'updated');
+            $this->sendLinkShareNotification($updatedLinkShare, $validated, $user, 'updated');
 
-            return $this->successResponse($linkShare, 'Bağlantı yeniləndi');
+            return $this->successResponse($updatedLinkShare, 'Bağlantı yeniləndi');
         }, 'linkshare.update');
     }
 
     /**
      * Delete link share (soft disable)
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($id) {
+        return $this->executeWithErrorHandling(function () use ($linkShare) {
             $user = Auth::user();
-            $linkShare = LinkShare::findOrFail($id);
             $this->linkSharingService->deleteLinkShare($linkShare, $user);
 
             return $this->successResponse(null, 'Bağlantı silindi');
@@ -227,11 +216,10 @@ class LinkShareCrudController extends BaseController
     /**
      * Restore a disabled link share
      */
-    public function restore(int $id): JsonResponse
+    public function restore(LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($id) {
+        return $this->executeWithErrorHandling(function () use ($linkShare) {
             $user = Auth::user();
-            $linkShare = LinkShare::findOrFail($id);
 
             if (! ($this->linkSharingService->canViewAllLinks($user) || $linkShare->shared_by === $user->id)) {
                 abort(403, 'Bu linki bərpa etmək icazəniz yoxdur');
@@ -250,15 +238,10 @@ class LinkShareCrudController extends BaseController
     /**
      * Permanently delete (hard delete) a disabled link share
      */
-    public function forceDelete(int $id): JsonResponse
+    public function forceDelete(LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($id) {
+        return $this->executeWithErrorHandling(function () use ($linkShare) {
             $user = Auth::user();
-            $linkShare = LinkShare::findOrFail($id);
-
-            if ($linkShare->status !== 'disabled') {
-                abort(422, 'Yalnız disabled olan linklər silinə bilər');
-            }
 
             $canDelete = $this->linkSharingService->canViewAllLinks($user)
                 || $linkShare->shared_by === $user->id

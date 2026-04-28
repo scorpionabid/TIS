@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FileText, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { InstitutionTargeting } from "./InstitutionTargeting";
+import { UserTargeting } from "./UserTargeting";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Building2, Users as UsersIcon } from "lucide-react";
 
 import { Institution } from "@/services/institutions";
 
@@ -15,6 +18,7 @@ interface DocumentFormTabProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   availableInstitutions: Institution[];
+  maybeDefaultInstitutions?: () => void;
   mode?: 'create' | 'edit';
   currentFileName?: string;
 }
@@ -24,9 +28,32 @@ export function DocumentFormTab({
   selectedFile,
   setSelectedFile,
   availableInstitutions,
+  maybeDefaultInstitutions,
   mode = 'create',
   currentFileName,
 }: DocumentFormTabProps) {
+  const [targetingMode, setTargetingMode] = useState<'institutions' | 'users'>(
+    form.getValues('share_scope') === 'specific_users' ? 'users' : 'institutions'
+  );
+
+  const handleTargetingModeChange = (nextMode: 'institutions' | 'users') => {
+    console.log('[DocumentFormTab] targeting mode change:', nextMode);
+    setTargetingMode(nextMode);
+    if (nextMode === 'institutions') {
+      form.setValue('target_users', []);
+      form.setValue('share_scope', 'institutional');
+      // Always reset defaulted ref so it re-selects when switching back
+      if (form.getValues('target_institutions')?.length === 0) {
+        maybeDefaultInstitutions?.(true);
+      }
+    } else {
+      form.setValue('target_institutions', []);
+      form.setValue('target_departments', []);
+      form.setValue('target_roles', []);
+      form.setValue('share_scope', 'specific_users');
+    }
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     console.log('📄 File selected:', file);
@@ -168,11 +195,75 @@ export function DocumentFormTab({
           </div>
         </div>
 
-        {/* Institution Targeting */}
-        <InstitutionTargeting
-          form={form}
-          availableInstitutions={availableInstitutions}
-        />
+        {/* Targeting Mode Selector */}
+        <div className="border-t pt-6 space-y-4">
+          <div>
+            <Label className="text-base font-semibold">Paylaşma üsulu</Label>
+            <p className="text-sm text-gray-500 mt-1">Sənədi kimə göndərmək istəyirsiniz?</p>
+          </div>
+
+          <RadioGroup
+            value={targetingMode}
+            onValueChange={(value) => handleTargetingModeChange(value as 'institutions' | 'users')}
+            className="grid grid-cols-2 gap-3"
+          >
+            <div
+              className={`relative flex items-center space-x-3 border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                targetingMode === 'institutions'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <RadioGroupItem value="institutions" id="doc-target-institutions" className="shrink-0" />
+              <Label htmlFor="doc-target-institutions" className="cursor-pointer flex items-center gap-3 flex-1">
+                <div className={`p-2 rounded-lg ${
+                  targetingMode === 'institutions' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}>
+                  <Building2 className={`h-5 w-5 ${
+                    targetingMode === 'institutions' ? 'text-blue-600' : 'text-gray-600'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-sm">Müəssisələr</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Regional, Sektor, Məktəb</div>
+                </div>
+              </Label>
+            </div>
+
+            <div
+              className={`relative flex items-center space-x-3 border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                targetingMode === 'users'
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <RadioGroupItem value="users" id="doc-target-users" className="shrink-0" />
+              <Label htmlFor="doc-target-users" className="cursor-pointer flex items-center gap-3 flex-1">
+                <div className={`p-2 rounded-lg ${
+                  targetingMode === 'users' ? 'bg-green-100' : 'bg-gray-100'
+                }`}>
+                  <UsersIcon className={`h-5 w-5 ${
+                    targetingMode === 'users' ? 'text-green-600' : 'text-gray-600'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-sm">Xüsusi istifadəçilər</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Seçilmiş şəxslər</div>
+                </div>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {/* Conditional Targeting Component */}
+        {targetingMode === 'institutions' ? (
+          <InstitutionTargeting
+            form={form}
+            availableInstitutions={availableInstitutions}
+          />
+        ) : (
+          <UserTargeting form={form} />
+        )}
       </div>
     </div>
   );

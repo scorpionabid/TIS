@@ -24,6 +24,7 @@ import {
   Sparkles,
   Bot,
   ClipboardCheck,
+  ExternalLink,
 } from 'lucide-react';
 import { USER_ROLES } from '@/constants/roles';
 import {
@@ -33,6 +34,7 @@ import {
   SCHOOL_ADMIN_ROLES,
   MGMT_ROLES,
   REPORTING_ROLES,
+  ALL_ADMINS,
 } from './roleSets';
 import { MenuGroup } from './types';
 
@@ -78,21 +80,21 @@ export const managementMenuGroups: MenuGroup[] = [
         label: 'Müəllimlər',
         path: '/regionadmin/teachers',
         icon: GraduationCap,
-        roles: REGION_ROLES,
+        roles: REGION_AND_ABOVE,
       },
       {
         id: 'region-classes',
         label: 'Siniflər',
         path: '/regionadmin/classes',
         icon: Users,
-        roles: REGION_ROLES,
+        roles: REGION_AND_ABOVE,
       },
       {
         id: 'region-students',
         label: 'Şagirdlər',
         path: '/regionadmin/students',
         icon: GraduationCap,
-        roles: REGION_ROLES,
+        roles: REGION_AND_ABOVE,
       },
       {
         id: 'regions',
@@ -106,7 +108,7 @@ export const managementMenuGroups: MenuGroup[] = [
         label: 'Sektorlar',
         path: '/sectors',
         icon: Target,
-        roles: REGION_ROLES,
+        roles: REGION_AND_ABOVE,
       },
       {
         id: 'institutions',
@@ -223,8 +225,22 @@ export const managementMenuGroups: MenuGroup[] = [
         label: 'Hesabatlar',
         path: '/reports',
         icon: FileText,
-        roles: REGION_ADMIN_ROLES,
+        roles: REGION_AND_ABOVE,
         permissions: ['reports.read'],
+      },
+      {
+        id: 'sector-attendance-reports',
+        label: 'Davamiyyət Hesabatları',
+        path: '/school/attendance?tab=reports',
+        icon: FileText,
+        roles: [USER_ROLES.SEKTORADMIN],
+      },
+      {
+        id: 'sector-assessment-reports',
+        label: 'Qiymətləndirmə Hesabatları',
+        path: '/assessments/results',
+        icon: FileText,
+        roles: [USER_ROLES.SEKTORADMIN],
       },
       {
         id: 'system-analytics',

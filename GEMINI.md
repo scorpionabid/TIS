@@ -80,6 +80,9 @@ docker exec atis_backend composer test
 # Security vulnerability scans
 docker exec atis_frontend npm audit --audit-level=moderate
 docker exec atis_backend composer audit
+
+# ⚠️ MANDATORY: Restart frontend container after changes
+docker restart atis_frontend
 ```
 
 ### AI-Generated Code Review Checklist

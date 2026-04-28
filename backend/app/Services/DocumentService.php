@@ -102,13 +102,19 @@ class DocumentService
 
         $cacheKey = $this->getCacheKey('getDocuments', $cacheParams);
 
+        \Log::info('DocumentService::getDocuments starting', ['cacheKey' => $cacheKey]);
+
         return $this->getCached($cacheKey, function () use ($request) {
-            $user = Auth::user();
-            $query = Document::with(['uploader.institution', 'institution'])
+            $user = \Illuminate\Support\Facades\Auth::user();
+            \Log::info('DocumentService executing query for user', ['user_id' => $user->id, 'role' => $user->roles->first()->name ?? 'N/A']);
+            
+            $query = Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+                ->with(['uploader.institution', 'institution'])
                 ->accessibleBy($user)
                 ->active()
                 ->latestVersions();
 
+            \Log::info('Query built, applying filters...');
             // Apply filters
             $this->applyFilters($query, $request);
 
@@ -118,7 +124,11 @@ class DocumentService
             // Apply sorting
             $this->applySorting($query, $request);
 
-            return $query->paginate($request->get('per_page', 15));
+            \Log::info('Executing pagination...');
+            $result = $query->paginate($request->get('per_page', 15));
+            \Log::info('Pagination complete', ['total' => $result->total()]);
+            
+            return $result;
         });
     }
 
@@ -460,7 +470,8 @@ class DocumentService
             }
 
             // Get documents grouped by institution with eager loading to prevent N+1
-            $documents = Document::with(['uploader:id,first_name,last_name', 'institution:id,name,type'])
+            $documents = Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+                ->with(['uploader:id,first_name,last_name', 'institution:id,name,type'])
                 ->whereIn('institution_id', $subInstitutionIds)
                 ->where('status', 'active')
                 ->orderBy('institution_id')

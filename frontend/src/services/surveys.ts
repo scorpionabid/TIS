@@ -232,6 +232,24 @@ class SurveyService extends BaseService<Survey> {
       errorMessage: 'Server error occurred',
     });
   }
+
+  async deleteSurvey(id: number, force: boolean = false): Promise<void> {
+    const url = force ? `${this.baseEndpoint}/${id}?force=true` : `${this.baseEndpoint}/${id}`;
+    await apiClient.delete(url);
+    this.invalidateCache(['list', 'detail']);
+  }
+
+  async restore(id: number): Promise<UnknownRecord> {
+    const response = await apiClient.post<UnknownRecord>(`${this.baseEndpoint}/${id}/restore`);
+    return response.data ?? {};
+  }
+
+  async createTemplateFromSurvey(surveyId: number): Promise<UnknownRecord> {
+    const response = await apiClient.post<UnknownRecord>('/survey-templates/create-from-survey', {
+      survey_id: surveyId
+    });
+    return response.data ?? {};
+  }
 }
 
 export const surveyService = new SurveyService();

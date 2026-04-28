@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
 import { SortableQuestionList } from './SortableQuestionList';
 import { QuestionEditForm } from './QuestionEditForm';
+import { useToast } from '@/hooks/use-toast';
 import type { Survey } from '@/types/surveys';
 import type { Question } from '@/types/surveyModal';
 
@@ -42,7 +43,6 @@ interface Step2QuestionsProps {
   addOption: () => void;
   updateOption: (index: number, value: string) => void;
   removeOption: (index: number) => void;
-  toast: (options: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
 export function Step2Questions({
@@ -75,8 +75,8 @@ export function Step2Questions({
   addOption,
   updateOption,
   removeOption,
-  toast,
 }: Step2QuestionsProps) {
+  const { toast } = useToast();
   return (
     <div className="space-y-6">
       <div className="space-y-4">

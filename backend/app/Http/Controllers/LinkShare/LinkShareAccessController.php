@@ -21,11 +21,11 @@ class LinkShareAccessController extends BaseController
     /**
      * Access shared link by ID
      */
-    public function access(Request $request, int $id): JsonResponse
+    public function access(Request $request, LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request, $id) {
+        return $this->executeWithErrorHandling(function () use ($request, $linkShare) {
             $user = Auth::user();
-            $result = $this->linkSharingService->accessLinkById($id, $user, $request);
+            $result = $this->linkSharingService->accessLinkById($linkShare->id, $user, $request);
 
             return $this->successResponse($result, 'Bağlantıya giriş uğurludur');
         }, 'linkshare.access');
@@ -168,11 +168,10 @@ class LinkShareAccessController extends BaseController
     /**
      * Regenerate link token
      */
-    public function regenerateToken(int $id): JsonResponse
+    public function regenerateToken(LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($id) {
+        return $this->executeWithErrorHandling(function () use ($linkShare) {
             $user = Auth::user();
-            $linkShare = LinkShare::findOrFail($id);
             $newToken = $this->linkSharingService->regenerateToken($linkShare, $user);
 
             return $this->successResponse(['token' => $newToken], 'Bağlantı tokeni yeniləndi');

@@ -106,19 +106,36 @@ class LinkShareBulkController extends BaseController
     public function getBulkMetadata(): JsonResponse
     {
         return $this->executeWithErrorHandling(function () {
-            $institutions = Institution::query()
-                ->select('id', 'name', 'short_name', 'institution_code', 'utis_code')
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get();
+            \Log::info('📥 LinkShareBulkController: getBulkMetadata called');
+            
+            try {
+                $institutions = Institution::query()
+                    ->select('id', 'name', 'short_name', 'institution_code', 'utis_code')
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get();
 
-            return $this->successResponse([
-                'template_version' => config('link_bulk.template_version'),
-                'required_columns' => config('link_bulk.required_columns'),
-                'link_types' => config('link_bulk.allowed_link_types'),
-                'max_rows' => config('link_bulk.max_rows'),
-                'institutions' => $institutions,
-            ], 'Bulk metadata yükləndi');
+                $data = [
+                    'template_version' => config('link_bulk.template_version', '2025.01'),
+                    'required_columns' => config('link_bulk.required_columns', ['link_title', 'url', 'description', 'institution_unique_name', 'link_type']),
+                    'link_types' => config('link_bulk.allowed_link_types', ['external', 'video', 'form', 'document']),
+                    'max_rows' => (int) config('link_bulk.max_rows', 500),
+                    'institutions' => $institutions,
+                ];
+
+                \Log::info('✅ LinkShareBulkController: Metadata prepared', [
+                    'institutions_count' => $institutions->count(),
+                    'template_version' => $data['template_version']
+                ]);
+
+                return $this->successResponse($data, 'Bulk metadata yükləndi');
+            } catch (\Exception $e) {
+                \Log::error('❌ LinkShareBulkController: getBulkMetadata failed', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
         }, 'linkshare.bulk_metadata');
     }
 }

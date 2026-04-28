@@ -128,6 +128,8 @@ class DocumentCollectionController extends Controller
             'folder_templates' => 'nullable|array',
             'target_institutions' => 'nullable|array',
             'target_institutions.*' => 'exists:institutions,id',
+            'target_user_ids' => 'nullable|array',
+            'target_user_ids.*' => 'exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -136,6 +138,14 @@ class DocumentCollectionController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
             ], 422);
+        }
+
+        // Check if user has permission to create for this institution
+        if (! $request->user()->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'regionoperator'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to create regional folders',
+            ], 403);
         }
 
         try {
@@ -147,24 +157,12 @@ class DocumentCollectionController extends Controller
 
             $institution = \App\Models\Institution::findOrFail($request->institution_id);
 
-            // Check permission
-            if (! $request->user()->hasRole(['superadmin', 'regionadmin'])) {
-                \Log::warning('DocumentCollectionController@createRegionalFolders unauthorized', [
-                    'user_id' => $request->user()->id ?? null,
-                    'institution_id' => $request->input('institution_id'),
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized to create regional folders',
-                ], 403);
-            }
-
             $folders = $this->service->createRegionalFolders(
                 $request->user(),
                 $institution,
                 $request->input('folder_templates'),
-                $request->input('target_institutions', [])
+                $request->input('target_institutions', []),
+                $request->input('target_user_ids', [])
             );
 
             // Load target institutions relationship
@@ -221,6 +219,10 @@ class DocumentCollectionController extends Controller
             'allow_school_upload' => 'nullable|boolean',
             'is_locked' => 'nullable|boolean',
             'reason' => 'nullable|string',
+            'target_institutions' => 'nullable|array',
+            'target_institutions.*' => 'exists:institutions,id',
+            'target_user_ids' => 'nullable|array',
+            'target_user_ids.*' => 'exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -239,7 +241,7 @@ class DocumentCollectionController extends Controller
 
             $updatedFolder = $this->service->updateFolder(
                 $folder,
-                $request->only(['name', 'description', 'allow_school_upload', 'is_locked']),
+                $request->only(['name', 'description', 'allow_school_upload', 'is_locked', 'target_institutions', 'target_user_ids']),
                 $request->user(),
                 $request->input('reason')
             );
@@ -266,6 +268,28 @@ class DocumentCollectionController extends Controller
                 'message' => 'Failed to update folder',
                 'error' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Toggle folder lock status
+     */
+    public function toggleLock(Request $request, DocumentCollection $folder): JsonResponse
+    {
+        try {
+            $updatedFolder = $this->service->toggleFolderLock($folder, $request->user());
+
+            return response()->json([
+                'success' => true,
+                'message' => $updatedFolder->is_locked ? 'Folder locked successfully' : 'Folder unlocked successfully',
+                'data' => $updatedFolder,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to toggle folder lock',
+                'error' => $e->getMessage(),
+            ], $e->getMessage() === 'Unauthorized to toggle folder lock' ? 403 : 500);
         }
     }
 

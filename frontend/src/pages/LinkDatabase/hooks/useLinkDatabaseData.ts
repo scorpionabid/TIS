@@ -5,13 +5,11 @@ import type {
   LinkDatabaseFiltersState,
   LinkDatabaseStats,
   LinkShare,
+  PaginatedResponse,
 } from '../types/linkDatabase.types';
 
 interface UseLinkDatabaseDataParams {
   activeTab: string;
-  selectedSector: number | null;
-  isOnSectorsTab: boolean;
-  currentDepartmentId: number | null;
   debouncedSearch: string;
   filters: LinkDatabaseFiltersState;
   currentPage: number;
@@ -20,9 +18,6 @@ interface UseLinkDatabaseDataParams {
 
 export function useLinkDatabaseData({
   activeTab,
-  selectedSector,
-  isOnSectorsTab,
-  currentDepartmentId,
   debouncedSearch,
   filters,
   currentPage,
@@ -38,16 +33,6 @@ export function useLinkDatabaseData({
     staleTime: 60 * 1000,
   });
 
-  // Fetch sectors
-  const {
-    data: sectors = [],
-    isLoading: isLoadingSectors,
-  } = useQuery({
-    queryKey: ['link-database-sectors'],
-    queryFn: () => linkDatabaseService.getSectors(),
-    staleTime: 60 * 1000,
-  });
-
   // Build filter params for API
   const apiFilters = useMemo(() => ({
     search: debouncedSearch || undefined,
@@ -60,137 +45,73 @@ export function useLinkDatabaseData({
     is_featured: filters.isFeatured ?? undefined,
   }), [debouncedSearch, filters, perPage, currentPage]);
 
-  // Fetch links for active department tab
+  // Fetch links for active tab (yalnız departament-based)
   const {
     data: departmentLinks,
-    isLoading: isLoadingDepartmentLinks,
-    isFetching: isFetchingDepartmentLinks,
-    refetch: refetchDepartmentLinks,
+    isLoading: isLoadingLinks,
+    isFetching: isFetchingLinks,
+    refetch: refetchLinks,
   } = useQuery({
-    queryKey: ['link-database-department', activeTab, debouncedSearch, filters.sortBy, filters.sortDirection, filters.linkType, filters.status, filters.isFeatured, currentPage, perPage],
-    queryFn: () =>
-      linkDatabaseService.getLinksByDepartmentType(activeTab, apiFilters),
-    enabled: !!activeTab && !isOnSectorsTab && !isNaN(Number(activeTab)),
+    queryKey: ['link-database-tab', activeTab, debouncedSearch, filters.sortBy, filters.sortDirection, filters.linkType, filters.status, filters.isFeatured, currentPage, perPage],
+    queryFn: () => linkDatabaseService.getLinksByDepartmentType(activeTab, apiFilters),
+    enabled: !!activeTab && !isNaN(parseInt(activeTab)),
     staleTime: 30 * 1000,
-    placeholderData: (previousData: any) => previousData,
+    placeholderData: (prev: PaginatedResponse<LinkShare> | undefined) => prev,
   });
 
-  // Fetch links for selected sector
-  const {
-    data: sectorLinks,
-    isLoading: isLoadingSectorLinks,
-    isFetching: isFetchingSectorLinks,
-    refetch: refetchSectorLinks,
-  } = useQuery({
-    queryKey: ['link-database-sector', selectedSector, debouncedSearch, filters.sortBy, filters.sortDirection, filters.linkType, filters.status, filters.isFeatured, currentPage, perPage],
-    queryFn: () =>
-      linkDatabaseService.getLinksBySector(selectedSector!, apiFilters),
-    enabled: isOnSectorsTab && !!selectedSector,
-    staleTime: 30_000,
-    placeholderData: (previousData: any) => previousData,
-  });
-
-  // Current links
+  // Current links with client-side filter fallback
   const currentLinks = useMemo<LinkShare[]>(() => {
-    // 🔧 Fix React Query data structure issue
-    let rawLinks: LinkShare[] = [];
-    if (isOnSectorsTab) {
-      // React Query places the parsed response directly in data
-      if (Array.isArray(sectorLinks?.data)) {
-        rawLinks = sectorLinks.data;
-      } else if (Array.isArray(sectorLinks)) {
-        rawLinks = sectorLinks;
-      } else if (sectorLinks?.data) {
-        rawLinks = sectorLinks.data;
-      }
-    } else {
-      rawLinks = departmentLinks?.data || [];
-    }
-
-    // 🔍 Debug logging for sector links
-    if (isOnSectorsTab) {
-      console.log('🔍 Sector Links Debug:', {
-        selectedSector,
-        isOnSectorsTab,
-        sectorLinks,
-        rawLinks,
-        sectorLinksData: sectorLinks?.data,
-        sectorLinksTotal: sectorLinks?.total,
-        sectorLinksPages: sectorLinks?.current_page,
-        filters,
-        sectorLinksType: typeof sectorLinks,
-        sectorLinksKeys: sectorLinks ? Object.keys(sectorLinks) : 'undefined',
-        fixedRawLinks: rawLinks,
-        isArraySectorLinks: Array.isArray(sectorLinks),
-        isArraySectorLinksData: Array.isArray(sectorLinks?.data)
-      });
-    }
-
-    // Client-side filter fallback (in case backend doesn't support these params)
-    let filtered = rawLinks;
+    let rawLinks: LinkShare[] = departmentLinks?.data || [];
 
     if (filters.linkType !== 'all') {
       const hasServerFilter = rawLinks.length === 0 || rawLinks.every(l => l.link_type === filters.linkType);
       if (!hasServerFilter && rawLinks.some(l => l.link_type !== filters.linkType)) {
-        filtered = filtered.filter(l => l.link_type === filters.linkType);
+        rawLinks = rawLinks.filter(l => l.link_type === filters.linkType);
       }
     }
-
     if (filters.status !== 'all') {
-      filtered = filtered.filter(l => l.status === filters.status);
+      rawLinks = rawLinks.filter(l => l.status === filters.status);
     }
-
     if (filters.isFeatured !== null) {
-      filtered = filtered.filter(l => l.is_featured === filters.isFeatured);
+      rawLinks = rawLinks.filter(l => l.is_featured === filters.isFeatured);
     }
 
-    return filtered;
-  }, [isOnSectorsTab, departmentLinks, sectorLinks, filters.linkType, filters.status, filters.isFeatured]);
-
-  const isLoadingLinks = isOnSectorsTab ? isLoadingSectorLinks : isLoadingDepartmentLinks;
-  const isFetchingLinks = isOnSectorsTab ? isFetchingSectorLinks : isFetchingDepartmentLinks;
+    return rawLinks;
+  }, [departmentLinks, filters.linkType, filters.status, filters.isFeatured]);
 
   // Computed stats
   const stats = useMemo<LinkDatabaseStats>(() => {
-    const response = isOnSectorsTab ? sectorLinks : departmentLinks;
-    const allLinks = response?.data || [];
+    const allLinks = departmentLinks?.data || [];
     return {
-      total: response?.total || allLinks.length,
+      total: departmentLinks?.total || allLinks.length,
       active: allLinks.filter((l) => l.status === 'active').length,
       expired: allLinks.filter((l) => l.status === 'expired').length,
       featured: allLinks.filter((l) => l.is_featured).length,
     };
-  }, [departmentLinks, sectorLinks, isOnSectorsTab]);
+  }, [departmentLinks]);
 
   // Featured links
   const featuredLinks = useMemo(() => {
-    const links = isOnSectorsTab ? sectorLinks?.data : departmentLinks?.data;
-    return (links || []).filter((l) => l.is_featured);
-  }, [departmentLinks, sectorLinks, isOnSectorsTab]);
+    return (departmentLinks?.data || []).filter((l) => l.is_featured);
+  }, [departmentLinks]);
 
   // Pagination metadata
-  const paginationMeta = useMemo(() => {
-    const response = isOnSectorsTab ? sectorLinks : departmentLinks;
-    return {
-      currentPage: response?.current_page || 1,
-      lastPage: response?.last_page || 1,
-      perPage: response?.per_page || perPage,
-      total: response?.total || 0,
-    };
-  }, [departmentLinks, sectorLinks, isOnSectorsTab, perPage]);
+  const paginationMeta = useMemo(() => ({
+    currentPage: departmentLinks?.current_page || 1,
+    lastPage: departmentLinks?.last_page || 1,
+    perPage: departmentLinks?.per_page || perPage,
+    total: departmentLinks?.total || 0,
+  }), [departmentLinks, perPage]);
 
   return {
     departments,
-    sectors,
     currentLinks,
     isLoadingLinks,
     isFetchingLinks,
     isLoadingDepartments,
-    isLoadingSectors,
     stats,
     featuredLinks,
     paginationMeta,
-    refetchDepartmentLinks,
-    refetchSectorLinks,
+    refetchLinks,
   };
 }

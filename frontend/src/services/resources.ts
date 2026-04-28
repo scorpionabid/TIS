@@ -115,8 +115,10 @@ class ResourceService {
         my_links: filters.my_links,
         sort_by: filters.sort_by,
         sort_direction: filters.sort_direction,
-          per_page: filters.per_page,
-        };
+        per_page: filters.per_page,
+        is_bulk: filters.is_bulk,
+        group_by_title: filters.group_by_title,
+      };
         typedRequests.push({
           type: 'link',
           promise: linkService.getAll(linkFilters)
@@ -272,8 +274,8 @@ class ResourceService {
       page: filters.page,
       per_page: filters.per_page,
       scope: filters.scope,
-      selection_mode: filters.selection_mode, // Bypass regional filter for link selection UI
       group_by_title: filters.group_by_title, // Return only one link per unique title
+      is_bulk: filters.is_bulk,
     };
 
     const response = await linkService.getAll(linkFilters);
@@ -849,26 +851,21 @@ class ResourceService {
   }
 
   /**
-   * Get superior institutions for document targeting
+   * Get sharing overview for a specific link
    */
-  async getSuperiorInstitutions(): Promise<unknown[]> {
-    logger.debug('ResourceService.getSuperiorInstitutions called');
+  async getLinkSharingOverview(linkId: number): Promise<LinkSharingOverview> {
+    return await linkService.getSharingOverview(linkId);
+  }
 
+  /**
+   * Get aggregated sharing overview for all links with the same title
+   */
+  async getGroupedLinkSharingOverview(title: string): Promise<LinkSharingOverview> {
     try {
-      const response = await apiClient.get('/documents/superior-institutions');
-      const payload = ((response as { data?: unknown })?.data ?? response) as unknown;
-
-      if (Array.isArray(payload)) {
-        return payload;
-      }
-
-      if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown[] }).data)) {
-        return (payload as { data: unknown[] }).data;
-      }
-
-      return [];
+      const response = await apiClient.get<LinkSharingOverviewResponse>('/links/grouped-sharing-overview', { title });
+      return response.data;
     } catch (error) {
-      logger.error('Failed to fetch superior institutions', error);
+      logger.error('ResourceService.getGroupedLinkSharingOverview failed', error);
       throw error;
     }
   }

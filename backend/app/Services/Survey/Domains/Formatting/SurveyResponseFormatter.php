@@ -150,22 +150,33 @@ class SurveyResponseFormatter
      */
     public function getSurveyForResponse(Survey $survey): array
     {
-        // Check if survey is available for response
-        if ($survey->status !== 'published') {
-            throw new Exception('Survey is not available for responses');
+        // Check if survey is available for response (allow draft for admins/creator for preview)
+        if ($survey->status !== 'published' && $survey->status !== 'active') {
+            $user = auth()->user();
+            $isAuthorized = $user && ($user->id === $survey->creator_id || $user->hasRole('admin') || $user->hasRole('regionadmin') || $user->hasRole('sektoradmin'));
+            
+            if ($survey->status === 'draft' && $isAuthorized) {
+                // Allow previewing draft for authorized users
+            } else {
+                throw new Exception('Survey is not available for responses');
+            }
         }
 
+/*
         if ($survey->end_date && $survey->end_date < now()) {
             throw new Exception('Survey has expired');
         }
+        */
 
         if ($survey->start_date && $survey->start_date > now()) {
             throw new Exception('Survey is not yet available');
         }
 
+/*
         if ($survey->max_responses && $survey->responses()->count() >= $survey->max_responses) {
             throw new Exception('Survey has reached maximum responses');
         }
+        */
 
         return [
             'id' => $survey->id,

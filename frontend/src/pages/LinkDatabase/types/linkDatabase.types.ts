@@ -6,7 +6,7 @@ import type {
   PaginatedResponse,
 } from '@/services/linkDatabase';
 
-export type ViewMode = 'table' | 'grid';
+export type ViewMode = 'table' | 'grid' | 'compact';
 export type SortField = 'title' | 'created_at' | 'click_count' | 'expires_at';
 export type SortDirection = 'asc' | 'desc';
 export type LinkType = 'external' | 'video' | 'form' | 'document';

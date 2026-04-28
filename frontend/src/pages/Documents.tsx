@@ -166,6 +166,7 @@ export default function Documents() {
   }, [documentFilterPanelOpen]);
 
 
+
   // Modal states
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [documentBeingEdited, setDocumentBeingEdited] = useState<Resource | null>(null);
@@ -235,6 +236,37 @@ export default function Documents() {
     () => resourcesData.filter((resource) => resource.type === 'document'),
     [resourcesData]
   );
+
+  // Fetch missing institution metadata (especially sector names for school grouping)
+  useEffect(() => {
+    if (documentResources.length === 0) return;
+
+    const missingIds = new Set<number>();
+    documentResources.forEach((res) => {
+      // 1. Institution ID from uploader or resource itself
+      const instId = res.uploader?.institution?.id ?? res.institution?.id ?? res.institution_id;
+      if (instId && !institutionMetadata[instId]) missingIds.add(instId);
+
+      // 2. Parent ID (Sector)
+      const parentId = res.uploader?.institution?.parent_id ?? res.institution?.parent_id;
+      if (parentId && !institutionMetadata[parentId]) missingIds.add(parentId);
+
+      // 3. Target Institutions
+      (res.target_institutions || []).forEach((target) => {
+        const id = typeof target === 'number' ? target : Number(target);
+        if (!Number.isNaN(id) && !institutionMetadata[id]) missingIds.add(id);
+      });
+    });
+
+    if (missingIds.size > 0) {
+      institutionService.getSummaries(Array.from(missingIds)).then((summaries) => {
+        setInstitutionMetadata((prev) => ({
+          ...prev,
+          ...summaries,
+        }));
+      }).catch(err => logger.error('Failed to fetch institution summaries', err));
+    }
+  }, [documentResources, institutionMetadata]);
   // Level-based tab visibility by role
   const visibleTabs = useMemo<DocumentLevelTab[]>(() => {
     if (isSuperAdmin || isRegionAdmin) return ['region', 'sektor', 'school'];
@@ -390,7 +422,7 @@ export default function Documents() {
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Resurslər yüklənə bilmədi</h2>
+          <h2 className="text-2xl font-bold mb-2">Resurslar yüklənə bilmədi</h2>
           <p className="text-muted-foreground mb-4">Xəta baş verdi. Yenidən cəhd edin.</p>
           <Button onClick={() => refetch()}>
             <Loader2 className="h-4 w-4 mr-2" />

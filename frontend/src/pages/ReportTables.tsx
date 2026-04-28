@@ -46,6 +46,7 @@ import {
   X,
   FileSpreadsheet,
   Building,
+  Link2,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -60,6 +61,7 @@ import { ReportTableStatisticsView } from '@/components/reporttables/ReportTable
 import { RatingCalculationInfo } from '@/components/reporttables/RatingCalculationInfo';
 import { ReportTableReadyView } from '@/components/reporttables/ReportTableReadyView';
 import { MasterTableView } from '@/components/reporttables/MasterTableView';
+import { LinkDistributionView } from '@/components/reporttables/LinkDistributionView';
 import { TableTemplates } from '@/components/reporttables/TableTemplates';
 import { TableAnalytics } from '@/components/reporttables/TableAnalytics';
 import { TablePreviewModal } from '@/components/reporttables/TablePreviewModal';
@@ -539,7 +541,7 @@ export default function ReportTables() {
   const { isSuperAdmin, isSchoolUser, hasPermission } = useRoleCheck();
   const canReview = hasPermission('report_table_responses.review');
   const canViewMaster = hasPermission('report_tables.view_all');
-  const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates' | 'statistics'>('tables');
+  const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates' | 'statistics' | 'link_shares'>('tables');
   const [search, setSearch] = useState('');
   const { filters, setFilter, clearFilters } = useURLFilters({
     status: undefined as ReportTableStatus | 'all' | 'deleted' | undefined,
@@ -784,6 +786,17 @@ export default function ReportTables() {
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Statistika</span>
             </Button>
+            {!isSchoolUser && (
+              <Button
+                variant={viewMode === 'link_shares' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('link_shares')}
+                className="gap-1"
+              >
+                <Link2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Linklər</span>
+              </Button>
+            )}
             {canViewMaster && (
               <Button
                 variant={viewMode === 'master' ? 'secondary' : 'ghost'}
@@ -919,6 +932,8 @@ export default function ReportTables() {
         <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-tables'] })}>
           <ReportTableStatisticsView />
         </ReportTableErrorBoundary>
+      ) : viewMode === 'link_shares' ? (
+        <LinkDistributionView />
       ) : viewMode === 'master' ? (
         <div className="text-center py-16 text-gray-400">
           <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />

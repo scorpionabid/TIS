@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
+import { CardTitle, CardDescription } from '../../ui/card';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -17,11 +17,22 @@ import {
   ChevronsLeft,
   ChevronsRight,
   RefreshCw,
+  LayoutGrid,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from '../../ui/dropdown-menu';
 import surveyApprovalService, { PublishedSurvey, ResponseFilters } from '../../../services/surveyApproval';
+import { surveyService } from '../../../services/surveys';
 import SurveyResponsesDataTable from './SurveyResponsesDataTable';
 import UnifiedSurveySelector from '../UnifiedSurveySelector';
 import { storageHelpers } from '@/utils/helpers';
+import { cn } from '@/lib/utils';
 
 const STORAGE_KEY = 'surveyViewDashboard_selectedSurveyId';
 
@@ -29,15 +40,22 @@ const STATUS_OPTIONS = [
   { value: 'all', label: 'Bütün statuslar' },
   { value: 'draft', label: 'Qaralama' },
   { value: 'submitted', label: 'Göndərilmiş' },
-  { value: 'approved', label: 'Təsdiqlənmiş' },
+  { value: 'approved', label: 'Təsdiqlənmış' },
   { value: 'rejected', label: 'Rədd edilmiş' },
   { value: 'returned', label: 'Geri qaytarılmış' },
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-const SurveyViewDashboard: React.FC = () => {
-  const [selectedSurvey, setSelectedSurvey] = useState<PublishedSurvey | null>(null);
+interface SurveyViewDashboardProps {
+  forceSurveyId?: number;
+  isCompact?: boolean;
+  initialData?: PublishedSurvey;
+  headerActions?: React.ReactNode;
+}
+
+const SurveyViewDashboard: React.FC<SurveyViewDashboardProps> = ({ forceSurveyId, isCompact, initialData, headerActions }) => {
+  const [selectedSurvey, setSelectedSurvey] = useState<PublishedSurvey | null>(initialData || null);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -58,27 +76,6 @@ const SurveyViewDashboard: React.FC = () => {
     setCurrentPage(1);
   }, [statusFilter]);
 
-  // Helper functions for localStorage
-  const getStoredSurveyId = (): string | null => {
-    try {
-      return storageHelpers.get<string>(STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  };
-
-  const storeSurveyId = (surveyId: string | null) => {
-    try {
-      if (surveyId) {
-        storageHelpers.set(STORAGE_KEY, surveyId);
-      } else {
-        storageHelpers.remove(STORAGE_KEY);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   // Fetch published surveys
   const { data: publishedSurveys, isLoading: surveysLoading } = useQuery({
     queryKey: ['published-surveys-view'],
@@ -87,7 +84,6 @@ const SurveyViewDashboard: React.FC = () => {
   });
 
   // Build filters for server-side request
-  // 'all' sentinel means no status filter — do not send to backend
   const activeStatus = statusFilter !== 'all' ? statusFilter : '';
   const filters: ResponseFilters = {
     per_page: pageSize,
@@ -96,289 +92,446 @@ const SurveyViewDashboard: React.FC = () => {
     ...(activeStatus ? { status: activeStatus as ResponseFilters['status'] } : {}),
   };
 
-  // Fetch survey responses (server-side paginated)
+  // Ensure we have questions for the survey
+  const { data: fullSurveyData } = useQuery({
+    queryKey: ['survey-full-details-view', selectedSurvey?.id],
+    queryFn: () => selectedSurvey?.id ? surveyService.getById(selectedSurvey.id) : null,
+    enabled: !!selectedSurvey?.id && (!selectedSurvey.questions || selectedSurvey.questions.length === 0),
+  });
+
+  const effectiveSurvey = (fullSurveyData as any)?.data || fullSurveyData || selectedSurvey;
+
+  // Fetch survey responses
   const {
     data: responsesData,
     isLoading: responsesLoading,
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['survey-responses-view', selectedSurvey?.id, filters],
+    queryKey: ['survey-responses-view', effectiveSurvey?.id, filters],
     queryFn: () =>
-      selectedSurvey
-        ? surveyApprovalService.getResponsesForApproval(selectedSurvey.id, filters)
+      effectiveSurvey?.id
+        ? surveyApprovalService.getResponsesForApproval(effectiveSurvey.id, filters)
         : null,
-    enabled: !!selectedSurvey,
-    staleTime: 30 * 1000,
+    enabled: !!effectiveSurvey?.id,
     keepPreviousData: true,
   } as any);
 
-  // Restore selected survey from localStorage or auto-select first survey
-  useEffect(() => {
-    if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
-      const storedSurveyId = getStoredSurveyId();
+  // Fetch target institutions detailed info
+  const { data: targetInstitutionsData, isLoading: targetLoading } = useQuery({
+    queryKey: ['survey-target-institutions-details', effectiveSurvey?.id],
+    queryFn: async () => {
+      if (!effectiveSurvey?.target_institutions || effectiveSurvey.target_institutions.length === 0) return [];
+      
+      // We can use the hierarchical breakdown or similar to get names if they aren't in effectiveSurvey
+      // For now, let's assume we want to show at least the names we have or fetch them.
+      // If effectiveSurvey has target_institutions_data, use it.
+      if ((effectiveSurvey as any).target_institutions_data) return (effectiveSurvey as any).target_institutions_data;
+      
+      // Fallback: use analytics or a dedicated endpoint to get institution names
+      const analytics = await surveyService.getHierarchicalInstitutionsAnalytics(effectiveSurvey.id);
+      
+      // Flatten all schools from hierarchy
+      const allSchools: any[] = [];
+      const flatten = (nodes: any[]) => {
+        nodes.forEach(node => {
+          if (node.level === 4) allSchools.push(node);
+          if (node.children) flatten(node.children);
+        });
+      };
+      if (analytics?.nodes) flatten(analytics.nodes);
+      
+      return allSchools;
+    },
+    enabled: !!effectiveSurvey?.id,
+  });
 
-      if (storedSurveyId) {
-        const storedSurvey = publishedSurveys.find(
-          (survey: any) => survey.id.toString() === storedSurveyId
-        );
-        if (storedSurvey) {
-          setSelectedSurvey(storedSurvey);
-          return;
-        }
-        storeSurveyId(null);
+  // ─── Merge responses with target institutions ────────────────────────────────
+  const mergedData = useMemo(() => {
+    if (!effectiveSurvey) return [];
+    
+    const responses = responsesData?.responses || [];
+    const targetSchools = targetInstitutionsData || [];
+    
+    // Create a map of responses by institution_id
+    const responseMap = new Map();
+    responses.forEach((r: any) => {
+      const instId = r.institution_id || r.respondent?.institution_id;
+      if (instId) {
+        if (!responseMap.has(instId)) responseMap.set(instId, []);
+        responseMap.get(instId).push(r);
       }
+    });
 
-      const firstSurvey = publishedSurveys[0];
-      setSelectedSurvey(firstSurvey);
-      storeSurveyId(firstSurvey.id.toString());
+    const result: any[] = [];
+    const processedInstIds = new Set();
+
+    // 1. Add institutions with responses
+    responses.forEach((r: any) => {
+      result.push(r);
+      const instId = r.institution_id || r.respondent?.institution_id;
+      if (instId) processedInstIds.add(instId);
+    });
+
+    // 2. Add target institutions that HAVEN'T responded (only if no status filter or "all" or something specific)
+    if (statusFilter === 'all' || statusFilter === 'none') {
+      targetSchools.forEach((school: any) => {
+        if (!processedInstIds.has(school.id)) {
+          result.push({
+            id: `missing-${school.id}`,
+            institution_id: school.id,
+            institution: {
+              id: school.id,
+              name: school.name,
+              type: school.type
+            },
+            status: 'none', // Special status for "No response"
+            responses: {},
+            created_at: null,
+            submitted_at: null,
+            is_placeholder: true
+          });
+        }
+      });
     }
-  }, [publishedSurveys, selectedSurvey]);
+
+    // Apply client-side search if needed (server-side already filtered existing responses)
+    if (debouncedSearch) {
+      return result.filter(item => 
+        item.institution?.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        item.respondent?.username?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        item.respondent?.profile?.full_name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+      );
+    }
+
+    return result;
+  }, [responsesData, targetInstitutionsData, effectiveSurvey, statusFilter, debouncedSearch]);
+
+  // ─── Column visibility logic ──────────────────────────────────────────────────
+  const allColumns = useMemo(() => {
+    const cols = [
+      { id: 'institution', label: 'Müəssisə', isFixed: true },
+      { id: 'status', label: 'Status', isFixed: true },
+    ];
+    
+    if (effectiveSurvey?.questions) {
+      effectiveSurvey.questions.forEach((q: any) => {
+        if (q.is_active !== false) {
+          cols.push({ 
+            id: String(q.id), 
+            label: q.title || q.question || `Sual ${q.id}`,
+            isFixed: false 
+          });
+        }
+      });
+    }
+    return cols;
+  }, [effectiveSurvey]);
+
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+
+  // Initialize visible columns when survey changes
+  useEffect(() => {
+    setVisibleColumns(allColumns.map(c => c.id));
+  }, [allColumns]);
+
+  const toggleColumn = (id: string) => {
+    setVisibleColumns(prev => 
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  // Unified Analytics for consistent stats across tabs
+  const { data: analyticsData } = useQuery({
+    queryKey: ['survey-analytics-overview', effectiveSurvey?.id],
+    queryFn: () => effectiveSurvey?.id ? surveyService.getSurveyAnalyticsOverview(effectiveSurvey.id) : null,
+    enabled: !!effectiveSurvey?.id,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Sync state with initialData or forced survey
+  useEffect(() => {
+    if (initialData) {
+      setSelectedSurvey(initialData);
+      return;
+    }
+
+    if (forceSurveyId) {
+      const forcedFromList = Array.isArray(publishedSurveys) 
+        ? (publishedSurveys as any[]).find((s: any) => s.id === forceSurveyId)
+        : null;
+
+      if (forcedFromList) {
+        setSelectedSurvey(forcedFromList);
+      } else {
+        surveyService.getById(forceSurveyId).then(response => {
+          if (response.data) {
+            const survey = response.data;
+            setSelectedSurvey({
+              id: survey.id,
+              title: survey.title,
+              description: survey.description,
+              start_date: survey.start_date,
+              end_date: survey.end_date,
+              target_institutions: survey.target_institutions,
+              response_count: survey.response_count,
+              questions: survey.questions?.map((q: any) => ({
+                id: q.id!,
+                title: q.question || (q as any).title,
+                type: q.type,
+                options: q.options,
+                required: q.required,
+                order_index: q.order
+              }))
+            } as any);
+          }
+        }).catch(err => console.error("Failed to fetch forced survey:", err));
+      }
+      return;
+    }
+  }, [publishedSurveys, initialData, forceSurveyId]);
 
   const handleSurveySelect = (survey: PublishedSurvey) => {
     setSelectedSurvey(survey);
-    storeSurveyId(survey.id.toString());
-    // Reset filters when switching survey
-    setCurrentPage(1);
-    setSearchTerm('');
-    setDebouncedSearch('');
-    setStatusFilter('all');
   };
 
-  const handleClearFilters = useCallback(() => {
+  const handleClearFilters = () => {
     setSearchTerm('');
-    setDebouncedSearch('');
     setStatusFilter('all');
     setCurrentPage(1);
-  }, []);
+  };
 
-  const responses = (responsesData as any)?.responses || [];
-  const pagination = (responsesData as any)?.pagination;
-  const stats = (responsesData as any)?.stats;
-  const totalPages = pagination?.last_page || 1;
-  const totalItems = pagination?.total || 0;
-  const isFiltered = !!(debouncedSearch || activeStatus);
+  const isFiltered = searchTerm !== '' || statusFilter !== 'all';
+  const responses = responsesData?.responses || [];
+  const totalItems = responsesData?.pagination?.total || 0;
+  const totalPages = responsesData?.pagination?.last_page || 1;
+  const stats = responsesData?.stats;
+
+  if (surveysLoading && !selectedSurvey) {
+    return <div className="flex items-center justify-center p-12">Yüklənir...</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Eye className="h-8 w-8 text-primary" />
-          Sorğulara Baxış
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Sorğulara verilən cavabları görüntüləyin və analiz edin
-        </p>
-      </div>
+    <div className={cn("flex flex-col h-full", isCompact ? "bg-white" : "container mx-auto py-6 space-y-6")}>
+      {!isCompact && (
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+              <Eye className="h-7 w-7 text-primary" /> Sorğu Cavablarına Baxış
+            </CardTitle>
+            <CardDescription className="text-slate-500 mt-1">
+              Bütün müəssisələr üzrə göndərilmiş cavabların detallı siyahısı
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={responsesLoading || isFetching} className="h-9 shadow-sm">
+            <RefreshCw className={cn("h-4 w-4 mr-2", (responsesLoading || isFetching) && "animate-spin")} /> Yenilə
+          </Button>
+        </div>
+      )}
 
-      {/* Unified Survey Selection */}
-      <UnifiedSurveySelector
-        surveys={publishedSurveys}
-        selectedSurvey={selectedSurvey}
-        onSurveySelect={(survey) => handleSurveySelect(survey as PublishedSurvey)}
-        isLoading={surveysLoading}
-      />
+      {!isCompact && (
+        <UnifiedSurveySelector
+          surveys={publishedSurveys || []}
+          selectedSurvey={selectedSurvey}
+          onSurveySelect={handleSurveySelect as any}
+          isLoading={surveysLoading}
+        />
+      )}
 
-      {/* Survey Responses */}
       {selectedSurvey && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className={cn("flex flex-col flex-1 min-h-0", isCompact ? "" : "bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm")}>
+          {/* Header Section (Not shown in compact as it's in the tab header) */}
+          {!isCompact && (
+            <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Sorğu Cavabları
-                  {totalItems > 0 && (
-                    <Badge variant="outline" className="ml-2">
-                      {totalItems} müəssisə
-                    </Badge>
-                  )}
-                  {isFetching && !responsesLoading && (
-                    <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground ml-1" />
-                  )}
-                </CardTitle>
-                <CardDescription>{selectedSurvey.title} sorğusuna verilən cavablar</CardDescription>
+                <h3 className="text-lg font-bold text-slate-800">{selectedSurvey.title}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {selectedSurvey.response_count || 0} cavab verilmişdir
+                </p>
               </div>
-
-              {/* Stats badges */}
               {stats && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <Badge variant="secondary">Cəmi: {stats.total}</Badge>
-                  {stats.approved > 0 && (
-                    <Badge className="bg-green-100 text-green-800 border-green-200">
-                      ✓ {stats.approved} Təsdiqlənib
-                    </Badge>
-                  )}
-                  {stats.pending > 0 && (
-                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                      ⏳ {stats.pending} Gözləyir
-                    </Badge>
-                  )}
-                  {stats.draft > 0 && (
-                    <Badge className="bg-gray-100 text-gray-700 border-gray-200">
-                      ✎ {stats.draft} Qaralama
-                    </Badge>
-                  )}
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-100">{stats.total} müəssisə</Badge>
+                  {stats.approved > 0 && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-100">{stats.approved} təsdiqlənib</Badge>}
                 </div>
               )}
             </div>
+          )}
 
-            {/* Filter bar */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t">
-              {/* Search */}
-              <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Müəssisə adı ilə axtar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* Status filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Status seç..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Page size */}
-              <Select
-                value={pageSize.toString()}
-                onValueChange={(v) => {
-                  setPageSize(Number(v));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={size.toString()}>
-                      {size} sətir
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Clear filters */}
-              {isFiltered && (
-                <Button variant="outline" size="sm" onClick={handleClearFilters} className="shrink-0">
-                  <X className="h-4 w-4 mr-1" />
-                  Filtrləri sil
-                </Button>
-              )}
+          {/* Toolbar */}
+          <div className={cn(
+            "flex items-center gap-3 border-b bg-white transition-all",
+            isCompact ? "px-6 py-2" : "flex-wrap p-4 bg-slate-50/30"
+          )}>
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Axtar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={cn(
+                  "pl-10 bg-white border-slate-200 transition-all",
+                  isCompact ? "h-8 text-xs bg-slate-50 border-transparent focus:bg-white rounded-lg" : "h-10"
+                )}
+              />
             </div>
-          </CardHeader>
 
-          <CardContent className="p-0">
+            {/* Status filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className={cn("bg-white border-slate-200", isCompact ? "w-36 h-8 text-[11px] rounded-lg border-transparent bg-slate-50" : "w-48 h-10")}>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Column Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size={isCompact ? "sm" : "default"} className={cn("bg-white border-slate-200", isCompact ? "h-8 text-[11px] rounded-lg border-transparent bg-slate-50" : "h-10")}>
+                  <LayoutGrid className="mr-2 h-3.5 w-3.5" /> Bütün sütunlar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 max-h-[400px] overflow-y-auto">
+                <DropdownMenuLabel className="text-xs">Sütunları göstər/gizlə</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {allColumns.map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    className="capitalize text-xs"
+                    checked={visibleColumns.includes(col.id)}
+                    onCheckedChange={() => toggleColumn(col.id)}
+                  >
+                    {col.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Page size */}
+            <Select value={pageSize.toString()} onValueChange={(val) => setPageSize(parseInt(val))}>
+              <SelectTrigger className={cn("bg-white border-slate-200", isCompact ? "w-24 h-8 text-[11px] rounded-lg border-transparent bg-slate-50" : "w-28 h-10")}>
+                <SelectValue placeholder="Sətir" />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 25, 50, 100].map((size) => (
+                  <SelectItem key={size} value={size.toString()} className="text-xs">
+                    {size} sətir
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Unified Header Stats - Realigned to Far Right with better styling */}
+            {isCompact && analyticsData?.kpi_metrics && (
+              <div className="flex items-center gap-2 ml-auto pl-4 border-l border-slate-100">
+                {[
+                  { label: 'Hədəf', value: analyticsData.kpi_metrics.target_participants || 0, color: 'blue' },
+                  { label: 'Cavab', value: analyticsData.kpi_metrics.total_responses || 0, color: 'slate' },
+                  { label: 'Gözləyən', value: analyticsData.kpi_metrics.in_progress_responses || 0, color: 'amber' },
+                  { label: 'Təsdiq', value: analyticsData.kpi_metrics.completed_responses || 0, color: 'emerald' },
+                ].map((stat) => (
+                  <div key={stat.label} className={cn(
+                    "flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold",
+                    stat.color === 'blue' ? "bg-blue-50 text-blue-700 border-blue-100" :
+                    stat.color === 'emerald' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                    stat.color === 'amber' ? "bg-amber-50 text-amber-700 border-amber-100" :
+                    "bg-slate-50 text-slate-700 border-slate-200"
+                  )}>
+                    <span className="opacity-60 font-medium uppercase text-[9px]">{stat.label}:</span>
+                    <span>{stat.value}</span>
+                  </div>
+                ))}
+                
+                <div className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-extrabold shadow-sm ml-1",
+                  "bg-indigo-600 text-white border-indigo-700"
+                )}>
+                  <span className="opacity-80 font-medium uppercase text-[9px]">Tamamlanma:</span>
+                  <span>
+                    {analyticsData.kpi_metrics.target_participants 
+                      ? Math.round(((analyticsData.kpi_metrics.completed_responses || 0) / analyticsData.kpi_metrics.target_participants) * 1000) / 10 
+                      : 0}%
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Clear filters */}
+            {isFiltered && (
+              <Button variant="ghost" size="sm" onClick={handleClearFilters} className={cn("text-slate-500 hover:text-red-600", isCompact ? "h-8 text-[11px] px-2" : "h-10")}>
+                <X className={cn("mr-1", isCompact ? "h-3 w-3" : "h-4 w-4")} />
+                Sıfırla
+              </Button>
+            )}
+
+            {!isCompact && headerActions && (
+              <div className="ml-auto pl-4 border-l flex items-center">
+                {headerActions}
+              </div>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-auto bg-white">
             {responsesLoading ? (
               <div className="flex items-center justify-center p-12">
                 <RefreshCw className="animate-spin h-8 w-8 text-primary mr-3" />
-                <span className="text-muted-foreground">Cavablar yüklənir...</span>
+                <span className="text-muted-foreground text-sm font-medium">Cavablar yüklənir...</span>
               </div>
             ) : responses.length === 0 ? (
-              <div className="p-8">
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    {isFiltered
-                      ? 'Bu filtr şərtlərinə uyğun cavab tapılmadı.'
-                      : 'Bu sorğuya hələ cavab verilməyib.'}
-                  </AlertDescription>
-                </Alert>
+              <div className="flex flex-col items-center justify-center py-12 px-8 text-center">
+                <div className="bg-slate-50 p-4 rounded-full mb-3">
+                   <Search className="h-8 w-8 text-slate-300" />
+                </div>
+                <h4 className="text-slate-800 font-semibold mb-1">Məlumat tapılmadı</h4>
+                <p className="text-slate-500 text-sm max-w-[280px]">
+                  {isFiltered ? 'Bu filtr şərtlərinə uyğun cavab tapılmadı.' : 'Bu sorğuya hələ cavab verilməyib.'}
+                </p>
+                {isFiltered && (
+                  <Button variant="link" onClick={handleClearFilters} className="mt-2 text-blue-600">
+                    Filtrləri sıfırla
+                  </Button>
+                )}
               </div>
             ) : (
-              <>
-                <SurveyResponsesDataTable
-                  responses={responses}
-                  selectedSurvey={selectedSurvey}
-                  isFetching={isFetching}
-                />
-
+              <div className={cn("flex flex-col h-full", isCompact ? "px-6 pb-6" : "")}>
+                <div className="flex-1">
+                  <SurveyResponsesDataTable 
+                    responses={mergedData} 
+                    selectedSurvey={effectiveSurvey} 
+                    isFetching={isFetching || targetLoading} 
+                    visibleColumns={visibleColumns}
+                  />
+                </div>
+                
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50/50 mt-auto shrink-0">
+                    <div className="text-xs text-slate-500 font-medium">
                       {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, totalItems)} / {totalItems} müəssisə
                     </div>
-
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronsLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-
-                      {/* Page numbers */}
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum: number;
-                        if (totalPages <= 5) pageNum = i + 1;
-                        else if (currentPage <= 3) pageNum = i + 1;
-                        else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                        else pageNum = currentPage - 2 + i;
-
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setCurrentPage(pageNum)}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronsRight className="h-4 w-4" />
-                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-slate-200" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+                      <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-slate-200" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                      <div className="flex items-center gap-1 mx-1">
+                        <span className="text-xs font-bold text-slate-700">{currentPage}</span>
+                        <span className="text-xs text-slate-400">/ {totalPages}</span>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-slate-200" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="h-3.5 w-3.5" /></Button>
+                      <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-slate-200" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );

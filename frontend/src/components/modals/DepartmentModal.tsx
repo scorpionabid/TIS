@@ -43,7 +43,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
   // Load institutions
   const { data: institutionsResponse, isLoading: institutionsLoading, error: institutionsError } = useQuery({
     queryKey: ['institutions-for-departments'],
-    queryFn: () => institutionService.getAll(),
+    queryFn: () => institutionService.getAll({ per_page: 1000 }),
     staleTime: 1000 * 60 * 5,
     enabled: open, // Only load when modal is open
   });
@@ -69,10 +69,21 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     enabled: open && formData.institution_id > 0,
   });
 
-  const institutions = useMemo(
-    () => institutionsResponse?.data || institutionsResponse?.institutions || [],
-    [institutionsResponse]
-  );
+  const institutions = useMemo(() => {
+    const raw = institutionsResponse?.data || institutionsResponse?.institutions || [];
+    if (!Array.isArray(raw)) return [];
+    
+    return [...raw].sort((a, b) => {
+      // Level 2 (Region) and 3 (Sector) at the top
+      const weightA = a.level <= 3 ? 0 : 1;
+      const weightB = b.level <= 3 ? 0 : 1;
+      
+      if (weightA !== weightB) return weightA - weightB;
+      
+      // Secondary sort by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [institutionsResponse]);
   const departmentTypes = useMemo(
     () => typesResponse?.data || [],
     [typesResponse]

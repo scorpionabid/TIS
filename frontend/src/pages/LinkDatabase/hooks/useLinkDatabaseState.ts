@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
 import type {
   ViewMode,
@@ -17,9 +18,11 @@ const DEFAULT_FILTERS: LinkDatabaseFiltersState = {
 };
 
 export function useLinkDatabaseState() {
-  // Tab / navigation
+  const [searchParams] = useSearchParams();
+  const currentView = searchParams.get('view') || 'departments';
+
+  // Navigation
   const [activeTab, setActiveTab] = useState<string>('');
-  const [selectedSector, setSelectedSector] = useState<number | null>(null);
 
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -35,7 +38,10 @@ export function useLinkDatabaseState() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [isTrackingPanelOpen, setIsTrackingPanelOpen] = useState(false);
   const [selectedLink, setSelectedLink] = useState<LinkShare | null>(null);
+  const [trackingLink, setTrackingLink] = useState<LinkShare | null>(null);
 
   // Bulk selection
   const [selectedLinkIds, setSelectedLinkIds] = useState<Set<number>>(new Set());
@@ -44,14 +50,17 @@ export function useLinkDatabaseState() {
   const debouncedSearch = useDebounce(filters.search, 300);
 
   // Derived
-  const isOnSectorsTab = activeTab === 'sectors';
-  const currentDepartmentId = !isOnSectorsTab ? parseInt(activeTab) : null;
+  const isOnSchoolsBulkTab  = activeTab === 'schools_bulk';
+  const isOnSchoolsIndivTab = activeTab === 'schools_individual';
+  const isOnSchoolsTab      = isOnSchoolsBulkTab || isOnSchoolsIndivTab;
+  const currentDepartmentId = !isOnSchoolsTab ? parseInt(activeTab) || null : null;
+
 
   // Reset page when filters/tab change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedLinkIds(new Set());
-  }, [debouncedSearch, filters.linkType, filters.status, filters.isFeatured, filters.sortBy, filters.sortDirection, activeTab, selectedSector]);
+  }, [debouncedSearch, filters.linkType, filters.status, filters.isFeatured, filters.sortBy, filters.sortDirection, activeTab]);
 
   // Modal handlers
   const openCreateModal = useCallback(() => {
@@ -72,7 +81,28 @@ export function useLinkDatabaseState() {
     setIsCreateModalOpen(false);
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(false);
+    setIsBulkUploadModalOpen(false);
+    setIsTrackingPanelOpen(false);
     setSelectedLink(null);
+    setTrackingLink(null);
+  }, []);
+
+  const openTrackingPanel = useCallback((link: LinkShare) => {
+    setTrackingLink(link);
+    setIsTrackingPanelOpen(true);
+  }, []);
+
+  const closeTrackingPanel = useCallback(() => {
+    setIsTrackingPanelOpen(false);
+    setTrackingLink(null);
+  }, []);
+
+  const openBulkUploadModal = useCallback(() => {
+    setIsBulkUploadModalOpen(true);
+  }, []);
+
+  const closeBulkUploadModal = useCallback(() => {
+    setIsBulkUploadModalOpen(false);
   }, []);
 
   // Filter handlers
@@ -124,11 +154,12 @@ export function useLinkDatabaseState() {
 
   return {
     // Tab
+    currentView,
     activeTab,
     setActiveTab,
-    selectedSector,
-    setSelectedSector,
-    isOnSectorsTab,
+    isOnSchoolsTab,
+    isOnSchoolsBulkTab,
+    isOnSchoolsIndivTab,
     currentDepartmentId,
 
     // View
@@ -152,11 +183,20 @@ export function useLinkDatabaseState() {
     isCreateModalOpen,
     isEditModalOpen,
     isDeleteModalOpen,
+    isBulkUploadModalOpen,
     selectedLink,
     openCreateModal,
     openEditModal,
     openDeleteModal,
+    openBulkUploadModal,
+    closeBulkUploadModal,
     closeModals,
+
+    // Tracking
+    isTrackingPanelOpen,
+    trackingLink,
+    openTrackingPanel,
+    closeTrackingPanel,
 
     // Bulk selection
     selectedLinkIds,

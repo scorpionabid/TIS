@@ -87,9 +87,9 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\GradeSubject::observe(\App\Observers\GradeSubjectObserver::class);
 
         // Configure database query performance monitoring
-        if (config('app.debug') || config('app.env') === 'production') {
-            $this->setupQueryPerformanceMonitoring();
-        }
+        // if (config('app.debug') || config('app.env') === 'production') {
+        //    $this->setupQueryPerformanceMonitoring();
+        // }
 
         // Set default string length for MySQL compatibility
         Schema::defaultStringLength(191);

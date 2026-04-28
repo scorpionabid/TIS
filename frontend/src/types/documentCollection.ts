@@ -17,11 +17,16 @@ export interface DocumentCollection {
   updated_at: string;
   deleted_at?: string;
   documents_count?: number;
+  participating_institutions_count?: number;
   last_document_uploaded_at?: string;
 
   // Relationships
   ownerInstitution?: Institution;
   institution?: Institution;
+  targetInstitutions?: Institution[];
+  target_institutions?: Institution[];
+  targetUsers?: User[];
+  target_users?: User[];
   user?: User;
   documents?: Document[];
   auditLogs?: FolderAuditLog[];
@@ -38,6 +43,11 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  pivot?: {
+    can_delete: boolean;
+    can_upload: boolean;
+    can_view: boolean;
+  }
 }
 
 export interface Document {
@@ -66,7 +76,7 @@ export interface FolderAuditLog {
   id: number;
   folder_id: number;
   user_id?: number;
-  action: 'created' | 'updated' | 'deleted' | 'renamed' | 'bulk_downloaded' | 'documents_deleted';
+  action: 'created' | 'updated' | 'deleted' | 'renamed' | 'bulk_downloaded' | 'documents_deleted' | 'locked' | 'unlocked';
   old_data?: Record<string, unknown>;
   new_data?: Record<string, unknown>;
   reason?: string;
@@ -83,6 +93,7 @@ export interface CreateRegionalFoldersRequest {
   institution_id: number;
   folder_templates?: Record<string, string>;
   target_institutions?: number[];
+  target_user_ids?: number[] | Array<{id: number, can_delete: boolean, can_upload: boolean}>;
 }
 
 export interface UpdateFolderRequest {
@@ -91,6 +102,8 @@ export interface UpdateFolderRequest {
   allow_school_upload?: boolean;
   is_locked?: boolean;
   reason?: string;
+  target_institutions?: number[];
+  target_user_ids?: number[];
 }
 
 export interface DeleteFolderRequest {

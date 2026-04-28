@@ -24,6 +24,7 @@ export interface LinkShare extends BaseEntity {
   thumbnail_url?: string;
   metadata?: Record<string, any>;
   is_featured: boolean;
+  target_users?: number[];
   
   // Relations
   sharedBy?: {
@@ -79,6 +80,7 @@ export interface LinkFilters extends PaginationParams {
   requires_login?: boolean;
   selection_mode?: boolean;
   group_by_title?: boolean;
+  is_bulk?: boolean;
 }
 
 export interface LinkStatistics {

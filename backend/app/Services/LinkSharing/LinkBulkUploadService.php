@@ -199,6 +199,7 @@ class LinkBulkUploadService
             'target_institutions' => $targetInstitutions,
             'expires_at' => $expiresAt,
             'is_featured' => $isFeatured,
+            'metadata' => ['is_bulk_upload' => true],
         ], function ($value) {
             return ! is_null($value);
         });

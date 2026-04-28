@@ -7,12 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertCircle,
-  Building2,
   Loader2,
-  Users,
   ExternalLink,
   Link as LinkIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import type { LinkSharingOverviewProps } from "./types";
 import { useInstitutionMetadata } from "./useInstitutionMetadata";
@@ -27,6 +26,8 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
   institutionMetadata: providedInstitutionMetadata = {},
   restrictedInstitutionIds,
   onResourceAction,
+  hideUsersTab = false,
+  variant = 'card',
 }) => {
   const { currentUser } = useAuth();
 
@@ -45,43 +46,51 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     currentUser,
   });
 
+  // --- Helper to wrap content based on variant ---
+  const ContentWrapper = ({ children, className }: { children: React.ReactNode, className?: string }) => {
+    if (variant === 'ghost') {
+      return <div className={className}>{children}</div>;
+    }
+    return <Card className={className}>{children}</Card>;
+  };
+
   // --- Early returns ---
 
   if (!selectedLink) {
     return (
-      <Card>
+      <ContentWrapper>
         <CardHeader>
-          <CardTitle>Paylaşılan müəssisələr</CardTitle>
+          <CardTitle className="text-gray-400">Paylaşılan müəssisələr</CardTitle>
         </CardHeader>
         <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>İlk olaraq link seçin.</AlertDescription>
+          <Alert className="bg-blue-50 border-blue-100 text-blue-700">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription>İlk olaraq soldakı siyahıdan bir link seçin.</AlertDescription>
           </Alert>
         </CardContent>
-      </Card>
+      </ContentWrapper>
     );
   }
 
   if (isLoading) {
     return (
-      <Card>
+      <ContentWrapper>
         <CardHeader>
-          <CardTitle>Paylaşılan müəssisələr</CardTitle>
+          <CardTitle>Yüklənir...</CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-center py-10 text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Məlumat yüklənir...
+        <CardContent className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <p className="text-sm font-medium animate-pulse">Paylaşım məlumatları əldə edilir...</p>
         </CardContent>
-      </Card>
+      </ContentWrapper>
     );
   }
 
   if (!overview) {
     return (
-      <Card>
+      <ContentWrapper>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Paylaşılan müəssisələr</CardTitle>
+          <CardTitle>Xəta baş verdi</CardTitle>
           {onRetry && (
             <Button variant="outline" size="sm" onClick={onRetry}>
               Yenilə
@@ -92,11 +101,11 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Məlumatı əldə etmək mümkün olmadı.
+              Məlumatı əldə etmək mümkün olmadı. Zəhmət olmasa yenidən cəhd edin.
             </AlertDescription>
           </Alert>
         </CardContent>
-      </Card>
+      </ContentWrapper>
     );
   }
 
@@ -130,7 +139,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   if (!hasSectors && !hasUserTargets) {
     return (
-      <Card>
+      <ContentWrapper>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Paylaşım məlumatları</CardTitle>
@@ -145,130 +154,73 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
-            <p className="text-sm">Heç bir hədəf seçilməyib.</p>
-            <p className="text-xs mt-1">
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <div className="bg-gray-100 p-6 rounded-full mb-4">
+              <AlertCircle className="h-10 w-10 text-gray-400" />
+            </div>
+            <p className="text-base font-bold text-gray-500">Heç bir hədəf seçilməyib</p>
+            <p className="text-sm mt-1 max-w-[300px] text-center">
               Bu link nə müəssisə, nə də istifadəçi ilə paylaşılmayıb.
             </p>
           </div>
         </CardContent>
-      </Card>
+      </ContentWrapper>
     );
   }
 
   return (
     <TooltipProvider>
-      <Card>
-        <CardHeader className="flex flex-col gap-3 pb-2">
-          <div className="flex flex-col gap-1">
-            <CardTitle className="flex items-center gap-2">
-              <LinkIcon className="h-5 w-5 text-primary" />
-              {overview.link_title}
-            </CardTitle>
-            {selectedLink?.url && (
-              <a
-                href={selectedLink.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 truncate"
-              >
-                <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{selectedLink.url}</span>
-              </a>
-            )}
-            <div className="flex items-center gap-2 mt-1">
-              <Badge
-                variant="outline"
-                className={
-                  overview.share_scope === "specific_users"
-                    ? "bg-violet-50 text-violet-700 border-violet-200"
-                    : "bg-blue-50 text-blue-700 border-blue-200"
-                }
-              >
-                {overview.share_scope === "specific_users" ? (
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    Xüsusi istifadəçilər
-                  </span>
-                ) : overview.share_scope === "institutional" ? (
-                  <span className="flex items-center gap-1">
-                    <Building2 className="h-3 w-3" />
-                    Müəssisələr
-                  </span>
-                ) : (
-                  overview.share_scope || "Paylaşım növü"
-                )}
-              </Badge>
-              {selectedLink?.is_featured && (
-                <Badge
-                  variant="secondary"
-                  className="bg-amber-50 text-amber-700 border-amber-200"
+      <ContentWrapper className={cn(variant === 'ghost' ? 'border-none shadow-none bg-transparent' : 'border-border/60')}>
+        <CardHeader className={cn(
+          'pb-4 border-b border-border/60',
+          variant === 'ghost' ? 'px-0 pt-0' : 'px-6 pt-6'
+        )}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-primary/8 rounded-lg shrink-0 mt-0.5">
+              <LinkIcon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base font-semibold text-foreground truncate">
+                {overview.link_title}
+              </CardTitle>
+              {selectedLink?.url && (
+                <a
+                  href={selectedLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-1 text-xs text-muted-foreground hover:text-primary transition-colors group/link"
                 >
-                  ⭐ Seçilmiş
-                </Badge>
+                  <ExternalLink className="h-3 w-3 shrink-0 group-hover/link:text-primary" />
+                  <span className="truncate max-w-[400px]">{selectedLink.url}</span>
+                </a>
               )}
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="pt-0">
-          <Tabs
-            defaultValue={defaultTab}
-            key={overview.link_id}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger
-                value="institutions"
-                className="flex items-center gap-2"
-              >
-                <Building2 className="h-4 w-4" />
-                Müəssisələr
-                {totalSchools > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                    {totalSchools}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                İstifadəçilər
-                {hasUserTargets && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                    {overview.target_users?.length || 0}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="institutions" className="space-y-4 mt-0">
-              <InstitutionsTab
-                sectorsForDisplay={sectorsForDisplay}
-                derivedTotals={derivedTotals}
-                totalSectors={totalSectors}
-                totalSchools={totalSchools}
-                accessedCount={accessedCount}
-                notAccessedCount={notAccessedCount}
-                accessRate={accessRate}
-                expandedSectors={expandedSectors}
-                toggleSector={toggleSector}
-                formatDate={formatDate}
-                overview={overview}
-                selectedLink={selectedLink}
-                onResourceAction={onResourceAction}
-                notAccessedInstitutions={notAccessedInstitutions}
-                hasSectors={hasSectors}
-                hasUserTargets={hasUserTargets}
-              />
-            </TabsContent>
-
-            <TabsContent value="users" className="space-y-4 mt-0">
-              <UsersTab overview={overview} hasUserTargets={hasUserTargets} />
-            </TabsContent>
-          </Tabs>
+        <CardContent className={cn(variant === 'ghost' ? 'px-0 pt-4' : 'px-6 pt-4')}>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <InstitutionsTab
+              sectorsForDisplay={sectorsForDisplay}
+              derivedTotals={derivedTotals}
+              totalSectors={totalSectors}
+              totalSchools={totalSchools}
+              accessedCount={accessedCount}
+              notAccessedCount={notAccessedCount}
+              accessRate={accessRate}
+              expandedSectors={expandedSectors}
+              toggleSector={toggleSector}
+              formatDate={formatDate}
+              overview={overview}
+              selectedLink={selectedLink}
+              onResourceAction={onResourceAction}
+              notAccessedInstitutions={notAccessedInstitutions}
+              hasSectors={hasSectors}
+              hasUserTargets={hasUserTargets}
+            />
+          </div>
         </CardContent>
-      </Card>
+      </ContentWrapper>
     </TooltipProvider>
   );
 };

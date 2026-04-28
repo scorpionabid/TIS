@@ -41,11 +41,11 @@ export const SidebarPanelSwitch: React.FC<SidebarPanelSwitchProps> = ({ isExpand
   };
 
   const getPanelLabel = (panel: SidebarPanel) => {
-    return panel === 'management' ? 'İdarə Paneli' : 'İş Paneli';
+    return panel === 'management' ? 'İdarəetmə Paneli' : 'İş Paneli';
   };
 
   if (!isExpanded) {
-    // Collapsed state: Show only active panel icon
+    // Collapsed state
     const ActiveIcon = getPanelIcon(sidebarPreferences.activePanel);
     const inactivePanel: SidebarPanel = sidebarPreferences.activePanel === 'management' ? 'work' : 'management';
     const InactiveIcon = getPanelIcon(inactivePanel);
@@ -89,10 +89,10 @@ export const SidebarPanelSwitch: React.FC<SidebarPanelSwitchProps> = ({ isExpand
     );
   }
 
-  // Expanded state: Show tab-like interface
+  // Expanded state
   return (
     <div className="px-3 py-2 border-b border-border">
-      <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+      <div className="flex space-x-1 bg-muted p-1 rounded-lg w-full">
         {(['management', 'work'] as SidebarPanel[]).map((panel) => {
           const isActive = sidebarPreferences.activePanel === panel;
           const Icon = getPanelIcon(panel);
@@ -103,14 +103,16 @@ export const SidebarPanelSwitch: React.FC<SidebarPanelSwitchProps> = ({ isExpand
               variant="ghost"
               size="sm"
               className={cn(
-                "flex-1 h-8 text-xs transition-all duration-200",
+                "flex-1 h-8 px-2 transition-all duration-200",
                 isActive && "bg-background shadow-sm text-foreground",
                 !isActive && "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => handlePanelSwitch(panel)}
             >
-              <Icon className="h-3 w-3 mr-2" />
-              {getPanelLabel(panel)}
+              <Icon className="h-3.5 w-3.5 mr-2 shrink-0" />
+              <span className="text-[11px] font-semibold whitespace-nowrap overflow-hidden">
+                {getPanelLabel(panel)}
+              </span>
             </Button>
           );
         })}

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document } from '../../types/documentCollection';
-import { X, FileText, Download, Building2, User, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight, SlidersHorizontal, Loader2, Layers, AlertCircle } from 'lucide-react';
+import { X, FileText, Download, Building2, User, Users, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight, SlidersHorizontal, Loader2, Layers, AlertCircle, Eye } from 'lucide-react';
 import { FileUploadZone } from './FileUploadZone';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 import { getFolderUploadPermission, isUserSchoolAdmin } from '@/utils/permissions';
 import { useToast } from '@/hooks/use-toast';
@@ -81,6 +82,13 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedPreviewDoc, setSelectedPreviewDoc] = useState<Document | null>(null);
+
+  const handlePreview = (doc: Document) => {
+    setSelectedPreviewDoc(doc);
+    setIsPreviewOpen(true);
+  };
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
   // Sector and institution expansion tracking
@@ -212,6 +220,10 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       await documentCollectionService.uploadDocument(folder.id, file);
       await loadDocuments();
       setUploadError(null);
+      toast({
+        title: 'Fayl yükləndi',
+        description: 'Sənəd uğurla qovluğa əlavə edildi.'
+      });
     } catch (error: any) {
       console.error('File upload failed:', error);
       const message =
@@ -297,8 +309,20 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
   };
 
   const canDelete = (document: Document) => {
-    if (!user) return false;
-    return document.user_id === user.id;
+    if (!user || folder.is_locked) return false;
+    
+    const isSuperAdmin = user.role === 'superadmin';
+    const isRegionAdmin = user.role === 'regionadmin';
+    const isUploader = document.user_id === user.id;
+    const isFolderCreator = folder.created_by === user.id;
+    const isFolderOwnerAdmin = Number(folder.owner_institution_id) === Number(user.institution_id);
+    
+    // Check if user is a target user with explicit delete permission
+    const isTargetUserWithDelete = folder.targetUsers?.some(tu => 
+        tu.id === user.id && (tu.pivot?.can_delete || (tu as any).can_delete)
+    );
+
+    return isSuperAdmin || isRegionAdmin || isUploader || isFolderCreator || isFolderOwnerAdmin || !!isTargetUserWithDelete;
   };
 
   const isSchoolAdmin = isUserSchoolAdmin(user);
@@ -389,9 +413,33 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     );
   };
 
+  const [activeViewTab, setActiveViewTab] = useState<'documents' | 'monitoring'>('documents');
+
   const handleRetryLoad = () => {
     loadDocuments();
   };
+
+  const targetInstitutions = useMemo(() => {
+    return folder.target_institutions || folder.targetInstitutions || [];
+  }, [folder]);
+
+  const monitoringData = useMemo(() => {
+    if (activeViewTab !== 'monitoring') return [];
+    
+    return targetInstitutions.map(target => {
+      const uploader = institutions.find(i => i.institution_id === target.id);
+      return {
+        ...target,
+        hasUploaded: !!uploader,
+        documentCount: uploader?.document_count || 0,
+        total_size: uploader?.total_size || 0,
+        lastUpload: uploader?.last_upload || null
+      };
+    }).sort((a, b) => {
+      if (a.hasUploaded === b.hasUploaded) return a.name.localeCompare(b.name);
+      return a.hasUploaded ? 1 : -1; // Show pending first
+    });
+  }, [activeViewTab, targetInstitutions, institutions]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -401,38 +449,41 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h2 className="text-2xl font-semibold text-gray-900">{folder.name}</h2>
-              <p className="text-gray-600 mt-1">{folder.description || 'Folder sənədləri'}</p>
+              <p className="text-gray-600 mt-1">{folder.description || 'Qovluq sənədləri'}</p>
 
               {/* Statistics */}
               {meta && (
-                <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
-                  <span className="flex items-center gap-1">
-                    <FileText size={16} />
-                    <strong>{meta.total_documents}</strong> sənəd
-                  </span>
-                  {!isSchoolAdmin && (
-                    <>
-                      <span className="flex items-center gap-1">
-                        <Building2 size={16} />
-                        <strong>{meta.total_institutions}</strong> müəssisə
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Layers size={16} />
-                        <strong>{sectorGroups.length}</strong> sektor
-                      </span>
-                    </>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Archive size={16} />
-                    {formatFileSize(meta.total_size)}
-                  </span>
+                <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Ümumi Sənəd</span>
+                    <span className="flex items-center gap-1 text-blue-600 font-bold">
+                      <FileText size={14} />
+                      {meta.total_documents}
+                    </span>
+                  </div>
+                  <div className="w-px h-8 bg-gray-200" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">İştirakçı Müəssisələr</span>
+                    <span className="flex items-center gap-1 text-green-600 font-bold">
+                      <Building2 size={14} />
+                      {meta.total_institutions} / {(folder.target_institutions || folder.targetInstitutions || []).length || meta.total_institutions}
+                    </span>
+                  </div>
+                  <div className="w-px h-8 bg-gray-200" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Ümumi Həcm</span>
+                    <span className="flex items-center gap-1 text-indigo-600 font-bold">
+                      <Archive size={14} />
+                      {formatFileSize(meta.total_size)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="flex items-center gap-3">
               {user && (
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end">
                   <button
                     onClick={() => {
                       if (!canUpload) {
@@ -442,37 +493,41 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       setShowUploadZone(!showUploadZone);
                     }}
                     disabled={!canUpload}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors h-10 ${
                       canUpload
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    <Upload size={20} />
-                    {showUploadZone ? 'Gizlət' : 'Yüklə'}
+                    <Upload size={18} />
+                    <span className="font-medium">{showUploadZone ? 'Gizlət' : 'Yüklə'}</span>
                   </button>
                   {uploadPermission.maxSizeMb && (
-                    <span className="text-xs text-gray-500">
-                      Maksimum fayl ölçüsü: {uploadPermission.maxSizeMb} MB
+                    <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">
+                      Limit: {uploadPermission.maxSizeMb} MB
                     </span>
                   )}
                 </div>
               )}
 
               {meta && meta.total_documents > 0 && (
-                <button
-                  onClick={handleBulkDownload}
-                  disabled={bulkDownloading}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Archive size={20} />
-                  {bulkDownloading ? 'Hazırlanır...' : 'ZIP Yüklə'}
-                </button>
+                <div className="flex flex-col items-end">
+                  <button
+                    onClick={handleBulkDownload}
+                    disabled={bulkDownloading}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors h-10"
+                  >
+                    <Archive size={18} />
+                    <span className="font-medium">{bulkDownloading ? 'Hazırlanır...' : 'ZIP Yüklə'}</span>
+                  </button>
+                  {/* Empty space to keep vertical alignment consistent with the upload button's limit text */}
+                  <div className="h-[14px]" />
+                </div>
               )}
 
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2 -mt-4"
               >
                 <X size={24} />
               </button>
@@ -481,7 +536,31 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
           {/* Search and Filters */}
           <div className="space-y-3">
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Tab Switcher */}
+              {!isSchoolAdmin && (
+                <div className="flex p-1 bg-gray-100 rounded-lg shrink-0">
+                  <button
+                    onClick={() => setActiveViewTab('documents')}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      activeViewTab === 'documents' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <FileText size={16} />
+                    Sənədlər
+                  </button>
+                  <button
+                    onClick={() => setActiveViewTab('monitoring')}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      activeViewTab === 'monitoring' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Users size={16} />
+                    Monitorinq
+                  </button>
+                </div>
+              )}
+
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
@@ -503,7 +582,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors shrink-0 ${
                   showFilters ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'
                 }`}
               >
@@ -619,140 +698,220 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
             <div className="text-center py-12 bg-gray-50 rounded-lg">
               <FileText size={48} className="mx-auto text-gray-400 mb-4" />
               <p className="text-gray-600">
-                {searchQuery || fileTypeFilter ? 'Filtrə uyğun sənəd tapılmadı' : 'Bu folderdə hələ sənəd yoxdur'}
+                {searchQuery || fileTypeFilter ? 'Filtrə uyğun sənəd tapılmadı' : 'Bu qovluqda hələ sənəd yoxdur'}
               </p>
             </div>
           ) : (
             <>
-              {/* Sectors List */}
-              <div className="space-y-4">
-                {sectorGroups.map((sector) => {
-                  const isSectorExpanded = expandedSectors.has(sector.sector_id);
+              {/* Conditional Content based on Tab */}
+              {activeViewTab === 'documents' ? (
+                <div className="space-y-4">
+                  {sectorGroups.map((sector) => {
+                    const isSectorExpanded = expandedSectors.has(sector.sector_id);
 
-                  return (
-                    <div key={sector.sector_id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
-                      {/* Sector Header */}
-                      <button
-                        onClick={() => toggleSector(sector.sector_id)}
-                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          {isSectorExpanded ? (
-                            <ChevronDown size={22} className="text-blue-700" />
-                          ) : (
-                            <ChevronRight size={22} className="text-blue-700" />
-                          )}
-                          <Layers size={22} className="text-blue-700" />
-                          <div className="text-left">
-                            <h3 className="font-bold text-gray-900 text-lg">{sector.sector_name}</h3>
-                            <p className="text-sm text-gray-600">{sector.institutions.length} müəssisə</p>
+                    return (
+                      <div key={sector.sector_id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                        {/* Sector Header */}
+                        <button
+                          onClick={() => toggleSector(sector.sector_id)}
+                          className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            {isSectorExpanded ? (
+                              <ChevronDown size={22} className="text-blue-700" />
+                            ) : (
+                              <ChevronRight size={22} className="text-blue-700" />
+                            )}
+                            <Layers size={22} className="text-blue-700" />
+                            <div className="text-left">
+                              <h3 className="font-bold text-gray-900 text-lg">{sector.sector_name}</h3>
+                              <p className="text-sm text-gray-600">{sector.institutions.length} müəssisə</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-6 text-sm">
-                          <span className="flex items-center gap-2 text-gray-700">
-                            <FileText size={18} />
-                            <strong>{sector.total_documents}</strong> sənəd
-                          </span>
-                          <span className="flex items-center gap-2 text-gray-700">
-                            <Archive size={18} />
-                            {formatFileSize(sector.total_size)}
-                          </span>
-                        </div>
-                      </button>
+                          <div className="flex items-center gap-6 text-sm">
+                            <span className="flex items-center gap-2 text-gray-700">
+                              <FileText size={18} />
+                              <strong>{sector.total_documents}</strong> sənəd
+                            </span>
+                            <span className="flex items-center gap-2 text-gray-700">
+                              <Archive size={18} />
+                              {formatFileSize(sector.total_size)}
+                            </span>
+                          </div>
+                        </button>
 
-                      {/* Institutions List (Minimalist Cards) */}
-                      {isSectorExpanded && (
-                        <div className="p-4 bg-white">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {sector.institutions.map((institution) => {
-                              const isInstExpanded = expandedInstitutions.has(institution.institution_id);
+                        {/* Institutions List (Minimalist Cards) */}
+                        {isSectorExpanded && (
+                          <div className="p-4 bg-white">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {sector.institutions.map((institution) => {
+                                const isInstExpanded = expandedInstitutions.has(institution.institution_id);
 
-                              return (
-                                <div
-                                  key={institution.institution_id}
-                                  className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
-                                >
-                                  {/* Minimalist Institution Card */}
-                                  <button
-                                    onClick={() => toggleInstitution(institution.institution_id)}
-                                    className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
+                                return (
+                                  <div
+                                    key={institution.institution_id}
+                                    className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
                                   >
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                                        <Building2 size={18} className="text-gray-500 mt-0.5 flex-shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                          <h4 className="font-medium text-gray-900 text-sm truncate" title={institution.institution_name}>
-                                            {institution.institution_name}
-                                          </h4>
-                                          {institution.institution_type && (
-                                            <p className="text-xs text-gray-500 mt-0.5">{institution.institution_type}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {isInstExpanded ? (
-                                        <ChevronDown size={16} className="text-gray-400 flex-shrink-0 ml-2" />
-                                      ) : (
-                                        <ChevronRight size={16} className="text-gray-400 flex-shrink-0 ml-2" />
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
-                                      <span className="flex items-center gap-1">
-                                        <FileText size={14} />
-                                        {institution.document_count}
-                                      </span>
-                                      <span>{formatFileSize(institution.total_size)}</span>
-                                    </div>
-                                  </button>
-
-                                  {/* Documents List (Expanded) */}
-                                  {isInstExpanded && (
-                                    <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-2">
-                                      {institution.documents.map((doc) => (
-                                        <div
-                                          key={doc.id}
-                                          className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:border-blue-300 transition-colors"
-                                        >
-                                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span className="text-xl flex-shrink-0">{getFileIcon(doc.mime_type)}</span>
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-sm font-medium text-gray-900 truncate" title={doc.file_name || doc.original_filename}>
-                                                {doc.file_name || doc.original_filename}
-                                              </p>
-                                              <p className="text-xs text-gray-500">{formatFileSize(doc.file_size)}</p>
-                                            </div>
-                                          </div>
-                                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                                            <button
-                                              onClick={() => handleDownload(doc)}
-                                              className="p-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
-                                              title="Yüklə"
-                                            >
-                                              <Download size={14} />
-                                            </button>
-                                            {canDelete(doc) && (
-                                              <button
-                                                onClick={() => handleDelete(doc.id)}
-                                                className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
-                                                title="Sil"
-                                              >
-                                                <Trash2 size={14} />
-                                              </button>
+                                    {/* Minimalist Institution Card */}
+                                    <button
+                                      onClick={() => toggleInstitution(institution.institution_id)}
+                                      className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                                          <Building2 size={18} className="text-gray-500 mt-0.5 flex-shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <h4 className="font-medium text-gray-900 text-sm truncate" title={institution.institution_name}>
+                                              {institution.institution_name}
+                                            </h4>
+                                            {institution.institution_type && (
+                                              <p className="text-xs text-gray-500 mt-0.5">{institution.institution_type}</p>
                                             )}
                                           </div>
                                         </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                        {isInstExpanded ? (
+                                          <ChevronDown size={16} className="text-gray-400 flex-shrink-0 ml-2" />
+                                        ) : (
+                                          <ChevronRight size={16} className="text-gray-400 flex-shrink-0 ml-2" />
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                                        <span className="flex items-center gap-1">
+                                          <FileText size={14} />
+                                          {institution.document_count}
+                                        </span>
+                                        <span>{formatFileSize(institution.total_size)}</span>
+                                      </div>
+                                    </button>
+
+                                    {/* Documents List (Expanded) */}
+                                    {isInstExpanded && (
+                                      <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-2">
+                                        {institution.documents.map((doc) => (
+                                          <div
+                                            key={doc.id}
+                                            className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:border-blue-300 transition-colors"
+                                          >
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              <span className="text-xl flex-shrink-0">{getFileIcon(doc.mime_type)}</span>
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate" title={doc.file_name || doc.original_filename}>
+                                                  {doc.file_name || doc.original_filename}
+                                                </p>
+                                                <p className="text-xs text-gray-500">{formatFileSize(doc.file_size)}</p>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                              <button
+                                                onClick={() => handlePreview(doc)}
+                                                className="p-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+                                                title="Önizləmə"
+                                              >
+                                                <Eye size={14} />
+                                              </button>
+                                              <button
+                                                onClick={() => handleDownload(doc)}
+                                                className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                                                title="Yüklə"
+                                              >
+                                                <Download size={14} />
+                                              </button>
+                                              {canDelete(doc) && (
+                                                <button
+                                                  onClick={() => handleDelete(doc.id)}
+                                                  className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                                                  title="Sil"
+                                                >
+                                                  <Trash2 size={14} />
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-white border rounded-lg overflow-hidden">
+                  <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-700">İştirak Statistikası</h3>
+                    <button 
+                      onClick={() => {
+                        const headers = ["Müəssisə", "Status", "Fayl Sayı", "Ümumi Həcm", "Son Yükləmə"];
+                        const rows = monitoringData.map(item => [
+                          item.name,
+                          item.hasUploaded ? "Yüklənib" : "Gözlənilir",
+                          item.documentCount,
+                          formatFileSize(item.total_size || 0),
+                          item.lastUpload ? new Date(item.lastUpload).toLocaleDateString('az-AZ') : "-"
+                        ]);
+                        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+                        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement("a");
+                        link.href = URL.createObjectURL(blob);
+                        link.setAttribute("download", `monitorinq_${folder.name}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                    >
+                      <Download size={14} />
+                      Excel (CSV) Eksport
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 text-gray-600 font-bold uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3">Müəssisə Adı</th>
+                          <th className="px-4 py-3 text-center">Status</th>
+                          <th className="px-4 py-3 text-center">Fayl Sayı</th>
+                          <th className="px-4 py-3 text-center">Ümumi Həcm</th>
+                          <th className="px-4 py-3 text-right">Son Yükləmə</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {monitoringData.map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-900">
+                              <div className="flex items-center gap-2">
+                                <Building2 size={16} className="text-gray-400" />
+                                {item.name}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                item.hasUploaded ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                              }`}>
+                                {item.hasUploaded ? 'Yüklənib' : 'Gözlənilir'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center font-semibold">
+                              {item.documentCount}
+                            </td>
+                            <td className="px-4 py-3 text-center text-gray-500">
+                              {formatFileSize(item.total_size || 0)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-500">
+                              {item.lastUpload ? formatDate(item.lastUpload) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Pagination */}
               {renderPagination()}
@@ -807,6 +966,12 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
           </div>
         </div>
       </div>
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        document={selectedPreviewDoc}
+      />
     </div>
   );
 };

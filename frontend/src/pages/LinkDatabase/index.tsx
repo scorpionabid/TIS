@@ -1,87 +1,77 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { AlertCircle, Database, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, Database, Loader2, Plus } from 'lucide-react';
 import { useLinkDatabaseState } from './hooks/useLinkDatabaseState';
 import { useLinkDatabaseData } from './hooks/useLinkDatabaseData';
 import { useLinkDatabaseActions } from './hooks/useLinkDatabaseActions';
-import { LinkDatabaseHeader } from './components/LinkDatabaseHeader';
-import { LinkDatabaseStatsBar } from './components/LinkDatabaseStatsBar';
 import { LinkDatabaseFilterBar } from './components/LinkDatabaseFilterBar';
 import { LinkDatabaseTabs } from './components/LinkDatabaseTabs';
 import { LinkDatabaseFeaturedSection } from './components/LinkDatabaseFeaturedSection';
 import { LinkDatabaseContent } from './components/LinkDatabaseContent';
-import { LinkFormModal } from './components/LinkFormModal';
+import { LinkSchoolsContent } from './components/LinkSchoolsContent';
+import { UnifiedLinkModal } from './components/UnifiedLinkModal';
 import { LinkDeleteModal } from './components/LinkDeleteModal';
-import type { CreateLinkData, LinkShare } from './types/linkDatabase.types';
+import { LinkTrackingPanel } from './components/LinkTrackingPanel';
+import type { LinkShare } from './types/linkDatabase.types';
+import type { LinkFormValues } from './schemas/linkForm.schema';
 
 export default function LinkDatabase() {
-  const { hasPermission, currentRole } = useRoleCheck();
+  const { hasPermission } = useRoleCheck();
 
-  // Permissions
   const canCreate = hasPermission('links.create');
-  const canEdit = hasPermission('links.update');
+  const canEdit   = hasPermission('links.update');
   const canDelete = hasPermission('links.delete');
-  const canView = hasPermission('links.read');
+  const canView   = hasPermission('links.read');
 
-  // Debug: Log permissions
-  console.log('🔍 LinkDatabase Debug:', {
-    currentRole,
-    canCreate,
-    canEdit,
-    canDelete,
-    canView,
-    hasPermission: hasPermission('links.create'),
-    allPermissions: (window as any).authDebug?.getCurrentUser?.()?.permissions || 'N/A'
-  });
-
-  // State
   const state = useLinkDatabaseState();
 
-  // Data
   const data = useLinkDatabaseData({
     activeTab: state.activeTab,
-    selectedSector: state.selectedSector,
-    isOnSectorsTab: state.isOnSectorsTab,
-    currentDepartmentId: state.currentDepartmentId,
     debouncedSearch: state.debouncedSearch,
     filters: state.filters,
     currentPage: state.currentPage,
     perPage: state.perPage,
   });
 
-  // Actions
   const actions = useLinkDatabaseActions({
-    isOnSectorsTab: state.isOnSectorsTab,
+    isOnSchoolsTab: state.isOnSchoolsTab,
     currentDepartmentId: state.currentDepartmentId,
-    selectedSector: state.selectedSector,
+    currentSectorId: null,
+    selectedSchool: null,
     onSuccess: state.closeModals,
   });
 
-  // Auto-select first department tab
+  const sortedDepartments = useMemo(() => {
+    const getWeight = (name: string) => {
+      const n = name.toLowerCase();
+      if (n.includes('rəhbər')) return 1;
+      if (n.includes('tədris')) return 2;
+      if (n.includes('nzibati')) return 3; // Robust for 'İnzibati'
+      if (n.includes('maliyy')) return 4;  // Robust for 'Maliyyə'
+      if (n.includes('balakən')) return 5;
+      if (n.includes('zaqatala')) return 6;
+      if (n.includes('qax')) return 7;
+      if (n.includes('şəki')) return 8;
+      if (n.includes('oğuz')) return 9;
+      if (n.includes('qəbələ')) return 10;
+      return 999;
+    };
+
+    return [...data.departments].sort((a, b) => {
+      const weightA = getWeight(a.name);
+      const weightB = getWeight(b.name);
+      if (weightA !== weightB) return weightA - weightB;
+      return a.name.localeCompare(b.name);
+    });
+  }, [data.departments]);
+
   useEffect(() => {
-    if (data.departments.length > 0 && !state.activeTab) {
-      state.setActiveTab(data.departments[0].id.toString());
+    if (!state.activeTab && !data.isLoadingDepartments && sortedDepartments.length > 0) {
+      state.setActiveTab(sortedDepartments[0].id.toString());
     }
-  }, [data.departments, state.activeTab, state.setActiveTab]);
+  }, [sortedDepartments, data.isLoadingDepartments, state.activeTab, state.setActiveTab]);
 
-  // Auto-select first sector
-  useEffect(() => {
-    if (data.sectors.length > 0 && state.selectedSector === null) {
-      state.setSelectedSector(data.sectors[0].id);
-    }
-  }, [data.sectors, state.selectedSector, state.setSelectedSector]);
-
-  // Get current tab label for modal
-  const currentTabLabel = useMemo(() => {
-    if (state.isOnSectorsTab) {
-      const sector = data.sectors.find((s) => s.id === state.selectedSector);
-      return sector?.name || 'Sektorlar';
-    }
-    const dept = data.departments.find((d) => d.id.toString() === state.activeTab);
-    return dept?.name || state.activeTab;
-  }, [state.activeTab, state.isOnSectorsTab, state.selectedSector, data.sectors, data.departments]);
-
-  // Has active filters
   const hasActiveFilters = useMemo(
     () =>
       state.filters.search !== '' ||
@@ -91,17 +81,13 @@ export default function LinkDatabase() {
     [state.filters]
   );
 
-  // Handle create submit
   const handleCreateSubmit = useCallback(
-    (formData: CreateLinkData) => {
-      actions.createLink(formData);
-    },
+    (formData: LinkFormValues) => { actions.createLink(formData); },
     [actions]
   );
 
-  // Handle edit submit
   const handleEditSubmit = useCallback(
-    (formData: CreateLinkData) => {
+    (formData: LinkFormValues) => {
       if (state.selectedLink) {
         actions.updateLink({ id: state.selectedLink.id, data: formData });
       }
@@ -109,19 +95,20 @@ export default function LinkDatabase() {
     [actions, state.selectedLink]
   );
 
-  // Handle delete confirm (soft or hard)
-  const handleDeleteConfirm = useCallback((deleteType: 'soft' | 'hard') => {
-    if (state.selectedLink) {
-      actions.deleteLink(state.selectedLink.id, deleteType);
-    }
-  }, [actions, state.selectedLink]);
+  const handleDeleteConfirm = useCallback(
+    (deleteType: 'soft' | 'hard') => {
+      if (state.selectedLink) {
+        actions.deleteLink(state.selectedLink.id, deleteType);
+      }
+    },
+    [actions, state.selectedLink]
+  );
 
-  // Handle restore
-  const handleRestore = useCallback((link: LinkShare) => {
-    actions.restoreLink(link.id);
-  }, [actions]);
+  const handleRestore = useCallback(
+    (link: LinkShare) => { actions.restoreLink(link.id); },
+    [actions]
+  );
 
-  // Handle bulk delete
   const handleBulkDelete = useCallback(() => {
     if (state.selectedLinkIds.size > 0) {
       actions.bulkDeleteLinks(Array.from(state.selectedLinkIds));
@@ -129,140 +116,141 @@ export default function LinkDatabase() {
     }
   }, [actions, state.selectedLinkIds, state.clearSelection]);
 
-  // Permission check
   if (!canView) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu bölmədən istifadə etmək üçün səlahiyyətiniz yoxdur.
-          </p>
+          <p className="text-muted-foreground">Bu bölmədən istifadə etmək üçün səlahiyyətiniz yoxdur.</p>
         </div>
       </div>
     );
   }
 
-  // Initial loading
-  if (data.isLoadingDepartments) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // isLoadingDepartments artıq ayrı sidebar skeleton-ə verilir (aşağıya bax)
 
-  // No departments/sectors
-  if (data.departments.length === 0 && data.sectors.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Heç bir departament və ya sektor tapılmadı</h3>
-          <p className="text-muted-foreground">
-            Sistem administratoru ilə əlaqə saxlayın.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const activeDepName = sortedDepartments
+    .find((d) => d.id.toString() === state.activeTab)
+    ?.name
+    .replace(/\s+sektoru\s*$/i, '')
+    .trim();
 
   return (
-    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      {/* Header */}
-      <LinkDatabaseHeader
-        canCreate={canCreate}
-        onCreateClick={state.openCreateModal}
-        selectedCount={state.selectedLinkIds.size}
-        onBulkDelete={canDelete ? handleBulkDelete : undefined}
-        isBulkDeleting={actions.isBulkDeleting}
-      />
+    <>
+      <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)] w-full bg-background">
 
-      {/* Stats Bar */}
-      <LinkDatabaseStatsBar stats={data.stats} />
+        {/* Left Sidebar — yalnız departamentlər */}
+        <aside className="w-full md:w-64 lg:w-72 xl:w-80 flex-shrink-0 border-b md:border-b-0 md:border-r border-border/60 bg-card md:min-h-full">
+          <div className="md:sticky md:top-0 md:max-h-[calc(100vh-4rem)] overflow-y-auto no-scrollbar">
+            <div className="px-4 py-5 border-b border-border/60">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <Database className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-black text-sm text-foreground">Keçidlər Paneli</h2>
+                  <p className="text-[11px] text-muted-foreground font-medium">Resursların idarəetmə mərkəzi</p>
+                </div>
+              </div>
+            </div>
 
-      {/* Filter Bar */}
-      <LinkDatabaseFilterBar
-        filters={state.filters}
-        viewMode={state.viewMode}
-        onFilterChange={state.updateFilter}
-        onResetFilters={state.resetFilters}
-        onViewModeChange={state.setViewMode}
-      />
+            {data.isLoadingDepartments ? (
+              <div className="flex flex-col w-full py-2 space-y-1 px-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl">
+                    <div className="w-8 h-8 rounded-lg bg-muted animate-pulse shrink-0" />
+                    <div className="h-4 rounded bg-muted animate-pulse flex-1" style={{ animationDelay: `${i * 80}ms` }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <LinkDatabaseTabs
+                departments={sortedDepartments}
+                activeTab={state.activeTab}
+                onTabChange={state.setActiveTab}
+                variant="vertical"
+              />
+            )}
+          </div>
+        </aside>
 
-      {/* Tabs */}
-      <LinkDatabaseTabs
+        {/* Main Content */}
+        <main className="flex-1 min-w-0 flex flex-col bg-background">
+
+          {/* Sticky Toolbar — kompakt, tək blok */}
+          <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/60 px-6 py-3">
+            <LinkDatabaseFilterBar
+              title={activeDepName ?? 'Keçidlər'}
+              filters={state.filters}
+              viewMode={state.viewMode}
+              onFilterChange={state.updateFilter}
+              onResetFilters={state.resetFilters}
+              onViewModeChange={state.setViewMode}
+              canCreate={canCreate}
+              selectedCount={state.selectedLinkIds.size}
+              isBulkDeleting={actions.isBulkDeleting}
+              onCreateClick={state.openCreateModal}
+              onBulkDelete={handleBulkDelete}
+            />
+          </div>
+
+          {/* Content */}
+          <div className="flex-1">
+            {state.isOnSchoolsTab ? (
+              <LinkSchoolsContent isGrouped={state.isOnSchoolsBulkTab} />
+            ) : (
+              <>
+                {data.featuredLinks.length > 0 && !hasActiveFilters && (
+                  <div className="px-6 py-4 bg-muted/30 border-b border-border/40">
+                    <LinkDatabaseFeaturedSection links={data.featuredLinks} />
+                  </div>
+                )}
+
+                <div className="min-h-[400px]">
+                  <LinkDatabaseContent
+                    links={data.currentLinks}
+                    viewMode={state.viewMode}
+                    isLoading={data.isLoadingLinks}
+                    isFetching={data.isFetchingLinks}
+                    hasFilters={hasActiveFilters}
+                    canCreate={canCreate}
+                    selectedIds={state.selectedLinkIds}
+                    sortBy={state.filters.sortBy}
+                    sortDirection={state.filters.sortDirection}
+                    paginationMeta={data.paginationMeta}
+                    onSort={state.toggleSort}
+                    onToggleSelect={state.toggleLinkSelection}
+                    onSelectAll={state.selectAllLinks}
+                    onPageChange={state.setCurrentPage}
+                    onPerPageChange={state.setPerPage}
+                    onEdit={canEdit ? state.openEditModal : undefined}
+                    onDelete={canDelete ? state.openDeleteModal : undefined}
+                    onRestore={canEdit ? handleRestore : undefined}
+                    onTrack={state.openTrackingPanel}
+                    onCreateClick={canCreate ? state.openCreateModal : undefined}
+                    onClearFilters={state.resetFilters}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Modals */}
+      <UnifiedLinkModal
+        isOpen={state.isCreateModalOpen || state.isEditModalOpen}
+        onClose={state.closeModals}
         departments={data.departments}
-        sectors={data.sectors}
         activeTab={state.activeTab}
-        selectedSector={state.selectedSector}
-        onTabChange={state.setActiveTab}
-        onSectorChange={state.setSelectedSector}
-        userRole={currentRole}
-      />
-
-      {/* Featured Links */}
-      {data.featuredLinks.length > 0 && (
-        <LinkDatabaseFeaturedSection links={data.featuredLinks} />
-      )}
-
-      {/* Content (Table/Grid) */}
-      <LinkDatabaseContent
-        links={data.currentLinks}
-        viewMode={state.viewMode}
-        isLoading={data.isLoadingLinks}
-        isFetching={data.isFetchingLinks}
-        hasFilters={hasActiveFilters}
-        canCreate={canCreate}
-        selectedIds={state.selectedLinkIds}
-        sortBy={state.filters.sortBy}
-        sortDirection={state.filters.sortDirection}
-        paginationMeta={data.paginationMeta}
-        onSort={state.toggleSort}
-        onToggleSelect={state.toggleLinkSelection}
-        onSelectAll={state.selectAllLinks}
-        onPageChange={state.setCurrentPage}
-        onPerPageChange={state.setPerPage}
-        onEdit={canEdit ? state.openEditModal : undefined}
-        onDelete={canDelete ? state.openDeleteModal : undefined}
-        onRestore={canEdit ? handleRestore : undefined}
-        onCreateClick={canCreate ? state.openCreateModal : undefined}
-        onClearFilters={state.resetFilters}
-      />
-
-      {/* Create Modal */}
-      <LinkFormModal
-        isOpen={state.isCreateModalOpen}
-        onClose={state.closeModals}
-        onSubmit={handleCreateSubmit}
-        isLoading={actions.isCreating}
-        mode="create"
-        departments={data.departments}
-        sectors={data.sectors}
-        currentTabLabel={currentTabLabel}
-        isOnSectorsTab={state.isOnSectorsTab}
-        currentDepartmentId={state.currentDepartmentId}
-        selectedSector={state.selectedSector}
-      />
-
-      {/* Edit Modal */}
-      <LinkFormModal
-        isOpen={state.isEditModalOpen}
-        onClose={state.closeModals}
-        onSubmit={handleEditSubmit}
-        isLoading={actions.isUpdating}
-        mode="edit"
+        mode={state.isEditModalOpen ? 'edit' : 'create'}
         selectedLink={state.selectedLink}
-        departments={data.departments}
-        sectors={data.sectors}
-        currentTabLabel={currentTabLabel}
-        isOnSectorsTab={state.isOnSectorsTab}
-        currentDepartmentId={state.currentDepartmentId}
-        selectedSector={state.selectedSector}
+        onEditSubmit={handleEditSubmit}
+        onCreateSubmit={handleCreateSubmit}
+        isLoading={actions.isCreating || actions.isUpdating}
       />
 
-      {/* Delete Modal */}
       <LinkDeleteModal
         link={state.selectedLink}
         isOpen={state.isDeleteModalOpen}
@@ -270,6 +258,15 @@ export default function LinkDatabase() {
         onClose={state.closeModals}
         onConfirm={handleDeleteConfirm}
       />
-    </div>
+
+      {state.isTrackingPanelOpen && state.trackingLink && (
+        <div className="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+          <LinkTrackingPanel
+            link={state.trackingLink}
+            onClose={state.closeTrackingPanel}
+          />
+        </div>
+      )}
+    </>
   );
 }

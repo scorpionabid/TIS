@@ -9,6 +9,8 @@ export interface Department {
   label: string;
   department_type: string;
   institution_id: number;
+  institution_name?: string;
+  institution_short_name?: string;
 }
 
 export interface SectorOption {
@@ -25,9 +27,11 @@ export interface CreateLinkData {
   link_type: 'external' | 'video' | 'form' | 'document';
   is_featured?: boolean;
   expires_at?: string;
-  // Target selection
+  share_scope?: 'public' | 'regional' | 'sectoral' | 'specific_users' | 'role_based';
   target_departments?: number[];
   target_institutions?: number[];
+  target_users?: number[];
+  target_roles?: string[];
 }
 
 // Backward compatibility aliases
@@ -44,6 +48,7 @@ export interface LinkDatabaseFilters {
   link_type?: string;
   status?: string;
   is_featured?: boolean;
+  sector_only?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -148,6 +153,7 @@ export const linkDatabaseService = {
     if (filters.link_type) params.append('link_type', filters.link_type);
     if (filters.status) params.append('status', filters.status);
     if (filters.is_featured !== undefined) params.append('is_featured', filters.is_featured.toString());
+    if (filters.sector_only !== undefined) params.append('sector_only', filters.sector_only.toString());
 
     const response = await apiClient.get(
       `/link-database/by-sector/${sectorId}?${params.toString()}`
@@ -157,48 +163,56 @@ export const linkDatabaseService = {
   },
 
   /**
+   * Get links by institution (School)
+   */
+  async getLinksByInstitution(
+    institutionId: number,
+    filters: LinkDatabaseFilters = {}
+  ): Promise<PaginatedResponse<LinkShare>> {
+    const params = new URLSearchParams();
+
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sort_by) params.append('sort_by', filters.sort_by);
+    if (filters.sort_direction) params.append('sort_direction', filters.sort_direction);
+    if (filters.per_page) params.append('per_page', filters.per_page.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.link_type) params.append('link_type', filters.link_type);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.is_featured !== undefined) params.append('is_featured', filters.is_featured.toString());
+
+    const response = await apiClient.get(
+      `/link-database/by-institution/${institutionId}?${params.toString()}`
+    );
+
+    return this.parsePaginatedResponse(response.data);
+  },
+
+  /**
    * Parse paginated API response (handles both direct and wrapped formats)
    */
-  parsePaginatedResponse(fullResponse: any): PaginatedResponse<LinkShare> {
-    console.log('🔍 parsePaginatedResponse Debug:', {
-      fullResponse,
-      hasCurrentPage: fullResponse && 'current_page' in fullResponse,
-      hasDataCurrentPage: fullResponse?.data && typeof fullResponse.data === 'object' && 'current_page' in fullResponse.data,
-      responseType: typeof fullResponse
-    });
+  parsePaginatedResponse(fullResponse: unknown): PaginatedResponse<LinkShare> {
+    const resp = fullResponse as Record<string, unknown>;
 
-    let paginatedData: any;
+    let paginatedData: Record<string, unknown>;
     let linksArray: LinkShare[] = [];
 
-    if (fullResponse && 'current_page' in fullResponse) {
-      paginatedData = fullResponse;
-      linksArray = fullResponse.data || [];
-    } else if (fullResponse?.data && typeof fullResponse.data === 'object' && 'current_page' in fullResponse.data) {
-      paginatedData = fullResponse.data;
-      linksArray = paginatedData.data || [];
+    if (resp && 'current_page' in resp) {
+      paginatedData = resp;
+      linksArray = (resp.data as LinkShare[]) || [];
+    } else if (resp?.data && typeof resp.data === 'object' && 'current_page' in (resp.data as object)) {
+      paginatedData = resp.data as Record<string, unknown>;
+      linksArray = (paginatedData.data as LinkShare[]) || [];
     } else {
-      paginatedData = fullResponse?.data || fullResponse || {};
-      linksArray = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.data || []);
+      paginatedData = (resp?.data as Record<string, unknown>) || resp || {};
+      linksArray = Array.isArray(paginatedData) ? paginatedData : ((paginatedData?.data as LinkShare[]) || []);
     }
-
-    console.log('🔍 parsePaginatedResponse Result:', {
-      paginatedData,
-      linksArray: linksArray.length,
-      finalResponse: {
-        data: linksArray,
-        current_page: paginatedData?.current_page || 1,
-        last_page: paginatedData?.last_page || 1,
-        per_page: paginatedData?.per_page || 15,
-        total: paginatedData?.total || 0,
-      }
-    });
 
     return {
       data: linksArray,
-      current_page: paginatedData?.current_page || 1,
-      last_page: paginatedData?.last_page || 1,
-      per_page: paginatedData?.per_page || 15,
-      total: paginatedData?.total || 0,
+      current_page: (paginatedData?.current_page as number) || 1,
+      last_page: (paginatedData?.last_page as number) || 1,
+      per_page: (paginatedData?.per_page as number) || 15,
+      total: (paginatedData?.total as number) || 0,
     };
   },
 

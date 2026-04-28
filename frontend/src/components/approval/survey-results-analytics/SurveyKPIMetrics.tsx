@@ -69,27 +69,29 @@ const SurveyKPIMetrics: React.FC<SurveyKPIMetricsProps> = ({ data, isLoading }) 
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {kpiCards.map((card, index) => (
-        <div key={index} className="p-3 rounded-lg border bg-white shadow-sm">
-          <div className="flex justify-between items-start">
-            <div className="text-sm text-gray-500">{card.title}</div>
+        <div key={index} className="px-4 py-3 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-center mb-1">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{card.title}</div>
             {card.showPercentage && card.percentage !== undefined && (
               <span 
-                className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                   card.percentage >= 75
-                    ? 'bg-green-50 text-green-600'
+                    ? 'bg-emerald-50 text-emerald-600'
                     : card.percentage >= 50
-                    ? 'bg-yellow-50 text-yellow-600'
-                    : 'bg-red-50 text-red-600'
+                    ? 'bg-amber-50 text-amber-600'
+                    : 'bg-rose-50 text-rose-600'
                 }`}
               >
                 {card.percentage}%
               </span>
             )}
           </div>
-          <div className="text-xl font-semibold">{card.value}</div>
-          <div className="text-xs text-gray-400 mt-1">{card.subtitle}</div>
+          <div className="flex items-baseline gap-2">
+            <div className="text-xl font-bold text-slate-900 tracking-tight">{card.value}</div>
+            <div className="text-[10px] text-slate-400 font-medium">{card.subtitle}</div>
+          </div>
         </div>
       ))}
     </div>

@@ -251,14 +251,33 @@ class SurveyMyController extends BaseController
      */
     private function getAssignedSurveysQuery($user)
     {
+        $roleName      = $user->roles->first()?->name ?? $user->role ?? '';
+        $institutionId = (int) $user->institution_id;
+
+        // 1. Get ONLY the descendant institutions (excluding self)
+        // Because "upper bodies" should not see tasks from their subordinates
+        $allChildrenIds = $user->institution ? $user->institution->getAllChildrenIds() : [$institutionId];
+        $subordinateIds = array_values(array_diff($allChildrenIds, [$institutionId]));
+
         return Survey::whereIn('status', ['published', 'active'])
-            ->where(function ($query) use ($user) {
-                $query->whereJsonContains('target_roles', $user->role)
-                    ->orWhereJsonContains('target_institutions', $user->institution_id)
-                    ->orWhere(function ($q) {
-                        $q->whereNull('target_roles')
-                            ->whereNull('target_institutions');
-                    });
+            // Exclude surveys created by the user
+            ->where('creator_id', '!=', $user->id)
+            // Exclude surveys created by anyone in their subordinate hierarchy
+            ->whereNotIn('creator_id', function ($query) use ($subordinateIds) {
+                $query->select('id')
+                    ->from('users')
+                    ->whereIn('institution_id', $subordinateIds);
+            })
+            ->where(function ($query) use ($roleName, $institutionId) {
+                // Targeted to specific role
+                $query->whereJsonContains('target_roles', $roleName)
+                    // Targeted to specific institution
+                    ->orWhereJsonContains('target_institutions', $institutionId)
+                    // Targeted to everyone (no specific targeting)
+                    ->orWhereRaw(
+                        "(target_roles IS NULL OR target_roles::text IN ('', '[]', 'null'))
+                         AND (target_institutions IS NULL OR target_institutions::text IN ('[]', 'null'))"
+                    );
             })
             ->orderBy('created_at', 'desc');
     }

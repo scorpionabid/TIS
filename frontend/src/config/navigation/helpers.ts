@@ -1,6 +1,26 @@
-import { UserRole } from '@/constants/roles';
+import { UserRole, USER_ROLES } from '@/constants/roles';
 import { SidebarPanel } from '@/types/sidebar';
 import { MenuItem, MenuGroup } from './types';
+
+/**
+ * Schooladmin üçün "Akademik İzləmə" qrupunu "İdarəetmə"-dən əvvələ çəkir.
+ * Digər rollar üçün sıra dəyişmir.
+ */
+function reorderGroupsForRole(groups: MenuGroup[], role: UserRole): MenuGroup[] {
+  if (role !== USER_ROLES.SCHOOLADMIN) return groups;
+
+  const managementIdx = groups.findIndex(g => g.id === 'management');
+  const academicIdx   = groups.findIndex(g => g.id === 'academic');
+
+  if (managementIdx === -1 || academicIdx === -1 || academicIdx <= managementIdx) {
+    return groups;
+  }
+
+  const result = [...groups];
+  const [academic] = result.splice(academicIdx, 1);
+  result.splice(managementIdx, 0, academic);
+  return result;
+}
 
 /**
  * Recursively filter menu items based on the user's role and permission set.
@@ -51,13 +71,15 @@ export function getMenuForRole(
   role: UserRole,
   permissions: string[] = [],
 ): MenuGroup[] {
-  return config
+  const groups = config
     .filter((group) => !group.roles || group.roles.includes(role))
     .map((group) => ({
       ...group,
       items: filterMenuItems(group.items, role, permissions),
     }))
     .filter((group) => group.items.length > 0);
+
+  return reorderGroupsForRole(groups, role);
 }
 
 export function getMenuForRoleAndPanel(
@@ -66,7 +88,7 @@ export function getMenuForRoleAndPanel(
   panel: SidebarPanel,
   permissions: string[] = [],
 ): MenuGroup[] {
-  return config
+  const groups = config
     .filter((group) => group.panel === panel)
     .filter((group) => !group.roles || group.roles.includes(role))
     .map((group) => ({
@@ -74,6 +96,8 @@ export function getMenuForRoleAndPanel(
       items: filterMenuItems(group.items, role, permissions),
     }))
     .filter((group) => group.items.length > 0);
+
+  return reorderGroupsForRole(groups, role);
 }
 
 export function findMenuItem(

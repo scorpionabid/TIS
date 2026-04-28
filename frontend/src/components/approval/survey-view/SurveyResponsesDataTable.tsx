@@ -11,6 +11,7 @@ const STATUS_CONFIG = {
   draft:     { label: 'Qaralama',       cls: 'bg-gray-100  text-gray-700  border-gray-200'  },
   rejected:  { label: 'Rədd edilib',    cls: 'bg-red-100   text-red-800   border-red-200'   },
   returned:  { label: 'Geri qaytarıldı',cls: 'bg-orange-100 text-orange-800 border-orange-200' },
+  none:      { label: 'Cavab verilməyib', cls: 'bg-slate-100 text-slate-400 border-slate-200 italic' },
 } as const;
 
 function StatusBadge({ status }: { status: string }) {
@@ -204,17 +205,24 @@ interface SurveyResponsesDataTableProps {
   responses: SurveyResponseForApproval[];
   selectedSurvey: PublishedSurvey;
   isFetching?: boolean;
+  visibleColumns?: string[];
 }
 
 const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
   responses,
   selectedSurvey,
   isFetching,
+  visibleColumns = [],
 }) => {
   const questions = useMemo(
-    () => (selectedSurvey.questions ?? []).filter((q: any) => q.is_active !== false),
-    [selectedSurvey.questions]
+    () => (selectedSurvey.questions ?? [])
+      .filter((q: any) => q.is_active !== false)
+      .filter((q: any) => visibleColumns.length === 0 || visibleColumns.includes(String(q.id))),
+    [selectedSurvey.questions, visibleColumns]
   );
+
+  const showInstitution = visibleColumns.length === 0 || visibleColumns.includes('institution');
+  const showStatus = visibleColumns.length === 0 || visibleColumns.includes('status');
 
   if (responses.length === 0) return null;
 
@@ -225,14 +233,25 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
         <thead>
           <tr className="bg-muted/60 border-b">
             {/* Sticky institution column */}
-            <th
-              className="sticky left-0 z-20 bg-muted/80 backdrop-blur-sm px-4 py-3 text-left font-semibold text-foreground min-w-[200px] border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
-            >
-              Müəssisə
-            </th>
+            {showInstitution && (
+              <th
+                className="sticky left-0 z-20 bg-muted/80 backdrop-blur-sm px-4 py-3 text-left font-semibold text-foreground min-w-[200px] border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+              >
+                Müəssisə
+              </th>
+            )}
             {/* Status column */}
-            <th className="px-4 py-3 text-left font-semibold text-foreground min-w-[130px] whitespace-nowrap">
-              Status
+            {showStatus && (
+              <th className="px-4 py-3 text-left font-semibold text-foreground min-w-[130px] whitespace-nowrap">
+                Status
+              </th>
+            )}
+            {/* Respondent & Date columns */}
+            <th className="px-4 py-3 text-left font-semibold text-foreground min-w-[150px]">
+              Cavab verən
+            </th>
+            <th className="px-4 py-3 text-left font-semibold text-foreground min-w-[130px]">
+              Tarix
             </th>
             {/* Question columns */}
             {questions.map((q: any) => (
@@ -243,7 +262,7 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="space-y-0.5 cursor-help">
-                      <div className="truncate max-w-[220px]">{q.title}</div>
+                      <div className="truncate max-w-[220px]">{q.title || q.question}</div>
                       <div className="text-[10px] font-normal text-muted-foreground uppercase tracking-wide">
                         {q.type?.replace('_', ' ')}
                       </div>
@@ -271,22 +290,38 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
                 )}
               >
                 {/* Sticky institution cell */}
-                <td
-                  className="sticky left-0 z-10 bg-inherit px-4 py-3 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
-                >
-                  <div className="font-medium text-foreground leading-snug">
-                    {response.institution?.short_name || response.institution?.name || '—'}
-                  </div>
-                  {response.institution?.type && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {response.institution.type}
+                {showInstitution && (
+                  <td
+                    className="sticky left-0 z-10 bg-inherit px-4 py-3 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                  >
+                    <div className="font-medium text-foreground leading-snug">
+                      {response.institution?.short_name || response.institution?.name || '—'}
                     </div>
-                  )}
-                </td>
+                    {response.institution?.type && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {response.institution.type}
+                      </div>
+                    )}
+                  </td>
+                )}
 
                 {/* Status cell */}
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <StatusBadge status={statusKey} />
+                {showStatus && (
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <StatusBadge status={statusKey} />
+                  </td>
+                )}
+
+                {/* Respondent cell */}
+                <td className="px-4 py-3 text-xs">
+                  {response.respondent?.profile?.full_name || response.respondent?.username || <span className="text-slate-400 italic">—</span>}
+                </td>
+
+                {/* Date cell */}
+                <td className="px-4 py-3 text-[11px] text-slate-500">
+                  {response.submitted_at 
+                    ? new Date(response.submitted_at).toLocaleString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : (response.created_at ? new Date(response.created_at).toLocaleString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : <span className="text-slate-300">—</span>)}
                 </td>
 
                 {/* Answer cells */}

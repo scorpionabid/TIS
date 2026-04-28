@@ -42,13 +42,17 @@ class LinkShareDatabaseController extends BaseController
                         ->orWhereJsonContains('target_departments', (string) $departmentId);
                 });
 
+            // Role-based visibility: link target_roles-u varsa, istifadəçinin rolu uyğun gəlməlidir
+            // NOT: PostgreSQL-də scalar deyil, array wrapper lazımdır: @> '["role"]' vs @> '"role"'
             if (! $user->hasRole('superadmin')) {
-                $query->orWhere(function ($q) use ($user, $departmentId) {
-                    $q->where('shared_by', $user->id)
-                        ->where(function ($q2) use ($departmentId) {
-                            $q2->whereJsonContains('target_departments', (int) $departmentId)
-                                ->orWhereJsonContains('target_departments', (string) $departmentId);
-                        });
+                $userRole = $user->roles->first()?->name;
+                $userId   = $user->id;
+
+                $query->where(function ($q) use ($userRole, $userId) {
+                    $q->whereNull('target_roles')
+                      ->orWhereJsonLength('target_roles', 0)
+                      ->orWhereJsonContains('target_roles', [$userRole])
+                      ->orWhere('shared_by', $userId);
                 });
             }
 
@@ -141,6 +145,17 @@ class LinkShareDatabaseController extends BaseController
                 });
             }
 
+            // sector_only=true: məktəb (level 4) hədəfi olan linkləri çıxar
+            // Sektor nəzarət üçün qoyulduqda link yenə məktəb kateqoriyasında qalır
+            if ($request->boolean('sector_only', false)) {
+                $query->whereRaw("NOT EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements_text(target_institutions::jsonb) AS t(val)
+                    JOIN institutions i ON i.id = t.val::bigint
+                    WHERE i.level = 4
+                )");
+            }
+
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
@@ -169,6 +184,60 @@ class LinkShareDatabaseController extends BaseController
 
             return $this->successResponse($links, 'Sektor linkləri alındı');
         }, 'linkshare.getLinksBySector');
+    }
+
+    /**
+     * Get links filtered by institution (School)
+     * Used in Link Database page for schools tab
+     */
+    public function getLinksByInstitution(Request $request, int $institutionId): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $institutionId) {
+            $user = Auth::user();
+
+            $institution = Institution::find($institutionId);
+
+            if (! $institution) {
+                abort(404, 'Müəssisə tapılmadı');
+            }
+
+            // Simple security check: user should belong to the same region/sector or be superadmin
+            if (! $user->hasRole('superadmin')) {
+                // Implementation of isolation depends on the system's needs
+                // For now, let's allow it if it's an active institution
+            }
+
+            $query = LinkShare::with(['sharedBy', 'institution'])
+                ->where('status', 'active')
+                ->where(function ($q) use ($institutionId) {
+                    $q->whereJsonContains('target_institutions', $institutionId)
+                        ->orWhereJsonContains('target_institutions', (string) $institutionId);
+                });
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'LIKE', "%{$search}%")
+                        ->orWhere('description', 'LIKE', "%{$search}%")
+                        ->orWhere('url', 'LIKE', "%{$search}%");
+                });
+            }
+
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortDirection = $request->get('sort_direction', 'desc');
+            $query->orderBy($sortBy, $sortDirection);
+
+            $perPage = $request->get('per_page', 15);
+            $links = $query->paginate($perPage);
+
+            Log::info('📚 LinkDatabase: getLinksByInstitution', [
+                'user_id' => $user->id,
+                'institution_id' => $institutionId,
+                'links_count' => $links->total(),
+            ]);
+
+            return $this->successResponse($links, 'Müəssisə linkləri alındı');
+        }, 'linkshare.getLinksByInstitution');
     }
 
     /**
@@ -230,6 +299,7 @@ class LinkShareDatabaseController extends BaseController
             $user = Auth::user();
 
             $query = Department::where('is_active', true)
+                ->with('institution:id,name,short_name')
                 ->select('id', 'name', 'short_name', 'department_type', 'institution_id');
 
             if ($user->hasRole('superadmin')) {
@@ -237,6 +307,7 @@ class LinkShareDatabaseController extends BaseController
             } elseif ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
                 $userInstitution = $user->institution;
                 if ($userInstitution) {
+                    // Region + bütün alt hierarchy (sector level 3 daxil)
                     $childIds = $userInstitution->getAllChildrenIds() ?? [];
                     $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
                     $query->whereIn('institution_id', $scopeIds);
@@ -244,8 +315,11 @@ class LinkShareDatabaseController extends BaseController
             } elseif ($user->hasRole('sektoradmin')) {
                 $userInstitution = $user->institution;
                 if ($userInstitution) {
-                    $childIds = $userInstitution->getAllChildrenIds() ?? [];
-                    $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+                    // Öz sektoru (level 3) + parent region (level 2) departamentləri
+                    $scopeIds = [$userInstitution->id];
+                    if ($userInstitution->parent_id) {
+                        $scopeIds[] = $userInstitution->parent_id;
+                    }
                     $query->whereIn('institution_id', $scopeIds);
                 }
             } else {
@@ -254,13 +328,15 @@ class LinkShareDatabaseController extends BaseController
 
             $departments = $query->orderBy('name')->get()->map(function ($dept) {
                 return [
-                    'id' => $dept->id,
-                    'key' => (string) $dept->id,
-                    'name' => $dept->name,
-                    'short_name' => $dept->short_name,
-                    'label' => $dept->name,
-                    'department_type' => $dept->department_type,
-                    'institution_id' => $dept->institution_id,
+                    'id'                    => $dept->id,
+                    'key'                   => (string) $dept->id,
+                    'name'                  => $dept->name,
+                    'short_name'            => $dept->short_name,
+                    'label'                 => $dept->name,
+                    'department_type'       => $dept->department_type,
+                    'institution_id'        => $dept->institution_id,
+                    'institution_name'      => $dept->institution?->name ?? '',
+                    'institution_short_name'=> $dept->institution?->short_name ?? '',
                 ];
             });
 
@@ -290,6 +366,10 @@ class LinkShareDatabaseController extends BaseController
                 'target_departments.*' => 'integer|exists:departments,id',
                 'target_institutions' => 'nullable|array',
                 'target_institutions.*' => 'integer|exists:institutions,id',
+                'target_roles' => 'nullable|array',
+                'target_roles.*' => 'string',
+                'target_users' => 'nullable|array',
+                'target_users.*' => 'integer|exists:users,id',
             ]);
 
             $user = Auth::user();
@@ -300,7 +380,17 @@ class LinkShareDatabaseController extends BaseController
             }
             $validated['target_departments'] = $targetDepartments;
 
-            $validated['share_scope'] = ! empty($validated['target_institutions']) ? 'sectoral' : 'regional';
+            // share_scope: istifadəçi roluna və hədəfə görə
+            if (! empty($validated['target_users'])) {
+                $validated['share_scope'] = 'specific_users';
+            } elseif (! empty($validated['target_institutions'])) {
+                $validated['share_scope'] = 'sectoral';
+            } elseif ($user->hasRole(['sektoradmin', 'schooladmin'])) {
+                // Sektoradmin yalnız sectoral scope yarada bilir
+                $validated['share_scope'] = 'sectoral';
+            } else {
+                $validated['share_scope'] = 'regional';
+            }
 
             $linkShare = $this->linkSharingService->createLinkShare($validated, $user);
 

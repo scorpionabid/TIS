@@ -11,7 +11,7 @@ export const linkFormSchema = z.object({
     .url('Düzgün URL daxil edin (https://...)'),
   description: z
     .string()
-    .max(1000, 'Təsvir 1000 simvoldan çox ola bilməz')
+    .max(500, 'Təsvir 500 simvoldan çox ola bilməz')
     .optional()
     .or(z.literal('')),
   link_type: z.enum(['external', 'video', 'form', 'document'], {
@@ -21,6 +21,8 @@ export const linkFormSchema = z.object({
   expires_at: z.string().optional().or(z.literal('')),
   target_departments: z.array(z.number()).default([]),
   target_institutions: z.array(z.number()).default([]),
+  target_users: z.array(z.number()).default([]),
+  target_roles: z.array(z.string()).default([]),
 });
 
 export type LinkFormValues = z.infer<typeof linkFormSchema>;

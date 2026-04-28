@@ -13,41 +13,44 @@ use Illuminate\Support\Facades\Route;
 | Link Share Management Routes
 |--------------------------------------------------------------------------
 |
-| Routes for link sharing, management, and tracking
+| IMPORTANT: Static routes MUST be defined before parameterized /{linkShare}
+| routes to prevent wildcard swallowing (e.g. /bulk-metadata matching /{id}).
 |
 */
 
-// Link Share Management Routes
 Route::prefix('links')->group(function () {
-    // CRUD
+
+    // ── Collection routes (no path param) ────────────────────────────────────
     Route::get('/', [LinkShareCrudController::class, 'index'])->middleware('permission:links.read');
     Route::post('/', [LinkShareCrudController::class, 'store'])->middleware('permission:links.create');
+
+    // Analytics & Stats — static, must come before /{linkShare}
+    Route::get('/stats', [LinkShareAnalyticsController::class, 'getStats'])->middleware('permission:links.read');
+    Route::get('/popular/list', [LinkShareAnalyticsController::class, 'getPopularLinks'])->middleware('permission:links.read');
+    Route::get('/featured/list', [LinkShareAnalyticsController::class, 'getFeaturedLinks'])->middleware('permission:links.read');
     Route::get('/grouped-sharing-overview', [LinkShareCrudController::class, 'groupedSharingOverview'])->middleware('permission:links.read');
+
+    // Bulk — static, must come before /{linkShare}
+    Route::get('/bulk-template', [LinkShareBulkController::class, 'downloadBulkTemplate'])->middleware('permission:links.bulk');
+    Route::get('/bulk-metadata', [LinkShareBulkController::class, 'getBulkMetadata'])->middleware('permission:links.bulk');
+    Route::post('/bulk-create', [LinkShareBulkController::class, 'bulkCreate'])->middleware('permission:links.bulk');
+    Route::post('/bulk-delete', [LinkShareBulkController::class, 'bulkAction'])->middleware('permission:links.bulk');
+
+    // Tracking — static collection routes
+    Route::get('/tracking/activity', [LinkShareTrackingController::class, 'getTrackingActivity'])->middleware('permission:links.tracking');
+
+    // ── Parameterized routes /{linkShare} — MUST come after all static routes ─
     Route::get('/{linkShare}', [LinkShareCrudController::class, 'show'])->middleware('permission:links.read');
     Route::put('/{linkShare}', [LinkShareCrudController::class, 'update'])->middleware('permission:links.update');
     Route::delete('/{linkShare}', [LinkShareCrudController::class, 'destroy'])->middleware('permission:links.delete');
     Route::patch('/{linkShare}/restore', [LinkShareCrudController::class, 'restore'])->middleware('permission:links.update');
     Route::delete('/{linkShare}/force', [LinkShareCrudController::class, 'forceDelete'])->middleware('permission:links.delete');
+
+    // Resource-specific sub-routes (/{linkShare}/...)
     Route::get('/{linkShare}/sharing-overview', [LinkShareCrudController::class, 'sharingOverview'])->middleware('permission:links.read');
-
-    // Analytics & Stats
-    Route::get('/stats', [LinkShareAnalyticsController::class, 'getStats'])->middleware('permission:links.read');
-    Route::get('/popular/list', [LinkShareAnalyticsController::class, 'getPopularLinks'])->middleware('permission:links.read');
-    Route::get('/featured/list', [LinkShareAnalyticsController::class, 'getFeaturedLinks'])->middleware('permission:links.read');
-
-    // Access
     Route::post('/{linkShare}/access', [LinkShareAccessController::class, 'access'])->middleware('permission:links.read');
-
-    // Bulk
-    Route::post('/bulk-create', [LinkShareBulkController::class, 'bulkCreate'])->middleware('permission:links.bulk');
-    Route::post('/bulk-delete', [LinkShareBulkController::class, 'bulkAction'])->middleware('permission:links.bulk');
-    Route::get('/bulk-template', [LinkShareBulkController::class, 'downloadBulkTemplate'])->middleware('permission:links.bulk');
-    Route::get('/bulk-metadata', [LinkShareBulkController::class, 'getBulkMetadata'])->middleware('permission:links.bulk');
-
-    // Tracking
-    Route::get('/tracking/activity', [LinkShareTrackingController::class, 'getTrackingActivity'])->middleware('permission:links.tracking');
-    Route::get('/{linkShare}/tracking/history', [LinkShareTrackingController::class, 'getLinkHistory'])->middleware('permission:links.tracking');
     Route::post('/{linkShare}/click', [LinkShareTrackingController::class, 'recordClick'])->middleware('permission:links.read');
+    Route::get('/{linkShare}/tracking/history', [LinkShareTrackingController::class, 'getLinkHistory'])->middleware('permission:links.tracking');
 });
 
 // My Resources Routes (for all authenticated roles)
@@ -55,7 +58,7 @@ Route::prefix('links')->group(function () {
 Route::prefix('my-resources')->middleware(['auth:sanctum', 'auth.custom'])->group(function () {
     // Get resources assigned to current user's institution
     Route::get('/assigned', [LinkShareAccessController::class, 'getAssignedResources'])
-        ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator|teacher');
+        ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator|teacher|müəllim');
 
     // Mark a resource as viewed
     Route::post('/{type}/{id}/view', [LinkShareAccessController::class, 'markAsViewed'])
@@ -69,6 +72,9 @@ Route::prefix('link-database')->middleware('permission:links.read')->group(funct
 
     // Get links by sector
     Route::get('/by-sector/{sectorId}', [LinkShareDatabaseController::class, 'getLinksBySector']);
+
+    // Get links by institution (School)
+    Route::get('/by-institution/{institutionId}', [LinkShareDatabaseController::class, 'getLinksByInstitution']);
 
     // Get all sectors for dropdown
     Route::get('/sectors', [LinkShareDatabaseController::class, 'getSectorsForLinkDatabase']);

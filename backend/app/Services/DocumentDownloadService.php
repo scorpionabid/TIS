@@ -11,6 +11,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentDownloadService
 {
+    protected DocumentPermissionService $permissionService;
+
+    public function __construct(DocumentPermissionService $permissionService)
+    {
+        $this->permissionService = $permissionService;
+    }
+
     /**
      * Download document file with access control
      *
@@ -212,17 +219,7 @@ class DocumentDownloadService
      */
     private function canUserDownloadDocument($user, Document $document): bool
     {
-        // Check basic access first
-        if (! $this->canUserViewDocument($user, $document)) {
-            return false;
-        }
-
-        // Check download-specific permissions
-        if ($document->access_level === 'download_restricted') {
-            return $user->hasRole(['superadmin', 'regionadmin', 'sektoradmin']);
-        }
-
-        return true;
+        return $this->permissionService->canUserDownloadDocument($user, $document);
     }
 
     /**
@@ -230,59 +227,7 @@ class DocumentDownloadService
      */
     private function canUserViewDocument($user, Document $document): bool
     {
-        // SuperAdmin can access everything
-        if ($user->hasRole('superadmin')) {
-            return true;
-        }
-
-        // Public documents
-        if ($document->is_public) {
-            return true;
-        }
-
-        // Owner can access
-        if ($document->uploaded_by === $user->id) {
-            return true;
-        }
-
-        // Institution-based access
-        if ($document->access_level === 'institution' &&
-            $document->institution_id &&
-            $document->institution_id === $user->institution_id) {
-            return true;
-        }
-
-        // Role-based access
-        if (! empty($document->allowed_roles)) {
-            $userRoles = $user->getRoleNames()->toArray();
-            if (! empty(array_intersect($userRoles, $document->allowed_roles))) {
-                return true;
-            }
-        }
-
-        // User-specific access
-        if (! empty($document->allowed_users) &&
-            in_array($user->id, $document->allowed_users)) {
-            return true;
-        }
-
-        // Institution-specific access (accessible_institutions field)
-        if ($document->accessible_institutions &&
-            is_array($document->accessible_institutions) &&
-            $user->institution_id) {
-            // Use integer comparison since institution IDs are integers
-            if (in_array($user->institution_id, $document->accessible_institutions, false)) {
-                return true;
-            }
-        }
-
-        // Legacy field support (allowed_institutions)
-        if (! empty($document->allowed_institutions) &&
-            in_array($user->institution_id, $document->allowed_institutions)) {
-            return true;
-        }
-
-        return false;
+        return $this->permissionService->canUserAccessDocument($user, $document);
     }
 
     /**

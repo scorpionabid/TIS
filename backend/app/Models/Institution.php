@@ -67,7 +67,8 @@ class Institution extends Model
                 $pendingParentIds = array_map('intval', $pendingParentIds);
                 $collectedIds = array_values(array_unique(array_merge($collectedIds, $pendingParentIds)));
 
-                $children = static::withTrashed()
+                $children = static::withoutGlobalScopes()
+                    ->withTrashed()
                     ->whereIn('parent_id', $pendingParentIds)
                     ->pluck('id')
                     ->map(fn ($id) => (int) $id)
@@ -286,7 +287,7 @@ class Institution extends Model
             $ancestors = collect();
             $currentId = $this->parent_id;
             while ($currentId) {
-                $current = static::find($currentId);
+                $current = static::withoutGlobalScopes()->find($currentId);
                 if (! $current) {
                     break;
                 }

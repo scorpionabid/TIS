@@ -18,7 +18,7 @@ const Sectors = lazy(() => import("@/pages/Sectors"));
 const Hierarchy = lazy(() => import("@/pages/Hierarchy"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const Projects = lazy(() => import("@/pages/projects/index"));
-const Links = lazy(() => import("@/pages/Links"));
+const Links = lazy(() => import("@/pages/Links_OLD"));
 const LinkDatabase = lazy(() => import("@/pages/LinkDatabase/index"));
 const Documents = lazy(() => import("@/pages/Documents"));
 const Folders = lazy(() => import("@/pages/Folders"));
@@ -208,14 +208,7 @@ export function GeneralRoutes() {
         path="my-delegations"
         element={<Navigate to="/tasks" state={{ activeTab: "delegations" }} replace />}
       />
-      <Route
-        path="links"
-        element={
-          <LazyWrapper>
-            <Links />
-          </LazyWrapper>
-        }
-      />
+      <Route path="links" element={<Navigate to="/link-database" replace />} />
       <Route
         path="link-database"
         element={
@@ -225,6 +218,8 @@ export function GeneralRoutes() {
                 USER_ROLES.SUPERADMIN,
                 USER_ROLES.REGIONADMIN,
                 USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+                USER_ROLES.SCHOOLADMIN,
               ]}
               requiredPermissions={["links.read"]}
               permissionMatch="any"
@@ -258,7 +253,7 @@ export function GeneralRoutes() {
           </LazyWrapper>
         }
       />
-      <Route path="resources" element={<Navigate to="/links" replace />} />
+      <Route path="resources" element={<Navigate to="/link-database" replace />} />
       <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
       <Route
         path="reports"

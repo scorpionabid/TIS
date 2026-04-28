@@ -410,8 +410,8 @@ class SurveyAnalyticsFacade
             ->get();
 
         // Calculate KPI metrics using response service
-        $completedResponses = $responses->where('is_complete', true)->count();
-        $inProgressResponses = $responses->where('is_complete', false)->count();
+        $completedResponses = $responses->whereIn('status', ['submitted', 'approved'])->count();
+        $inProgressResponses = $responses->where('status', 'draft')->count();
         $totalResponses = $responses->count();
 
         // Estimate targeted users count (same logic as original service)
@@ -423,6 +423,7 @@ class SurveyAnalyticsFacade
             'completed_responses' => $completedResponses,
             'in_progress_responses' => $inProgressResponses,
             'not_started' => max(0, $targetedUsers - $totalResponses),
+            'target_participants' => $targetedUsers,
             'response_rate' => $responseRate,
         ];
 
@@ -487,11 +488,9 @@ class SurveyAnalyticsFacade
      */
     protected function estimateTotalTargeted(Survey $survey): int
     {
-        // If survey has target_institutions, count users in those institutions
+        // If survey has target_institutions, count the institutions as target
         if (! empty($survey->target_institutions)) {
-            return \App\Models\User::whereIn('institution_id', $survey->target_institutions)
-                ->where('is_active', true)
-                ->count();
+            return count($survey->target_institutions);
         }
 
         // If survey has targeting_rules, estimate from rules

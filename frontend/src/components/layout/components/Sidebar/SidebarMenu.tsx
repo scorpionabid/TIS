@@ -14,21 +14,15 @@ interface SidebarMenuProps {
   badgeCounts?: PageBadgeCounts;
 }
 
-// Hər bölməyə rəngli sol kənar + başlıq rəngi
+/** Hər bölməyə rəngli sol kənar + başlıq rəngi (Məntiqi qruplara görə) */
 const GROUP_STYLES: Record<string, { border: string; label: string; dot: string }> = {
-  'dashboard':           { border: 'border-l-blue-400',    label: 'text-blue-500',    dot: 'bg-blue-400' },
-  'messages':            { border: 'border-l-indigo-400',  label: 'text-indigo-500',  dot: 'bg-indigo-400' },
-  'academic-tracking':   { border: 'border-l-violet-400',  label: 'text-violet-500',  dot: 'bg-violet-400' },
-  'content':             { border: 'border-l-amber-500',   label: 'text-amber-600',   dot: 'bg-amber-400' },
-  'education-rating':    { border: 'border-l-emerald-400', label: 'text-emerald-600', dot: 'bg-emerald-400' },
-  'schedule-management': { border: 'border-l-teal-400',    label: 'text-teal-600',    dot: 'bg-teal-400' },
-  'teacher-profile':     { border: 'border-l-indigo-400',  label: 'text-indigo-500',  dot: 'bg-indigo-400' },
-  'school-management':   { border: 'border-l-sky-400',     label: 'text-sky-600',     dot: 'bg-sky-400' },
-  'sector-management':   { border: 'border-l-cyan-400',    label: 'text-cyan-600',    dot: 'bg-cyan-400' },
-  'system-structure':    { border: 'border-l-slate-400',   label: 'text-slate-500',   dot: 'bg-slate-400' },
-  'analytics':           { border: 'border-l-green-400',   label: 'text-green-600',   dot: 'bg-green-400' },
-  'notifications':       { border: 'border-l-rose-400',    label: 'text-rose-500',    dot: 'bg-rose-400' },
-  'system-settings':     { border: 'border-l-gray-400',    label: 'text-gray-500',    dot: 'bg-gray-400' },
+  'dashboard':  { border: 'border-l-blue-400',    label: 'text-blue-500',    dot: 'bg-blue-400' },
+  'management': { border: 'border-l-orange-400',  label: 'text-orange-500',  dot: 'bg-orange-400' },
+  'academic':   { border: 'border-l-violet-400',  label: 'text-violet-500',  dot: 'bg-violet-400' },
+  'curriculum': { border: 'border-l-slate-400',   label: 'text-slate-500',   dot: 'bg-slate-400' },
+  'resources':  { border: 'border-l-amber-500',   label: 'text-amber-600',   dot: 'bg-amber-400' },
+  'surveys':    { border: 'border-l-sky-500',     label: 'text-sky-500',     dot: 'bg-sky-500' },
+  'rating':     { border: 'border-l-emerald-400', label: 'text-emerald-600', dot: 'bg-emerald-400' },
 };
 
 /** Oxunmamış sayını compact formada göstər: 1-99 → rəqəm, 100+ → "99+" */
@@ -37,30 +31,15 @@ function BadgeCount({ count, collapsed = false }: { count: number; collapsed?: b
   const label = count > 99 ? '99+' : String(count);
 
   if (collapsed) {
-    // Collapsed sidebar: icon üzərində kiçik qırmızı nöqtə/rəqəm
     return (
-      <span
-        className={cn(
-          "absolute top-0.5 right-0.5 flex items-center justify-center",
-          "min-w-[14px] h-[14px] px-0.5",
-          "text-[9px] font-bold leading-none",
-          "bg-rose-500 text-white rounded-full",
-        )}
-      >
+      <span className="absolute top-0.5 right-0.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold leading-none text-white ring-1 ring-white">
         {count > 9 ? '9+' : label}
       </span>
     );
   }
 
   return (
-    <span
-      className={cn(
-        "ml-auto flex items-center justify-center",
-        "min-w-[18px] h-[18px] px-1",
-        "text-[11px] font-bold leading-none",
-        "bg-rose-500 text-white rounded-full shrink-0",
-      )}
-    >
+    <span className="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold leading-none text-white shrink-0">
       {label}
     </span>
   );
@@ -86,7 +65,6 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCount
     return badgeCounts[item.badgeKey] ?? 0;
   };
 
-  /** Recursive: toplam badge count (children dahil) */
   const getTotalBadgeCount = (item: MenuItem): number => {
     let total = getBadgeCount(item);
     if (item.children) {
@@ -103,13 +81,9 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCount
     const isGroupOpen = openGroups.includes(item.id);
     const IconComponent = item.icon ?? Circle;
     const badgeCount = getBadgeCount(item);
-    const totalBadgeCount = getTotalBadgeCount(item); // parent üçün children-i də sayır
+    const totalBadgeCount = getTotalBadgeCount(item);
 
     if (!isExpanded && !hasChildren) {
-      const tooltipLabel = badgeCount > 0
-        ? `${item.label} (${badgeCount} oxunmamış)`
-        : item.label;
-
       return (
         <Tooltip key={item.id}>
           <TooltipTrigger asChild>
@@ -118,7 +92,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCount
               size="icon"
               className={cn(
                 "h-10 w-10 mx-2 my-1 relative",
-                isItemActive && "bg-primary text-primary-foreground"
+                isItemActive && "bg-primary text-primary-foreground shadow-sm"
               )}
               asChild={!!item.path}
             >
@@ -135,27 +109,25 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCount
               )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right" className="ml-2">
-            {tooltipLabel}
+          <TooltipContent side="right" sideOffset={15}>
+            {item.label}
           </TooltipContent>
         </Tooltip>
       );
     }
 
     if (hasChildren) {
-      const buttonClasses = cn(
-        "w-full h-10 my-1",
-        isExpanded ? "px-4 justify-start" : "px-2 justify-center",
-        level > 0 && isExpanded && "ml-4",
-        isItemActive && "bg-primary text-primary-foreground"
-      );
-
       return (
         <Collapsible key={item.id} open={isGroupOpen} onOpenChange={() => toggleGroup(item.id)}>
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
-              className={buttonClasses}
+              className={cn(
+                "w-full h-10 my-1 justify-start",
+                isExpanded ? "px-4" : "px-2 justify-center",
+                level > 0 && isExpanded && "ml-4",
+                isItemActive && "bg-primary text-primary-foreground shadow-sm"
+              )}
               onClick={() => {
                 if (item.path) {
                   navigate(item.path);
@@ -163,25 +135,15 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCount
                 }
               }}
             >
-              <IconComponent className={cn("h-4 w-4", isExpanded && "mr-3")} />
-              <span
-                className={cn(
-                  "flex-1 text-left transition-opacity duration-150",
-                  !isExpanded && "opacity-0 pointer-events-none absolute"
-                )}
-              >
+              <IconComponent className={cn("h-4 w-4 shrink-0", isExpanded && "mr-3")} />
+              <span className={cn("flex-1 text-left truncate transition-opacity duration-150", !isExpanded && "opacity-0 absolute pointer-events-none")}>
                 {item.label}
               </span>
-              {isExpanded && totalBadgeCount > 0 && !isGroupOpen && (
-                <BadgeCount count={totalBadgeCount} />
-              )}
               {isExpanded && (
-                <ChevronRight
-                  className={cn(
-                    "h-4 w-4 transition-transform",
-                    isGroupOpen && "rotate-90"
-                  )}
-                />
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {totalBadgeCount > 0 && !isGroupOpen && <BadgeCount count={totalBadgeCount} />}
+                  <ChevronRight className={cn("h-4 w-4 transition-transform duration-200", isGroupOpen && "rotate-90")} />
+                </div>
               )}
             </Button>
           </CollapsibleTrigger>
@@ -197,15 +159,15 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCount
         key={item.id}
         variant="ghost"
         className={cn(
-          "w-full justify-start h-10 px-4 my-1",
+          "w-full h-10 px-4 my-1 justify-start relative",
           level > 0 && "ml-4",
-          isItemActive && "bg-primary text-primary-foreground"
+          isItemActive && "bg-primary text-primary-foreground shadow-sm"
         )}
         asChild
       >
         <Link to={item.path!} onClick={() => handleNavigation(item.path!)}>
-          <IconComponent className="h-4 w-4 mr-3" />
-          <span className="flex-1">{item.label}</span>
+          <IconComponent className="h-4 w-4 mr-3 shrink-0" />
+          <span className="flex-1 text-left truncate">{item.label}</span>
           <BadgeCount count={badgeCount} />
         </Link>
       </Button>

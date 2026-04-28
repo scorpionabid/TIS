@@ -8,16 +8,18 @@ import type { CreateLinkData, LinkShare } from '../types/linkDatabase.types';
 export type DeleteType = 'soft' | 'hard';
 
 interface UseLinkDatabaseActionsParams {
-  isOnSectorsTab: boolean;
+  isOnSchoolsTab: boolean;
   currentDepartmentId: number | null;
-  selectedSector: number | null;
+  currentSectorId: number | null;
+  selectedSchool: number | null;
   onSuccess?: () => void;
 }
 
 export function useLinkDatabaseActions({
-  isOnSectorsTab,
+  isOnSchoolsTab,
   currentDepartmentId,
-  selectedSector,
+  currentSectorId,
+  selectedSchool,
   onSuccess,
 }: UseLinkDatabaseActionsParams) {
   const { toast } = useToast();
@@ -25,14 +27,14 @@ export function useLinkDatabaseActions({
 
   const invalidateAll = useCallback(() => {
     // Clear apiOptimized in-memory cache for link-database GET endpoints.
-    // Mutation endpoints (/link-database/department/X, /links/X) differ from
-    // GET endpoints (/link-database/by-department/X), so apiOptimized's
-    // auto-clear in invalidateCachesForMutation doesn't cover these.
     apiClient.clearCache('link-database');
     apiClient.clearCache('/links');
 
-    queryClient.invalidateQueries({ queryKey: ['link-database-department'] });
-    queryClient.invalidateQueries({ queryKey: ['link-database-sector'] });
+    // Invalidate all related queries
+    queryClient.invalidateQueries({ queryKey: ['link-database-tab'] });
+    queryClient.invalidateQueries({ queryKey: ['link-database-departments'] });
+    queryClient.invalidateQueries({ queryKey: ['link-database-sectors'] });
+    queryClient.invalidateQueries({ queryKey: ['link-resources'] });
   }, [queryClient]);
 
   // Optimistically remove link(s) from all cached queries
@@ -79,8 +81,10 @@ export function useLinkDatabaseActions({
   // Create link
   const createMutation = useMutation({
     mutationFn: async (data: CreateLinkData) => {
-      if (isOnSectorsTab && selectedSector) {
-        return linkDatabaseService.createLinkForSector(selectedSector, data);
+      if (isOnSchoolsTab && selectedSchool) {
+        return linkDatabaseService.createLinkForSector(selectedSchool, data);
+      } else if (currentSectorId) {
+        return linkDatabaseService.createLinkForSector(currentSectorId, data);
       } else if (currentDepartmentId) {
         return linkDatabaseService.createLinkForDepartment(
           currentDepartmentId.toString(),
@@ -94,7 +98,7 @@ export function useLinkDatabaseActions({
       invalidateAll();
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Link yaradılarkən xəta baş verdi',
@@ -113,7 +117,7 @@ export function useLinkDatabaseActions({
       invalidateAll();
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Link yenilənərkən xəta baş verdi',
@@ -133,7 +137,7 @@ export function useLinkDatabaseActions({
       invalidateAll();
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Link arxivləşdirilə bilmədi',
@@ -153,7 +157,7 @@ export function useLinkDatabaseActions({
       invalidateAll();
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Link silinə bilmədi',
@@ -192,7 +196,7 @@ export function useLinkDatabaseActions({
       invalidateAll();
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Qismən xəta',
         description: error.message,
@@ -210,7 +214,7 @@ export function useLinkDatabaseActions({
       updateStatusInCache(restoredId, 'active');
       invalidateAll();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Link bərpa edilərkən xəta baş verdi',

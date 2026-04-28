@@ -14,16 +14,15 @@ class LinkShareTrackingController extends BaseController
     /**
      * Track link click for analytics
      */
-    public function recordClick(Request $request, int $id): JsonResponse
+    public function recordClick(Request $request, LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request, $id) {
+        return $this->executeWithErrorHandling(function () use ($request, $linkShare) {
             $user = Auth::user();
 
-            $linkShare = LinkShare::findOrFail($id);
             $linkShare->increment('click_count');
 
             LinkAccessLog::create([
-                'link_share_id' => $id,
+                'link_share_id' => $linkShare->id,
                 'user_id' => $user?->id,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -65,12 +64,10 @@ class LinkShareTrackingController extends BaseController
     /**
      * Get link access history
      */
-    public function getLinkHistory(Request $request, int $id): JsonResponse
+    public function getLinkHistory(Request $request, LinkShare $linkShare): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request, $id) {
-            $linkShare = LinkShare::findOrFail($id);
-
-            $history = LinkAccessLog::where('link_share_id', $id)
+        return $this->executeWithErrorHandling(function () use ($request, $linkShare) {
+            $history = LinkAccessLog::where('link_share_id', $linkShare->id)
                 ->with('user')
                 ->orderBy('created_at', 'desc')
                 ->limit($request->get('limit', 100))

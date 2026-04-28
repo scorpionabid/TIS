@@ -271,50 +271,52 @@ class Document extends Model
      */
     public function scopeAccessibleBy(Builder $query, User $user): Builder
     {
-        $userRole = $user->roles->first()?->name;
-
-        return $query->where(function ($q) use ($user, $userRole) {
+        \Log::info('Document::scopeAccessibleBy called', ['user_id' => $user->id]);
+        return $query->where(function ($q) use ($user) {
             // SuperAdmin can see all documents
-            if ($userRole === 'superadmin') {
+            if ($user->hasRole('superadmin')) {
+                \Log::info('Document::scopeAccessibleBy: SuperAdmin bypass');
                 return; // No restrictions
             }
 
-            // Apply regional filtering based on user role
-            $this->applyRegionalDocumentFiltering($q, $user, $userRole);
+            // Apply regional filtering based on user roles
+            $this->applyRegionalDocumentFiltering($q, $user);
+
+            // Universal Shared Access: Any document explicitly shared with the user's institution
+            if ($user->institution_id) {
+                \Log::info('Document::scopeAccessibleBy: Applying institution share filter', ['inst_id' => $user->institution_id]);
+                $q->orWhere(function($shareQ) use ($user) {
+                    $shareQ->whereJsonContains('accessible_institutions', (int)$user->institution_id)
+                           ->orWhereJsonContains('accessible_institutions', (string)$user->institution_id);
+                });
+            }
         });
     }
 
     /**
      * Apply regional filtering for documents based on user role
      */
-    private function applyRegionalDocumentFiltering($query, User $user, $userRole)
+    private function applyRegionalDocumentFiltering($query, User $user)
     {
-        $userInstitutionId = $user->institution_id;
-
-        switch ($userRole) {
-            case 'regionadmin':
-            case 'regionoperator':
-                // Regional admins can see documents in their region and sub-institutions
-                $this->applyRegionAdminDocumentFiltering($query, $user, $userInstitutionId);
-                break;
-
-            case 'sektoradmin':
-                // Sector admins can see documents in their sector and schools
-                $this->applySektorAdminDocumentFiltering($query, $user, $userInstitutionId);
-                break;
-
-            case 'məktəbadmin':
-            case 'müəllim':
-                // School-level users can only see documents in their institution
-                $this->applySchoolDocumentFiltering($query, $user, $userInstitutionId);
-                break;
-
-            default:
-                // Unknown role - very restricted access
-                $query->where('uploaded_by', $user->id)
-                    ->orWhere('is_public', true);
-                break;
-        }
+         $query->where(function($q) use ($user) {
+            // Regional admins see everything in their region + sectors + schools
+            if ($user->hasRole('regionadmin')) {
+                $this->applyRegionAdminDocumentFiltering($q, $user, $user->institution_id);
+            }
+            // Sector admins see everything in their sector + schools
+            elseif ($user->hasRole('sektoradmin')) {
+                $this->applySektorAdminDocumentFiltering($q, $user, $user->institution_id);
+            }
+            // School admins and teachers see documents for their school
+            elseif ($user->hasAnyRole(['schooladmin', 'məktəbadmin', 'müəllim'])) {
+                $this->applySchoolDocumentFiltering($q, $user, $user->institution_id);
+            }
+            // Unknown role or personal access only
+            else {
+                $q->where('uploaded_by', $user->id)
+                  ->orWhere('is_public', true);
+            }
+         });
     }
 
     /**

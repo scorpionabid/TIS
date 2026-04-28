@@ -83,6 +83,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'failed_login_attempts' => 'integer',
             'preferences' => 'array',
+            'institution_id' => 'integer',
         ];
     }
 

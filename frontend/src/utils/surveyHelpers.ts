@@ -5,6 +5,16 @@
 
 import type { Question } from '@/types/surveyModal';
 import type { CreateSurveyData, Survey } from '@/services/surveys';
+
+export type DeadlineBadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+export interface SurveyDeadlineInfo {
+  dueDateLabel: string;
+  isExpired: boolean;
+  relativeText?: string;
+  statusBadge?: string;
+  badgeVariant?: DeadlineBadgeVariant;
+}
 import { logger } from './logger';
 
 /**
@@ -276,3 +286,40 @@ export const isSurveyEditable = (
   // Completed, archived and other statuses cannot be edited
   return false;
 };
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+export function getSurveyDeadlineInfo(survey: Survey): SurveyDeadlineInfo | null {
+  const deadlineSource = survey.deadline_details?.end_date ?? survey.end_date;
+  if (!deadlineSource) return null;
+
+  const dueDate = new Date(deadlineSource);
+  if (Number.isNaN(dueDate.getTime())) return null;
+
+  const now = new Date();
+  const deadlineStatus = survey.deadline_details?.status;
+  const isExpired = deadlineStatus === 'overdue' || dueDate.getTime() < now.getTime();
+  const isApproaching = deadlineStatus === 'approaching';
+
+  const diffMs = dueDate.getTime() - now.getTime();
+  const fallbackRemaining = diffMs > 0 ? Math.ceil(diffMs / DAY_IN_MS) : 0;
+  const fallbackOverdue  = diffMs < 0 ? Math.ceil((now.getTime() - dueDate.getTime()) / DAY_IN_MS) : 0;
+
+  const daysRemaining = survey.deadline_details?.days_remaining ?? (!isExpired ? Math.max(0, fallbackRemaining) : undefined);
+  const daysOverdue   = survey.deadline_details?.days_overdue   ?? (isExpired  ? Math.max(1, fallbackOverdue)  : undefined);
+
+  let relativeText: string | undefined;
+  if (isExpired) {
+    relativeText = typeof daysOverdue === 'number' ? `${daysOverdue} gün gecikib` : 'Müddət bitib';
+  } else if (typeof daysRemaining === 'number') {
+    relativeText = daysRemaining === 0 ? 'Son tarix bu gün' : `${daysRemaining} gün qalıb`;
+  }
+
+  return {
+    dueDateLabel: dueDate.toLocaleDateString('az-AZ', { year: 'numeric', month: 'short', day: 'numeric' }),
+    isExpired,
+    relativeText,
+    statusBadge: isExpired ? 'Müddət bitib' : isApproaching ? 'Son tarix yaxınlaşır' : undefined,
+    badgeVariant: isExpired ? 'destructive' : isApproaching ? 'secondary' : undefined,
+  };
+}

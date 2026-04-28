@@ -56,6 +56,7 @@ export function RegionAdminRoutes() {
                 USER_ROLES.SUPERADMIN,
                 USER_ROLES.REGIONADMIN,
                 USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
               ]}
               requiredPermissions={["users.read"]}
               permissionMatch="any"
@@ -74,6 +75,7 @@ export function RegionAdminRoutes() {
                 USER_ROLES.SUPERADMIN,
                 USER_ROLES.REGIONADMIN,
                 USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
               ]}
               requiredPermissions={["users.read"]}
               permissionMatch="any"
@@ -92,6 +94,7 @@ export function RegionAdminRoutes() {
                 USER_ROLES.SUPERADMIN,
                 USER_ROLES.REGIONADMIN,
                 USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
               ]}
               requiredPermissions={["users.read"]}
               permissionMatch="any"
@@ -110,6 +113,7 @@ export function RegionAdminRoutes() {
                 USER_ROLES.SUPERADMIN,
                 USER_ROLES.REGIONADMIN,
                 USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
               ]}
               requiredPermissions={["users.read"]}
               permissionMatch="any"
@@ -140,7 +144,12 @@ export function RegionAdminRoutes() {
         element={
           <LazyWrapper>
             <RoleProtectedRoute
-              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+              allowedRoles={[
+                USER_ROLES.SUPERADMIN,
+                USER_ROLES.REGIONADMIN,
+                USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+              ]}
               requiredPermissions={['students.read']}
               permissionMatch="any"
             >
@@ -158,6 +167,7 @@ export function RegionAdminRoutes() {
                 USER_ROLES.SUPERADMIN,
                 USER_ROLES.REGIONADMIN,
                 USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
               ]}
               requiredPermissions={["classes.read"]}
               permissionMatch="any"

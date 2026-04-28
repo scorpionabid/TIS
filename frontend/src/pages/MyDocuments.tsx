@@ -36,7 +36,7 @@ const MyDocuments: React.FC = () => {
       setFolders(myFolders);
     } catch (err: unknown) {
       logger.error('Error loading folders', err);
-      const message = err instanceof Error ? err.message : 'Folderlər yüklənərkən xəta baş verdi';
+      const message = err instanceof Error ? err.message : 'Qovluqlar yüklənərkən xəta baş verdi';
       setError(message);
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ const MyDocuments: React.FC = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Folderlər yüklənir...</p>
+          <p className="text-gray-600">Qovluqlar yüklənir...</p>
         </div>
       </div>
     );
@@ -91,12 +91,12 @@ const MyDocuments: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Mənim Fayllarım</h1>
             <p className="text-gray-600">
-              Sizin üçün yaradılmış folderlər və sənədlər
+              Sizin üçün yaradılmış qovluqlar və sənədlər
             </p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg">
             <Folder className="text-blue-600" size={20} />
-            <span className="text-blue-900 font-semibold">{folders.length} Folder</span>
+            <span className="text-blue-900 font-semibold">{folders.length} Qovluq</span>
           </div>
         </div>
       </div>
@@ -107,11 +107,11 @@ const MyDocuments: React.FC = () => {
           <div className="text-center">
             <Folder className="mx-auto h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Hələ heç bir folder yoxdur
+              Hələ heç bir qovluq yoxdur
             </h3>
             <p className="text-gray-600 max-w-md mx-auto">
-              Sizin üçün yaradılmış folder olmadıqda, bu siyahı boş olacaq.
-              Regional adminlər tərəfindən folder yaradıldıqda burada görünəcək.
+              Sizin üçün yaradılmış qovluq olmadıqda, bu siyahı boş olacaq.
+              Regional adminlər tərəfindən qovluq yaradıldıqda burada görünəcək.
             </p>
           </div>
         </div>

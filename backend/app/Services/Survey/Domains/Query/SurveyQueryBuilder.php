@@ -120,29 +120,18 @@ class SurveyQueryBuilder
             return Institution::pluck('id')->toArray();
         }
 
-        if ($user->hasRole('regionadmin')) {
-            $userRegionId = $user->institution_id;
-
-            return Institution::where(function ($query) use ($userRegionId) {
-                $query->where('id', $userRegionId)
-                    ->orWhere('parent_id', $userRegionId)
-                    ->orWhereHas('parent', function ($q) use ($userRegionId) {
-                        $q->where('parent_id', $userRegionId);
-                    });
-            })->pluck('id')->toArray();
+        $institution = $user->institution;
+        if (! $institution) {
+            return [$user->institution_id];
         }
 
-        if ($user->hasRole('sektoradmin')) {
-            $userSectorId = $user->institution_id;
-
-            return Institution::where(function ($query) use ($userSectorId) {
-                $query->where('id', $userSectorId)
-                    ->orWhere('parent_id', $userSectorId);
-            })->pluck('id')->toArray();
+        // Management roles see their own institution and all descendants
+        if ($user->hasRole('regionadmin') || $user->hasRole('regionoperator') || $user->hasRole('sektoradmin')) {
+            return $institution->getAllChildrenIds();
         }
 
         // SchoolAdmin and other roles see only their own institution
-        return [$user->institution_id];
+        return [(int) $user->institution_id];
     }
 
     /**

@@ -22,6 +22,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
+  Edit,
+  Trash2,
+  MoreVertical,
 } from 'lucide-react';
 import { AssignedResource } from '@/types/resources';
 import { resourceService } from '@/services/resources';
@@ -30,18 +33,26 @@ interface AssignedResourceGridProps {
   resources: AssignedResource[];
   onResourceAction: (resource: AssignedResource, action: 'view' | 'access' | 'download') => void;
   onCardClick?: (resource: AssignedResource) => void;
+  onEdit?: (resource: AssignedResource) => void;
+  onDelete?: (resource: AssignedResource) => void;
+  isManager?: boolean;
+  currentUserId?: number;
 }
 
 function getResourceIcon(resource: AssignedResource): React.ReactNode {
-  if (resource.type === 'link') {
-    switch (resource.link_type) {
-      case 'video':    return <Video    className="h-4 w-4 text-red-500   flex-shrink-0" />;
-      case 'form':     return <FileText className="h-4 w-4 text-green-500 flex-shrink-0" />;
-      case 'document': return <FileText className="h-4 w-4 text-blue-500  flex-shrink-0" />;
-      default:         return <ExternalLink className="h-4 w-4 text-primary flex-shrink-0" />;
-    }
+  switch (resource.type) {
+    case 'link':
+      switch (resource.link_type) {
+        case 'video': return <Video className="h-4 w-4 text-red-500" />;
+        case 'form': return <FileText className="h-4 w-4 text-purple-500" />;
+        case 'document': return <FileText className="h-4 w-4 text-blue-500" />;
+        default: return <ExternalLink className="h-4 w-4 text-blue-500" />;
+      }
+    case 'document':
+      return <FileText className="h-4 w-4 text-orange-500" />;
+    default:
+      return <Info className="h-4 w-4 text-gray-500" />;
   }
-  return <span className="text-base leading-none flex-shrink-0">{resourceService.getResourceIcon(resource)}</span>;
 }
 
 function formatDate(dateString: string): string {
@@ -127,7 +138,15 @@ function ResourceTooltip({ resource }: { resource: AssignedResource }) {
   );
 }
 
-export function AssignedResourceGrid({ resources, onResourceAction, onCardClick }: AssignedResourceGridProps) {
+export function AssignedResourceGrid({
+  resources,
+  onResourceAction,
+  onCardClick,
+  onEdit,
+  onDelete,
+  isManager,
+  currentUserId,
+}: AssignedResourceGridProps) {
   if (resources.length === 0) {
     return (
       <div className="text-center py-10">
@@ -283,6 +302,41 @@ export function AssignedResourceGrid({ resources, onResourceAction, onCardClick 
                       <Download className="h-3 w-3" />
                       Yüklə
                     </Button>
+                  )}
+
+                  {(isManager || (currentUserId && resource.created_by === currentUserId)) && (onEdit || onDelete) && (
+                    <div className="flex gap-1">
+                      {onEdit && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => onEdit(resource)}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-xs">Redaktə et</p></TooltipContent>
+                        </Tooltip>
+                      )}
+                      {onDelete && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => onDelete(resource)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-xs">Sil</p></TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>

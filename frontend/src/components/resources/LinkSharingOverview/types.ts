@@ -11,6 +11,7 @@ export interface SchoolWithAccess {
   access_count: number;
   last_accessed_at: string | null;
   first_accessed_at: string | null;
+  link_id: number;
   link_url?: string | null;
 }
 
@@ -48,6 +49,8 @@ export interface LinkSharingOverviewProps {
   institutionMetadata?: Record<number, ProvidedInstitutionMeta>;
   restrictedInstitutionIds?: number[] | null;
   onResourceAction?: (resource: Resource, action: "edit" | "delete") => void;
+  hideUsersTab?: boolean;
+  variant?: 'card' | 'ghost';
 }
 
 export type InstitutionMeta = {

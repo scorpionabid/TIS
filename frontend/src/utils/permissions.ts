@@ -64,7 +64,7 @@ export const hasAnyRole = (user: MaybeUser | null | undefined, roles: string[]):
 export const getUserInstitutionId = (user?: MaybeUser | null): number | null => {
   if (!user) return null;
   const institutionId = (user as any)?.institution?.id ?? (user as any)?.institution_id;
-  return typeof institutionId === 'number' ? institutionId : null;
+  return institutionId ? Number(institutionId) : null;
 };
 
 type FolderLike = DocumentCollection & {
@@ -98,16 +98,17 @@ const getTargetInstitutionIds = (folder?: FolderLike | null): number[] => {
 };
 
 export const canUserCreateRegionalFolder = (user?: MaybeUser | null): boolean => {
-  return hasAnyRole(user, ['superadmin', 'regionadmin']);
+  return hasAnyRole(user, ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'regionoperator']);
 };
 
 export const canUserManageFolder = (user: MaybeUser | null | undefined, folder: FolderLike): boolean => {
   if (!user) return false;
-  if (hasRole(user, 'superadmin')) return true;
+  if (hasAnyRole(user, ['superadmin'])) return true;
 
-  if (hasRole(user, 'regionadmin')) {
+  if (hasAnyRole(user, ['regionadmin', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'regionoperator'])) {
     const userInstitutionId = getUserInstitutionId(user);
-    return !!userInstitutionId && userInstitutionId === folder.owner_institution_id;
+    const ownerId = folder.owner_institution_id ? Number(folder.owner_institution_id) : null;
+    return !!userInstitutionId && userInstitutionId === ownerId;
   }
 
   return false;
@@ -171,15 +172,23 @@ export const getFolderUploadPermission = (
     };
   }
 
+  // Determine max size based on role
+  let maxSizeMb = DEFAULT_MAX_UPLOAD_MB;
+  if (hasRole(user, 'schooladmin') || hasRole(user, 'məktəbadmin')) {
+    maxSizeMb = 10;
+  } else if (hasRole(user, 'sektoradmin')) {
+    maxSizeMb = 20;
+  }
+
   if (isAdminUploader) {
-    return { allowed: true, maxSizeMb: DEFAULT_MAX_UPLOAD_MB };
+    return { allowed: true, maxSizeMb };
   }
 
   const targetIds = getTargetInstitutionIds(folder);
   if (targetIds.length === 0) {
     return {
       allowed: false,
-      reason: 'Bu folder üçün hədəf müəssisə seçilməyib. Administrator təyin etməlidir.',
+      reason: 'Bu qovluq üçün hədəf müəssisə seçilməyib. Administrator təyin etməlidir.',
       reasonCode: 'no-targets'
     };
   }
@@ -192,7 +201,7 @@ export const getFolderUploadPermission = (
     };
   }
 
-  return { allowed: true, maxSizeMb: DEFAULT_MAX_UPLOAD_MB };
+  return { allowed: true, maxSizeMb };
 };
 
 export const canUserUploadToFolder = (user: MaybeUser | null | undefined, folder: FolderLike): boolean => {

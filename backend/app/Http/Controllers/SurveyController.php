@@ -36,7 +36,7 @@ class SurveyController extends BaseController
             'per_page' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
             'search' => 'nullable|string|max:255',
-            'status' => 'nullable|string|in:draft,published,closed,archived,paused',
+            'status' => 'nullable|string|in:draft,published,active,closed,archived,paused',
             'survey_type' => 'nullable|string|in:form,poll,assessment,feedback',
             'creator_id' => 'nullable|integer|exists:users,id',
             'institution_id' => 'nullable|integer|exists:institutions,id',
@@ -298,6 +298,25 @@ class SurveyController extends BaseController
             $surveyData = $this->crudService->getSurveyForResponse($survey);
 
             return $this->successResponse($surveyData, 'Survey form retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Preview survey
+     */
+    public function preview(Survey $survey): JsonResponse
+    {
+        try {
+            // Check if user can access this survey
+            if (! auth()->user()->can('surveys.read') && $survey->creator_id !== auth()->id()) {
+                return $this->errorResponse('Bu sorğuya baxmaq üçün icazəniz yoxdur', 403);
+            }
+
+            $surveyData = $this->crudService->getSurveyForResponse($survey);
+
+            return $this->successResponse($surveyData, 'Survey preview retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }

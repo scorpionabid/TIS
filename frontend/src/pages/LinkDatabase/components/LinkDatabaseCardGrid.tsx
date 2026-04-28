@@ -17,6 +17,7 @@ interface LinkDatabaseCardGridProps {
   onEdit?: (link: LinkShare) => void;
   onDelete?: (link: LinkShare) => void;
   onRestore?: (link: LinkShare) => void;
+  onTrack?: (link: LinkShare) => void;
 }
 
 export function LinkDatabaseCardGrid({
@@ -29,6 +30,7 @@ export function LinkDatabaseCardGrid({
   onEdit,
   onDelete,
   onRestore,
+  onTrack,
 }: LinkDatabaseCardGridProps) {
   return (
     <div className="space-y-4">
@@ -42,6 +44,7 @@ export function LinkDatabaseCardGrid({
             onEdit={onEdit}
             onDelete={onDelete}
             onRestore={onRestore}
+            onTrack={onTrack}
           />
         ))}
       </div>

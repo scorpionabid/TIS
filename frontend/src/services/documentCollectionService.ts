@@ -118,6 +118,13 @@ class DocumentCollectionService {
     await api.delete(`${this.basePath}/${folderId}`, { data });
   }
 
+  async toggleLock(folderId: number): Promise<DocumentCollection> {
+    const response = await api.post<{ success: boolean; data: DocumentCollection }>(
+      `${this.basePath}/${folderId}/toggle-lock`
+    );
+    return (response as { success: boolean; data: DocumentCollection }).data;
+  }
+
   async bulkDownload(folderId: number): Promise<Blob> {
     const response = await api.get<Blob>(
       `${this.basePath}/${folderId}/download`,
