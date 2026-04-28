@@ -19,11 +19,12 @@ interface ResourceTabContentProps {
   resourceType: 'link' | 'document';
   isManager: boolean | null | undefined;
   currentUserId: number | undefined;
+  currentUserRole?: string;
   searchTerm: string;
   sortBy: SortBy;
   onSearchChange: (v: string) => void;
   onSortChange: (v: SortBy) => void;
-  onResourceAction: (resource: AssignedResource, action: 'view' | 'access' | 'download') => void;
+  onResourceAction: (resource: AssignedResource, action: 'view' | 'access' | 'download' | 'preview') => void;
   onCardClick: (resource: AssignedResource) => void;
   onEdit: (resource: AssignedResource) => void;
   onDelete: (resource: AssignedResource) => void;
@@ -36,6 +37,7 @@ export function ResourceTabContent({
   resourceType,
   isManager,
   currentUserId,
+  currentUserRole,
   searchTerm,
   sortBy,
   onSearchChange,
@@ -102,8 +104,9 @@ export function ResourceTabContent({
         onCardClick={onCardClick}
         onEdit={onEdit}
         onDelete={onDelete}
-        isManager={isManager}
+        isManager={!!isManager}
         currentUserId={currentUserId}
+        currentUserRole={currentUserRole}
       />
     </div>
   );

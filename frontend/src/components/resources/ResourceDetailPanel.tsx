@@ -20,6 +20,7 @@ import {
   FileText,
   AlertTriangle,
   Calendar,
+  Eye,
 } from 'lucide-react';
 import { AssignedResource } from '@/types/resources';
 import { resourceService } from '@/services/resources';
@@ -27,7 +28,7 @@ import { resourceService } from '@/services/resources';
 interface ResourceDetailPanelProps {
   resource: AssignedResource | null;
   onClose: () => void;
-  onAction: (resource: AssignedResource, action: 'access' | 'download') => void;
+  onAction: (resource: AssignedResource, action: 'access' | 'download' | 'preview') => void;
 }
 
 function formatDate(dateString: string): string {
@@ -208,14 +209,23 @@ export function ResourceDetailPanel({ resource, onClose, onAction }: ResourceDet
                     Linki aç
                   </Button>
                 ) : (
-                  <Button
-                    className="w-full"
-                    onClick={() => onAction(resource, 'download')}
-                    disabled={!resource.is_downloadable}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Sənədi yüklə
-                  </Button>
+                  <div className="flex flex-col gap-2 w-full">
+                    <Button
+                      className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      onClick={() => onAction(resource, 'preview')}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Sənədə bax
+                    </Button>
+                    <Button
+                      className="w-full"
+                      onClick={() => onAction(resource, 'download')}
+                      disabled={!resource.is_downloadable}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Sənədi yüklə
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

@@ -151,24 +151,11 @@ class DocumentPermissionService extends BaseService
         $userRole = $user->roles->first()?->name;
         $userInstitutionId = $user->institution_id;
 
-        switch ($userRole) {
-            case 'regionadmin':
-            case 'regionoperator':
-                // Regional admins can modify documents in their region
-                return $this->isDocumentInUserRegion($document, $userInstitutionId);
-
-            case 'sektoradmin':
-                // Sector admins can modify documents in their sector
-                return $this->isDocumentInUserSector($document, $userInstitutionId);
-
-            case 'schooladmin':
-            case 'məktəbadmin':
-                // School admins can only modify documents in their institution
-                return $document->institution_id === $userInstitutionId;
-
-            default:
-                return false;
+        if ($userRole === 'regionadmin') {
+            return true;
         }
+
+        return false;
     }
 
     /**
@@ -185,16 +172,9 @@ class DocumentPermissionService extends BaseService
             return true;
         }
 
-        // Higher level admins can delete documents in their jurisdiction
-        if ($user->hasRole('regionadmin')) {
+        // Region admins can always delete documents
+        if ($userRole === 'regionadmin') {
             return true;
-        }
-
-        // School/Sector admins can delete documents in their institution
-        if ($user->hasAnyRole(['sektoradmin', 'schooladmin', 'məktəbadmin'])) {
-            if ($document->institution_id === $user->institution_id) {
-                return true;
-            }
         }
 
         // Check if user is a target user in any folder containing this document with can_delete permission

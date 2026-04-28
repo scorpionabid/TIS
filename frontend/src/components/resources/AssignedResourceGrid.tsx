@@ -31,12 +31,13 @@ import { resourceService } from '@/services/resources';
 
 interface AssignedResourceGridProps {
   resources: AssignedResource[];
-  onResourceAction: (resource: AssignedResource, action: 'view' | 'access' | 'download') => void;
+  onResourceAction: (resource: AssignedResource, action: 'view' | 'access' | 'download' | 'preview') => void;
   onCardClick?: (resource: AssignedResource) => void;
   onEdit?: (resource: AssignedResource) => void;
   onDelete?: (resource: AssignedResource) => void;
   isManager?: boolean;
   currentUserId?: number;
+  currentUserRole?: string;
 }
 
 function getResourceIcon(resource: AssignedResource): React.ReactNode {
@@ -146,6 +147,7 @@ export function AssignedResourceGrid({
   onDelete,
   isManager,
   currentUserId,
+  currentUserRole,
 }: AssignedResourceGridProps) {
   if (resources.length === 0) {
     return (
@@ -261,6 +263,18 @@ export function AssignedResourceGrid({
                   )}
                 </div>
 
+                {/* Row 2.5: Uploader info and date */}
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <div className="flex items-center gap-1.5 truncate pr-2">
+                    <User className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{resource.creator?.name || resource.assigned_by?.name || 'Müəllif'}</span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Clock className="h-3 w-3 flex-shrink-0" />
+                    <span>{formatDate(resource.created_at || resource.assigned_at || new Date().toISOString())}</span>
+                  </div>
+                </div>
+
                 {/* Row 3: Action buttons */}
                 <div
                   className="flex gap-1.5 mt-auto pt-1"
@@ -293,51 +307,79 @@ export function AssignedResourceGrid({
                       Aç
                     </Button>
                   ) : (
-                    <Button
-                      size="sm"
-                      className="flex-1 h-7 text-xs gap-1"
-                      onClick={() => onResourceAction(resource, 'download')}
-                      disabled={!resource.is_downloadable}
-                    >
-                      <Download className="h-3 w-3" />
-                      Yüklə
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-xs gap-1 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        onClick={() => onResourceAction(resource, 'preview')}
+                      >
+                        <Eye className="h-3 w-3" />
+                        Bax
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-xs gap-1"
+                        onClick={() => onResourceAction(resource, 'download')}
+                        disabled={!resource.is_downloadable}
+                        title="Sənədi yüklə"
+                      >
+                        <Download className="h-3 w-3" />
+                        Yüklə
+                      </Button>
+                    </>
                   )}
 
-                  {(isManager || (currentUserId && resource.created_by === currentUserId)) && (onEdit || onDelete) && (
-                    <div className="flex gap-1">
-                      {onEdit && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              onClick={() => onEdit(resource)}
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p className="text-xs">Redaktə et</p></TooltipContent>
-                        </Tooltip>
-                      )}
-                      {onDelete && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => onDelete(resource)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p className="text-xs">Sil</p></TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  )}
+                  {(() => {
+                    const isUploader = !!currentUserId && resource.created_by === currentUserId;
+                    let canModify = false;
+                    
+                    if (isUploader) {
+                      canModify = true;
+                    } else if (currentUserRole) {
+                      if (resource.type === 'document') {
+                        canModify = ['superadmin', 'regionadmin'].includes(currentUserRole);
+                      } else {
+                        canModify = !!isManager;
+                      }
+                    } else {
+                      canModify = !!isManager;
+                    }
+
+                    return canModify && (onEdit || onDelete) && (
+                      <div className="flex gap-1">
+                        {onEdit && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => onEdit(resource)}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Redaktə et</p></TooltipContent>
+                          </Tooltip>
+                        )}
+                        {onDelete && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => onDelete(resource)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Sil</p></TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>

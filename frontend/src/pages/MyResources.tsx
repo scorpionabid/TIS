@@ -31,6 +31,7 @@ import documentCollectionService from '@/services/documentCollectionService';
 import type { DocumentCollection } from '@/types/documentCollection';
 import FolderDocumentsView from '@/components/documents/FolderDocumentsView';
 import { ResourceDetailPanel } from '@/components/resources/ResourceDetailPanel';
+import { DocumentPreviewModal } from '@/components/documents/DocumentPreviewModal';
 import { LinkBulkUploadModal } from '@/components/resources/LinkBulkUploadModal';
 import { PersonalLinksView } from '@/components/resources/PersonalLinksView';
 import { ResourceTabContent } from '@/components/resources/ResourceTabContent';
@@ -62,6 +63,7 @@ export default function MyResources() {
   const [isResourceModalOpen, setIsResourceModalOpen]   = useState(false);
   const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const [resourceModalType, setResourceModalType]       = useState<'link' | 'document'>('link');
+  const [previewDocument, setPreviewDocument]           = useState<any>(null);
 
   // Debounce search
   useEffect(() => {
@@ -159,7 +161,7 @@ export default function MyResources() {
 
   const handleResourceAction = useCallback(async (
     resource: AssignedResource,
-    action: 'view' | 'access' | 'download'
+    action: 'view' | 'access' | 'download' | 'preview'
   ) => {
     const ERROR_MESSAGES: Record<number, string> = {
       403: 'Bu resursa giriş icazəniz yoxdur',
@@ -174,6 +176,18 @@ export default function MyResources() {
         const result = await resourceService.accessResource(resource.id, 'link');
         window.open(result.redirect_url || resource.url, '_blank', 'noopener,noreferrer');
         await resourceService.markAsViewed(resource.id, 'link');
+        queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
+      } else if (action === 'preview' && resource.type === 'document') {
+        setPreviewDocument({
+          id: resource.id,
+          original_filename: resource.original_filename || resource.title,
+          mime_type: resource.mime_type || '',
+          file_extension: resource.original_filename?.split('.').pop() || '',
+          file_size: resource.file_size || 0,
+          user: resource.creator || resource.assigned_by,
+          created_at: resource.created_at || new Date().toISOString(),
+        });
+        await resourceService.markAsViewed(resource.id, 'document');
         queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
       } else if (action === 'download' && resource.type === 'document') {
         const result = await resourceService.accessResource(resource.id, 'document');
@@ -369,6 +383,7 @@ export default function MyResources() {
                 resourceType="document"
                 isManager={isManager}
                 currentUserId={currentUser?.id}
+                currentUserRole={currentUser?.role?.toLowerCase()}
                 searchTerm={searchTerm}
                 sortBy={sortBy}
                 onSearchChange={setSearchTerm}
@@ -459,6 +474,13 @@ export default function MyResources() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        document={previewDocument}
+        isOpen={!!previewDocument}
+        onClose={() => setPreviewDocument(null)}
+      />
     </div>
   );
 }
