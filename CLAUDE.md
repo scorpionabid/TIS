@@ -8,22 +8,7 @@ ATİS — Azerbaijan Education Management System (Ministry of Education). **LIVE
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS 3.4, Shadcn/ui, @tanstack/react-query
 - **Infrastructure**: Docker — atis_backend | atis_frontend | atis_postgres | atis_redis
 - **Permissions**: spatie/laravel-permission, hierarchical RBAC
-
-## Vibe Coding Rejimi
-
-**Rejim A — Sürətli** (UI fix, label, kiçik əlavə):
-- Mövcud kodu oxu → dərhal implement et → nəticəni bir cümlə ilə yaz
-
-**Rejim B — Planlı** (yeni modul, migration, API, refactor 50+ sətir):
-- **User Intent (AZ)** → **Technical Interpretation (EN)** → **Impact** → **Plan** → **Quality Gates**
-
-| Tapşırıq | Rejim |
-|---|---|
-| UI dəyişikliyi, fix, label | A |
-| Yeni API endpoint, migration, modul | B |
-| Refactor 50+ sətir | B |
-
-**Qaydalar:** Əvvəlcə oxu, sonra yaz. Natamam tələb varsa ən məntiqli şərhi et, implement et, sonunda "X olaraq başa düşdüm, düzgündürmü?" de.
+- **Primary language**: TypeScript (frontend) / PHP (backend) — always run `tsc` and lint before committing
 
 ## ⚠️ Critical Rules
 
@@ -35,6 +20,22 @@ ATİS — Azerbaijan Education Management System (Ministry of Education). **LIVE
 6. **No `any` types** in TypeScript — strict mode enforced
 7. **Permission checks required** on all new API endpoints
 8. **Quality gates before commit** (see below)
+
+## Coding Mode
+
+**Mode A — Fast** (UI fix, label, small addition):
+- Read existing code → implement immediately → summarize in one sentence
+
+**Mode B — Planned** (new module, migration, API, refactor 50+ lines):
+- User Intent → Technical Interpretation → Impact → Plan → Quality Gates
+
+| Task | Mode |
+|---|---|
+| UI change, fix, label | A |
+| New API endpoint, migration, module | B |
+| Refactor 50+ lines | B |
+
+**Rule:** Read first, write second. For ambiguous requests, apply the most logical interpretation, implement, then ask "I understood this as X — is that correct?"
 
 ## Commands
 
@@ -49,7 +50,7 @@ docker exec atis_frontend npm run typecheck
 docker exec atis_postgres psql -U atis_dev_user -d atis_dev
 ```
 
-## Quality Gates (MANDATORY)
+## Quality Gates (MANDATORY before commit)
 
 ```bash
 docker exec atis_frontend npm run lint
@@ -71,49 +72,55 @@ Institutions: Ministry → Regional Office → Sector → School/Preschool
 
 **Patterns:** Data isolation by hierarchy level · BaseService in `frontend/src/services/` · `useAuth()` + `usePermissions()` hooks · API Resources for all responses · Eager loading always
 
+## Git & Commits
+
+- After completing a task, commit AND push to remote unless told otherwise
+- Check both root and `backend/` `.gitignore` files before committing new config files (e.g., `.env.testing`)
+- Before creating pre-commit hooks, test regex patterns against real commit message content to avoid false positives
+
+## Access Control & Permissions
+
+When modifying role-based features, always check all four layers:
+1. Backend route role guards (middleware)
+2. Frontend `hasAccess` / `hasPermission` checks
+3. Role-specific hooks (e.g., `isRegionAdmin`)
+4. Navigation visibility
+
+Do not declare a role-based task complete until all four layers are verified.
+
+## Execution Style
+
+- When the user presents suggestions/improvements in a plan, treat them as items to execute **NOW** unless explicitly marked as "future" or "optional"
+- Before refactoring or removing existing UI elements, use `git log`/`git blame` to confirm they weren't intentionally added in a recent commit
+
+## Production Safety
+
+- **NEVER** `migrate:fresh` or full `db:seed` in production
+- Safe seeders only: `RoleSeeder`, `PermissionSeeder`, `SuperAdminSeeder`
+- All migrations must be reversible (write `down()` method)
+
+## Session & Context Management
+
+| Situation | Action |
+|----------|-------|
+| Large feature completed | `/compact` — save summary, clear context |
+| Completely different task | `/clear` — fresh context |
+| Codebase exploration needed | Spawn subagent — protects main context |
+| Context 80%+ full | `/compact` immediately, then continue |
+| Mode B planning | Call `plan-architect` agent |
+| Security review needed | `/security-review` skill |
+
+**When to use subagents:** File search, impact analysis, exploration — delegate to subagent, receive result as summary.
+
 ## References
 
-Ətraflı məlumat üçün bu faylları oxu:
 - Permission rules: @.claude/references/atis-permissions-guide.md
 - Change impact analysis: @.claude/references/atis-impact-analyzer.md
 - Production deployment + safety + code style: @.claude/references/production-guide.md
 - Backend rules: @backend/CLAUDE.md
 - Frontend rules: @frontend/CLAUDE.md
 
-## Production Safety (Quick)
-
-- **NEVER** `migrate:fresh` or full `db:seed` in production
-- Safe seeders only: `RoleSeeder`, `PermissionSeeder`, `SuperAdminSeeder`
-- All migrations must be reversible
-
-## Session & Context Management
-
-| Vəziyyət | Nə et |
-|----------|-------|
-| Böyük feature tamamlandı | `/compact` — summary saxla, context təmizlə |
-| Tamamilə fərqli tapşırıq | `/clear` — fresh context |
-| Codebase araşdırması lazımdır | Subagent işlət — main context-i qoruyur |
-| Context 80%+ dolub | Dərhal `/compact`, sonra davam et |
-| Rejim B planlaşdırması | `plan-architect` agent çağır |
-| Kod təhlükəsizlik yoxlaması | `/security-review` skill |
-
-**Subagent nə vaxt:** Fayl axtarışı, impact analizi, araşdırma — exploration işi subagent-ə ver, nəticəni summary kimi al.
-
 ## Dev Credentials & URLs
 
 - Frontend: http://localhost:3000 · API: http://localhost:8000/api
 - SuperAdmin: `superadmin / admin123` · RegionAdmin: `regionadmin1 / admin123`
-
-Add a new ## Git & Commits section near the top of CLAUDE.md\n\n## Git & Commits
-- Always check both root and backend/subdirectory .gitignore files before committing new config files (e.g., .env.testing)
-- Before creating pre-commit hooks, test regex patterns against common commit message content like 'php artisan serve' to avoid false positives
-- After completing a task, commit AND push to remote unless told otherwise
-Add as a new ## Access Control & Permissions section\n\n## Access Control & Permissions
-- When modifying role-based features, always check: (1) backend route role guards, (2) frontend hasAccess/permission checks, (3) role-specific hooks (e.g., isRegionAdmin), (4) navigation visibility
-- Run through all four permission layers before declaring a role-based task complete
-Add as a new ## Execution Style section\n\n## Execution Style
-- When user presents suggestions/improvements in a plan, treat them as items to execute NOW unless explicitly marked as 'future' or 'optional'
-- Before refactoring or removing existing UI elements, use git log/blame to confirm they weren't intentionally added in a recent commit
-Add as a ## Tech Stack section near the top\n\n## Tech Stack
-- Primary language: TypeScript (with Python/PHP backend). Always run `tsc` and lint before committing.
-- Project uses Laravel backend with PHPUnit tests and React/Next.js frontend
