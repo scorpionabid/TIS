@@ -124,6 +124,7 @@ class DocumentPermissionService extends BaseService
                        in_array($documentData['institution_id'], $allowedInstitutions->toArray());
 
             case 'schooladmin':
+            case 'məktəbadmin':
             case 'müəllim':
                 // School-level users can only create documents in their institution
                 return ! isset($documentData['institution_id']) ||
@@ -161,6 +162,7 @@ class DocumentPermissionService extends BaseService
                 return $this->isDocumentInUserSector($document, $userInstitutionId);
 
             case 'schooladmin':
+            case 'məktəbadmin':
                 // School admins can only modify documents in their institution
                 return $document->institution_id === $userInstitutionId;
 
@@ -178,15 +180,29 @@ class DocumentPermissionService extends BaseService
             return true;
         }
 
+        // Owners can always delete their documents
         if ($document->uploaded_by === $user->id) {
             return true;
         }
 
-        $userRole = $user->roles->first()?->name;
+        // Higher level admins can delete documents in their jurisdiction
+        if ($user->hasRole('regionadmin')) {
+            return true;
+        }
 
-        // Only document owners and superadmins can delete documents for security
-        // RegionAdmins can only delete if they uploaded the document
-        return false;
+        // School/Sector admins can delete documents in their institution
+        if ($user->hasAnyRole(['sektoradmin', 'schooladmin', 'məktəbadmin'])) {
+            if ($document->institution_id === $user->institution_id) {
+                return true;
+            }
+        }
+
+        // Check if user is a target user in any folder containing this document with can_delete permission
+        return $document->collections()
+            ->whereHas('targetUsers', function ($q) use ($user) {
+                $q->where('users.id', $user->id)
+                  ->where('folder_users.can_delete', true);
+            })->exists();
     }
 
     /**
@@ -230,6 +246,11 @@ class DocumentPermissionService extends BaseService
                 case 'sektoradmin':
                     // Sector admins can access any document within their sector's institutions
                     return $this->isDocumentInUserSector($document, $userInstitutionId);
+
+                case 'schooladmin':
+                case 'məktəbadmin':
+                    // School admins can access documents in their own institution
+                    return (int) $document->institution_id === (int) $userInstitutionId;
 
                 default:
                     return false;
@@ -324,6 +345,7 @@ class DocumentPermissionService extends BaseService
                     return $this->getSectorInstitutions($userInstitutionId)->toArray();
 
                 case 'schooladmin':
+                case 'məktəbadmin':
                 case 'müəllim':
                     return [$userInstitutionId];
 
@@ -397,6 +419,7 @@ class DocumentPermissionService extends BaseService
                 return 'sectoral';
 
             case 'schooladmin':
+            case 'məktəbadmin':
                 return 'institutional';
 
             case 'müəllim':
@@ -565,6 +588,7 @@ class DocumentPermissionService extends BaseService
 
             switch ($userRole) {
                 case 'schooladmin':
+                case 'məktəbadmin':
                     // School can target: sector (parent) and region (grandparent)
                     if ($userInstitution->parent_id) {
                         $sector = \App\Models\Institution::find($userInstitution->parent_id);

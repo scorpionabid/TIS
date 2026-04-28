@@ -57,9 +57,15 @@ class DocumentControllerRefactored extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            Log::info('DocumentController::index called', [
+                'user_id' => Auth::id(),
+                'params' => $request->all()
+            ]);
+
             $validator = $this->validationService->validateSearchFilters($request);
 
             if ($validator->fails()) {
+                Log::warning('DocumentController::index validation failed', ['errors' => $validator->errors()]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -67,13 +73,20 @@ class DocumentControllerRefactored extends Controller
                 ], 422);
             }
 
+            Log::info('Fetching documents via service...');
             $documents = $this->documentService->getDocuments($request);
+            Log::info('Documents fetched successfully', ['count' => count($documents->items())]);
 
             return response()->json([
                 'success' => true,
                 'data' => $documents,
             ]);
         } catch (\Exception $e) {
+            Log::error('DocumentController::index crash', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
             return $this->handleError($e, 'Sənədlər yüklənərkən xəta baş verdi.');
         }
     }

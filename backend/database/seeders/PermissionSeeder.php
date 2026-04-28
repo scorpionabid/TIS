@@ -438,7 +438,8 @@ class PermissionSeeder extends Seeder
             'schooladmin' => [
                 'users.read', 'users.create', 'users.update',
                 'institutions.read',
-                'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write',
+                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.respond', 'surveys.target',
+                'survey_responses.read', 'survey_responses.write',
                 'report_table_responses.write',
                 'schedules.create', 'schedules.read', 'schedules.update',
                 'grades.create', 'grades.read', 'grades.update', 'grades.manage', 'grades.assign', 'grades.statistics', 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update',
@@ -611,7 +612,8 @@ class PermissionSeeder extends Seeder
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',
                 'institutions.read', 'institutions.hierarchy',
-                'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
+                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.respond', 'surveys.target',
+                'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
                 'report_tables.read', 'report_table_responses.review',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.read', 'attendance.update',
                 'school_attendance.read',
@@ -628,7 +630,7 @@ class PermissionSeeder extends Seeder
                 'students.read',
                 'classes.read',
                 'teaching_loads.read',
-                'links.read',
+                'links.read', 'links.create', 'links.update', 'links.delete',
                 'reports.read',
                 'preschool.attendance.read', 'preschool.attendance.reports',
                 'students.read', 'students.export', 'students.analytics', 'students.reports',

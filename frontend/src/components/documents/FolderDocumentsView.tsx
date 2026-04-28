@@ -17,13 +17,17 @@ import {
   ChevronRight,
   Filter,
   FileIcon,
-  Clock
+  Clock,
+  Plus,
+  Eye,
+  LayoutGrid
 } from 'lucide-react';
 
 type FolderWithTargets = DocumentCollection & {
   target_institutions?: Array<{ id: number }>;
   targetInstitutions?: Array<{ id: number }>;
 };
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { FileUploadZone } from './FileUploadZone';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,7 +46,9 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUploadZone, setShowUploadZone] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [fileTypeFilter, setFileTypeFilter] = useState<string>('all');
   const [expandedInstitutions, setExpandedInstitutions] = useState<Set<string>>(new Set());
   const [bulkDownloading, setBulkDownloading] = useState(false);
@@ -180,13 +186,13 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     if (!user) return false;
 
     // Ownership check: supports both uploaded_by (backend standard) and user_id (legacy)
-    const ownerId = document.uploaded_by ?? document.user_id;
-    const isOwner = ownerId === user.id;
+    const ownerId = document.uploaded_by || document.user_id;
+    const isOwner = Number(ownerId) === Number(user.id);
 
-    // Role check: superadmins can delete any document
-    const isSuperAdmin = user.role === 'superadmin';
+    // Role check: admins can delete documents in their jurisdiction
+    const isAdmin = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'regionoperator'].includes(user.role.toLowerCase());
 
-    return isOwner || isSuperAdmin;
+    return isOwner || isAdmin;
   };
 
   const filteredDocuments = useMemo(() => {
@@ -228,7 +234,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     };
   }, [filteredDocuments, groupedDocuments]);
 
-  const isSchoolAdmin = user?.role === 'schooladmin';
+  const isSchoolAdmin = user?.role === 'schooladmin' || user?.role === 'məktəbadmin';
 
   const fileTypes = [
     { id: 'all', label: 'Hamısı', icon: <Filter size={14} /> },
@@ -273,18 +279,35 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
             </div>
 
             <div className="flex items-center gap-2">
-              <AnimatePresence>
+              <div className="flex items-center gap-2">
+                {isSchoolAdmin && filteredDocuments.length > 0 && (
+                   <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200 mr-2">
+                     <button
+                       onClick={() => setViewMode('grid')}
+                       className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                       title="Grid görünüşü"
+                     >
+                       <LayoutGrid size={16} />
+                     </button>
+                     <button
+                       onClick={() => setViewMode('table')}
+                       className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                       title="Cədvəl görünüşü"
+                     >
+                       <FileText size={16} />
+                     </button>
+                   </div>
+                )}
                 {canUpload() && (
                   <Button
-                    onClick={() => setShowUploadZone(!showUploadZone)}
-                    variant={showUploadZone ? "outline" : "default"}
-                    className="rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
+                    onClick={() => setShowUploadZone(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-xl shadow-lg shadow-blue-200"
                   >
-                    <Upload size={18} className="mr-2" />
-                    {showUploadZone ? 'Ləğv et' : 'Yeni Sənəd'}
+                    <Plus size={18} />
+                    <span className="hidden sm:inline">Sənəd Əlavə Et</span>
                   </Button>
                 )}
-              </AnimatePresence>
+              </div>
 
               {documents.length > 0 && (
                 <Button
@@ -385,61 +408,108 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
               <p className="text-gray-500 mt-2 max-w-xs mx-auto">Axtarış meyarlarını dəyişərək və ya yeni sənəd yükləyərək davam edə bilərsiniz.</p>
             </motion.div>
           ) : isSchoolAdmin ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredDocuments.map((doc) => {
-                const style = getFileStyle(doc.mime_type);
-                return (
-                  <motion.div
-                    layout
-                    key={doc.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-lg hover:shadow-blue-500/5 transition-all group relative overflow-hidden"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`h-14 w-14 rounded-2xl ${style.bg} ${style.text} flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform`}>
-                        {style.icon}
-                      </div>
-                      <div className="flex-1 min-w-0 pr-10">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-900 truncate" title={doc.file_name || doc.original_filename}>
-                            {doc.file_name || doc.original_filename}
-                          </h3>
-                          {isNew(doc.created_at) && (
-                            <Badge className="bg-green-500 text-[10px] h-4 px-1 rounded-sm uppercase tracking-wider font-bold">Yeni</Badge>
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredDocuments.map((doc) => {
+                  const style = getFileStyle(doc.mime_type);
+                  return (
+                    <motion.div
+                      layout
+                      key={doc.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-lg hover:shadow-blue-500/5 transition-all group relative overflow-hidden"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`h-14 w-14 rounded-2xl ${style.bg} ${style.text} flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform`}>
+                          {style.icon}
+                        </div>
+                        <div className="flex-1 min-w-0 pr-28">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-gray-900 truncate" title={doc.file_name || doc.original_filename}>
+                              {doc.file_name || doc.original_filename}
+                            </h3>
+                            {isNew(doc.created_at) && (
+                              <Badge className="bg-green-500 text-[10px] h-4 px-1 rounded-sm uppercase tracking-wider font-bold">Yeni</Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar size={12} /> {formatDate(doc.created_at)}
+                            </span>
+                            <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                            <span>{formatFileSize(doc.file_size)}</span>
+                          </div>
+                        </div>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleDownload(doc)}
+                              className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm"
+                              title="Yüklə"
+                            >
+                              <Download size={16} />
+                            </button>
+                            <button
+                              onClick={() => setPreviewDoc(doc)}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                              title="Bax"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          {canDelete(doc) && (
+                            <button
+                              onClick={() => handleDelete(doc.id)}
+                              className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              title="Sil"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} /> {formatDate(doc.created_at)}
-                          </span>
-                          <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                          <span>{formatFileSize(doc.file_size)}</span>
-                        </div>
                       </div>
-                      <div className="absolute right-4 top-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm"
-                          title="Yüklə"
-                        >
-                          <Download size={16} />
-                        </button>
-                        {canDelete(doc) && (
-                          <button
-                            onClick={() => handleDelete(doc.id)}
-                            className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                            title="Sil"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-4 py-3 font-semibold text-gray-700">Sənəd adı</th>
+                      <th className="px-4 py-3 font-semibold text-gray-700">Tarix</th>
+                      <th className="px-4 py-3 font-semibold text-gray-700">Ölçü</th>
+                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Əməliyyatlar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDocuments.map((doc) => (
+                      <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`${getFileStyle(doc.mime_type).text} text-lg`}>
+                              {getFileStyle(doc.mime_type).icon}
+                            </div>
+                            <span className="font-medium text-gray-900 truncate max-w-[200px]" title={doc.file_name || doc.original_filename}>
+                              {doc.file_name || doc.original_filename}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-500">{formatDate(doc.created_at)}</td>
+                        <td className="px-4 py-3 text-gray-500">{formatFileSize(doc.file_size)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => handleDownload(doc)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md" title="Yüklə"><Download size={14} /></button>
+                            <button onClick={() => setPreviewDoc(doc)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="Bax"><Eye size={14} /></button>
+                            {canDelete(doc) && <button onClick={() => handleDelete(doc.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Sil"><Trash2 size={14} /></button>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           ) : (
             <div className="space-y-4">
               {Object.entries(groupedDocuments).map(([institutionName, docs]) => {
@@ -515,6 +585,13 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                                     >
                                       <Download size={14} />
                                     </button>
+                                    <button
+                                      onClick={() => setPreviewDoc(doc)}
+                                      className="p-1.5 bg-white text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 border border-gray-100 transition-all shadow-sm"
+                                      title="Bax"
+                                    >
+                                      <Eye size={14} />
+                                    </button>
                                     {canDelete(doc) && (
                                       <button
                                         onClick={() => handleDelete(doc.id)}
@@ -574,6 +651,12 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
           </Button>
         </div>
       </motion.div>
+
+      <DocumentPreviewModal
+        document={previewDoc}
+        isOpen={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+      />
     </div>
   );
 };
