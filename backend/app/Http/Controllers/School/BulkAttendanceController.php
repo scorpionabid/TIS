@@ -58,6 +58,7 @@ class BulkAttendanceController extends BaseController
                     'id' => $class->id,
                     'name' => $class->name,
                     'level' => $class->class_level,
+                    'teaching_shift' => $class->teaching_shift,
                     'total_students' => (int) ($class->student_count ?? 0),
                     'attendance' => $record ? [
                         'morning_present' => (int) $record->morning_present,

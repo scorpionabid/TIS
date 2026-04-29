@@ -167,16 +167,26 @@ export const ClassEditDialog = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label htmlFor="edit-shift">Növbə</Label>
-              <Input
-                id="edit-shift"
-                value={editForm.teaching_shift}
-                onChange={(e) =>
+              <Select
+                value={editForm.teaching_shift || "none"}
+                onValueChange={(val) =>
                   setEditForm((prev) => ({
                     ...prev,
-                    teaching_shift: e.target.value,
+                    teaching_shift: val === "none" ? "" : val,
                   }))
                 }
-              />
+              >
+                <SelectTrigger id="edit-shift">
+                  <SelectValue placeholder="Növbəni seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Seçilməyib</SelectItem>
+                  <SelectItem value="1 növbə">1 növbə</SelectItem>
+                  <SelectItem value="2 növbə">2 növbə</SelectItem>
+                  <SelectItem value="3 növbə">3 növbə</SelectItem>
+                  <SelectItem value="Fərdi">Fərdi</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit-week">Tədris həftəsi</Label>

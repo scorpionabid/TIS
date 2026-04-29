@@ -9,6 +9,7 @@ import { ClassWithAttendance } from "@/services/bulkAttendance";
 import {
   AttendanceFormData,
   AttendanceSession,
+  DirtyClassesState,
   ServerErrorMap,
 } from "../types";
 import AttendanceNumberInput from "./AttendanceNumberInput";
@@ -17,6 +18,7 @@ interface MobileViewProps {
   session: AttendanceSession;
   classes: ClassWithAttendance[];
   attendanceData: AttendanceFormData;
+  dirtyClasses: DirtyClassesState;
   updateAttendance: (
     gradeId: number,
     field: keyof AttendanceFormData[string],
@@ -31,6 +33,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
   session,
   classes,
   attendanceData,
+  dirtyClasses: _dirtyClasses,
   updateAttendance,
   errors,
   serverErrors = {},

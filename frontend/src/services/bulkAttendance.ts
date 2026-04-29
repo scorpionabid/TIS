@@ -44,6 +44,7 @@ export interface ClassWithAttendance {
   id: number;
   name: string;
   level: string;
+  teaching_shift?: string | null;
   description?: string;
   total_students: number;
   requires_student_count?: boolean;
@@ -80,7 +81,7 @@ export interface BulkAttendanceErrorItem {
   grade_id: number;
   grade_name: string;
   reason: string;
-  type: "missing_student_count" | "invalid_totals";
+  type: "missing_student_count" | "invalid_totals" | "interval_error";
   details?: {
     total_students: number;
     morning_total: number;

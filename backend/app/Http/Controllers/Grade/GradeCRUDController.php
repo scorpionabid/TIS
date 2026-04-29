@@ -227,7 +227,7 @@ class GradeCRUDController extends Controller
                 ->where('academic_year_id', $academicYearId);
                 
             if ($name) $query->where('name', $name);
-            if ($level) $query->where('class_level', $level);
+            if ($level !== null) $query->where('class_level', $level);
             if ($excludeId) $query->where('id', '!=', $excludeId);
             
             if ($query->exists()) return true;

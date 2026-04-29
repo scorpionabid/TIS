@@ -10,6 +10,7 @@ import {
   AttendanceFormData,
   AttendanceSession,
   DirtySessionsState,
+  DirtyClassesState,
   SaveMutationVariables,
   ServerErrorMap,
   SaveResultState,
@@ -29,7 +30,7 @@ const getDraftStorageKey = (date: string) =>
 interface AttendanceDraftPayload {
   updatedAt: string;
   data: AttendanceFormData;
-  dirty: DirtySessionsState;
+  dirtyClasses: DirtyClassesState;
 }
 
 const useBulkAttendanceEntry = () => {
@@ -41,10 +42,8 @@ const useBulkAttendanceEntry = () => {
   const [attendanceData, setAttendanceData] = useState<AttendanceFormData>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverErrors, setServerErrors] = useState<ServerErrorMap>({});
-  const [dirtySessions, setDirtySessions] = useState<DirtySessionsState>({
-    morning: false,
-    evening: false,
-  });
+  // Per-class dirty tracking
+  const [dirtyClasses, setDirtyClasses] = useState<DirtyClassesState>({});
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [lastSaveResult, setLastSaveResult] = useState<SaveResultState>({
@@ -75,6 +74,12 @@ const useBulkAttendanceEntry = () => {
         Boolean(cls.name)
     );
   }, [classesQuery.data]);
+
+  // Derive global dirty state from per-class state (for UI indicators)
+  const dirtySessions: DirtySessionsState = useMemo(() => ({
+    morning: Object.values(dirtyClasses).some((c) => c.morning),
+    evening: Object.values(dirtyClasses).some((c) => c.evening),
+  }), [dirtyClasses]);
 
   const saveAttendanceMutation = useMutation<
     BulkAttendanceSaveResponse,
@@ -144,21 +149,50 @@ const useBulkAttendanceEntry = () => {
       }, {} as ServerErrorMap);
 
       setServerErrors(errorMap);
+
+      // Build save result with shift breakdown
+      const savedIds = new Set((payloadData?.saved || []).map((s) => s.grade_id));
+      const shift1Count = classes.filter(
+        (c) => savedIds.has(c.id) && normalizeShift(c.teaching_shift) === 1
+      ).length;
+      const shift2Count = classes.filter(
+        (c) => savedIds.has(c.id) && normalizeShift(c.teaching_shift) === 2
+      ).length;
+      const otherCount = (payloadData?.saved?.length ?? 0) - shift1Count - shift2Count;
+
+      const parts: string[] = [];
+      if (shift1Count > 0) parts.push(`1 növbə: ${shift1Count}`);
+      if (shift2Count > 0) parts.push(`2 növbə: ${shift2Count}`);
+      if (otherCount > 0) parts.push(`digər: ${otherCount}`);
+
+      const breakdown = parts.length ? ` (${parts.join(' · ')})` : '';
+      const savedTotal = payloadData?.saved?.length ?? 0;
+
       setLastSaveResult({
         status: "success",
         message:
           status === "completed"
-            ? "Davamiyyət saxlanıldı"
-            : "Qismən saxlanılma tamamlandı",
+            ? `${savedTotal} sinif saxlanıldı${breakdown}`
+            : `Qismən saxlanıldı${breakdown}`,
         timestamp: new Date().toISOString(),
         mode: variables.isAutoSave ? "auto" : "manual",
         session: variables.session,
       });
 
-      setDirtySessions((prev) => ({
-        ...prev,
-        [variables.session]: false,
-      }));
+      // Clear dirty state for successfully saved classes
+      const successIds = new Set((payloadData?.saved || []).map((s) => s.grade_id));
+      setDirtyClasses((prev) => {
+        const next = { ...prev };
+        successIds.forEach((id) => {
+          if (next[id]) {
+            next[id] = { ...next[id], [variables.session]: false };
+            if (!next[id].morning && !next[id].evening) {
+              delete next[id];
+            }
+          }
+        });
+        return next;
+      });
 
       if (variables.isAutoSave && pendingSessionRef.current) {
         setActiveSession(pendingSessionRef.current);
@@ -205,7 +239,7 @@ const useBulkAttendanceEntry = () => {
   useEffect(() => {
     if (!classes.length) {
       setAttendanceData({});
-      setDirtySessions({ morning: false, evening: false });
+      setDirtyClasses({});
       setErrors({});
       setServerErrors({});
       return;
@@ -232,10 +266,7 @@ const useBulkAttendanceEntry = () => {
       };
     });
 
-    let dirtyState: DirtySessionsState = {
-      morning: false,
-      evening: false,
-    };
+    let newDirtyClasses: DirtyClassesState = {};
     let restoredDraft = false;
 
     if (hasWindow) {
@@ -250,10 +281,7 @@ const useBulkAttendanceEntry = () => {
 
             Object.entries(parsed.data).forEach(([gradeId, entry]) => {
               if (validClassIds.has(String(gradeId))) {
-                merged[gradeId] = {
-                  ...merged[gradeId],
-                  ...entry,
-                };
+                merged[gradeId] = { ...merged[gradeId], ...entry };
               } else {
                 draftPruned = true;
               }
@@ -263,21 +291,25 @@ const useBulkAttendanceEntry = () => {
               const filteredDraftEntries = Object.entries(parsed.data).filter(
                 ([gradeId]) => validClassIds.has(String(gradeId))
               );
-              const filteredDraft = Object.fromEntries(filteredDraftEntries);
               window.localStorage.setItem(
                 storageKey,
                 JSON.stringify({
                   ...parsed,
-                  data: filteredDraft,
+                  data: Object.fromEntries(filteredDraftEntries),
                 })
               );
             }
 
             initialData = merged;
-            dirtyState = parsed.dirty ?? {
-              morning: true,
-              evening: true,
-            };
+
+            // Restore per-class dirty state (filter to valid classes only)
+            if (parsed.dirtyClasses) {
+              Object.entries(parsed.dirtyClasses).forEach(([gradeId, state]) => {
+                if (validClassIds.has(String(gradeId))) {
+                  newDirtyClasses[Number(gradeId)] = state;
+                }
+              });
+            }
             restoredDraft = true;
           }
         } catch (draftError) {
@@ -288,7 +320,7 @@ const useBulkAttendanceEntry = () => {
     }
 
     setAttendanceData(initialData);
-    setDirtySessions(dirtyState);
+    setDirtyClasses(newDirtyClasses);
     setErrors({});
     setServerErrors({});
 
@@ -300,9 +332,7 @@ const useBulkAttendanceEntry = () => {
   useEffect(() => {
     if (!hasWindow) return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!dirtySessions.morning && !dirtySessions.evening) {
-        return;
-      }
+      if (!dirtySessions.morning && !dirtySessions.evening) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -322,10 +352,9 @@ const useBulkAttendanceEntry = () => {
     classTotalsRef.current = totals;
   }, [classes]);
 
+  // Persist draft with per-class dirty state
   useEffect(() => {
-    if (!hasWindow) {
-      return;
-    }
+    if (!hasWindow) return;
 
     const storageKey = getDraftStorageKey(selectedDate);
 
@@ -337,11 +366,11 @@ const useBulkAttendanceEntry = () => {
     const draftPayload: AttendanceDraftPayload = {
       updatedAt: new Date().toISOString(),
       data: attendanceData,
-      dirty: dirtySessions,
+      dirtyClasses,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(draftPayload));
-  }, [attendanceData, dirtySessions, selectedDate, hasWindow]);
+  }, [attendanceData, dirtyClasses, selectedDate, hasWindow, dirtySessions]);
 
   const prepareSessionPayload = (session: AttendanceSession) => {
     if (!classes.length) {
@@ -356,18 +385,22 @@ const useBulkAttendanceEntry = () => {
       return null;
     }
 
-    const isValid = validateSession(session);
+    // Check if any classes are dirty for this session
+    const dirtyCount = classes.filter((c) => dirtyClasses[c.id]?.[session]).length;
+    if (dirtyCount === 0) {
+      const sessionLabel = session === "morning" ? "İlk dərs" : "Son dərs";
+      toast.info(`${sessionLabel} üçün dəyişiklik yoxdur`);
+      return null;
+    }
 
+    const isValid = validateSession(session);
     if (!isValid) {
-      console.warn("[BulkAttendance] Save aborted: validation failed", {
-        session,
-      });
+      console.warn("[BulkAttendance] Save aborted: validation failed", { session });
       toast.error("Zəhmət olmasa bütün xətaları düzəldin");
       return null;
     }
 
     const payload = buildPayload(session);
-
     if (!payload) {
       console.error("[BulkAttendance] Save aborted: payload build returned null");
       toast.error("Davamiyyət məlumatı hazırlanarkən səhv baş verdi");
@@ -378,28 +411,20 @@ const useBulkAttendanceEntry = () => {
   };
 
   const validateSession = (session: AttendanceSession): boolean => {
-    if (!classes.length) {
-      return false;
-    }
-
-    return validateSessionAttendance(
-      attendanceData,
-      classes,
-      session,
-      setErrors
-    );
+    if (!classes.length) return false;
+    // Validate only dirty classes — non-dirty classes are not sent and must not block the save
+    const dirtyClassList = classes.filter((c) => dirtyClasses[c.id]?.[session]);
+    return validateSessionAttendance(attendanceData, dirtyClassList, session, setErrors);
   };
 
   const buildPayload = (session: AttendanceSession) => {
-    if (!classes.length || !academicYearId) {
-      return null;
-    }
-
+    if (!classes.length || !academicYearId) return null;
     return buildSessionPayload(session, {
       classes,
       academicYearId,
       selectedDate,
       attendanceData,
+      dirtyClasses,
     });
   };
 
@@ -429,26 +454,8 @@ const useBulkAttendanceEntry = () => {
       ? sanitizeNumericValue(value)
       : String(value ?? "");
 
-    if (import.meta.env.DEV) {
-      console.log("[BulkAttendance] updateAttendance called", {
-        gradeId,
-        field,
-        value: sanitizedValue,
-      });
-    }
+    if (String(field).endsWith("_present")) return;
 
-    if (String(field).endsWith("_present")) {
-      // "Dərsdə" sahəsi yalnız törəmə qiymətdir, manual dəyişiklikləri qəbul etmirik
-      if (import.meta.env.DEV) {
-        console.log("[BulkAttendance] present field mutation blocked", {
-          gradeId,
-          field,
-        });
-      }
-      return;
-    }
-
-    // Calculate session info outside setAttendanceData
     const sessionPrefix = field.startsWith("morning")
       ? "morning"
       : field.startsWith("evening")
@@ -462,23 +469,15 @@ const useBulkAttendanceEntry = () => {
 
     setAttendanceData((prev) => {
       const defaultEntry = {
-        morning_present: 0,
-        morning_excused: 0,
-        morning_unexcused: 0,
-        evening_present: 0,
-        evening_excused: 0,
-        evening_unexcused: 0,
-        uniform_violation: 0,
-        morning_notes: "",
-        evening_notes: "",
+        morning_present: 0, morning_excused: 0, morning_unexcused: 0,
+        evening_present: 0, evening_excused: 0, evening_unexcused: 0,
+        uniform_violation: 0, morning_notes: "", evening_notes: "",
       };
 
-      const prevEntry = (prev[gradeId] ??
-        defaultEntry) as AttendanceFormData[string];
+      const prevEntry = (prev[gradeId] ?? defaultEntry) as AttendanceFormData[string];
       const nextEntry: AttendanceFormData[string] = { ...prevEntry };
 
       const ensureNumber = (input: unknown) => {
-        // Handle NaN, null, undefined
         if (input === null || input === undefined) return 0;
         if (typeof input === "number") {
           if (Number.isNaN(input) || !Number.isFinite(input)) return 0;
@@ -488,12 +487,7 @@ const useBulkAttendanceEntry = () => {
         return Number.isNaN(parsed) ? 0 : parsed;
       };
 
-      if (
-        isPresentField ||
-        isExcusedField ||
-        isUnexcusedField ||
-        isUniformViolationField
-      ) {
+      if (isPresentField || isExcusedField || isUnexcusedField || isUniformViolationField) {
         nextEntry[field as AttendanceNumericField] = ensureNumber(sanitizedValue);
       } else {
         nextEntry[field as AttendanceNoteField] = String(sanitizedValue ?? "");
@@ -502,25 +496,14 @@ const useBulkAttendanceEntry = () => {
       if (sessionPrefix && (isExcusedField || isUnexcusedField)) {
         const presentKey = `${sessionPrefix}_present` as AttendanceNumericField;
         const excusedKey = `${sessionPrefix}_excused` as AttendanceNumericField;
-        const unexcusedKey =
-          `${sessionPrefix}_unexcused` as AttendanceNumericField;
+        const unexcusedKey = `${sessionPrefix}_unexcused` as AttendanceNumericField;
 
-        const totalStudents =
-          classTotalsRef.current.get(Number(gradeId)) ?? 0;
-
+        const totalStudents = classTotalsRef.current.get(Number(gradeId)) ?? 0;
         const clamp = (val: number, min: number, max: number) =>
           Math.min(Math.max(val, min), max);
 
-        let excused = clamp(
-          ensureNumber(nextEntry[excusedKey]),
-          0,
-          totalStudents
-        );
-        let unexcused = clamp(
-          ensureNumber(nextEntry[unexcusedKey]),
-          0,
-          totalStudents
-        );
+        let excused = clamp(ensureNumber(nextEntry[excusedKey]), 0, totalStudents);
+        let unexcused = clamp(ensureNumber(nextEntry[unexcusedKey]), 0, totalStudents);
 
         if (excused + unexcused > totalStudents) {
           if (isExcusedField) {
@@ -530,44 +513,25 @@ const useBulkAttendanceEntry = () => {
           }
         }
 
-        const present = Math.max(0, totalStudents - (excused + unexcused));
-
         nextEntry[excusedKey] = excused;
         nextEntry[unexcusedKey] = unexcused;
-        nextEntry[presentKey] = present;
-
-        if (import.meta.env.DEV) {
-          console.log("[BulkAttendance] Updated counts", {
-            gradeId,
-            session: sessionPrefix,
-            totalStudents,
-            excused,
-            unexcused,
-            present,
-          });
-        }
+        nextEntry[presentKey] = Math.max(0, totalStudents - (excused + unexcused));
       }
 
-      return {
-        ...prev,
-        [gradeId]: nextEntry,
-      };
+      return { ...prev, [gradeId]: nextEntry };
     });
 
+    // Mark this specific class as dirty for the appropriate session
     const session = sessionPrefix || (isUniformViolationField ? activeSession : null);
-
     if (session) {
-      setDirtySessions((prev) => ({
+      setDirtyClasses((prev) => ({
         ...prev,
-        [session]: true,
+        [gradeId]: { ...(prev[gradeId] ?? { morning: false, evening: false }), [session]: true },
       }));
     }
 
     setServerErrors((prev) => {
-      if (!prev[gradeId]) {
-        return prev;
-      }
-
+      if (!prev[gradeId]) return prev;
       const next = { ...prev };
       delete next[gradeId];
       return next;
@@ -575,9 +539,7 @@ const useBulkAttendanceEntry = () => {
   };
 
   const handleSessionChange = (nextSession: AttendanceSession) => {
-    if (nextSession === activeSession) {
-      return;
-    }
+    if (nextSession === activeSession) return;
 
     if (saveAttendanceMutation.isPending) {
       if (autoSaveModeRef.current === "auto") {
@@ -591,7 +553,12 @@ const useBulkAttendanceEntry = () => {
     if (dirtySessions[activeSession]) {
       const payload = prepareSessionPayload(activeSession);
       if (!payload) {
-        toast.error("Sessiya dəyişmədən əvvəl xətaları düzəldin");
+        // prepareSessionPayload returns null either because there are no dirty
+        // classes OR because validation failed. Only switch tabs in the first case.
+        const hasDirtyForSession = Object.values(dirtyClasses).some((c) => c[activeSession]);
+        if (!hasDirtyForSession) {
+          setActiveSession(nextSession);
+        }
         return;
       }
 
@@ -607,9 +574,7 @@ const useBulkAttendanceEntry = () => {
     setActiveSession(nextSession);
   };
 
-  const handleSaveSession = (
-    sessionOverride?: AttendanceSession
-  ) => {
+  const handleSaveSession = (sessionOverride?: AttendanceSession) => {
     const sessionToSave = sessionOverride ?? activeSession;
     if (import.meta.env.DEV) {
       console.log("[BulkAttendance] handleSaveSession fired", {
@@ -617,36 +582,24 @@ const useBulkAttendanceEntry = () => {
         sessionToSave,
         classesCount: classes.length,
         academicYearId,
-        dirtySessions,
+        dirtyCount: Object.values(dirtyClasses).filter((c) => c[sessionToSave]).length,
       });
     }
 
     const payload = prepareSessionPayload(sessionToSave);
-    if (!payload) {
-      return;
-    }
+    if (!payload) return;
 
     saveAttendanceMutation.mutate({
       payload,
       session: sessionToSave,
       isAutoSave: false,
     });
-
-    if (import.meta.env.DEV) {
-      console.log("[BulkAttendance] Save mutation dispatched", {
-        session: sessionToSave,
-        classPayloadCount: payload.classes.length,
-      });
-    }
   };
 
   const handleExportData = async () => {
     try {
       setIsExporting(true);
-      const blob = await bulkAttendanceService.exportCsv(
-        selectedDate,
-        selectedDate
-      );
+      const blob = await bulkAttendanceService.exportCsv(selectedDate, selectedDate);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -664,101 +617,84 @@ const useBulkAttendanceEntry = () => {
     }
   };
 
+  // Mark all classes of a specific shift as dirty for a session
   const handleMarkAllPresent = (
-    sessionOverride?: AttendanceSession
+    sessionOverride?: AttendanceSession,
+    shiftFilter?: "1" | "2" | "all"
   ) => {
-    if (!classes.length) {
+    if (!classes.length) return;
+
+    const targetSession = sessionOverride ?? activeSession;
+    const shift = shiftFilter ?? "all";
+
+    const targetClasses = shift === "all"
+      ? classes
+      : classes.filter((cls) => normalizeShift(cls.teaching_shift) === Number(shift));
+
+    if (!targetClasses.length) {
+      toast.info("Bu növbədə sinif tapılmadı");
       return;
     }
 
-    const targetSession = sessionOverride ?? activeSession;
     const newData = { ...attendanceData };
-    classes.forEach((cls) => {
+    const newDirty = { ...dirtyClasses };
+
+    targetClasses.forEach((cls) => {
       if (cls.total_students > 0) {
         const previous = newData[cls.id] || {
-          morning_present: 0,
-          morning_excused: 0,
-          morning_unexcused: 0,
-          evening_present: 0,
-          evening_excused: 0,
-          evening_unexcused: 0,
-          uniform_violation: 0,
-          morning_notes: "",
-          evening_notes: "",
+          morning_present: 0, morning_excused: 0, morning_unexcused: 0,
+          evening_present: 0, evening_excused: 0, evening_unexcused: 0,
+          uniform_violation: 0, morning_notes: "", evening_notes: "",
         };
-
         newData[cls.id] = {
           ...previous,
           [`${targetSession}_present`]: cls.total_students,
           [`${targetSession}_excused`]: 0,
           [`${targetSession}_unexcused`]: 0,
         };
+        newDirty[cls.id] = {
+          ...(newDirty[cls.id] ?? { morning: false, evening: false }),
+          [targetSession]: true,
+        };
       }
     });
 
     setAttendanceData(newData);
-    setDirtySessions((prev) => ({
-      ...prev,
-      [targetSession]: true,
-    }));
+    setDirtyClasses(newDirty);
     setServerErrors((prev) => {
-      if (!Object.keys(prev).length) {
-        return prev;
-      }
+      if (!Object.keys(prev).length) return prev;
       const next = { ...prev };
-      classes.forEach((cls) => {
-        if (next[cls.id]) {
-          delete next[cls.id];
-        }
-      });
+      targetClasses.forEach((cls) => { delete next[cls.id]; });
       return next;
     });
 
-    const sessionLabel =
-      targetSession === "morning" ? "İlk dərs" : "Son dərs";
-    toast.success(
-      `Bütün siniflər "${sessionLabel}" üçün dərsdə olan kimi işarələndi`
-    );
+    const sessionLabel = targetSession === "morning" ? "İlk dərs" : "Son dərs";
+    const shiftLabel = shift === "all" ? "Bütün siniflər" : `${shift} növbə sinifləri`;
+    toast.success(`${shiftLabel} "${sessionLabel}" üçün dərsdə işarələndi`);
   };
 
   const getAttendanceRate = (present: number, total: number): number =>
     bulkAttendanceService.calculateAttendanceRate(present, total);
 
   const saveDirtySessions = async (): Promise<boolean> => {
-    const sessionsToSave: AttendanceSession[] = [];
-    if (dirtySessions.morning) {
-      sessionsToSave.push("morning");
-    }
-    if (dirtySessions.evening) {
-      sessionsToSave.push("evening");
-    }
+    const sessions: AttendanceSession[] = [];
+    if (dirtySessions.morning) sessions.push("morning");
+    if (dirtySessions.evening) sessions.push("evening");
 
-    if (!sessionsToSave.length) {
-      return true;
-    }
-
+    if (!sessions.length) return true;
     if (saveAttendanceMutation.isPending) {
       toast.info("Davamiyyət saxlanılır, zəhmət olmasa gözləyin");
       return false;
     }
 
-    for (const session of sessionsToSave) {
+    for (const session of sessions) {
       const payload = prepareSessionPayload(session);
-      if (!payload) {
-        return false;
-      }
+      if (!payload) continue; // No dirty classes for this session — skip
 
       try {
-        await saveAttendanceMutation.mutateAsync({
-          payload,
-          session,
-          isAutoSave: true,
-        });
+        await saveAttendanceMutation.mutateAsync({ payload, session, isAutoSave: true });
       } catch (mutationError) {
-        console.error("[BulkAttendance] Dirty session save failed", {
-          session,
-          mutationError,
-        });
+        console.error("[BulkAttendance] Dirty session save failed", { session, mutationError });
         return false;
       }
     }
@@ -779,6 +715,7 @@ const useBulkAttendanceEntry = () => {
       serverErrors,
       lastSaveResult,
       dirtySessions,
+      dirtyClasses,
       isAutoSaving,
       isExporting,
       classes,
@@ -787,19 +724,9 @@ const useBulkAttendanceEntry = () => {
       error,
     }),
     [
-      selectedDate,
-      activeSession,
-      attendanceData,
-      errors,
-      serverErrors,
-      lastSaveResult,
-      dirtySessions,
-      isAutoSaving,
-      isExporting,
-      classes,
-      classesData,
-      isLoading,
-      error,
+      selectedDate, activeSession, attendanceData, errors, serverErrors,
+      lastSaveResult, dirtySessions, dirtyClasses, isAutoSaving, isExporting,
+      classes, classesData, isLoading, error,
     ]
   );
 
@@ -821,6 +748,13 @@ const useBulkAttendanceEntry = () => {
     saveAttendanceMutation,
     queryClient,
   };
+};
+
+// Returns shift number (1, 2, 3) from teaching_shift string, or 0 if unknown
+export const normalizeShift = (shift?: string | null): number => {
+  if (!shift) return 0;
+  const m = shift.match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
 };
 
 export default useBulkAttendanceEntry;

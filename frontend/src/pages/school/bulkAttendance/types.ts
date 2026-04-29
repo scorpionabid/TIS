@@ -42,6 +42,9 @@ export interface DirtySessionsState {
   evening: boolean;
 }
 
+// Per-class dirty tracking: which gradeIds have unsaved changes per session
+export type DirtyClassesState = Record<number, { morning: boolean; evening: boolean }>;
+
 export type SaveResultState = {
   status: "idle" | "saving" | "success" | "error";
   message?: string;

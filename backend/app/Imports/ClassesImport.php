@@ -780,6 +780,8 @@ class ClassesImport implements ToModel, WithChunkReading, WithHeadingRow, WithVa
 
     /**
      * Normalize shift / "Növbə" column.
+     * Accepts: "1 növbə", "I növbə", "II növbə", "Fərdi", etc.
+     * Always returns: "1 növbə", "2 növbə", "3 növbə", "Fərdi", or null.
      */
     protected function normalizeTeachingShift(?string $value): ?string
     {
@@ -789,8 +791,23 @@ class ClassesImport implements ToModel, WithChunkReading, WithHeadingRow, WithVa
         }
 
         $clean = Str::lower($value);
+
+        // Arabic digit: "1 növbə", "2növbə", "1-ci növbə", etc.
         if (preg_match('/(\d+)/', $clean, $matches)) {
-            return trim($matches[1] . ' növbə');
+            return $matches[1] . ' növbə';
+        }
+
+        // Roman numeral: "I növbə", "II növbə", "III növbə"
+        $romanMap = ['iii' => 3, 'ii' => 2, 'i' => 1];
+        foreach ($romanMap as $roman => $digit) {
+            if (preg_match('/^' . $roman . '\b/u', $clean)) {
+                return $digit . ' növbə';
+            }
+        }
+
+        // "Fərdi" / "ferdi"
+        if (preg_match('/f[eə]rdi/u', $clean)) {
+            return 'Fərdi';
         }
 
         return Str::title($clean);

@@ -13,19 +13,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { StickyNote, Minus, Plus, AlertCircle, CheckCircle } from 'lucide-react';
+import { StickyNote, Minus, Plus, AlertCircle, CheckCircle, Clock, Lock } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ClassWithAttendance } from '@/services/bulkAttendance';
 import {
   AttendanceFormData,
   AttendanceSession,
+  DirtyClassesState,
   ServerErrorMap,
 } from '../types';
 
 interface ModernTableViewProps {
   session: AttendanceSession;
+  selectedDate: string;
   classes: ClassWithAttendance[];
   attendanceData: AttendanceFormData;
+  dirtyClasses: DirtyClassesState;
   updateAttendance: (
     gradeId: number,
     field: keyof AttendanceFormData[string],
@@ -36,22 +39,42 @@ interface ModernTableViewProps {
   getAttendanceRate: (present: number, total: number) => number;
 }
 
+const toSafeNumber = (value: unknown): number => {
+  if (value === undefined || value === null) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatTime = (isoStr: string): string => {
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+};
+
+// Returns shift label for badge display
+const getShiftBadge = (shift?: string | null): string | null => {
+  if (!shift) return null;
+  const m = shift.match(/(\d+)/);
+  if (!m) return null;
+  return `${m[1]}N`;
+};
+
 const ModernTableView: React.FC<ModernTableViewProps> = ({
   session,
+  selectedDate,
   classes,
   attendanceData,
+  dirtyClasses,
   updateAttendance,
   errors,
   serverErrors = {},
   getAttendanceRate,
 }) => {
   const [notePopoverOpen, setNotePopoverOpen] = useState<number | null>(null);
-
-  const toSafeNumber = (value: unknown): number => {
-    if (value === undefined || value === null) return 0;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
+  const now = useMemo(() => new Date(), []);
 
   const summary = useMemo(() => {
     return classes.reduce(
@@ -64,20 +87,11 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
         const eveningExcused = toSafeNumber(data.evening_excused);
         const eveningUnexcused = toSafeNumber(data.evening_unexcused);
 
-        const morningPresent = Math.max(
-          0,
-          cls.total_students - (morningExcused + morningUnexcused)
-        );
-        const eveningPresent = Math.max(
-          0,
-          cls.total_students - (eveningExcused + eveningUnexcused)
-        );
-        const sessionExcused =
-          session === 'morning' ? morningExcused : eveningExcused;
-        const sessionUnexcused =
-          session === 'morning' ? morningUnexcused : eveningUnexcused;
-        const sessionPresent =
-          session === 'morning' ? morningPresent : eveningPresent;
+        const morningPresent = Math.max(0, cls.total_students - (morningExcused + morningUnexcused));
+        const eveningPresent = Math.max(0, cls.total_students - (eveningExcused + eveningUnexcused));
+        const sessionExcused = session === 'morning' ? morningExcused : eveningExcused;
+        const sessionUnexcused = session === 'morning' ? morningUnexcused : eveningUnexcused;
+        const sessionPresent = session === 'morning' ? morningPresent : eveningPresent;
 
         acc.totalStudents += cls.total_students;
         acc.totalPresent += sessionPresent;
@@ -92,13 +106,8 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
         return acc;
       },
       {
-        totalStudents: 0,
-        totalPresent: 0,
-        totalExcused: 0,
-        totalUnexcused: 0,
-        classesCompleted: 0,
-        totalStudentSessions: 0,
-        totalPresentSessions: 0,
+        totalStudents: 0, totalPresent: 0, totalExcused: 0, totalUnexcused: 0,
+        classesCompleted: 0, totalStudentSessions: 0, totalPresentSessions: 0,
         totalUniformViolation: 0,
       }
     );
@@ -119,10 +128,13 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
       ? Math.round((summary.totalPresentSessions / summary.totalStudentSessions) * 100)
       : 0;
 
+  // Suppress unused warnings — these are used by parent via props drilling pattern
+  void sessionRate; void uniformComplianceRate; void overallDailyRate;
+
   const getGradeBadgeStyle = (level: number) => {
-    if (level <= 4) return 'bg-gradient-to-br from-[#43a047] to-[#66bb6a]'; // A - green
-    if (level <= 9) return 'bg-gradient-to-br from-[#1e88e5] to-[#42a5f5]'; // B - blue
-    return 'bg-gradient-to-br from-[#7c4dff] to-[#b388ff]'; // C - purple
+    if (level <= 4) return 'bg-gradient-to-br from-[#43a047] to-[#66bb6a]';
+    if (level <= 9) return 'bg-gradient-to-br from-[#1e88e5] to-[#42a5f5]';
+    return 'bg-gradient-to-br from-[#7c4dff] to-[#b388ff]';
   };
 
   const NumberControl: React.FC<{
@@ -159,7 +171,6 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Table Card */}
       <div className="bg-white rounded-b-2xl rounded-tr-2xl shadow-[0_4px_24px_rgba(0,0,0,0.07)] overflow-x-auto">
         <Table className="w-full table-fixed min-w-[1100px]">
           <TableHeader>
@@ -174,21 +185,17 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
               <TableHead className="w-24 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">👔 Forma</TableHead>
               <TableHead className="w-[140px] py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Davamiyyət</TableHead>
               <TableHead className="w-16 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Qeyd</TableHead>
-              <TableHead className="w-16 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Status</TableHead>
+              <TableHead className="w-20 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {classes.map((cls, index) => {
               const data = attendanceData[cls.id] ?? {
                 morning_present: cls.total_students,
-                morning_excused: 0,
-                morning_unexcused: 0,
+                morning_excused: 0, morning_unexcused: 0,
                 evening_present: cls.total_students,
-                evening_excused: 0,
-                evening_unexcused: 0,
-                uniform_violation: 0,
-                morning_notes: "",
-                evening_notes: "",
+                evening_excused: 0, evening_unexcused: 0,
+                uniform_violation: 0, morning_notes: "", evening_notes: "",
               };
 
               const excused = toSafeNumber(data[`${session}_excused`]);
@@ -201,25 +208,83 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
               const hasError = errors[`${cls.id}_${session}`];
               const serverError = serverErrors[cls.id];
               const rowHasError = Boolean(hasError || serverError);
-              const isRecorded = cls.attendance?.[`${session}_recorded_at`];
               const hasStudentCount = cls.total_students > 0;
               const isMismatch = hasStudentCount && sessionTotal !== cls.total_students;
 
-              const statusColor = !hasStudentCount
-                ? 'text-yellow-500'
-                : rowHasError
-                ? 'text-red-500'
-                : isMismatch
-                ? 'text-orange-500'
-                : isRecorded
-                ? 'text-green-500'
-                : 'text-gray-400';
+              const recordedAt = cls.attendance?.[`${session}_recorded_at`];
+              const isRecorded = Boolean(recordedAt);
+              const isDirty = Boolean(dirtyClasses[cls.id]?.[session]);
+
+              // Per-class 3-hour lock: only applies to evening session on today's date
+              const isToday = selectedDate === new Date().toISOString().split('T')[0];
+              const morningRecordedAt = cls.attendance?.morning_recorded_at;
+              let isEveningLocked = false;
+              let lockUntil = '';
+              if (session === 'evening' && morningRecordedAt && isToday) {
+                const allowedAt = new Date(new Date(morningRecordedAt).getTime() + 3 * 60 * 60 * 1000);
+                if (now < allowedAt) {
+                  isEveningLocked = true;
+                  lockUntil = allowedAt.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' });
+                }
+              }
+
+              const shiftBadge = getShiftBadge(cls.teaching_shift);
+
+              // Status cell rendering
+              const renderStatus = () => {
+                if (!hasStudentCount) {
+                  return (
+                    <div className="flex flex-col items-center text-yellow-500">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-[10px] leading-tight">Say yox</span>
+                    </div>
+                  );
+                }
+                if (rowHasError) {
+                  return (
+                    <div className="flex flex-col items-center text-red-500">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-[10px] leading-tight">Xəta</span>
+                    </div>
+                  );
+                }
+                if (session === 'evening' && isEveningLocked) {
+                  return (
+                    <div className="flex flex-col items-center text-amber-500">
+                      <Lock className="h-4 w-4" />
+                      <span className="text-[10px] leading-tight">{lockUntil}</span>
+                    </div>
+                  );
+                }
+                if (isRecorded && !isDirty) {
+                  return (
+                    <div className="flex flex-col items-center text-green-500">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="text-[10px] leading-tight">{formatTime(recordedAt as string)}</span>
+                    </div>
+                  );
+                }
+                if (isDirty) {
+                  return (
+                    <div className="flex flex-col items-center text-yellow-500">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-[10px] leading-tight">Gözləyir</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-col items-center text-gray-300">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-[10px] leading-tight">—</span>
+                  </div>
+                );
+              };
 
               return (
                 <TableRow
                   key={cls.id}
                   className={`border-b border-[#f0f0f0] transition-colors hover:bg-[#f8f9ff] ${
-                    rowHasError ? 'bg-red-50' : isMismatch ? 'bg-orange-50' : ''
+                    rowHasError ? 'bg-red-50' : isMismatch ? 'bg-orange-50' : isDirty ? 'bg-yellow-50/40' : ''
                   }`}
                 >
                   <TableCell className="py-2.5 text-center font-bold text-gray-400">{index + 1}</TableCell>
@@ -233,7 +298,14 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
                     </span>
                   </TableCell>
                   <TableCell className="py-2.5 pr-3">
-                    <div className="font-bold text-[15px]">{cls.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[15px]">{cls.name}</span>
+                      {shiftBadge && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">
+                          {shiftBadge}
+                        </span>
+                      )}
+                    </div>
                     {cls.homeroom_teacher && (
                       <div className="text-xs text-gray-500">{cls.homeroom_teacher.name}</div>
                     )}
@@ -248,36 +320,24 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
                   <TableCell className="py-2.5 text-center">
                     <NumberControl
                       value={excused}
-                      onDecrease={() =>
-                        updateAttendance(cls.id, `${session}_excused`, Math.max(0, excused - 1))
-                      }
-                      onIncrease={() =>
-                        updateAttendance(cls.id, `${session}_excused`, excused + 1)
-                      }
-                      disabled={!hasStudentCount}
+                      onDecrease={() => updateAttendance(cls.id, `${session}_excused`, Math.max(0, excused - 1))}
+                      onIncrease={() => updateAttendance(cls.id, `${session}_excused`, excused + 1)}
+                      disabled={!hasStudentCount || (session === 'evening' && isEveningLocked)}
                     />
                   </TableCell>
                   <TableCell className="py-2.5 text-center">
                     <NumberControl
                       value={unexcused}
-                      onDecrease={() =>
-                        updateAttendance(cls.id, `${session}_unexcused`, Math.max(0, unexcused - 1))
-                      }
-                      onIncrease={() =>
-                        updateAttendance(cls.id, `${session}_unexcused`, unexcused + 1)
-                      }
-                      disabled={!hasStudentCount}
+                      onDecrease={() => updateAttendance(cls.id, `${session}_unexcused`, Math.max(0, unexcused - 1))}
+                      onIncrease={() => updateAttendance(cls.id, `${session}_unexcused`, unexcused + 1)}
+                      disabled={!hasStudentCount || (session === 'evening' && isEveningLocked)}
                     />
                   </TableCell>
                   <TableCell className="py-2.5 text-center">
                     <NumberControl
                       value={uniformViolation}
-                      onDecrease={() =>
-                        updateAttendance(cls.id, 'uniform_violation', Math.max(0, uniformViolation - 1))
-                      }
-                      onIncrease={() =>
-                        updateAttendance(cls.id, 'uniform_violation', uniformViolation + 1)
-                      }
+                      onDecrease={() => updateAttendance(cls.id, 'uniform_violation', Math.max(0, uniformViolation - 1))}
+                      onIncrease={() => updateAttendance(cls.id, 'uniform_violation', uniformViolation + 1)}
                       disabled={!hasStudentCount}
                       color="orange"
                     />
@@ -290,11 +350,7 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
                           style={{ width: `${attendanceRate}%` }}
                         />
                       </div>
-                      <span
-                        className={`text-xs font-bold ${
-                          attendanceRate === 100 ? 'text-[#43a047]' : 'text-[#e65100]'
-                        }`}
-                      >
+                      <span className={`text-xs font-bold ${attendanceRate === 100 ? 'text-[#43a047]' : 'text-[#e65100]'}`}>
                         {attendanceRate}%
                       </span>
                     </div>
@@ -318,9 +374,7 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
                           <h4 className="font-medium text-sm">Qeydlər - {cls.name}</h4>
                           <Textarea
                             value={data[`${session}_notes`]}
-                            onChange={(e) =>
-                              updateAttendance(cls.id, `${session}_notes`, e.target.value)
-                            }
+                            onChange={(e) => updateAttendance(cls.id, `${session}_notes`, e.target.value)}
                             placeholder={`${session === 'morning' ? 'İlk dərs' : 'Son dərs'} üçün qeydlər...`}
                             rows={3}
                             className="rounded-lg"
@@ -329,16 +383,8 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
                       </PopoverContent>
                     </Popover>
                   </TableCell>
-                  <TableCell className={`py-2.5 text-center ${statusColor}`}>
-                    {!hasStudentCount ? (
-                      <AlertCircle className="h-5 w-5 mx-auto" />
-                    ) : rowHasError ? (
-                      <AlertCircle className="h-5 w-5 mx-auto" />
-                    ) : isRecorded ? (
-                      <CheckCircle className="h-5 w-5 mx-auto" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 mx-auto opacity-50" />
-                    )}
+                  <TableCell className="py-2.5 text-center">
+                    {renderStatus()}
                   </TableCell>
                 </TableRow>
               );

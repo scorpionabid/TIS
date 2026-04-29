@@ -62,6 +62,7 @@ const BulkAttendanceEntry: React.FC = () => {
       isLoading,
       error,
       dirtySessions,
+      dirtyClasses,
     },
     saveAttendanceMutation,
     setSelectedDate,
@@ -83,14 +84,18 @@ const BulkAttendanceEntry: React.FC = () => {
   const hasDirtySessions = dirtySessions.morning || dirtySessions.evening;
   const totalFetchedClasses = classesData?.data.classes?.length ?? 0;
 
-  // Evening session lock: can only submit 3 hours after the latest morning_recorded_at (today only)
+  // Evening tab lock: based on the latest morning_recorded_at among 1 növbə classes only.
+  // 2 növbə classes have their own per-row lock in ModernTableView.
   const eveningLockInfo = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     if (selectedDate !== today) return { locked: false, allowedAt: null };
 
     let latestMorning: Date | null = null;
     for (const cls of classes) {
-      const mra = (cls.attendance as any)?.morning_recorded_at;
+      // Only check first-shift classes for the global tab lock
+      const shiftNum = (() => { const m = (cls.teaching_shift ?? '').match(/(\d+)/); return m ? parseInt(m[1], 10) : 0; })();
+      if (shiftNum !== 1 && shiftNum !== 0) continue; // skip 2 növbə
+      const mra = cls.attendance?.morning_recorded_at;
       if (mra) {
         const d = new Date(mra);
         if (!latestMorning || d > latestMorning) latestMorning = d;
@@ -275,7 +280,7 @@ const BulkAttendanceEntry: React.FC = () => {
 
     const modeLabel =
       lastSaveResult.mode === "auto" && lastSaveResult.status !== "saving"
-        ? " (Avtomatik)"
+        ? " · Avtomatik"
         : "";
     const sessionLabel =
       lastSaveResult.session === "morning"
@@ -289,27 +294,29 @@ const BulkAttendanceEntry: React.FC = () => {
     return (
       <div className={`flex items-center text-sm ${color}`}>
         <IconComponent
-          className={`h-4 w-4 mr-2 ${
+          className={`h-4 w-4 mr-2 flex-shrink-0 ${
             lastSaveResult.status === "saving" ? "animate-spin" : ""
           }`}
         />
-        <span>
+        <span className="leading-snug">
+          {sessionLabel && <strong>{sessionLabel}: </strong>}
           {lastSaveResult.message || "Status yeniləndi"}
           {timeLabel ? ` · ${timeLabel}` : ""}
           {modeLabel}
-          {sessionLabel ? ` · ${sessionLabel}` : ""}
         </span>
       </div>
     );
   };
 
   const renderDirtyIndicators = () => {
-    const activeBadges = [];
-    if (dirtySessions.morning) {
-      activeBadges.push("İlk dərs saxlanılmayıb");
+    const activeBadges: string[] = [];
+    const morningDirtyCount = Object.values(dirtyClasses).filter((c) => c.morning).length;
+    const eveningDirtyCount = Object.values(dirtyClasses).filter((c) => c.evening).length;
+    if (morningDirtyCount > 0) {
+      activeBadges.push(`İlk dərs saxlanılmayıb (${morningDirtyCount} sinif)`);
     }
-    if (dirtySessions.evening) {
-      activeBadges.push("Son dərs saxlanılmayıb");
+    if (eveningDirtyCount > 0) {
+      activeBadges.push(`Son dərs saxlanılmayıb (${eveningDirtyCount} sinif)`);
     }
 
     if (!activeBadges.length) {
@@ -365,14 +372,24 @@ const BulkAttendanceEntry: React.FC = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
                     <DropdownMenuItem
-                      onClick={() => handleMarkAllPresent("morning")}
+                      onClick={() => handleMarkAllPresent("morning", "1")}
                     >
-                      İlk dərs üçün işarələ
+                      İlk dərs — 1 növbə sinifləri
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => handleMarkAllPresent("evening")}
+                      onClick={() => handleMarkAllPresent("morning", "2")}
                     >
-                      Son dərs üçün işarələ
+                      İlk dərs — 2 növbə sinifləri
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAllPresent("evening", "1")}
+                    >
+                      Son dərs — 1 növbə sinifləri
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAllPresent("evening", "2")}
+                    >
+                      Son dərs — 2 növbə sinifləri
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -439,8 +456,10 @@ const BulkAttendanceEntry: React.FC = () => {
       {isDesktop ? (
         <ModernTableView
           session={activeSession}
+          selectedDate={selectedDate}
           classes={classes}
           attendanceData={attendanceData}
+          dirtyClasses={dirtyClasses}
           updateAttendance={updateAttendance}
           errors={errors}
           serverErrors={serverErrors}
@@ -451,6 +470,7 @@ const BulkAttendanceEntry: React.FC = () => {
           session={activeSession}
           classes={classes}
           attendanceData={attendanceData}
+          dirtyClasses={dirtyClasses}
           updateAttendance={updateAttendance}
           errors={errors}
           serverErrors={serverErrors}
