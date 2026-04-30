@@ -25,6 +25,14 @@ const defaultAttendance = {
   evening_notes: "",
 };
 
+// Azerbaijan is UTC+4, no DST
+const getBakuHour = (): number => (new Date().getUTCHours() + 4) % 24;
+
+const getShiftNumber = (shift?: string | null): number => {
+  const m = (shift ?? "").match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
+};
+
 export const buildSessionPayload = (
   session: AttendanceSession,
   { classes, academicYearId, selectedDate, attendanceData, dirtyClasses }: BuildPayloadParams
@@ -33,9 +41,15 @@ export const buildSessionPayload = (
     return null;
   }
 
+  const bakuHour = getBakuHour();
+
   // Include dirty classes + unrecorded classes with students (auto-include for 100% present)
   const recordedAtKey = session === "morning" ? "morning_recorded_at" : "evening_recorded_at";
   const includedList = classes.filter((cls) => {
+    // 2nd shift morning sessions are blocked before 12:00 Baku time
+    if (session === "morning" && bakuHour < 12 && getShiftNumber(cls.teaching_shift) === 2) {
+      return false;
+    }
     if (dirtyClasses[cls.id]?.[session]) return true;
     return cls.total_students > 0 && !cls.attendance?.[recordedAtKey];
   });

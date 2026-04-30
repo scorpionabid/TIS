@@ -59,6 +59,23 @@ class BulkAttendanceService
             $session = $classData['session'];
             $now = now();
 
+            // 2nd shift: morning session blocked before 12:00 Baku time
+            if ($isToday && $session === 'morning') {
+                $shiftNum = (int) preg_replace('/\D/', '', $grade->teaching_shift ?? '');
+                if ($shiftNum === 2) {
+                    $bakuHour = (int) $now->copy()->setTimezone('Asia/Baku')->format('H');
+                    if ($bakuHour < 12) {
+                        $failedRecords[] = [
+                            'grade_id' => $grade->id,
+                            'grade_name' => $grade->name,
+                            'reason' => '2-ci növbə sinifləri üçün ilk dərs davamiyyəti saat 12:00-dan sonra qeyd edilə bilər.',
+                            'type' => 'interval_error',
+                        ];
+                        continue;
+                    }
+                }
+            }
+
             // 3-hour interval validation for current day
             if ($isToday) {
                 if ($session === 'both') {

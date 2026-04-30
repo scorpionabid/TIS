@@ -387,11 +387,25 @@ const useBulkAttendanceEntry = () => {
 
     // Include dirty classes + unrecorded classes with students
     const recordedAtKey = session === "morning" ? "morning_recorded_at" : "evening_recorded_at";
-    const hasClassesToSave = classes.some(
-      (c) =>
-        dirtyClasses[c.id]?.[session] ||
-        (c.total_students > 0 && !c.attendance?.[recordedAtKey])
-    );
+    const bakuHour = (new Date().getUTCHours() + 4) % 24;
+    const is2ndShiftMorningBlocked = session === "morning" && bakuHour < 12;
+
+    // Warn about 2nd shift classes blocked before 12:00 Baku time
+    if (is2ndShiftMorningBlocked) {
+      const blocked = classes.filter(
+        (c) =>
+          normalizeShift(c.teaching_shift) === 2 &&
+          (dirtyClasses[c.id]?.morning || (c.total_students > 0 && !c.attendance?.morning_recorded_at))
+      );
+      if (blocked.length > 0) {
+        toast.warning(`2-ci növbə sinifləri ilk dərsi saat 12:00-dan sonra qeyd edilə bilər (${blocked.length} sinif buraxıldı).`);
+      }
+    }
+
+    const hasClassesToSave = classes.some((c) => {
+      if (is2ndShiftMorningBlocked && normalizeShift(c.teaching_shift) === 2) return false;
+      return dirtyClasses[c.id]?.[session] || (c.total_students > 0 && !c.attendance?.[recordedAtKey]);
+    });
     if (!hasClassesToSave) {
       const sessionLabel = session === "morning" ? "İlk dərs" : "Son dərs";
       toast.info(`${sessionLabel} üçün qeyd ediləcək sinif yoxdur`);
@@ -417,13 +431,13 @@ const useBulkAttendanceEntry = () => {
 
   const validateSession = (session: AttendanceSession): boolean => {
     if (!classes.length) return false;
-    // Validate dirty classes + unrecorded classes that will be auto-included
     const recordedAtKey = session === "morning" ? "morning_recorded_at" : "evening_recorded_at";
-    const classesToValidate = classes.filter(
-      (c) =>
-        dirtyClasses[c.id]?.[session] ||
-        (c.total_students > 0 && !c.attendance?.[recordedAtKey])
-    );
+    const bakuHour = (new Date().getUTCHours() + 4) % 24;
+    const is2ndShiftMorningBlocked = session === "morning" && bakuHour < 12;
+    const classesToValidate = classes.filter((c) => {
+      if (is2ndShiftMorningBlocked && normalizeShift(c.teaching_shift) === 2) return false;
+      return dirtyClasses[c.id]?.[session] || (c.total_students > 0 && !c.attendance?.[recordedAtKey]);
+    });
     return validateSessionAttendance(attendanceData, classesToValidate, session, setErrors);
   };
 
