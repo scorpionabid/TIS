@@ -1,11 +1,12 @@
 import {
   BulkAttendanceRequest,
   ClassAttendanceData,
+  ClassWithAttendance,
 } from "@/services/bulkAttendance";
 import { AttendanceFormData, AttendanceSession, DirtyClassesState } from "../types";
 
 interface BuildPayloadParams {
-  classes: Array<{ id: number }>;
+  classes: ClassWithAttendance[];
   academicYearId: number;
   selectedDate: string;
   attendanceData: AttendanceFormData;
@@ -32,14 +33,18 @@ export const buildSessionPayload = (
     return null;
   }
 
-  // Only send classes that have unsaved changes for this session
-  const dirtyList = classes.filter((cls) => dirtyClasses[cls.id]?.[session]);
+  // Include dirty classes + unrecorded classes with students (auto-include for 100% present)
+  const recordedAtKey = session === "morning" ? "morning_recorded_at" : "evening_recorded_at";
+  const includedList = classes.filter((cls) => {
+    if (dirtyClasses[cls.id]?.[session]) return true;
+    return cls.total_students > 0 && !cls.attendance?.[recordedAtKey];
+  });
 
-  if (!dirtyList.length) {
+  if (!includedList.length) {
     return null;
   }
 
-  const requestClasses: ClassAttendanceData[] = dirtyList.map((cls) => {
+  const requestClasses: ClassAttendanceData[] = includedList.map((cls) => {
     const data = attendanceData[cls.id] || defaultAttendance;
 
     const baseData = {

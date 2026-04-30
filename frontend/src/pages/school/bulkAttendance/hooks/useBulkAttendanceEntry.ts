@@ -385,11 +385,16 @@ const useBulkAttendanceEntry = () => {
       return null;
     }
 
-    // Check if any classes are dirty for this session
-    const dirtyCount = classes.filter((c) => dirtyClasses[c.id]?.[session]).length;
-    if (dirtyCount === 0) {
+    // Include dirty classes + unrecorded classes with students
+    const recordedAtKey = session === "morning" ? "morning_recorded_at" : "evening_recorded_at";
+    const hasClassesToSave = classes.some(
+      (c) =>
+        dirtyClasses[c.id]?.[session] ||
+        (c.total_students > 0 && !c.attendance?.[recordedAtKey])
+    );
+    if (!hasClassesToSave) {
       const sessionLabel = session === "morning" ? "İlk dərs" : "Son dərs";
-      toast.info(`${sessionLabel} üçün dəyişiklik yoxdur`);
+      toast.info(`${sessionLabel} üçün qeyd ediləcək sinif yoxdur`);
       return null;
     }
 
@@ -412,9 +417,14 @@ const useBulkAttendanceEntry = () => {
 
   const validateSession = (session: AttendanceSession): boolean => {
     if (!classes.length) return false;
-    // Validate only dirty classes — non-dirty classes are not sent and must not block the save
-    const dirtyClassList = classes.filter((c) => dirtyClasses[c.id]?.[session]);
-    return validateSessionAttendance(attendanceData, dirtyClassList, session, setErrors);
+    // Validate dirty classes + unrecorded classes that will be auto-included
+    const recordedAtKey = session === "morning" ? "morning_recorded_at" : "evening_recorded_at";
+    const classesToValidate = classes.filter(
+      (c) =>
+        dirtyClasses[c.id]?.[session] ||
+        (c.total_students > 0 && !c.attendance?.[recordedAtKey])
+    );
+    return validateSessionAttendance(attendanceData, classesToValidate, session, setErrors);
   };
 
   const buildPayload = (session: AttendanceSession) => {
