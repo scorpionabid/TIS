@@ -266,7 +266,7 @@ const useBulkAttendanceEntry = () => {
       };
     });
 
-    let newDirtyClasses: DirtyClassesState = {};
+    const newDirtyClasses: DirtyClassesState = {};
     let restoredDraft = false;
 
     if (hasWindow) {
