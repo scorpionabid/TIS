@@ -28,6 +28,7 @@ class SurveyQueryBuilder
 
         // Apply hierarchical filtering
         $this->applySurveyVisibilityFiltering($query, auth()->user());
+        $this->applyFilters($query, $params);
 
         // Apply search
         if (! empty($params['search'])) {

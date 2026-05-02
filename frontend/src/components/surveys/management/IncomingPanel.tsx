@@ -95,7 +95,9 @@ export function IncomingPanel({
               const st = RESPONSE_STATUS_BADGE[item.status] ?? { label: item.status, cls: 'bg-gray-100 text-gray-600 border-gray-200' };
               const metaParts: string[] = [];
               if (item.questionsCount != null) metaParts.push(`${item.questionsCount} sual`);
-              if (item.deadline) metaParts.push(`Son: ${format(new Date(item.deadline), 'dd.MM', { locale: az })}`);
+              if (item.deadline && !isNaN(new Date(item.deadline).getTime())) {
+                metaParts.push(`Son: ${format(new Date(item.deadline), 'dd.MM', { locale: az })}`);
+              }
               return (
                 <SurveyListItem
                   key={item.id}
@@ -128,7 +130,7 @@ export function IncomingPanel({
                     <Badge variant="outline" className={cn('text-xs border px-1.5 py-0', RESPONSE_STATUS_BADGE[selectedIncoming.status]?.cls)}>
                       {RESPONSE_STATUS_BADGE[selectedIncoming.status]?.label}
                     </Badge>
-                    {selectedIncoming.lastUpdated && (
+                    {selectedIncoming.lastUpdated && !isNaN(new Date(selectedIncoming.lastUpdated).getTime()) && (
                       <span className="text-xs text-slate-400">
                         Son yenilənmə: {format(new Date(selectedIncoming.lastUpdated), 'HH:mm', { locale: az })}
                       </span>
