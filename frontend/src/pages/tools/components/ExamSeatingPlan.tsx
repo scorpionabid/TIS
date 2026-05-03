@@ -35,7 +35,8 @@ import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type CellValue = string | number | boolean | null | undefined;
+// raw: false seçəndə XLSX həmişə string qaytarır; boş cell undefined ola bilər
+type CellValue = string | undefined;
 type SeatingType = 'A' | 'B' | 'C';
 type SortField = 'firstName' | 'lastName' | 'grade' | 'schoolName' | 'center';
 type Step = 'upload' | 'mapping' | 'review' | 'config' | 'results';
@@ -123,7 +124,7 @@ const escapeHtml = (str: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
-const autoDetectMapping = (headers: CellValue[]): Record<string, number> => {
+const autoDetectMapping = (headers: string[]): Record<string, number> => {
   const mapping: Record<string, number> = {
     center: 0, utisCode: 1, firstName: 2, lastName: 3,
     grade: 4, schoolName: 5, section: 6, gender: 7, note: 8,
@@ -140,7 +141,7 @@ const autoDetectMapping = (headers: CellValue[]): Record<string, number> => {
     note:       /qeyd|note|remark/i,
   };
   headers.forEach((h, idx) => {
-    const header = String(h ?? '');
+    const header = h ?? '';
     for (const [key, pattern] of Object.entries(patterns)) {
       if (pattern.test(header)) mapping[key] = idx;
     }
@@ -184,6 +185,28 @@ const PRINT_CARD_CSS = `
   }
 `;
 
+// Köhnə planlar: BOŞ seat-lər array-də yox idi → swap işləmirdi. Migration əlavə edir.
+const migrateResults = (raw: CenterResult[]): CenterResult[] =>
+  raw.map(center => ({
+    ...center,
+    rooms: center.rooms.map(room => {
+      const deskCount = room.config.totalDesks ?? (room.config.columns * room.config.rowsPerColumn);
+      const fullSeats: Seat[] = [];
+      for (let d = 1; d <= deskCount; d++) {
+        (['Sol', 'Sağ'] as const).forEach(pos => {
+          const existing = room.seats.find(s => s.deskNumber === d && s.position === pos);
+          fullSeats.push(existing ?? {
+            seatNumber: fullSeats.length + 1,
+            deskNumber: d,
+            position: pos,
+            type: 'BOŞ',
+          });
+        });
+      }
+      return { ...room, seats: fullSeats };
+    }),
+  }));
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ExamSeatingPlan: React.FC = () => {
@@ -192,7 +215,7 @@ const ExamSeatingPlan: React.FC = () => {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState<Step>('upload');
-  const [rawRows, setRawRows] = useState<CellValue[][]>([]);
+  const [rawRows, setRawRows] = useState<string[][]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, number>>({
     center: 0, utisCode: 1, firstName: 2, lastName: 3,
     grade: 4, schoolName: 5, section: 6, gender: 7, note: 8,
@@ -229,7 +252,7 @@ const ExamSeatingPlan: React.FC = () => {
         const p = JSON.parse(saved);
         if (p.students)      setStudents(p.students);
         if (p.centerConfigs) setCenterConfigs(p.centerConfigs);
-        if (p.results)       setResults(p.results);
+        if (p.results)       setResults(migrateResults(p.results));
         if (p.currentStep)   setCurrentStep(p.currentStep);
       }
     } catch { /* ignore corrupted data */ }
@@ -364,7 +387,8 @@ const ExamSeatingPlan: React.FC = () => {
       const data = new Uint8Array(e.target?.result as ArrayBuffer);
       const wb   = XLSX.read(data, { type: 'array' });
       const ws   = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, { header: 1 }) as CellValue[][];
+      // raw: false → bütün cell-lər string kimi qaytarılır ([object Object] problemi yox)
+      const json = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as string[][];
 
       if (json.length < 2) {
         toast({ title: 'Xəta', description: 'Fayl boşdur və ya başlıq yoxdur.', variant: 'destructive' });
@@ -391,21 +415,22 @@ const ExamSeatingPlan: React.FC = () => {
 
   // ── Column mapping → students ──────────────────────────────────────────────
   const applyMapping = () => {
-    const parsed: Student[] = rawRows.slice(1).map((row, idx) => ({
-      id:         `s-${idx}`,
-      center:     String(row[columnMapping.center]    ?? 'Naməlum'),
-      utisCode:   String(row[columnMapping.utisCode]  ?? 'Naməlum'),
-      firstName:  String(row[columnMapping.firstName] ?? ''),
-      lastName:   String(row[columnMapping.lastName]  ?? ''),
-      grade:      String(row[columnMapping.grade]     ?? ''),
-      schoolName: String(row[columnMapping.schoolName]?? ''),
-      section:    String(row[columnMapping.section]   ?? ''),
-      gender:     (
-        String(row[columnMapping.gender] ?? '').toUpperCase().startsWith('Q') ||
-        String(row[columnMapping.gender] ?? '').toUpperCase().startsWith('F')
-      ) ? 'Q' : 'K',
-      note: String(row[columnMapping.note] ?? ''),
-    })).filter(s => s.firstName || s.lastName);
+    const cell = (row: string[], col: number) => row[col] ?? '';
+    const parsed: Student[] = rawRows.slice(1).map((row, idx) => {
+      const genderRaw = cell(row, columnMapping.gender).toUpperCase();
+      return {
+        id:         `s-${idx}`,
+        center:     cell(row, columnMapping.center)     || 'Naməlum',
+        utisCode:   cell(row, columnMapping.utisCode)   || 'Naməlum',
+        firstName:  cell(row, columnMapping.firstName),
+        lastName:   cell(row, columnMapping.lastName),
+        grade:      cell(row, columnMapping.grade),
+        schoolName: cell(row, columnMapping.schoolName),
+        section:    cell(row, columnMapping.section),
+        gender:     (genderRaw.startsWith('Q') || genderRaw.startsWith('F')) ? 'Q' : 'K',
+        note:       cell(row, columnMapping.note),
+      };
+    }).filter(s => s.firstName || s.lastName);
 
     setStudents(parsed);
 
@@ -1001,15 +1026,24 @@ const ExamSeatingPlan: React.FC = () => {
                       >
                         <SelectTrigger className="bg-muted/30"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {rawRows[0]?.map((col, idx) => (
-                            <SelectItem key={idx} value={idx.toString()}>
-                              <span className="font-medium">{String(col ?? `Sütun ${idx + 1}`)}</span>
-                              {' '}
-                              <span className="text-[10px] text-muted-foreground">
-                                {[rawRows[1]?.[idx], rawRows[2]?.[idx]].filter(Boolean).map(v => String(v)).join(', ')}
-                              </span>
-                            </SelectItem>
-                          ))}
+                          {rawRows[0]?.map((col, idx) => {
+                            const colName = col || `Sütun ${idx + 1}`;
+                            // preview: first 2 data rows — shown in dropdown only
+                            const preview = [rawRows[1]?.[idx], rawRows[2]?.[idx]]
+                              .filter((v): v is string => !!v)
+                              .join(', ');
+                            return (
+                              // textValue → SelectValue trigger-də yalnız sütun adı göstərir
+                              <SelectItem key={idx} value={idx.toString()} textValue={colName}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{colName}</span>
+                                  {preview && (
+                                    <span className="text-[10px] text-muted-foreground">{preview}</span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
