@@ -217,12 +217,18 @@ class SurveyResponse extends Model
     public function submit(): void
     {
         $this->updateProgress();
-        $this->status = 'submitted';
+        $this->status = 'approved';
         $this->submitted_at = now();
+        $this->approved_at = now();
         $this->save();
 
-        // Auto-create approval request for submitted responses
-        $this->ensureApprovalRequestExists();
+        // Mark related survey assignment notification as completed
+        try {
+            $surveyResponseService = app(\App\Services\SurveyResponseService::class);
+            $surveyResponseService->markSurveyNotificationCompleted($this->survey_id, $this->respondent_id, 'approved');
+        } catch (\Exception $e) {
+            \Log::warning('Failed to mark notification completed on auto-submit', ['error' => $e->getMessage()]);
+        }
     }
 
     /**

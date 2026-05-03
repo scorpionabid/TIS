@@ -414,8 +414,8 @@ class HierarchicalAnalyticsService
         if ($userRole === 'superadmin') {
             // SuperAdmin sees all schools
             return Institution::where('level', 4)->with('parent')->get();
-        } elseif ($userRole === 'regionadmin') {
-            // RegionAdmin sees all schools in their region
+        } elseif ($userRole === 'regionadmin' || $userRole === 'regionoperator') {
+            // RegionAdmin/RegionOperator sees all schools in their region
             $userRegion = $user->institution;
             if (! $userRegion || $userRegion->level !== 2) {
                 return collect([]);

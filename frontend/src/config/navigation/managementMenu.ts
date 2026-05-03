@@ -25,6 +25,7 @@ import {
   Bot,
   ClipboardCheck,
   ExternalLink,
+  Wrench,
 } from 'lucide-react';
 import { USER_ROLES } from '@/constants/roles';
 import {
@@ -351,6 +352,23 @@ export const managementMenuGroups: MenuGroup[] = [
         path: '/performance',
         icon: Monitor,
         roles: [USER_ROLES.SUPERADMIN],
+      },
+    ],
+  },
+
+  // ─── Alətlər ──────────────────────────────────────────────────────────────
+  {
+    id: 'tools',
+    label: 'Alətlər',
+    panel: 'management',
+    roles: ALL_ADMINS,
+    items: [
+      {
+        id: 'tools-list',
+        label: 'Alətlər',
+        path: '/tools',
+        icon: Wrench,
+        roles: ALL_ADMINS,
       },
     ],
   },

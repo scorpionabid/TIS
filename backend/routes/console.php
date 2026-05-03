@@ -166,3 +166,15 @@ Schedule::command('telescope:prune --hours=48')
     ->onFailure(function () {
         \Log::error('Telescope pruning failed');
     });
+
+// Survey Auto-Archive
+// Daily check for surveys whose deadlines passed
+Schedule::command('surveys:auto-archive')
+    ->dailyAt('00:30')
+    ->description('Automatically archive surveys whose deadlines passed')
+    ->onSuccess(function () {
+        \Log::info('Survey auto-archive completed successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Survey auto-archive failed');
+    });

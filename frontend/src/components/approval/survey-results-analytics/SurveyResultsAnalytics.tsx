@@ -10,6 +10,7 @@ import SurveyKPIMetrics from './SurveyKPIMetrics';
 import HierarchicalInstitutionAnalysis from './HierarchicalInstitutionAnalysis';
 import NonRespondingInstitutions from './NonRespondingInstitutions';
 import ResponseDetailsSection from './ResponseDetailsSection';
+import SurveyQuestionResults from './SurveyQuestionResults';
 import { storageHelpers } from '@/utils/helpers';
 import { cn } from '@/lib/utils';
 
@@ -121,6 +122,14 @@ const SurveyResultsAnalytics: React.FC<SurveyResultsAnalyticsProps> = ({ forceSu
     queryFn: () => effectiveSurvey?.id ? surveyService.getHierarchicalInstitutionsAnalytics(effectiveSurvey.id) : null,
     enabled: !!effectiveSurvey?.id,
     staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Fetch full analytics for question-level data
+  const { data: fullAnalytics, isLoading: fullAnalyticsLoading } = useQuery({
+    queryKey: ['survey-full-analytics', effectiveSurvey?.id],
+    queryFn: () => effectiveSurvey?.id ? surveyService.getSurveyAnalytics(effectiveSurvey.id) : null,
+    enabled: !!effectiveSurvey?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleSurveyChange = (survey: Survey) => {
@@ -242,6 +251,12 @@ const SurveyResultsAnalytics: React.FC<SurveyResultsAnalyticsProps> = ({ forceSu
           <NonRespondingInstitutions
             hierarchyData={hierarchyData as any}
             isLoading={hierarchyLoading}
+          />
+
+          {/* Question Level Results */}
+          <SurveyQuestionResults 
+            stats={(fullAnalytics as any)?.question_analysis} 
+            isLoading={fullAnalyticsLoading} 
           />
 
           {/* Response Details (Expandable) */}

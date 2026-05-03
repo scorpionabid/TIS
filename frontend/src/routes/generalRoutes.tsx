@@ -41,6 +41,7 @@ const Approvals = lazy(() => import("@/pages/Approvals"));
 const SubjectManagement = lazy(() => import("@/pages/SubjectManagement"));
 const AiAnalysis = lazy(() => import("@/pages/AiAnalysis/index"));
 const AiSettings = lazy(() => import("@/pages/AiSettings"));
+const ToolsPage = lazy(() => import("@/pages/tools/ToolsPage"));
 
 export function GeneralRoutes() {
   return (
@@ -409,6 +410,24 @@ export function GeneralRoutes() {
               requiredPermissions={["ai_analysis.view"]}
             >
               <AiSettings />
+            </RoleProtectedRoute>
+          </LazyWrapper>
+        }
+      />
+      <Route
+        path="tools"
+        element={
+          <LazyWrapper>
+            <RoleProtectedRoute
+              allowedRoles={[
+                USER_ROLES.SUPERADMIN,
+                USER_ROLES.REGIONADMIN,
+                USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+                USER_ROLES.SCHOOLADMIN,
+              ]}
+            >
+              <ToolsPage />
             </RoleProtectedRoute>
           </LazyWrapper>
         }

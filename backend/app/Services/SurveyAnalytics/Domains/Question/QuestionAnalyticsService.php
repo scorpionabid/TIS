@@ -128,6 +128,47 @@ class QuestionAnalyticsService
             return $distribution;
         }
 
+        if ($questionType === 'table_matrix') {
+            $matrixDistribution = [];
+            foreach ($responses as $response) {
+                $answer = $response->responses[$questionIndex] ?? null;
+                if (is_array($answer) || is_object($answer)) {
+                    foreach ($answer as $row => $choice) {
+                        if (!isset($matrixDistribution[$row])) {
+                            $matrixDistribution[$row] = [];
+                        }
+                        $matrixDistribution[$row][$choice] = ($matrixDistribution[$row][$choice] ?? 0) + 1;
+                    }
+                }
+            }
+            return $matrixDistribution;
+        }
+
+        if ($questionType === 'table_input') {
+            $rowCountStats = [
+                'total_rows' => 0,
+                'avg_rows' => 0,
+                'response_count' => 0
+            ];
+            
+            $totalRows = 0;
+            $count = 0;
+            
+            foreach ($responses as $response) {
+                $answer = $response->responses[$questionIndex] ?? null;
+                if (is_array($answer) && count($answer) > 0) {
+                    $totalRows += count($answer);
+                    $count++;
+                }
+            }
+            
+            $rowCountStats['total_rows'] = $totalRows;
+            $rowCountStats['response_count'] = $count;
+            $rowCountStats['avg_rows'] = $count > 0 ? round($totalRows / $count, 1) : 0;
+            
+            return $rowCountStats;
+        }
+
         return [];
     }
 

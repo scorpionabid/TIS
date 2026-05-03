@@ -11,6 +11,7 @@ interface Institution {
   name: string;
   level?: number;
   type?: string;
+  parent_id?: number;
 }
 
 interface Step3TargetingProps {
@@ -37,6 +38,25 @@ export function Step3Targeting({
   selectInstitutionsByLevel,
   selectInstitutionsByType,
 }: Step3TargetingProps) {
+  const selectChildren = (parentId: number) => {
+    const childrenIds = availableInstitutions
+      .filter((inst) => inst.parent_id === parentId)
+      .map((inst) => inst.id);
+    
+    const currentTargets = formData.target_institutions || [];
+    const newTargets = Array.from(new Set([...currentTargets, ...childrenIds, parentId]));
+    handleInputChange('target_institutions', newTargets);
+  };
+
+  const removeChildren = (parentId: number) => {
+    const childrenIds = availableInstitutions
+      .filter((inst) => inst.parent_id === parentId)
+      .map((inst) => inst.id);
+    
+    const currentTargets = formData.target_institutions || [];
+    const newTargets = currentTargets.filter(id => !childrenIds.includes(id) && id !== parentId);
+    handleInputChange('target_institutions', newTargets);
+  };
   return (
     <div className="space-y-4">
       {/* Target Institutions */}
@@ -174,17 +194,49 @@ export function Step3Targeting({
                     }
                   }}
                 />
-                <Label
-                  htmlFor={`institution-${institution.id}`}
-                  className="text-sm font-normal cursor-pointer flex items-center gap-2"
-                >
-                  <span>{institution.name}</span>
-                  {institution.level && (
-                    <Badge variant="outline" className="text-xs">
-                      Səviyyə {institution.level}
-                    </Badge>
+                <div className="flex-1 flex items-center justify-between min-w-0 pr-2">
+                  <Label
+                    htmlFor={`institution-${institution.id}`}
+                    className="text-sm font-normal cursor-pointer flex items-center gap-2 truncate"
+                  >
+                    <span>{institution.name}</span>
+                    {institution.level && (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1 shrink-0">
+                        Səviyyə {institution.level}
+                      </Badge>
+                    )}
+                  </Label>
+
+                  {/* Hierarchical selection for parent institutions */}
+                  {institution.level && institution.level < 4 && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          selectChildren(institution.id);
+                        }}
+                      >
+                        Hamısını seç
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-[10px] text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          removeChildren(institution.id);
+                        }}
+                      >
+                        Ləğv et
+                      </Button>
+                    </div>
                   )}
-                </Label>
+                </div>
               </div>
             ))
           )}
