@@ -404,7 +404,7 @@ class GradeBookControllerTest extends TestCase
 
         $this->assertDatabaseHas('grade_book_columns', [
             'grade_book_session_id' => $gradeBook->id,
-            'column_label' => 'KSQ 1',
+            'column_label' => 'KSQ1',
             'semester' => 'I',
         ]);
     }

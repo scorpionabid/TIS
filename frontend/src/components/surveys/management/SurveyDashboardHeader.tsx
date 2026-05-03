@@ -72,7 +72,7 @@ export const SurveyDashboardHeader: React.FC<SurveyDashboardHeaderProps> = ({
                 <Icon className={cn("h-4 w-4", isActive ? "text-blue-600" : "text-slate-400")} />
                 {label}
                 {count > 0 && (
-                  <span className={cn(
+                  <span data-testid={`stat-value-${key}`} className={cn(
                     "ml-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold",
                     isActive ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-500"
                   )}>

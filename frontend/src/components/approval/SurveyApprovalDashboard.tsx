@@ -280,7 +280,7 @@ const SurveyApprovalDashboard: React.FC<SurveyApprovalDashboardProps> = ({ force
       {!isCompact && (
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 data-testid="survey-approval-title" className="text-2xl font-bold flex items-center gap-2">
               <Target className="h-8 w-8 text-primary" /> Sorğu Cavablarının Təsdiqi
             </h1>
           </div>
@@ -298,22 +298,22 @@ const SurveyApprovalDashboard: React.FC<SurveyApprovalDashboardProps> = ({ force
         <>
           {!isCompact && (
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
-               <Card className={cn("cursor-pointer hover:ring-2 ring-blue-500", !filters.status && "bg-blue-50")} onClick={() => handleStatCardFilter({})}>
+               <Card data-testid="stat-card-total" className={cn("cursor-pointer hover:ring-2 ring-blue-500", !filters.status && "bg-blue-50")} onClick={() => handleStatCardFilter({})}>
                   <CardContent className="p-4 flex items-center gap-2">
                     <Users className="h-4 w-4 text-blue-500" />
-                    <div><p className="text-xs text-muted-foreground">Ümumi</p><p className="text-xl font-bold">{stats.total}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Ümumi</p><p data-testid="stat-value-total" className="text-xl font-bold">{stats.total}</p></div>
                   </CardContent>
                </Card>
-               <Card className={cn("cursor-pointer hover:ring-2 ring-yellow-500", filters.status === 'submitted' && "bg-yellow-50")} onClick={() => handleStatCardFilter({ status: 'submitted' })}>
+               <Card data-testid="stat-card-pending" className={cn("cursor-pointer hover:ring-2 ring-yellow-500", filters.status === 'submitted' && "bg-yellow-50")} onClick={() => handleStatCardFilter({ status: 'submitted' })}>
                   <CardContent className="p-4 flex items-center gap-2">
                     <Clock className="h-4 w-4 text-yellow-500" />
-                    <div><p className="text-xs text-muted-foreground">Gözləyir</p><p className="text-xl font-bold">{stats.pending}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Gözləyir</p><p data-testid="stat-value-pending" className="text-xl font-bold">{stats.pending}</p></div>
                   </CardContent>
                </Card>
-               <Card className={cn("cursor-pointer hover:ring-2 ring-green-500", filters.status === 'approved' && "bg-green-50")} onClick={() => handleStatCardFilter({ status: 'approved' })}>
+               <Card data-testid="stat-card-approved" className={cn("cursor-pointer hover:ring-2 ring-green-500", filters.status === 'approved' && "bg-green-50")} onClick={() => handleStatCardFilter({ status: 'approved' })}>
                   <CardContent className="p-4 flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
-                    <div><p className="text-xs text-muted-foreground">Təsdiqləndi</p><p className="text-xl font-bold">{stats.approved}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Təsdiqləndi</p><p data-testid="stat-value-approved" className="text-xl font-bold">{stats.approved}</p></div>
                   </CardContent>
                </Card>
                <Card className="bg-slate-50"><CardContent className="p-4">

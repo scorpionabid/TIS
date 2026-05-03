@@ -74,10 +74,11 @@ class CurriculumPlanController extends Controller
             DB::rollBack();
             Log::error('CurriculumPlan update failed: ' . $e->getMessage());
 
+            $status = str_contains($e->getMessage(), 'bağlıdır') ? 403 : 500;
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-            ], 500);
+            ], $status);
         }
     }
 

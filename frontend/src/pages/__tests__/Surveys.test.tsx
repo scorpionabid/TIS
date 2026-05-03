@@ -103,6 +103,39 @@ vi.mock('lucide-react', () => ({
   ClipboardList: () => <span>List</span>,
   TrendingUp: () => <span>Up</span>,
   Layout: () => <span>Layout</span>,
+  Loader2: () => <span>Loader2</span>,
+  RefreshCw: () => <span>RefreshCw</span>,
+  FileEdit: () => <span>FileEdit</span>,
+  LayoutGrid: () => <span>LayoutGrid</span>,
+  List: () => <span>List</span>,
+  ListIcon: () => <span>ListIcon</span>,
+  Rows: () => <span>Rows</span>,
+  Inbox: () => <span>Inbox</span>,
+  InboxIcon: () => <span>InboxIcon</span>,
+  Building: () => <span>Building</span>,
+  Building2: () => <span>Building2</span>,
+  School: () => <span>School</span>,
+  ChevronDown: () => <span>ChevronDown</span>,
+  ChevronRight: () => <span>ChevronRight</span>,
+  ChevronUp: () => <span>ChevronUp</span>,
+  Users: () => <span>Users</span>,
+  User: () => <span>User</span>,
+  TrendingDown: () => <span>TrendingDown</span>,
+  Check: () => <span>Check</span>,
+  X: () => <span>X</span>,
+  ArrowLeft: () => <span>ArrowLeft</span>,
+  MapPin: () => <span>MapPin</span>,
+  ArrowUpDown: () => <span>ArrowUpDown</span>,
+  Info: () => <span>Info</span>,
+  Table: () => <span>Table</span>,
+  Download: () => <span>Download</span>,
+  FileSpreadsheet: () => <span>FileSpreadsheet</span>,
+  FileDown: () => <span>FileDown</span>,
+  AlertCircle: () => <span>AlertCircle</span>,
+  Save: () => <span>Save</span>,
+  Send: () => <span>Send</span>,
+  XCircle: () => <span>XCircle</span>,
+  Target: () => <span>Target</span>,
 }));
 
 import SurveysPage from '../Surveys';
@@ -162,11 +195,23 @@ describe('Surveys Page', () => {
   it('renders surveys and shows publish button for draft', async () => {
     renderPage();
     
-    expect(await screen.findByText('Draft Survey')).toBeInTheDocument();
+    // Wait for loader to disappear
+    await waitFor(() => {
+      expect(screen.queryByText('Yüklənir...')).not.toBeInTheDocument();
+    });
+
+    // Switch to draft tab
+    const draftTab = await screen.findByRole('button', { name: /QARALAMA/i });
+    fireEvent.click(draftTab);
+
+    const surveyItem = await screen.findByTestId('survey-list-item');
+    expect(surveyItem).toBeInTheDocument();
     
-    // The publish button has the 'Play' icon
-    const publishIcon = await screen.findByTestId('icon-play');
-    expect(publishIcon).toBeInTheDocument();
+    // Select the survey by clicking it
+    fireEvent.click(surveyItem);
+    
+    const publishBtn = await screen.findByRole('button', { name: /Yayımla/i });
+    expect(publishBtn).toBeInTheDocument();
   });
 
   it('calls publish service and shows success toast on successful publish', async () => {
@@ -174,10 +219,17 @@ describe('Surveys Page', () => {
     
     renderPage();
     
-    const publishIcon = await screen.findByTestId('icon-play');
-    const button = publishIcon.closest('button');
-    expect(button).toBeInTheDocument();
-    fireEvent.click(button!);
+    // Wait for loader to disappear
+    await waitFor(() => {
+      expect(screen.queryByText('Yüklənir...')).not.toBeInTheDocument();
+    });
+
+    // Switch to draft tab
+    const draftTab = await screen.findByRole('button', { name: /QARALAMA/i });
+    fireEvent.click(draftTab);
+
+    const publishBtn = await screen.findByRole('button', { name: /Yayımla/i });
+    fireEvent.click(publishBtn);
 
     await waitFor(() => {
       expect(mockSurveyService.publish).toHaveBeenCalledWith(1);
@@ -185,8 +237,7 @@ describe('Surveys Page', () => {
 
     await waitFor(() => {
       expect(stableToast).toHaveBeenCalledWith(expect.objectContaining({
-        title: 'Uğurlu',
-        description: 'Sorğu yayımlandı'
+        title: 'Sorğu yayımlandı'
       }));
     });
   });
@@ -195,6 +246,7 @@ describe('Surveys Page', () => {
     renderPage();
     
     // Draft survey stats: 1 total, 0 active, 1 this month (since we used now() in mock)
-    expect(await screen.findByText('1')).toBeInTheDocument(); // total
+    const statElement = await screen.findByTestId('stat-value-management');
+    expect(statElement).toHaveTextContent('1');
   });
 });

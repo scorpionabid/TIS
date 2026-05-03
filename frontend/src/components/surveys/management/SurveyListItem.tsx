@@ -19,6 +19,7 @@ export function SurveyListItem({ title, badge, badgeCls, meta, creator, isSelect
   if (viewMode === 'card') {
     return (
       <button
+        data-testid="survey-list-item"
         onClick={onClick}
         className={cn(
           'w-full text-left p-3.5 rounded-lg border transition-all group relative overflow-hidden',

@@ -257,8 +257,18 @@ describe('GradeBooks səhifəsi — layout', () => {
   it('SchoolAdmin üçün GradeBookList institution_id=10 ilə render edilir', async () => {
     mockUseAuth.mockReturnValue({ hasPermission: (p: string) => p === 'assessments.read', currentUser: schoolAdminUser });
     mockUseGradeBookRole.mockReturnValue(schoolAdminRole);
+    mockGradeService.get.mockResolvedValue({
+      items: [
+        { id: 1, full_name: '5A', display_name: '5A sinfi', name: 'A', student_count: 25 },
+      ],
+    });
 
     renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('5A')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('5A'));
 
     await waitFor(() => {
       const list = screen.getByTestId('grade-book-list');
