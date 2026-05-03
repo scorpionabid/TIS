@@ -17,7 +17,7 @@ services:
       - DB_DATABASE=atis_production
       - DB_USERNAME=atis_prod_user
       - DB_PASSWORD=Pqan1xlUez1lRskN8X1koC2JS
-      - CACHE_STORE=file
+      - CACHE_STORE=redis
       - SESSION_DRIVER=file
       - REDIS_CLIENT=phpredis
       - REDIS_HOST=redis

@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse, PaginatedResponse } from '../api';
+import { fetchBlob } from '../utils/downloadBlob';
 import type { Survey, SurveyStats, SurveyQuestionRestrictions } from './types';
 
 type UnknownRecord = Record<string, unknown>;
@@ -50,6 +51,10 @@ class SurveyAnalyticsService {
   async getNonRespondingInstitutions(surveyId: number): Promise<UnknownRecord> {
     const response = await apiClient.get<UnknownRecord>(`/surveys/${surveyId}/analytics/non-responding-institutions`);
     return response.data ?? {};
+  }
+
+  async exportNonRespondingInstitutions(surveyId: number): Promise<Blob> {
+    return fetchBlob(`/surveys/${surveyId}/analytics/non-responding-institutions/export`);
   }
 
   async getAvailableTargets(): Promise<UnknownRecord> {

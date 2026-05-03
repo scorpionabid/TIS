@@ -40,8 +40,7 @@ export const SURVEY_RESPONSE_STATUS_BADGE: Record<string, { label: string; cls: 
   new:        { label: 'Yeni',        cls: 'bg-blue-100 text-blue-700 border-blue-200'        },
   in_progress:{ label: 'Davam edir',  cls: 'bg-sky-100 text-sky-700 border-sky-200'           },
   draft:      { label: 'Qaralama',    cls: 'bg-amber-100 text-amber-700 border-amber-200'     },
-  submitted:  { label: 'Göndərilib',  cls: 'bg-purple-100 text-purple-700 border-purple-200'  },
-  approved:   { label: 'Təsdiqlənib', cls: 'bg-green-100 text-green-700 border-green-200'     },
+  approved:   { label: 'Tamamlanıb',  cls: 'bg-green-100 text-green-700 border-green-200'     },
   rejected:   { label: 'Rədd edilib', cls: 'bg-red-100 text-red-700 border-red-200'           },
   completed:  { label: 'Tamamlanıb',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };

@@ -29,7 +29,7 @@ class SurveyApprovalController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
+                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned,completed,in_progress',
                 'approval_status' => 'sometimes|in:pending,in_progress,approved,rejected,returned',
                 'institution_id' => 'sometimes|integer|exists:institutions,id',
                 'institution_type' => 'sometimes|string',
@@ -473,7 +473,7 @@ class SurveyApprovalController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
+                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned,completed,in_progress',
                 'institution_type' => 'sometimes|string',
                 'search' => 'sometimes|string|max:255',
                 'per_page' => 'sometimes|integer|min:10|max:100',
@@ -585,7 +585,7 @@ class SurveyApprovalController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'format' => 'sometimes|in:xlsx,csv',
-                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
+                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned,completed,in_progress',
                 'approval_status' => 'sometimes|in:pending,in_progress,approved,rejected,returned',
                 'institution_id' => 'sometimes|integer|exists:institutions,id',
                 'institution_type' => 'sometimes|string',

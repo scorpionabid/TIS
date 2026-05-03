@@ -21,10 +21,14 @@ class SurveyQueryBuilder
      */
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
-        $query = Survey::with(['creator.profile'])->withCount(['questions']);
-
-        // Apply filters
-        $this->applyFilters($query, $params);
+        $query = Survey::with(['creator.profile'])
+            ->withCount(['questions'])
+            ->addSelect(\DB::raw(
+                "(SELECT COUNT(DISTINCT institution_id) FROM survey_responses
+                  WHERE survey_responses.survey_id = surveys.id
+                  AND status IN ('submitted','approved','completed'))
+                 AS responded_institutions_count"
+            ));
 
         // Apply hierarchical filtering
         $this->applySurveyVisibilityFiltering($query, auth()->user());

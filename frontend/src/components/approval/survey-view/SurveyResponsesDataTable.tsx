@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils';
 
 // ─── Status helpers ────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  approved:  { label: 'Təsdiqlənib',    cls: 'bg-green-100 text-green-800 border-green-200' },
-  submitted: { label: 'Göndərilmiş',    cls: 'bg-blue-100  text-blue-800  border-blue-200'  },
-  draft:     { label: 'Qaralama',       cls: 'bg-gray-100  text-gray-700  border-gray-200'  },
+  approved:  { label: 'Tamamlanıb',    cls: 'bg-green-100 text-green-800 border-green-200' },
+  submitted: { label: 'Tamamlanıb',    cls: 'bg-green-100  text-green-800  border-green-200'  },
+  draft:     { label: 'Qaralama',       cls: 'bg-amber-100  text-amber-700  border-amber-200'  },
   rejected:  { label: 'Rədd edilib',    cls: 'bg-red-100   text-red-800   border-red-200'   },
   returned:  { label: 'Geri qaytarıldı',cls: 'bg-orange-100 text-orange-800 border-orange-200' },
   none:      { label: 'Cavab verilməyib', cls: 'bg-slate-100 text-slate-400 border-slate-200 italic' },
@@ -281,6 +281,14 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
         <tbody>
           {responses.map((response, rowIdx) => {
             const statusKey = response.status ?? 'draft';
+            // responses column may arrive as a double-encoded JSON string from the backend
+            const parsedAnswers: Record<string, unknown> = (() => {
+              const raw = response.responses;
+              if (!raw) return {};
+              if (typeof raw === 'object') return raw as Record<string, unknown>;
+              try { return JSON.parse(raw as unknown as string) as Record<string, unknown>; }
+              catch { return {}; }
+            })();
             return (
               <tr
                 key={response.id}
@@ -326,7 +334,7 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
 
                 {/* Answer cells */}
                 {questions.map((q: any) => {
-                  const answer = response.responses?.[String(q.id)];
+                  const answer = parsedAnswers[String(q.id)];
                   return (
                     <td key={q.id} className="px-4 py-3 max-w-[250px]">
                       {formatCellValue(answer, q)}

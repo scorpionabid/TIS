@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\NonRespondingInstitutionsExport;
 use App\Http\Traits\ResponseHelpers;
 use App\Http\Traits\SurveyDeadlineHelpers;
 use App\Http\Traits\ValidationRules;
@@ -10,6 +11,8 @@ use App\Models\SurveyDeadlineLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SurveyAnalyticsController extends Controller
 {
@@ -481,5 +484,20 @@ class SurveyAnalyticsController extends Controller
 
             return $this->error($e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Export non-responding institutions list as Excel
+     */
+    public function exportNonRespondingInstitutions(Survey $survey): BinaryFileResponse
+    {
+        $data         = $this->analyticsService->getNonRespondingInstitutions($survey);
+        $institutions = $data['institutions'] ?? [];
+        $filename     = 'doldurmayan-mektebler-sorgu-' . $survey->id . '.xlsx';
+
+        return Excel::download(
+            new NonRespondingInstitutionsExport($institutions, $survey->title ?? ''),
+            $filename
+        );
     }
 }

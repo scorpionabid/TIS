@@ -31,6 +31,7 @@ export function useSurveyActions({
   const [isDeleting,    setIsDeleting]    = useState(false);
   const [isArchiving,   setIsArchiving]   = useState(false);
   const [isRestoring,   setIsRestoring]   = useState(false);
+  const [isResuming,    setIsResuming]    = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [exportingId,   setExportingId]   = useState<number | null>(null);
 
@@ -42,6 +43,11 @@ export function useSurveyActions({
   const pauseMut = useMutation({
     mutationFn: (id: number) => surveyService.pause(id),
     onSuccess: () => { invalidateMy(); toast({ title: 'Sorğu dayandırıldı' }); },
+  });
+
+  const resumeMut = useMutation({
+    mutationFn: (id: number) => surveyService.resume(id),
+    onSuccess: () => { invalidateMy(); toast({ title: 'Sorğu yenidən aktiv edildi' }); },
   });
 
   const handleEditSurvey = useCallback(() => {
@@ -67,6 +73,18 @@ export function useSurveyActions({
       toast({ title: 'Xəta', description: 'Arxivləşdirmə zamanı xəta baş verdi', variant: 'destructive' });
     } finally {
       setIsArchiving(false);
+    }
+  }, [selectedSurvey, invalidateMy, toast]);
+
+  const handleResumeSurvey = useCallback(async () => {
+    if (!selectedSurvey) return;
+    setIsResuming(true);
+    try {
+      await resumeMut.mutateAsync(selectedSurvey.id);
+    } catch {
+      toast({ title: 'Xəta', description: 'Sorğu aktivləşdirilə bilmədi', variant: 'destructive' });
+    } finally {
+      setIsResuming(false);
     }
   }, [selectedSurvey, invalidateMy, toast]);
 
@@ -197,8 +215,10 @@ export function useSurveyActions({
     // mutations
     publishMut,
     pauseMut,
+    resumeMut,
     // handlers
     handleEditSurvey,
+    handleResumeSurvey,
     handleArchiveSurvey,
     handleRestoreSurvey,
     handleSaveAsTemplate,
@@ -209,6 +229,7 @@ export function useSurveyActions({
     isDeleting,
     isArchiving,
     isRestoring,
+    isResuming,
     isDuplicating,
     exportingId,
   };

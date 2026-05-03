@@ -18,9 +18,12 @@ import { Survey } from '@/services/surveys';
 interface SurveyDetailHeaderProps {
   selectedSurvey: Survey;
   readonly: boolean;
+  isOwner: boolean;
   publishMut: any;
   pauseMut: any;
+  resumeMut: any;
   handleEditSurvey: () => void;
+  handleResumeSurvey: () => void;
   handleExportXlsx: () => void;
   handleSaveAsTemplate: () => void;
   handleRestoreSurvey: () => void;
@@ -36,9 +39,12 @@ interface SurveyDetailHeaderProps {
 export const SurveyDetailHeader: React.FC<SurveyDetailHeaderProps> = ({
   selectedSurvey,
   readonly,
+  isOwner,
   publishMut,
   pauseMut,
+  resumeMut,
   handleEditSurvey,
+  handleResumeSurvey,
   handleExportXlsx,
   handleSaveAsTemplate,
   handleRestoreSurvey,
@@ -65,14 +71,19 @@ export const SurveyDetailHeader: React.FC<SurveyDetailHeaderProps> = ({
               {st.label}
             </Badge>
             <span className="text-xs text-slate-400">
-              {selectedSurvey.response_count ?? 0} cavab · {selectedSurvey.questions_count ?? 0} sual
+              {(() => {
+                const targetCount = Array.isArray(selectedSurvey.target_institutions) ? selectedSurvey.target_institutions.length : 0;
+                const percentage = targetCount > 0 ? Math.round(((selectedSurvey.response_count ?? 0) / targetCount) * 100) : 0;
+                return `${selectedSurvey.response_count ?? 0} cavab · ${percentage}% doldurulma · ${selectedSurvey.questions_count ?? 0} sual`;
+              })()}
             </span>
           </div>
         </div>
       </div>
-      {!readonly && (
+      {(!readonly || isOwner) && (
         <div className="flex items-center gap-2 shrink-0">
-          {(selectedSurvey.status === 'draft') && (
+          {/* Status düymələri — yalnız tam icazəli istifadəçilər üçün */}
+          {!readonly && (selectedSurvey.status === 'draft') && (
             <Button size="sm"
               className="h-8 gap-1.5 bg-[hsl(220_85%_25%)] hover:bg-[hsl(220_85%_30%)] text-white text-sm"
               onClick={() => publishMut.mutate(selectedSurvey.id)}
@@ -81,13 +92,22 @@ export const SurveyDetailHeader: React.FC<SurveyDetailHeaderProps> = ({
               <Play className="h-3.5 w-3.5" /> Yayımla
             </Button>
           )}
-          {(selectedSurvey.status === 'active' || selectedSurvey.status === 'published') && (
+          {!readonly && (selectedSurvey.status === 'active' || selectedSurvey.status === 'published') && (
             <Button variant="outline" size="sm"
               className="h-8 gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 text-sm"
               onClick={() => pauseMut.mutate(selectedSurvey.id)}
               disabled={pauseMut.isPending}
             >
               <Pause className="h-3.5 w-3.5" /> Dayandır
+            </Button>
+          )}
+          {!readonly && selectedSurvey.status === 'paused' && (
+            <Button size="sm"
+              className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              onClick={handleResumeSurvey}
+              disabled={resumeMut.isPending}
+            >
+              <Play className="h-3.5 w-3.5" /> {resumeMut.isPending ? '...' : 'Davam et'}
             </Button>
           )}
           <div className="flex items-center gap-2 shrink-0">

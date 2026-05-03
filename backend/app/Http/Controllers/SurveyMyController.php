@@ -254,30 +254,42 @@ class SurveyMyController extends BaseController
         $roleName      = $user->roles->first()?->name ?? $user->role ?? '';
         $institutionId = (int) $user->institution_id;
 
-        // 1. Get ONLY the descendant institutions (excluding self)
-        // Because "upper bodies" should not see tasks from their subordinates
+        // Descendant institutions — to exclude surveys from subordinate creators
         $allChildrenIds = $user->institution ? $user->institution->getAllChildrenIds() : [$institutionId];
         $subordinateIds = array_values(array_diff($allChildrenIds, [$institutionId]));
 
-        return Survey::whereIn('status', ['published', 'active'])
-            // Exclude surveys created by the user
+        // All ancestor institution IDs (self + parents up to root) for hierarchical targeting.
+        // A survey targeted at a parent institution should reach all its descendants.
+        $ancestorIds = $user->institution
+            ? $user->institution->getAncestors()->pluck('id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        $institutionHierarchyIds = array_unique(array_merge([$institutionId], $ancestorIds));
+
+        return Survey::whereIn('status', ['published', 'active', 'paused'])
+            // Exclude surveys created by the user themselves
             ->where('creator_id', '!=', $user->id)
-            // Exclude surveys created by anyone in their subordinate hierarchy
+            // Exclude surveys created by anyone in the user's subordinate hierarchy
+            // (prevents lower-level surveys from appearing in upper-level inboxes)
             ->whereNotIn('creator_id', function ($query) use ($subordinateIds) {
                 $query->select('id')
                     ->from('users')
                     ->whereIn('institution_id', $subordinateIds);
             })
-            ->where(function ($query) use ($roleName, $institutionId) {
-                // Targeted to specific role
-                $query->whereJsonContains('target_roles', $roleName)
-                    // Targeted to specific institution
-                    ->orWhereJsonContains('target_institutions', $institutionId)
-                    // Targeted to everyone (no specific targeting)
-                    ->orWhereRaw(
-                        "(target_roles IS NULL OR target_roles::text IN ('', '[]', 'null'))
-                         AND (target_institutions IS NULL OR target_institutions::text IN ('[]', 'null'))"
-                    );
+            ->where(function ($query) use ($roleName, $institutionHierarchyIds) {
+                // Targeted to the user's role
+                $query->whereJsonContains('target_roles', $roleName);
+
+                // Targeted to the user's institution OR any ancestor institution
+                // (e.g. a survey targeted at a sector reaches all schools in that sector)
+                foreach ($institutionHierarchyIds as $hId) {
+                    $query->orWhereJsonContains('target_institutions', $hId);
+                }
+
+                // Broadcast: no targeting set — reaches everyone
+                $query->orWhereRaw(
+                    "(target_roles IS NULL OR target_roles::text IN ('', '[]', 'null'))
+                     AND (target_institutions IS NULL OR target_institutions::text IN ('[]', 'null'))"
+                );
             })
             ->orderBy('created_at', 'desc');
     }

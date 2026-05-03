@@ -14,6 +14,8 @@ export interface Survey extends BaseEntity {
   approved_responses_count?: number;
   questions_count?: number;
   max_responses?: number;
+  target_institutions_count?: number;
+  responded_institutions_count?: number;
   is_anonymous: boolean;
   allow_multiple_responses: boolean;
   creator?: {

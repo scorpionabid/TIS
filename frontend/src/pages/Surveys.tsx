@@ -24,7 +24,7 @@ const STAFF_ROLES      = ['müəllim', 'muavin', 'ubr', 'tesarrufat', 'psixoloq'
 export default function SurveysPage() {
   const { currentUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  useModuleAccess('surveys');
+  const surveyAccess = useModuleAccess('surveys');
   useModuleAccess('approvals');
 
   const roleRaw        = (currentUser?.role || '').toLowerCase();
@@ -54,7 +54,7 @@ export default function SurveysPage() {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-4 pb-4">
         <LazyWrapper>
-          <ManagerSurveyDashboard readonly={isOperator} />
+          <ManagerSurveyDashboard readonly={!surveyAccess.canCreate} />
         </LazyWrapper>
       </div>
     );

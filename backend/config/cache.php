@@ -21,7 +21,7 @@ return [
     |
     */
 
-    'default' => $preferredStore ?? (env('APP_ENV') === 'production' ? 'redis' : 'file'),
+    'default' => $preferredStore ?? env('CACHE_DRIVER', 'redis'),
 
     /*
     |--------------------------------------------------------------------------

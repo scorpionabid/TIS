@@ -37,12 +37,14 @@ import { cn } from '@/lib/utils';
 const STORAGE_KEY = 'surveyViewDashboard_selectedSurveyId';
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Bütün statuslar' },
-  { value: 'draft', label: 'Qaralama' },
-  { value: 'submitted', label: 'Göndərilmiş' },
-  { value: 'approved', label: 'Təsdiqlənmış' },
-  { value: 'rejected', label: 'Rədd edilmiş' },
-  { value: 'returned', label: 'Geri qaytarılmış' },
+  { value: 'all',         label: 'Bütün statuslar' },
+  { value: 'completed',   label: 'Tamamlandı'       },
+  { value: 'submitted',   label: 'Göndərilmiş'      },
+  { value: 'in_progress', label: 'Davam edir'        },
+  { value: 'draft',       label: 'Qaralama'          },
+  { value: 'approved',    label: 'Təsdiqlənmış'      },
+  { value: 'rejected',    label: 'Rədd edilmiş'      },
+  { value: 'returned',    label: 'Geri qaytarılmış'  },
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];

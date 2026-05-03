@@ -78,6 +78,8 @@ class SurveyResponseFormatter
             'start_date' => $survey->start_date,
             'end_date' => $survey->end_date,
             'target_institutions' => $survey->target_institutions,
+            'target_institutions_count' => count($survey->target_institutions ?? []),
+            'responded_institutions_count' => (int) ($survey->getAttribute('responded_institutions_count') ?? 0),
             'target_departments' => $survey->target_departments,
             'published_at' => $survey->published_at,
             'created_at' => $survey->created_at,

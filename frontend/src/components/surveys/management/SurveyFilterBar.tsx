@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 type MgmtFilter = 'active' | 'draft' | 'archived';
 
 const MGMT_FILTER_CONFIG: Record<MgmtFilter, { label: string; icon: React.ElementType }> = {
-  active:   { label: 'Aktiv',   icon: Play     },
+  active:   { label: 'Aktiv',    icon: Play     },
   draft:    { label: 'Qaralama',  icon: FileEdit },
   archived: { label: 'Arxiv',   icon: Archive  },
 };
