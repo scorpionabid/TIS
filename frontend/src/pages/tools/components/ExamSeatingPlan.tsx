@@ -286,12 +286,26 @@ const ExamSeatingPlan: React.FC = () => {
     setHistory(prev => prev.filter(h => h.id !== id));
   };
 
-  // ── Seat swap — variable shadowing fixed ───────────────────────────────────
+  // ── Seat swap ─────────────────────────────────────────────────────────────
   const handleSeatClick = (centerIdx: number, roomIdx: number, seatIdx: number) => {
-    if (seatIdx < 0) return;
-
     if (!selectedSeat) {
+      // First click — only select if there's a student (no point selecting a BOŞ seat first)
+      const seat = results[centerIdx]?.rooms[roomIdx]?.seats[seatIdx];
+      if (!seat?.student) return;
       setSelectedSeat({ centerIdx, roomIdx, seatIdx });
+      return;
+    }
+
+    // Second click — perform swap
+    const s1seat = results[selectedSeat.centerIdx]?.rooms[selectedSeat.roomIdx]?.seats[selectedSeat.seatIdx];
+    const s2seat = results[centerIdx]?.rooms[roomIdx]?.seats[seatIdx];
+
+    // Clicking the same seat or both BOŞ → cancel selection
+    if (
+      (selectedSeat.centerIdx === centerIdx && selectedSeat.roomIdx === roomIdx && selectedSeat.seatIdx === seatIdx) ||
+      (!s1seat?.student && !s2seat?.student)
+    ) {
+      setSelectedSeat(null);
       return;
     }
 
@@ -302,6 +316,9 @@ const ExamSeatingPlan: React.FC = () => {
     const tmp = s1.student;
     s1.student = s2.student;
     s2.student = tmp;
+    // Keep type in sync
+    s1.type = s1.student ? 'CÜT' : 'BOŞ';
+    s2.type = s2.student ? 'CÜT' : 'BOŞ';
 
     newResults[selectedSeat.centerIdx].rooms[selectedSeat.roomIdx].stats = calcStats(
       newResults[selectedSeat.centerIdx].rooms[selectedSeat.roomIdx].seats,
@@ -483,41 +500,45 @@ const ExamSeatingPlan: React.FC = () => {
 
     for (let d = 1; d <= deskCount; d++) {
       (['Sol', 'Sağ'] as const).forEach(pos => {
-        if (!pool.length) return;
+        // Always create the seat entry — BOŞ seats need a valid index for swapping
+        let student: Student | undefined;
 
-        const neighbors = [
-          occupantAt(d, pos === 'Sol' ? 'Sağ' : 'Sol'),
-          occupantAt(d - 1, pos),
-          occupantAt(d + 1, pos),
-          occupantAt(d - rowsPerCol, pos),
-          occupantAt(d + rowsPerCol, pos),
-          occupantAt(d - rowsPerCol - 1, pos),
-          occupantAt(d - rowsPerCol + 1, pos),
-        ].filter((n): n is Student => !!n);
+        if (pool.length > 0) {
+          const neighbors = [
+            occupantAt(d, pos === 'Sol' ? 'Sağ' : 'Sol'),
+            occupantAt(d - 1, pos),
+            occupantAt(d + 1, pos),
+            occupantAt(d - rowsPerCol, pos),
+            occupantAt(d + rowsPerCol, pos),
+            occupantAt(d - rowsPerCol - 1, pos),
+            occupantAt(d - rowsPerCol + 1, pos),
+          ].filter((n): n is Student => !!n);
 
-        const targetGender = genderBalance ? (seats.length % 2 === 0 ? 'K' : 'Q') : null;
+          const targetGender = genderBalance ? (seats.length % 2 === 0 ? 'K' : 'Q') : null;
 
-        let bestIdx = 0;
-        let minConflicts = Infinity;
+          let bestIdx = 0;
+          let minConflicts = Infinity;
 
-        for (let pi = 0; pi < Math.min(pool.length, 50); pi++) {
-          const c = pool[pi];
-          let conflicts = 0;
-          neighbors.forEach(n => {
-            if (n.utisCode === c.utisCode) conflicts += 10;
-            if (n.grade   === c.grade)    conflicts += gradeW;
-            if (sectionW  && n.section === c.section) conflicts += sectionW;
-          });
-          if (targetGender && c.gender !== targetGender) conflicts += 5;
-          if (conflicts < minConflicts) {
-            minConflicts = conflicts;
-            bestIdx = pi;
-            if (conflicts === 0) break;
+          for (let pi = 0; pi < Math.min(pool.length, 50); pi++) {
+            const c = pool[pi];
+            let conflicts = 0;
+            neighbors.forEach(n => {
+              if (n.utisCode === c.utisCode) conflicts += 10;
+              if (n.grade   === c.grade)    conflicts += gradeW;
+              if (sectionW  && n.section === c.section) conflicts += sectionW;
+            });
+            if (targetGender && c.gender !== targetGender) conflicts += 5;
+            if (conflicts < minConflicts) {
+              minConflicts = conflicts;
+              bestIdx = pi;
+              if (conflicts === 0) break;
+            }
           }
+
+          student = pool.splice(bestIdx, 1)[0];
         }
 
-        const student = pool.splice(bestIdx, 1)[0];
-        seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: pos, type: 'CÜT', student });
+        seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: pos, type: student ? 'CÜT' : 'BOŞ', student });
       });
     }
     return seats;
@@ -1391,6 +1412,11 @@ const ExamSeatingPlan: React.FC = () => {
                                     selectedSeat?.seatIdx   === idx;
 
                                   const sameSchool = sL?.student && sR?.student && sL.student.utisCode === sR.student.utisCode;
+                                  // TƏK: student exists but partner slot is empty
+                                  const lIsTek = sL?.student && !sR?.student;
+                                  const rIsTek = sR?.student && !sL?.student;
+                                  // Show drop-hint on BOŞ slot when a seat is selected
+                                  const showDropHint = !!selectedSeat;
 
                                   return (
                                     <div key={deskRowIdx}>
@@ -1402,13 +1428,21 @@ const ExamSeatingPlan: React.FC = () => {
                                           {deskNum}
                                         </div>
 
-                                        {([{ pos: 'Sol' as const, seat: sL, sIdx: sLIdx }, { pos: 'Sağ' as const, seat: sR, sIdx: sRIdx }]).map(({ pos, seat, sIdx }) => (
+                                        {([
+                                          { pos: 'Sol' as const, seat: sL, sIdx: sLIdx, isTek: lIsTek },
+                                          { pos: 'Sağ' as const, seat: sR, sIdx: sRIdx, isTek: rIsTek },
+                                        ]).map(({ pos, seat, sIdx, isTek }) => (
                                           <div
                                             key={pos}
-                                            onClick={() => handleSeatClick(centerIdx, roomIdx, sIdx)}
+                                            onClick={() => sIdx >= 0 && handleSeatClick(centerIdx, roomIdx, sIdx)}
                                             className={cn(
-                                              'flex-1 p-2 rounded-xl border-t-4 flex flex-col justify-center cursor-pointer transition-all hover:scale-105',
-                                              seat?.student ? getGradeColor(seat.student.grade) : 'bg-slate-50',
+                                              'flex-1 p-2 rounded-xl border-t-4 flex flex-col justify-center transition-all relative',
+                                              seat?.student
+                                                ? cn(getGradeColor(seat.student.grade), 'cursor-pointer hover:scale-105')
+                                                : cn(
+                                                    'bg-slate-50 border-slate-200',
+                                                    showDropHint && sIdx >= 0 ? 'cursor-pointer hover:bg-amber-50 hover:border-amber-300 border-dashed' : 'cursor-default opacity-50',
+                                                  ),
                                               isSelected(sIdx) && 'ring-4 ring-primary ring-offset-2 scale-105 z-20',
                                             )}
                                           >
@@ -1417,9 +1451,14 @@ const ExamSeatingPlan: React.FC = () => {
                                               <div className="mt-0.5">
                                                 <p className="text-[9px] font-bold truncate">{seat.student.firstName} {seat.student.lastName}</p>
                                                 <p className="text-[7px] opacity-80 truncate">{seat.student.schoolName}</p>
+                                                {isTek && (
+                                                  <span className="absolute top-1 right-1 text-[7px] bg-amber-400 text-white font-bold px-1 rounded">TƏK</span>
+                                                )}
                                               </div>
                                             ) : (
-                                              <p className="text-[9px] text-slate-400 font-bold uppercase">Boş</p>
+                                              <p className={cn('text-[9px] font-bold uppercase', showDropHint && sIdx >= 0 ? 'text-amber-500' : 'text-slate-400')}>
+                                                {showDropHint && sIdx >= 0 ? '+ buraya' : 'Boş'}
+                                              </p>
                                             )}
                                           </div>
                                         ))}
