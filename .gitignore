@@ -196,8 +196,8 @@ yarn.lock
 # Local files
 *.local
 
-# Development tools
-tools/
+# Development tools (root-level only, not src/pages/tools/)
+/tools/
 
 # Platform-specific overrides (Windows, macOS, Linux)
 docker-compose.override.yml
