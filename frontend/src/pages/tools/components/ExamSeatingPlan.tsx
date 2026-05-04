@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 // raw: false seçəndə XLSX həmişə string qaytarır; boş cell undefined ola bilər
 type CellValue = string | undefined;
 type SeatingType = 'A' | 'B' | 'C';
-type SortField = 'firstName' | 'lastName' | 'grade' | 'schoolName' | 'center';
+type SortField = 'firstName' | 'lastName' | 'grade' | 'schoolName' | 'center' | 'patronymic' | 'rayon';
 type Step = 'upload' | 'mapping' | 'review' | 'config' | 'results';
 
 interface Student {
@@ -47,6 +47,9 @@ interface Student {
   utisCode: string;
   firstName: string;
   lastName: string;
+  patronymic?: string;  // atasının adı
+  rayon?: string;       // rayon
+  childId?: string;     // uşaq İD
   grade: string;
   schoolName: string;
   section: string;
@@ -126,17 +129,21 @@ const escapeHtml = (str: string): string =>
 
 const autoDetectMapping = (headers: string[]): Record<string, number> => {
   const mapping: Record<string, number> = {
-    center: 0, utisCode: 1, firstName: 2, lastName: 3,
-    grade: 4, schoolName: 5, section: 6, gender: 7, note: 8,
+    center: 0, lastName: 1, firstName: 2, patronymic: 3,
+    rayon: 4, childId: 5, section: 6, grade: 7,
+    schoolName: 8, utisCode: 9, gender: 10, note: 11,
   };
   const patterns: Record<string, RegExp> = {
     center:     /mərkəz|center|imtahan/i,
-    utisCode:   /utis|kod|code/i,
-    firstName:  /^ad$|first.?name|şagirdin\s*ad/i,
     lastName:   /soyad|surname|last.?name/i,
-    grade:      /sinif|qrup|grade|class/i,
-    schoolName: /məktəb|school|oxuduğu/i,
-    section:    /bölmə|section|dil|şöbə/i,
+    firstName:  /^ad$|first.?name|şagirdin\s*ad/i,
+    patronymic: /atasın|ata.?ad|patrony|father/i,
+    rayon:      /rayon|район|district/i,
+    childId:    /uşaq.?id|şagird.?id|child.?id|şəxs.?id/i,
+    section:    /tədris.?dil|bölmə|section|dil|şöbə/i,
+    grade:      /tədris.?sinf|sinif|qrup|grade|class/i,
+    schoolName: /təhsil.?müəssisə|məktəb|school|oxuduğu/i,
+    utisCode:   /müəssisəsinin.?id|utis|kod|code/i,
     gender:     /cins|gender|sex/i,
     note:       /qeyd|note|remark/i,
   };
@@ -217,8 +224,9 @@ const ExamSeatingPlan: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, number>>({
-    center: 0, utisCode: 1, firstName: 2, lastName: 3,
-    grade: 4, schoolName: 5, section: 6, gender: 7, note: 8,
+    center: 0, lastName: 1, firstName: 2, patronymic: 3,
+    rayon: 4, childId: 5, section: 6, grade: 7,
+    schoolName: 8, utisCode: 9, gender: 10, note: 11,
   });
 
   const [students, setStudents] = useState<Student[]>([]);
@@ -424,6 +432,9 @@ const ExamSeatingPlan: React.FC = () => {
         utisCode:   cell(row, columnMapping.utisCode)   || 'Naməlum',
         firstName:  cell(row, columnMapping.firstName),
         lastName:   cell(row, columnMapping.lastName),
+        patronymic: cell(row, columnMapping.patronymic) || undefined,
+        rayon:      cell(row, columnMapping.rayon)      || undefined,
+        childId:    cell(row, columnMapping.childId)    || undefined,
         grade:      cell(row, columnMapping.grade),
         schoolName: cell(row, columnMapping.schoolName),
         section:    cell(row, columnMapping.section),
@@ -676,15 +687,65 @@ const ExamSeatingPlan: React.FC = () => {
   };
 
   // ── Template download ──────────────────────────────────────────────────────
-  const downloadTemplate = () => {
-    const wb = XLSX.utils.book_new();
-    const data = [
-      ['İmtahan Mərkəzi', 'Məktəb UTİS kodu', 'Şagirdin Adı', 'Şagirdin Soyadı', 'Sinif', 'Oxuduğu Məktəb', 'Bölmə', 'Cinsiyyət (K/Q)', 'Qeyd'],
-      ['Mərkəz 1', '123456', 'Vüsal', 'Məmmədov', '11A', 'Məktəb №1', 'Az', 'K', ''],
-      ['Mərkəz 1', '789012', 'Günay', 'Həsənova', '11B', 'Məktəb №2', 'Rus', 'Q', 'TƏK'],
+  const downloadTemplate = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Şablon');
+
+    // Sütun genişlikləri
+    ws.columns = [
+      { key: 'center',     width: 20 },
+      { key: 'lastName',   width: 16 },
+      { key: 'firstName',  width: 16 },
+      { key: 'patronymic', width: 16 },
+      { key: 'rayon',      width: 14 },
+      { key: 'childId',    width: 14 },
+      { key: 'section',    width: 14 },
+      { key: 'grade',      width: 14 },
+      { key: 'schoolName', width: 28 },
+      { key: 'utisCode',   width: 18 },
+      { key: 'gender',     width: 14 },
+      { key: 'note',       width: 14 },
     ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'Template');
-    XLSX.writeFile(wb, 'Imtahan_Sablon.xlsx');
+
+    // Başlıq sətri — sarı fon, qalın, mərkəzli
+    const headers = [
+      'İmtahan Mərkəzi', 'Soyadı', 'Adı', 'Atasının adı', 'Rayon',
+      'Uşaq İD', 'Tədris dili (Az/Rus)', 'Tədris sinfi', 'Təhsil müəssisəsi',
+      'Müəssisəsinin İD (UTİS)', 'Cinsiyyət (K/Q)', 'Qeyd',
+    ];
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.font      = { bold: true, color: { argb: 'FF000000' } };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border    = {
+        top:    { style: 'medium' }, bottom: { style: 'medium' },
+        left:   { style: 'medium' }, right:  { style: 'medium' },
+      };
+    });
+    headerRow.height = 36;
+
+    // Nümunə sətrlər
+    const samples = [
+      ['Mərkəz 1', 'Məmmədov', 'Vüsal',  'Ramiz',  'Binəqədi', '78901', 'Az',  '11A', 'Məktəb №1', '123456', 'K', ''],
+      ['Mərkəz 1', 'Həsənova', 'Günay',  'Əli',    'Sabunçu',  '78902', 'Rus', '11B', 'Məktəb №2', '789012', 'Q', ''],
+      ['Mərkəz 2', 'Əliyev',   'Murad',  'Tural',  'Nizami',   '78903', 'Az',  '11A', 'Məktəb №3', '345678', 'K', ''],
+    ];
+    samples.forEach(row => {
+      const dataRow = ws.addRow(row);
+      dataRow.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border    = {
+          top:    { style: 'thin' }, bottom: { style: 'thin' },
+          left:   { style: 'thin' }, right:  { style: 'thin' },
+        };
+      });
+      dataRow.height = 20;
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), 'Imtahan_Sablon.xlsx');
+    toast({ title: 'Şablon yükləndi' });
   };
 
   // ── Print helpers (XSS-safe) ───────────────────────────────────────────────
@@ -784,15 +845,23 @@ const ExamSeatingPlan: React.FC = () => {
   // ── Excel export ───────────────────────────────────────────────────────────
   const exportToExcel = async () => {
     const wb = new ExcelJS.Workbook();
+
+    // ── XÜLASƏ sheet ──────────────────────────────────────────────────────────
     const summary = wb.addWorksheet('XÜLASƏ');
     summary.columns = [
-      { header: 'Mərkəz',          key: 'center',   width: 25 },
-      { header: 'Otaq',            key: 'room',     width: 20 },
-      { header: 'Şagird',          key: 'students', width: 12 },
-      { header: 'UTİS Pozulması',  key: 'utis',     width: 15 },
-      { header: 'Risk',            key: 'risk',     width: 18 },
+      { header: 'Mərkəz',         key: 'center',   width: 25 },
+      { header: 'Otaq',           key: 'room',     width: 20 },
+      { header: 'Şagird sayı',    key: 'students', width: 14 },
+      { header: 'UTİS Pozulması', key: 'utis',     width: 16 },
+      { header: 'Risk',           key: 'risk',     width: 20 },
     ];
-    summary.getRow(1).font = { bold: true };
+    const summaryHeader = summary.getRow(1);
+    summaryHeader.font = { bold: true };
+    summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+    summaryHeader.eachCell(c => {
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
 
     results.forEach(center => {
       center.rooms.forEach(room => {
@@ -803,31 +872,86 @@ const ExamSeatingPlan: React.FC = () => {
           utis:     room.stats.utisViolations,
           risk:     `${room.stats.riskScore}% (${room.stats.riskStatus})`,
         });
+      });
+    });
 
-        const sheetName = `${center.centerName.substring(0, 10)}_${room.config.name.substring(0, 15)}`
-          .replace(/[\\/*?:[\]]/g, '_');
-        const sheet = wb.addWorksheet(sheetName);
+    // ── Hər mərkəz üçün sheet — rəsmi format ──────────────────────────────────
+    const EXPORT_COLS = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
 
-        sheet.mergeCells('A1:G1');
-        const title = sheet.getCell('A1');
-        title.value = `${center.centerName} — ${room.config.name}`;
-        title.font  = { bold: true, size: 14 };
-        title.alignment = { horizontal: 'center' };
+    const applyHeaderStyle = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FF000000' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = {
+          top: { style: 'medium' }, bottom: { style: 'medium' },
+          left: { style: 'medium' }, right: { style: 'medium' },
+        };
+      });
+    };
 
-        sheet.addRow(['№', 'Parta', 'Mövqe', 'Ad Soyad', 'Sinif', 'Məktəb', 'UTİS']);
-        sheet.getRow(2).font = { bold: true };
-        sheet.getRow(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBDD7EE' } };
+    const applyDataStyle = (row: ExcelJS.Row) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border    = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' },
+        };
+      });
+    };
 
-        room.seats.forEach(s => {
-          sheet.addRow([
-            s.seatNumber, s.deskNumber, s.position,
-            s.student ? `${s.student.firstName} ${s.student.lastName}` : 'BOŞ',
-            s.student?.grade      ?? '-',
-            s.student?.schoolName ?? '-',
-            s.student?.utisCode   ?? '-',
-          ]);
-        });
-        sheet.columns.forEach(c => { c.width = 15; });
+    results.forEach(center => {
+      const sheetName = center.centerName.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheet = wb.addWorksheet(sheetName);
+      sheet.columns = EXPORT_COLS.map(c => ({ header: c.header, width: c.width }));
+
+      // Başlıq
+      const headerRow = sheet.getRow(1);
+      headerRow.values = EXPORT_COLS.map(c => c.header);
+      applyHeaderStyle(headerRow);
+
+      // Şagird sətirləri — yalnız şagirdli oturacaqlar, otaq sırası ilə
+      let rowNo = 1;
+      center.rooms.forEach(room => {
+        room.seats
+          .filter(s => s.student)
+          .forEach(s => {
+            const st = s.student!;
+            const dataRow = sheet.addRow([
+              rowNo++,
+              st.lastName,
+              st.firstName,
+              st.patronymic ?? '',
+              st.rayon      ?? '',
+              '',                    // Sual kitabçasının variant — boş
+              st.section,
+              st.grade,
+              st.schoolName,
+              st.utisCode,
+              st.childId    ?? '',
+              s.seatNumber,
+              room.config.name,
+              center.centerName,
+            ]);
+            applyDataStyle(dataRow);
+          });
       });
     });
 
@@ -853,7 +977,7 @@ const ExamSeatingPlan: React.FC = () => {
     }
     if (sortField) {
       list.sort((a, b) => {
-        const cmp = a[sortField].localeCompare(b[sortField], 'az');
+        const cmp = (a[sortField] ?? '').localeCompare(b[sortField] ?? '', 'az');
         return sortDir === 'asc' ? cmp : -cmp;
       });
     }
@@ -1107,12 +1231,11 @@ const ExamSeatingPlan: React.FC = () => {
                   <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-md">
                     <TableRow>
                       {([
-                        ['firstName', 'Ad'],
-                        ['lastName',  'Soyad'],
-                        ['grade',     'Sinif'],
-                        ['utisCode',  'UTİS'],
-                        ['schoolName','Məktəb'],
-                        ['center',    'Mərkəz'],
+                        ['lastName',   'Soyad'],
+                        ['firstName',  'Ad'],
+                        ['grade',      'Sinif'],
+                        ['schoolName', 'Məktəb'],
+                        ['center',     'Mərkəz'],
                       ] as [SortField, string][]).map(([field, label]) => (
                         <TableHead key={field} className="cursor-pointer select-none" onClick={() => toggleSort(field)}>
                           <span className="flex items-center gap-1">
@@ -1121,6 +1244,10 @@ const ExamSeatingPlan: React.FC = () => {
                           </span>
                         </TableHead>
                       ))}
+                      <TableHead>Atasının adı</TableHead>
+                      <TableHead>Rayon</TableHead>
+                      <TableHead>Uşaq İD</TableHead>
+                      <TableHead>UTİS</TableHead>
                       <TableHead>Bölmə</TableHead>
                       <TableHead />
                     </TableRow>
@@ -1128,12 +1255,15 @@ const ExamSeatingPlan: React.FC = () => {
                   <TableBody>
                     {filteredStudents.map(s => (
                       <TableRow key={s.id} className="hover:bg-primary/5 transition-colors group">
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium"    value={s.firstName}  onChange={e => updateStudent(s.id, 'firstName',  e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium"    value={s.lastName}   onChange={e => updateStudent(s.id, 'lastName',   e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2"                value={s.grade}      onChange={e => updateStudent(s.id, 'grade',      e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.utisCode} onChange={e => updateStudent(s.id, 'utisCode',  e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"        value={s.schoolName} onChange={e => updateStudent(s.id, 'schoolName', e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"        value={s.center}     onChange={e => updateStudent(s.id, 'center',     e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.lastName}    onChange={e => updateStudent(s.id, 'lastName',    e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.firstName}   onChange={e => updateStudent(s.id, 'firstName',   e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2"             value={s.grade}       onChange={e => updateStudent(s.id, 'grade',       e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.schoolName}  onChange={e => updateStudent(s.id, 'schoolName',  e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.center}      onChange={e => updateStudent(s.id, 'center',      e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.patronymic ?? ''} onChange={e => updateStudent(s.id, 'patronymic', e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.rayon      ?? ''} onChange={e => updateStudent(s.id, 'rayon',      e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.childId ?? ''} onChange={e => updateStudent(s.id, 'childId',  e.target.value)} /></TableCell>
+                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.utisCode}    onChange={e => updateStudent(s.id, 'utisCode',   e.target.value)} /></TableCell>
                         <TableCell>
                           <Select value={s.section} onValueChange={val => updateStudent(s.id, 'section', val)}>
                             <SelectTrigger className="h-8 text-xs border-none bg-transparent hover:bg-muted"><SelectValue /></SelectTrigger>
