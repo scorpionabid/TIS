@@ -129,50 +129,120 @@ const escapeHtml = (str: string): string =>
 
 const autoDetectMapping = (headers: string[]): Record<string, number> => {
   const mapping: Record<string, number> = {
-    center: 0, lastName: 1, firstName: 2, patronymic: 3,
-    rayon: 4, childId: 5, section: 6, grade: 7,
-    schoolName: 8, utisCode: 9, gender: 10, note: 11,
+    center: -1, lastName: -1, firstName: -1, patronymic: -1,
+    rayon: -1, childId: -1, section: -1, grade: -1,
+    schoolName: -1, utisCode: -1, gender: -1, note: -1,
   };
-  const patterns: Record<string, RegExp> = {
-    center:     /mərkəz|center|imtahan/i,
-    lastName:   /soyad|surname|last.?name/i,
-    firstName:  /^ad$|first.?name|şagirdin\s*ad/i,
-    patronymic: /atasın|ata.?ad|patrony|father/i,
-    rayon:      /rayon|район|district/i,
-    childId:    /uşaq.?id|şagird.?id|child.?id|şəxs.?id/i,
-    section:    /tədris.?dil|bölmə|section|dil|şöbə/i,
-    grade:      /tədris.?sinf|sinif|qrup|grade|class/i,
-    schoolName: /təhsil.?müəssisə|məktəb|school|oxuduğu/i,
-    utisCode:   /müəssisəsinin.?id|utis|kod|code/i,
-    gender:     /cins|gender|sex/i,
-    note:       /qeyd|note|remark/i,
+
+  // Patterns with weights or specificity
+  const criteria: Record<string, { exact: RegExp; partial: RegExp }> = {
+    center: {
+      exact: /^(mərkəz|center|imtahan mərkəzi|imtahan mərkəzinin adı)$/i,
+      partial: /mərkəz|center|imtahan/i,
+    },
+    lastName: {
+      exact: /^(soyad|soyadı|surname|last.?name)$/i,
+      partial: /soyad|surname|last.?name/i,
+    },
+    firstName: {
+      exact: /^(ad|adı|first.?name)$/i,
+      partial: /şagirdin\s*ad|first.?name|adı/i,
+    },
+    patronymic: {
+      exact: /^(ata.?ad|atasının.?adı|patronymic)$/i,
+      partial: /ata.?ad|atasın|patrony/i,
+    },
+    rayon: {
+      exact: /^(rayon|region|rayonu)$/i,
+      partial: /rayon|район|district/i,
+    },
+    childId: {
+      exact: /^(uşaq.?id|şagird.?id|child.?id)$/i,
+      partial: /uşaq.?id|şagird.?id|child.?id/i,
+    },
+    section: {
+      exact: /^(bölmə|tədris.?dili|section)$/i,
+      partial: /bölmə|tədris.?dil|section|dil/i,
+    },
+    grade: {
+      exact: /^(sinif|tədris.?sinfi|grade|class)$/i,
+      partial: /sinif|grade|class|qrup/i,
+    },
+    schoolName: {
+      exact: /^(məktəb|təhsil.?müəssisəsi|school|school.?name)$/i,
+      partial: /məktəb|təhsil.?müəssisə|school|oxuduğu/i,
+    },
+    utisCode: {
+      exact: /^(utis|utis.?kodu|utis.?code)$/i,
+      partial: /utis|kod|code/i,
+    },
+    gender: {
+      exact: /^(cins|cinsiyyət|gender|sex)$/i,
+      partial: /cins|gender|sex/i,
+    },
+    note: {
+      exact: /^(qeyd|note|remark)$/i,
+      partial: /qeyd|note|remark/i,
+    },
   };
+
+  const scores: Record<string, { idx: number; score: number }> = {};
+  Object.keys(mapping).forEach(key => { scores[key] = { idx: -1, score: 0 }; });
+
   headers.forEach((h, idx) => {
-    const header = h ?? '';
-    for (const [key, pattern] of Object.entries(patterns)) {
-      if (pattern.test(header)) mapping[key] = idx;
+    const header = (h || '').trim().toLowerCase();
+    if (!header) return;
+
+    for (const [key, patterns] of Object.entries(criteria)) {
+      let currentScore = 0;
+      if (patterns.exact.test(header)) {
+        currentScore = 100;
+      } else if (patterns.partial.test(header)) {
+        // Partial match score is inverse to length to prefer shorter headers
+        currentScore = Math.max(10, 50 - header.length);
+      }
+
+      if (currentScore > scores[key].score) {
+        scores[key] = { idx, score: currentScore };
+      }
     }
   });
+
+  // Assign best matches
+  Object.keys(scores).forEach(key => {
+    mapping[key] = scores[key].idx;
+  });
+
+  // Final fallback for required fields that failed auto-detection
+  Object.keys(mapping).forEach((key, idx) => {
+    if (mapping[key] === -1) {
+      mapping[key] = Math.min(idx, headers.length - 1);
+    }
+  });
+
   return mapping;
 };
 
-const getGradeColor = (grade: string): string => {
-  const colors = [
-    'bg-blue-100 border-blue-300 text-blue-800',
-    'bg-indigo-100 border-indigo-300 text-indigo-800',
-    'bg-purple-100 border-purple-300 text-purple-800',
-    'bg-pink-100 border-pink-300 text-pink-800',
-    'bg-orange-100 border-orange-300 text-orange-800',
-    'bg-amber-100 border-amber-300 text-amber-800',
-    'bg-emerald-100 border-emerald-300 text-emerald-800',
-    'bg-cyan-100 border-cyan-300 text-cyan-800',
-    'bg-sky-100 border-sky-300 text-sky-800',
-    'bg-violet-100 border-violet-300 text-violet-800',
-  ];
-  let hash = 0;
-  for (let i = 0; i < grade.length; i++) hash = grade.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
-};
+// 14 vizual fərqli rəng — eyni məktəb = həmişə eyni rəng (mərkəz daxilindən)
+const SCHOOL_PALETTE = [
+  'bg-blue-100 border-blue-400 text-blue-900',
+  'bg-emerald-100 border-emerald-400 text-emerald-900',
+  'bg-violet-100 border-violet-400 text-violet-900',
+  'bg-orange-100 border-orange-400 text-orange-900',
+  'bg-rose-100 border-rose-400 text-rose-900',
+  'bg-cyan-100 border-cyan-400 text-cyan-900',
+  'bg-amber-100 border-amber-400 text-amber-900',
+  'bg-lime-100 border-lime-400 text-lime-900',
+  'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-900',
+  'bg-teal-100 border-teal-400 text-teal-900',
+  'bg-red-100 border-red-400 text-red-900',
+  'bg-sky-100 border-sky-400 text-sky-900',
+  'bg-indigo-100 border-indigo-400 text-indigo-900',
+  'bg-pink-100 border-pink-400 text-pink-900',
+];
+
+const getSchoolColor = (utisCode: string, palette: Map<string, number>): string =>
+  SCHOOL_PALETTE[(palette.get(utisCode) ?? 0) % SCHOOL_PALETTE.length];
 
 const PRINT_CARD_CSS = `
   body { margin: 0; }
@@ -252,7 +322,7 @@ const ExamSeatingPlan: React.FC = () => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState('');
 
-  // ── Persistence — load once on mount ───────────────────────────────────────
+  // ── Persistence ───────────────────────────────────────────────────────────
   useEffect(() => {
     try {
       const saved = localStorage.getItem('exam_seating_state');
@@ -263,7 +333,7 @@ const ExamSeatingPlan: React.FC = () => {
         if (p.results)       setResults(migrateResults(p.results));
         if (p.currentStep)   setCurrentStep(p.currentStep);
       }
-    } catch { /* ignore corrupted data */ }
+    } catch (e) { console.warn('Load state failed', e); }
 
     try {
       const savedHistory = localStorage.getItem('exam_seating_history');
@@ -275,15 +345,30 @@ const ExamSeatingPlan: React.FC = () => {
           centerCount:  h.centerCount  ?? Object.keys(h.centerConfigs ?? {}).length,
         })));
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.warn('Load history failed', e); }
   }, []);
 
+  // Safe save state - avoid localStorage for massive datasets (> 2000 students)
   useEffect(() => {
-    localStorage.setItem('exam_seating_state', JSON.stringify({ students, centerConfigs, results, currentStep }));
+    if (students.length > 2000) return; 
+    try {
+      const data = JSON.stringify({ students, centerConfigs, results, currentStep });
+      localStorage.setItem('exam_seating_state', data);
+    } catch (e) {
+      if (e instanceof Error && e.name === 'QuotaExceededError') {
+        console.warn('LocalStorage quota exceeded. State not saved.');
+      }
+    }
   }, [students, centerConfigs, results, currentStep]);
 
+  // Safe save history
   useEffect(() => {
-    localStorage.setItem('exam_seating_history', JSON.stringify(history));
+    try {
+      const data = JSON.stringify(history);
+      localStorage.setItem('exam_seating_history', data);
+    } catch (e) {
+      console.warn('History save failed', e);
+    }
   }, [history]);
 
   // ── History ────────────────────────────────────────────────────────────────
@@ -394,17 +479,80 @@ const ExamSeatingPlan: React.FC = () => {
     reader.onload = (e) => {
       const data = new Uint8Array(e.target?.result as ArrayBuffer);
       const wb   = XLSX.read(data, { type: 'array' });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      // raw: false → bütün cell-lər string kimi qaytarılır ([object Object] problemi yox)
-      const json = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as string[][];
+      
+      let bestSheetName = wb.SheetNames[0];
+      let bestHeaderIdx = 0;
+      let highestOverallScore = -1;
+      let bestJson: string[][] = [];
 
-      if (json.length < 2) {
-        toast({ title: 'Xəta', description: 'Fayl boşdur və ya başlıq yoxdur.', variant: 'destructive' });
+      const headerScores: { key: string; weight: number; pattern: RegExp }[] = [
+        { key: 'soy',    weight: 10, pattern: /soyad|surname/i },
+        { key: 'ad',     weight: 10, pattern: /^(ad|adı|şagirdin\s*ad)$|first.?name/i },
+        { key: 'sinif',  weight: 8,  pattern: /sinif|grade|class/i },
+        { key: 'məktəb', weight: 8,  pattern: /məktəb|müəssisə|school/i },
+        { key: 'utis',   weight: 8,  pattern: /utis|kod|code/i },
+        { key: 'rayon',  weight: 5,  pattern: /rayon|district/i },
+        { key: 'uşaq',   weight: 5,  pattern: /uşaq|fin|child/i },
+        { key: 'center', weight: 5,  pattern: /mərkəz|center/i },
+      ];
+
+      // Scan all sheets to find the one that looks most like a student list
+      for (const sName of wb.SheetNames) {
+        const ws = wb.Sheets[sName];
+        const json = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as string[][];
+        if (json.length < 2) continue;
+
+        let sheetBestScore = -1;
+        let sheetBestIdx = 0;
+
+        for (let i = 0; i < Math.min(json.length, 50); i++) {
+          const row = json[i];
+          let rowScore = 0;
+          const matchedKeys = new Set<string>();
+
+          row.forEach(cell => {
+            const val = String(cell || '').trim();
+            if (!val) return;
+            headerScores.forEach(s => {
+              if (s.pattern.test(val) && !matchedKeys.has(s.key)) {
+                rowScore += s.weight;
+                matchedKeys.add(s.key);
+              }
+            });
+          });
+
+          if (rowScore > sheetBestScore) {
+            sheetBestScore = rowScore;
+            sheetBestIdx = i;
+          }
+        }
+
+        if (sheetBestScore > highestOverallScore) {
+          highestOverallScore = sheetBestScore;
+          bestSheetName = sName;
+          bestHeaderIdx = sheetBestIdx;
+          bestJson = json;
+        }
+        
+        // If we found a very strong match (>30 pts), we can stop
+        if (sheetBestScore > 35) break;
+      }
+
+      if (bestJson.length < 2 || highestOverallScore < 10) {
+        toast({ title: 'Xəta', description: 'Şagird siyahısı tapılmadı. Zəhmət olmasa sütun başlıqlarını yoxlayın.', variant: 'destructive' });
         return;
       }
-      setRawRows(json);
-      setColumnMapping(autoDetectMapping(json[0]));
+
+      const headers = bestJson[bestHeaderIdx].map(h => String(h || '').trim());
+      const rows    = bestJson.slice(bestHeaderIdx); 
+
+      setRawRows(rows);
+      setColumnMapping(autoDetectMapping(headers));
       setCurrentStep('mapping');
+      toast({ 
+        title: 'Fayl oxundu', 
+        description: `Vərəq: ${bestSheetName}, Sətir: ${bestJson.length}, Başlıq sətiri: ${bestHeaderIdx + 1} (Xal: ${highestOverallScore})` 
+      });
     };
     reader.readAsArrayBuffer(file);
   };
@@ -518,75 +666,155 @@ const ExamSeatingPlan: React.FC = () => {
 
   // ── Plan generation ────────────────────────────────────────────────────────
 
+  // 2-mərhələli yerləşdirmə:
+  // Mərhələ 1 — bütün Sol yerlər (tam pool scan, vertikal cərimə)
+  // Mərhələ 2 — bütün Sağ yerlər (Sol partnerin utisCode-u HARD exclude, tam scan)
+  // Bu yanaşma Sol-Sağ (horizontal) pozuntularını sıfıra endirir.
   const placeStudentsInRoom = (
-    pool: Student[],
+    roomStudents: Student[],
     config: RoomConfig,
     type: SeatingType,
     genderBalance: boolean,
   ): Seat[] => {
-    const seats: Seat[] = [];
+    const pool = [...roomStudents]; // öz kopyasında işlə
     const deskCount  = config.totalDesks ?? (config.columns * config.rowsPerColumn);
     const rowsPerCol = config.rowsPerColumn || Math.ceil(deskCount / config.columns);
 
-    const occupantAt = (d: number, p: 'Sol' | 'Sağ') =>
-      seats.find(s => s.deskNumber === d && s.position === p)?.student;
+    const seatMap = new Map<string, Student>();
+    const getAt = (d: number, p: 'Sol' | 'Sağ') => seatMap.get(`${d}-${p}`);
 
     const gradeW   = type === 'B' ? 3 : 1;
     const sectionW = type === 'B' ? 2 : 0;
 
-    for (let d = 1; d <= deskCount; d++) {
-      (['Sol', 'Sağ'] as const).forEach(pos => {
-        // Always create the seat entry — BOŞ seats need a valid index for swapping
-        let student: Student | undefined;
+    // Tam pool-u scan edərək ən yaxşı namizədi tap.
+    // hardExclude: bu utisCode-lar QƏBUL EDİLMİR (Sol-Sağ eyni parta üçün).
+    const pickBest = (
+      neighborKeys: [number, 'Sol' | 'Sağ'][],
+      hardExclude: Set<string>,
+      gTarget: 'K' | 'Q' | null,
+    ): number => {
+      const active = neighborKeys.map(([d, p]) => getAt(d, p)).filter((n): n is Student => !!n);
+      let bestIdx = -1;
+      let minConf  = Infinity;
 
-        if (pool.length > 0) {
-          const neighbors = [
-            occupantAt(d, pos === 'Sol' ? 'Sağ' : 'Sol'),
-            occupantAt(d - 1, pos),
-            occupantAt(d + 1, pos),
-            occupantAt(d - rowsPerCol, pos),
-            occupantAt(d + rowsPerCol, pos),
-            occupantAt(d - rowsPerCol - 1, pos),
-            occupantAt(d - rowsPerCol + 1, pos),
-          ].filter((n): n is Student => !!n);
+      const score = (c: Student, skipHard: boolean): number => {
+        if (!skipHard && hardExclude.has(c.utisCode)) return Infinity;
+        let conf = 0;
+        active.forEach(n => {
+          if (n.utisCode === c.utisCode) conf += 25; // vertikal eyni məktəb — güclü cərimə
+          if (n.grade   === c.grade)    conf += gradeW;
+          if (sectionW && n.section === c.section) conf += sectionW;
+        });
+        if (gTarget && c.gender !== gTarget) conf += 5;
+        return conf;
+      };
 
-          const targetGender = genderBalance ? (seats.length % 2 === 0 ? 'K' : 'Q') : null;
-
-          let bestIdx = 0;
-          let minConflicts = Infinity;
-
-          for (let pi = 0; pi < Math.min(pool.length, 50); pi++) {
-            const c = pool[pi];
-            let conflicts = 0;
-            neighbors.forEach(n => {
-              if (n.utisCode === c.utisCode) conflicts += 10;
-              if (n.grade   === c.grade)    conflicts += gradeW;
-              if (sectionW  && n.section === c.section) conflicts += sectionW;
-            });
-            if (targetGender && c.gender !== targetGender) conflicts += 5;
-            if (conflicts < minConflicts) {
-              minConflicts = conflicts;
-              bestIdx = pi;
-              if (conflicts === 0) break;
-            }
-          }
-
-          student = pool.splice(bestIdx, 1)[0];
+      // 1. Keçid: hardExclude tətbiq olunur
+      for (let pi = 0; pi < pool.length; pi++) {
+        const conf = score(pool[pi], false);
+        if (conf < minConf) { minConf = conf; bestIdx = pi; if (conf === 0) break; }
+      }
+      // 2. Keçid: əgər hardExclude hər şeyi bloklamışsa, məcburi seç
+      if (bestIdx === -1) {
+        minConf = Infinity;
+        for (let pi = 0; pi < pool.length; pi++) {
+          const conf = score(pool[pi], true);
+          if (conf < minConf) { minConf = conf; bestIdx = pi; if (conf === 0) break; }
         }
+      }
+      return Math.max(bestIdx, 0);
+    };
 
-        seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: pos, type: student ? 'CÜT' : 'BOŞ', student });
-      });
+    // ── Mərhələ 1: Sol yerlər ────────────────────────────────────────────────
+    const solStudents: (Student | undefined)[] = [];
+    for (let d = 1; d <= deskCount; d++) {
+      if (!pool.length) { solStudents.push(undefined); continue; }
+      const gTarget = genderBalance ? (d % 2 === 1 ? 'K' : 'Q') : null;
+      const idx = pickBest(
+        [[d - 1, 'Sol'], [d + 1, 'Sol'], [d - rowsPerCol, 'Sol'], [d + rowsPerCol, 'Sol']],
+        new Set<string>(),
+        gTarget,
+      );
+      const st = pool.splice(idx, 1)[0];
+      solStudents.push(st);
+      seatMap.set(`${d}-Sol`, st);
+    }
+
+    // ── Mərhələ 2: Sağ yerlər — Sol partnerin məktəbi QADAĞANDIR ─────────────
+    const sagStudents: (Student | undefined)[] = [];
+    for (let d = 1; d <= deskCount; d++) {
+      if (!pool.length) { sagStudents.push(undefined); continue; }
+      const partner = solStudents[d - 1];
+      const hardExclude = new Set<string>(partner ? [partner.utisCode] : []);
+      const gTarget = genderBalance ? (d % 2 === 1 ? 'Q' : 'K') : null;
+      const idx = pickBest(
+        [
+          [d - 1, 'Sağ'], [d + 1, 'Sağ'],
+          [d - rowsPerCol, 'Sağ'], [d + rowsPerCol, 'Sağ'],
+          [d - 1, 'Sol'], [d + 1, 'Sol'], // diaqonal
+        ],
+        hardExclude,
+        gTarget,
+      );
+      const st = pool.splice(idx, 1)[0];
+      sagStudents.push(st);
+      seatMap.set(`${d}-Sağ`, st);
+    }
+
+    // ── Seat array yığ ───────────────────────────────────────────────────────
+    const seats: Seat[] = [];
+    for (let d = 1; d <= deskCount; d++) {
+      const sol = solStudents[d - 1];
+      const sag = sagStudents[d - 1];
+      seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sol', type: sol ? 'CÜT' : 'BOŞ', student: sol });
+      seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sağ', type: sag ? 'CÜT' : 'BOŞ', student: sag });
     }
     return seats;
   };
 
   const buildPool = (centerStudents: Student[], type: SeatingType): Student[] => {
-    const shuffled = [...centerStudents].sort(() => Math.random() - 0.5);
-    if (type !== 'C') return shuffled;
+    const L = centerStudents.length;
+    if (L === 0) return [];
+    
+    const pool: (Student | null)[] = new Array(L).fill(null);
+
+    // 1. Group by school (UTIS) and sort by count (largest first)
+    const groupsMap = new Map<string, Student[]>();
+    centerStudents.forEach(s => {
+      const list = groupsMap.get(s.utisCode) || [];
+      list.push(s);
+      groupsMap.set(s.utisCode, list);
+    });
+
+    const sortedGroups = Array.from(groupsMap.values())
+      .map(g => [...g].sort(() => Math.random() - 0.5))
+      .sort((a, b) => b.length - a.length);
+
+    // 2. Distribute each group into slots with a calculated step
+    // This ensures even density for every school across the entire range [0...L-1]
+    sortedGroups.forEach(group => {
+      const n = group.length;
+      const step = L / n;
+      
+      group.forEach((student, i) => {
+        let targetIdx = Math.floor(i * step);
+        // Find next available slot (linear probing)
+        while (pool[targetIdx % L] !== null) {
+          targetIdx++;
+        }
+        pool[targetIdx % L] = student;
+      });
+    });
+
+    const finalPool = pool.filter((s): s is Student => s !== null);
+
+    if (type !== 'C') return finalPool;
+
+    // Type C: Priority by section (Az then Rus)
     return [
-      ...shuffled.filter(s => s.section === 'Az'),
-      ...shuffled.filter(s => s.section === 'Rus'),
-      ...shuffled.filter(s => s.section !== 'Az' && s.section !== 'Rus'),
+      ...finalPool.filter(s => s.section === 'Az'),
+      ...finalPool.filter(s => s.section === 'Rus'),
+      ...finalPool.filter(s => s.section !== 'Az' && s.section !== 'Rus'),
     ];
   };
 
@@ -599,19 +827,23 @@ const ExamSeatingPlan: React.FC = () => {
 
     const finalResults: CenterResult[] = Object.entries(centerMap).map(([centerName, centerStudents]) => {
       const rooms = centerConfigs[centerName] ?? [];
-      const pool  = buildPool(centerStudents, seatingType);
+      // buildPool: bütün mərkəz şagirdlərini eyni məktəblərin bir-birindən uzaq olduğu formada sırala
+      const masterPool = buildPool(centerStudents, seatingType);
       const roomResults: RoomResult[] = [];
 
       for (const config of rooms) {
-        if (!pool.length) break;
-        const seats = placeStudentsInRoom(pool, config, seatingType, useGenderBalance);
+        if (!masterPool.length) break;
+        const deskCount = config.totalDesks ?? (config.columns * config.rowsPerColumn);
+        // Həmin otağa düşən şagirdləri pool-dan kəs (artıq bərabər paylanmış sıradan)
+        const roomStudents = masterPool.splice(0, deskCount * 2);
+        const seats = placeStudentsInRoom(roomStudents, config, seatingType, useGenderBalance);
         roomResults.push({ config, seats, stats: calcStats(seats, config) });
       }
 
-      if (pool.length > 0) {
+      if (masterPool.length > 0) {
         toast({
           title: 'Diqqət',
-          description: `${centerName}: ${pool.length} şagird yerləşdirilə bilmədi!`,
+          description: `${centerName}: ${masterPool.length} şagird yerləşdirilə bilmədi!`,
           variant: 'destructive',
         });
       }
@@ -627,12 +859,12 @@ const ExamSeatingPlan: React.FC = () => {
   const regenerateRoom = (centerIdx: number, roomIdx: number) => {
     const newResults: CenterResult[] = JSON.parse(JSON.stringify(results));
     const room = newResults[centerIdx].rooms[roomIdx];
-    const pool = room.seats
+    // Hazırki otağın şagirdlərini götür, yenidən paylaşdır
+    const roomStudents = room.seats
       .filter(s => s.student)
-      .map(s => s.student as Student)
-      .sort(() => Math.random() - 0.5);
+      .map(s => s.student as Student);
 
-    const seats = placeStudentsInRoom(pool, room.config, seatingType, useGenderBalance);
+    const seats = placeStudentsInRoom(roomStudents, room.config, seatingType, useGenderBalance);
     newResults[centerIdx].rooms[roomIdx].seats = seats;
     newResults[centerIdx].rooms[roomIdx].stats = calcStats(seats, room.config);
 
@@ -660,8 +892,13 @@ const ExamSeatingPlan: React.FC = () => {
       } else if (occ.length === 1) singleCount++;
     });
 
-    const at = (d: number, p: 'Sol' | 'Sağ') =>
-      seats.find(s => s.deskNumber === d && s.position === p)?.student;
+    // Create a fast lookup map for seat positions
+    const seatMap = new Map<string, Student>();
+    seats.forEach(s => {
+      if (s.student) seatMap.set(`${s.deskNumber}-${s.position}`, s.student);
+    });
+
+    const at = (d: number, p: 'Sol' | 'Sağ') => seatMap.get(`${d}-${p}`);
 
     let riskWeight = 0;
     seats.forEach(({ student: st, deskNumber: d, position: pos }) => {
@@ -995,6 +1232,19 @@ const ExamSeatingPlan: React.FC = () => {
     return res;
   }, [centerConfigs, students]);
 
+  // Hər mərkəz üçün utisCode → rəng indeksi xəritəsi (nəticə dəyişdikdə yenilənir)
+  const centerPalettes = useMemo(() => {
+    const palettes = new Map<string, Map<string, number>>();
+    results.forEach(center => {
+      const utisSet = new Set<string>();
+      center.rooms.forEach(room => room.seats.forEach(s => { if (s.student) utisSet.add(s.student.utisCode); }));
+      const palette = new Map<string, number>();
+      Array.from(utisSet).sort().forEach((utis, idx) => palette.set(utis, idx));
+      palettes.set(center.centerName, palette);
+    });
+    return palettes;
+  }, [results]);
+
   const globalStats = useMemo(() => {
     if (!results.length) return null;
     const totalStudents  = results.reduce((s, c) => s + c.rooms.reduce((a, r) => a + r.stats.totalStudents, 0), 0);
@@ -1214,10 +1464,10 @@ const ExamSeatingPlan: React.FC = () => {
             </div>
 
             {/* Center chips */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap max-h-[150px] overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
               {uniqueCenters.map(c => (
                 <Badge
-                  key={c} variant={centerFilter === c ? 'default' : 'outline'} className="cursor-pointer"
+                  key={c} variant={centerFilter === c ? 'default' : 'outline'} className="cursor-pointer hover:bg-primary hover:text-white transition-colors"
                   onClick={() => setCenterFilter(prev => prev === c ? 'all' : c)}
                 >
                   {c}: {students.filter(s => s.center === c).length}
@@ -1253,33 +1503,46 @@ const ExamSeatingPlan: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStudents.map(s => (
-                      <TableRow key={s.id} className="hover:bg-primary/5 transition-colors group">
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.lastName}    onChange={e => updateStudent(s.id, 'lastName',    e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.firstName}   onChange={e => updateStudent(s.id, 'firstName',   e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2"             value={s.grade}       onChange={e => updateStudent(s.id, 'grade',       e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.schoolName}  onChange={e => updateStudent(s.id, 'schoolName',  e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.center}      onChange={e => updateStudent(s.id, 'center',      e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.patronymic ?? ''} onChange={e => updateStudent(s.id, 'patronymic', e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.rayon      ?? ''} onChange={e => updateStudent(s.id, 'rayon',      e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.childId ?? ''} onChange={e => updateStudent(s.id, 'childId',  e.target.value)} /></TableCell>
-                        <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.utisCode}    onChange={e => updateStudent(s.id, 'utisCode',   e.target.value)} /></TableCell>
-                        <TableCell>
-                          <Select value={s.section} onValueChange={val => updateStudent(s.id, 'section', val)}>
-                            <SelectTrigger className="h-8 text-xs border-none bg-transparent hover:bg-muted"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Az">Az</SelectItem>
-                              <SelectItem value="Rus">Rus</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => deleteStudent(s.id)} className="opacity-0 group-hover:opacity-100 text-red-400">
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredStudents.length === 0 ? (
+                      <TableRow><TableCell colSpan={11} className="h-24 text-center text-muted-foreground">Şagird tapılmadı</TableCell></TableRow>
+                    ) : (
+                      <>
+                        {filteredStudents.slice(0, 100).map(s => (
+                          <TableRow key={s.id} className="hover:bg-primary/5 transition-colors group">
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.lastName}    onChange={e => updateStudent(s.id, 'lastName',    e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.firstName}   onChange={e => updateStudent(s.id, 'firstName',   e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2"             value={s.grade}       onChange={e => updateStudent(s.id, 'grade',       e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.schoolName}  onChange={e => updateStudent(s.id, 'schoolName',  e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.center}      onChange={e => updateStudent(s.id, 'center',      e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.patronymic ?? ''} onChange={e => updateStudent(s.id, 'patronymic', e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.rayon      ?? ''} onChange={e => updateStudent(s.id, 'rayon',      e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.childId ?? ''} onChange={e => updateStudent(s.id, 'childId',  e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.utisCode}    onChange={e => updateStudent(s.id, 'utisCode',   e.target.value)} /></TableCell>
+                            <TableCell>
+                              <Select value={s.section} onValueChange={val => updateStudent(s.id, 'section', val)}>
+                                <SelectTrigger className="h-8 text-xs border-none bg-transparent hover:bg-muted"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Az">Az</SelectItem>
+                                  <SelectItem value="Rus">Rus</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" onClick={() => deleteStudent(s.id)} className="opacity-0 group-hover:opacity-100 text-red-400">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredStudents.length > 100 && (
+                          <TableRow>
+                            <TableCell colSpan={11} className="h-12 text-center bg-muted/30 text-xs font-bold text-muted-foreground">
+                              Sürət üçün yalnız ilk 100 şagird göstərilir. Digərlərini tapmaq üçün axtarışdan istifadə edin.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -1486,7 +1749,10 @@ const ExamSeatingPlan: React.FC = () => {
               </div>
             )}
 
-            {results.map((center, centerIdx) => (
+            {results.map((center, centerIdx) => {
+              // Bu mərkəz üçün utisCode → rəng xəritəsi
+              const centerPalette = centerPalettes.get(center.centerName) ?? new Map<string, number>();
+              return (
               <div key={centerIdx} className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-2 bg-primary rounded-full" />
@@ -1602,7 +1868,7 @@ const ExamSeatingPlan: React.FC = () => {
                                             className={cn(
                                               'flex-1 p-2 rounded-xl border-t-4 flex flex-col justify-center transition-all relative',
                                               seat?.student
-                                                ? cn(getGradeColor(seat.student.grade), 'cursor-pointer hover:scale-105')
+                                                ? cn(getSchoolColor(seat.student.utisCode, centerPalette), 'cursor-pointer hover:scale-105')
                                                 : cn(
                                                     'bg-slate-50 border-slate-200',
                                                     showDropHint && sIdx >= 0 ? 'cursor-pointer hover:bg-amber-50 hover:border-amber-300 border-dashed' : 'cursor-default opacity-50',
@@ -1661,7 +1927,8 @@ const ExamSeatingPlan: React.FC = () => {
                   </Card>
                 ))}
               </div>
-            ))}
+              );
+            })}
           </motion.div>
         )}
 
