@@ -142,15 +142,15 @@ export default function LinkDatabase() {
 
         {/* Left Sidebar — yalnız departamentlər */}
         <aside className="w-full md:w-64 lg:w-72 xl:w-80 flex-shrink-0 border-b md:border-b-0 md:border-r border-border/60 bg-card md:min-h-full">
-          <div className="md:sticky md:top-0 md:max-h-[calc(100vh-4rem)] overflow-y-auto no-scrollbar">
-            <div className="px-4 py-5 border-b border-border/60">
+          <div className="md:sticky md:top-0 max-h-48 md:max-h-[calc(100vh-4rem)] overflow-y-auto no-scrollbar">
+            <div className="px-4 py-3 md:py-5 border-b border-border/60">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <Database className="h-5 w-5" />
+                <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                  <Database className="h-4 w-4 md:h-5 md:w-5" />
                 </div>
                 <div>
                   <h2 className="font-black text-sm text-foreground">Keçidlər Paneli</h2>
-                  <p className="text-[11px] text-muted-foreground font-medium">Resursların idarəetmə mərkəzi</p>
+                  <p className="text-[11px] text-muted-foreground font-medium hidden md:block">Resursların idarəetmə mərkəzi</p>
                 </div>
               </div>
             </div>
@@ -179,7 +179,7 @@ export default function LinkDatabase() {
         <main className="flex-1 min-w-0 flex flex-col bg-background">
 
           {/* Sticky Toolbar — kompakt, tək blok */}
-          <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/60 px-6 py-3">
+          <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/60 px-3 sm:px-6 py-3">
             <LinkDatabaseFilterBar
               title={activeDepName ?? 'Keçidlər'}
               filters={state.filters}

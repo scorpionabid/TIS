@@ -81,7 +81,7 @@ export function GeneralTab({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-[13px] font-bold text-gray-700">Resurs Növü</Label>
           <Controller

@@ -132,10 +132,38 @@ export function UnifiedLinkModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[860px] p-0 flex flex-row h-[90vh] max-h-[680px] min-h-[520px] rounded-[2rem] overflow-hidden border-0 shadow-2xl bg-white">
+      <DialogContent className="w-full sm:max-w-[860px] p-0 flex flex-col sm:flex-row h-[95vh] sm:h-[90vh] sm:max-h-[680px] sm:min-h-[520px] rounded-t-[1.5rem] sm:rounded-[2rem] overflow-hidden border-0 shadow-2xl bg-white mt-auto sm:mt-0">
 
-        {/* LEFT SIDEBAR */}
-        <aside className="w-[220px] bg-gray-50 border-r border-gray-100 flex flex-col p-6 shrink-0">
+        {/* MOBILE: horizontal tab bar */}
+        <div className="flex sm:hidden items-center gap-1 px-4 pt-4 pb-2 border-b border-gray-100 bg-gray-50 overflow-x-auto no-scrollbar shrink-0">
+          <div className="flex items-center gap-2 mr-3 shrink-0">
+            <div className="p-1.5 rounded-lg bg-primary text-white">
+              <Link2 className="h-4 w-4" />
+            </div>
+          </div>
+          {MODAL_TABS.map(({ id, label, icon: Icon, color }) => {
+            const isActive = modalActiveTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setModalActiveTab(id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 whitespace-nowrap border',
+                  isActive
+                    ? 'bg-white text-primary border-primary/20 shadow-sm'
+                    : 'text-gray-400 border-transparent hover:bg-gray-200/50 hover:text-gray-600'
+                )}
+              >
+                <Icon className={cn('h-3.5 w-3.5', isActive ? color : 'text-gray-400')} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* DESKTOP: LEFT SIDEBAR */}
+        <aside className="hidden sm:flex w-[220px] bg-gray-50 border-r border-gray-100 flex-col p-6 shrink-0">
           <div className="flex items-center gap-3 mb-10 px-2">
             <div className="p-2.5 rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
               <Link2 className="h-5 w-5" />
@@ -180,18 +208,18 @@ export function UnifiedLinkModal({
         </aside>
 
         {/* RIGHT CONTENT */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="px-8 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          <header className="px-5 sm:px-8 py-4 sm:py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                 {MODAL_TABS.find((t) => t.id === modalActiveTab)?.label}
               </h2>
               <p className="text-xs text-gray-400 font-medium">Link parametrlərini buradan tənzimləyin</p>
             </div>
-            <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">ATS Link v2.0</div>
+            <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hidden sm:block">ATS Link v2.0</div>
           </header>
 
-          <form id="unified-link-form" onSubmit={onFormSubmit} className="flex-1 overflow-y-auto p-8">
+          <form id="unified-link-form" onSubmit={onFormSubmit} className="flex-1 overflow-y-auto p-5 sm:p-8">
             {modalActiveTab === 'general' && (
               <GeneralTab
                 register={register}
@@ -217,22 +245,22 @@ export function UnifiedLinkModal({
             )}
           </form>
 
-          <footer className="px-8 py-5 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between shrink-0">
+          <footer className="px-5 sm:px-8 py-4 sm:py-5 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between shrink-0">
             <Button
               variant="ghost"
               onClick={onClose}
               disabled={isLoading}
-              className="rounded-xl h-11 px-6 font-bold text-gray-400 hover:text-gray-600"
+              className="rounded-xl h-10 sm:h-11 px-4 sm:px-6 font-bold text-gray-400 hover:text-gray-600 text-sm"
             >
               Ləğv et
             </Button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {modalActiveTab !== 'features' && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={goToNextTab}
-                  className="rounded-xl h-11 px-6 font-bold border-gray-200"
+                  className="rounded-xl h-10 sm:h-11 px-4 sm:px-6 font-bold border-gray-200 text-sm"
                 >
                   Növbəti
                 </Button>
@@ -241,7 +269,7 @@ export function UnifiedLinkModal({
                 type="submit"
                 form="unified-link-form"
                 disabled={isLoading}
-                className="min-w-[140px] rounded-xl h-11 px-8 font-black shadow-lg shadow-primary/20 transition-all active:scale-95"
+                className="min-w-[110px] sm:min-w-[140px] rounded-xl h-10 sm:h-11 px-5 sm:px-8 font-black shadow-lg shadow-primary/20 transition-all active:scale-95 text-sm"
               >
                 {isLoading
                   ? <Loader2 className="animate-spin h-5 w-5" />
