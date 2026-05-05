@@ -666,106 +666,103 @@ const ExamSeatingPlan: React.FC = () => {
 
   // ── Plan generation ────────────────────────────────────────────────────────
 
-  // 2-mərhələli yerləşdirmə:
-  // Mərhələ 1 — bütün Sol yerlər (tam pool scan, vertikal cərimə)
-  // Mərhələ 2 — bütün Sağ yerlər (Sol partnerin utisCode-u HARD exclude, tam scan)
-  // Bu yanaşma Sol-Sağ (horizontal) pozuntularını sıfıra endirir.
+  // ─── Yerləşdirmə alqoritmi — Greedy Pair ──────────────────────────────────
+  //
+  // Əsas məntiq:
+  //   Hər parta üçün Sol + Sağ BİRLİKDƏ seçilir.
+  //   Sol = ən böyük məktəb qrupundan
+  //   Sağ = Sol ilə FƏRQLI məktəbdən ən böyük qrup
+  //   → Sol-Sağ (horizontal) eyni məktəb pozuntuları sıfıra enir (məcburi hal xaric)
+  //
+  // 2-mərhələli yanaşmanın problemi:
+  //   Mərhələ 1 pool-dan öz seçimini edir → mərhələ 2 üçün fərqli məktəb qalmır
+  //   Bu yanaşmada isə Sol-Sağ BIRLIKDƏ seçildiyi üçün bu problem yoxdur.
+  //
+  // Sütun interleaving:
+  //   Parta cütlərini sütun içərisində məktəbə görə round-robin ilə sıralayır
+  //   → vertikal qonşularda eyni məktəb ehtimalı minimuma enir
   const placeStudentsInRoom = (
     roomStudents: Student[],
     config: RoomConfig,
     type: SeatingType,
     genderBalance: boolean,
   ): Seat[] => {
-    const pool = [...roomStudents]; // öz kopyasında işlə
     const deskCount  = config.totalDesks ?? (config.columns * config.rowsPerColumn);
     const rowsPerCol = config.rowsPerColumn || Math.ceil(deskCount / config.columns);
 
-    const seatMap = new Map<string, Student>();
-    const getAt = (d: number, p: 'Sol' | 'Sağ') => seatMap.get(`${d}-${p}`);
-
-    const gradeW   = type === 'B' ? 3 : 1;
-    const sectionW = type === 'B' ? 2 : 0;
-
-    // Tam pool-u scan edərək ən yaxşı namizədi tap.
-    // hardExclude: bu utisCode-lar QƏBUL EDİLMİR (Sol-Sağ eyni parta üçün).
-    const pickBest = (
-      neighborKeys: [number, 'Sol' | 'Sağ'][],
-      hardExclude: Set<string>,
-      gTarget: 'K' | 'Q' | null,
-    ): number => {
-      const active = neighborKeys.map(([d, p]) => getAt(d, p)).filter((n): n is Student => !!n);
-      let bestIdx = -1;
-      let minConf  = Infinity;
-
-      const score = (c: Student, skipHard: boolean): number => {
-        if (!skipHard && hardExclude.has(c.utisCode)) return Infinity;
-        let conf = 0;
-        active.forEach(n => {
-          if (n.utisCode === c.utisCode) conf += 25; // vertikal eyni məktəb — güclü cərimə
-          if (n.grade   === c.grade)    conf += gradeW;
-          if (sectionW && n.section === c.section) conf += sectionW;
-        });
-        if (gTarget && c.gender !== gTarget) conf += 5;
-        return conf;
-      };
-
-      // 1. Keçid: hardExclude tətbiq olunur
-      for (let pi = 0; pi < pool.length; pi++) {
-        const conf = score(pool[pi], false);
-        if (conf < minConf) { minConf = conf; bestIdx = pi; if (conf === 0) break; }
+    // ── Addım 1: Məktəbə görə qruplaşdır, daxilən qarışdır ──────────────────
+    const schoolMap = new Map<string, Student[]>();
+    for (const s of roomStudents) {
+      const g = schoolMap.get(s.utisCode) ?? [];
+      g.push(s);
+      schoolMap.set(s.utisCode, g);
+    }
+    schoolMap.forEach(g => {
+      for (let i = g.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [g[i], g[j]] = [g[j], g[i]];
       }
-      // 2. Keçid: əgər hardExclude hər şeyi bloklamışsa, məcburi seç
-      if (bestIdx === -1) {
-        minConf = Infinity;
-        for (let pi = 0; pi < pool.length; pi++) {
-          const conf = score(pool[pi], true);
-          if (conf < minConf) { minConf = conf; bestIdx = pi; if (conf === 0) break; }
-        }
-      }
-      return Math.max(bestIdx, 0);
-    };
+    });
+    const groups = Array.from(schoolMap.values()).sort((a, b) => b.length - a.length);
 
-    // ── Mərhələ 1: Sol yerlər ────────────────────────────────────────────────
-    const solStudents: (Student | undefined)[] = [];
-    for (let d = 1; d <= deskCount; d++) {
-      if (!pool.length) { solStudents.push(undefined); continue; }
-      const gTarget = genderBalance ? (d % 2 === 1 ? 'K' : 'Q') : null;
-      const idx = pickBest(
-        [[d - 1, 'Sol'], [d + 1, 'Sol'], [d - rowsPerCol, 'Sol'], [d + rowsPerCol, 'Sol']],
-        new Set<string>(),
-        gTarget,
-      );
-      const st = pool.splice(idx, 1)[0];
-      solStudents.push(st);
-      seatMap.set(`${d}-Sol`, st);
+    // ── Addım 2: Greedy pair — hər parta üçün Sol+Sağ birlikdə seç ──────────
+    type Pair = [Student | undefined, Student | undefined];
+    const pairs: Pair[] = [];
+
+    for (let d = 0; d < deskCount; d++) {
+      groups.sort((a, b) => b.length - a.length);
+      const nonempty = groups.filter(g => g.length > 0);
+
+      if (nonempty.length === 0) { pairs.push([undefined, undefined]); continue; }
+
+      if (nonempty.length === 1) {
+        // Yalnız bir məktəb qalıb — məcburi iki şagird (violation)
+        const a = nonempty[0].pop();
+        const b = nonempty[0].length > 0 ? nonempty[0].pop() : undefined;
+        pairs.push([a, b]);
+        continue;
+      }
+
+      // Bərabər sayda məktəblər olduqda Sol/Sağ mövqeyini təsadüfi dəyişdir
+      // (uyğun vizual paylanma üçün)
+      const preferSwap =
+        nonempty[0].length === nonempty[1].length && Math.random() < 0.5;
+
+      const solGroup = preferSwap ? nonempty[1] : nonempty[0];
+      const sol = solGroup.pop()!;
+
+      // Sağ: Sol ilə FƏRQLI məktəbdən ən böyük qrup
+      const sagGroup = nonempty.find(g => g !== solGroup && g.length > 0);
+      const sag = sagGroup?.pop();
+      pairs.push([sol, sag]);
     }
 
-    // ── Mərhələ 2: Sağ yerlər — Sol partnerin məktəbi QADAĞANDIR ─────────────
-    const sagStudents: (Student | undefined)[] = [];
-    for (let d = 1; d <= deskCount; d++) {
-      if (!pool.length) { sagStudents.push(undefined); continue; }
-      const partner = solStudents[d - 1];
-      const hardExclude = new Set<string>(partner ? [partner.utisCode] : []);
-      const gTarget = genderBalance ? (d % 2 === 1 ? 'Q' : 'K') : null;
-      const idx = pickBest(
-        [
-          [d - 1, 'Sağ'], [d + 1, 'Sağ'],
-          [d - rowsPerCol, 'Sağ'], [d + rowsPerCol, 'Sağ'],
-          [d - 1, 'Sol'], [d + 1, 'Sol'], // diaqonal
-        ],
-        hardExclude,
-        gTarget,
-      );
-      const st = pool.splice(idx, 1)[0];
-      sagStudents.push(st);
-      seatMap.set(`${d}-Sağ`, st);
+    // ── Addım 3: Sütun interleaving — vertikal eyni məktəbi azalt ────────────
+    const arranged = [...pairs];
+
+    for (let colStart = 0; colStart < deskCount; colStart += rowsPerCol) {
+      const colEnd = Math.min(colStart + rowsPerCol, deskCount);
+      const col = arranged.slice(colStart, colEnd);
+
+      // Sütundakı cütləri Sol məktəbə görə round-robin ilə sırala
+      const byCode = new Map<string, Pair[]>();
+      for (const p of col) {
+        const code = p[0]?.utisCode ?? '__empty';
+        (byCode.get(code) ?? (byCode.set(code, []), byCode.get(code)!)).push(p);
+      }
+      const colGroups = Array.from(byCode.values()).sort((a, b) => b.length - a.length);
+      const maxLen = Math.max(...colGroups.map(g => g.length), 0);
+      const interleaved: Pair[] = [];
+      for (let i = 0; i < maxLen; i++) {
+        for (const g of colGroups) if (i < g.length) interleaved.push(g[i]);
+      }
+      for (let i = 0; i < interleaved.length; i++) arranged[colStart + i] = interleaved[i];
     }
 
-    // ── Seat array yığ ───────────────────────────────────────────────────────
+    // ── Addım 4: Seat array yığ ──────────────────────────────────────────────
     const seats: Seat[] = [];
     for (let d = 1; d <= deskCount; d++) {
-      const sol = solStudents[d - 1];
-      const sag = sagStudents[d - 1];
+      const [sol, sag] = arranged[d - 1] ?? [undefined, undefined];
       seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sol', type: sol ? 'CÜT' : 'BOŞ', student: sol });
       seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sağ', type: sag ? 'CÜT' : 'BOŞ', student: sag });
     }
