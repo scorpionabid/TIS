@@ -54,7 +54,7 @@ class AttendanceStatsService
 
         $schoolAggregates = $query->groupBy('class_bulk_attendance.institution_id')->get()->keyBy('institution_id');
 
-        // Trend aggregates
+        // Trend aggregates — keyBy format('Y-m-d') because attendance_date is cast to Carbon
         $trendAggregates = ClassBulkAttendance::selectRaw('attendance_date, AVG(daily_attendance_rate) AS avg_rate')
             ->join('grades', 'grades.id', '=', 'class_bulk_attendance.grade_id')
             ->whereIn('class_bulk_attendance.institution_id', $schoolIds)
@@ -62,7 +62,9 @@ class AttendanceStatsService
             ->whereDate('attendance_date', '<=', $endDate)
             ->groupBy('attendance_date')
             ->get()
-            ->keyBy(fn ($r) => (string) $r->attendance_date);
+            ->keyBy(fn ($r) => $r->attendance_date instanceof \Carbon\CarbonInterface
+                ? $r->attendance_date->format('Y-m-d')
+                : substr((string) $r->attendance_date, 0, 10));
 
         $gradeStudentCounts = Grade::whereIn('institution_id', $schoolIds)
             ->get(['id', 'institution_id', 'student_count'])
@@ -201,20 +203,32 @@ class AttendanceStatsService
     {
         $stats = [];
         foreach ($sectors as $sector) {
-            $sectorSchools = array_filter($schoolStats, fn($s) => $s['sector_id'] == $sector->id);
+            $sectorSchools = array_values(array_filter($schoolStats, fn($s) => $s['sector_id'] == $sector->id));
             $totalSchools = count($sectorSchools);
-            
-            $avgRate = $totalSchools > 0 ? array_sum(array_column($sectorSchools, 'attendance_rate')) / $totalSchools : 0;
-            $compliantCount = count(array_filter($sectorSchools, fn($s) => $s['is_compliant']));
+
+            $avgRate        = $totalSchools > 0 ? array_sum(array_column($sectorSchools, 'attendance_rate')) / $totalSchools : 0;
+            $totalStudents  = array_sum(array_column($sectorSchools, 'total_students'));
+            $attendingStudents = array_sum(array_column($sectorSchools, 'present_total'));
+            $reportedDays   = array_sum(array_column($sectorSchools, 'reported_days'));
+            $totalViolations = array_sum(array_column($sectorSchools, 'total_uniform_violations'));
+            $possibleAtt    = $totalStudents * max($reportedDays, 1);
+            $uniformCompliance = $possibleAtt > 0
+                ? round((($possibleAtt - $totalViolations) / $possibleAtt) * 100, 2)
+                : 0;
 
             $stats[$sector->id] = [
-                'sector_id' => $sector->id,
-                'id' => $sector->id,
-                'name' => $sector->name,
-                'school_count' => $totalSchools,
-                'compliant_schools' => $compliantCount,
-                'average_rate' => round($avgRate, 2),
-                'compliance_percentage' => $totalSchools > 0 ? round(($compliantCount / $totalSchools) * 100, 2) : 0,
+                'sector_id'               => $sector->id,
+                'id'                      => $sector->id,
+                'name'                    => $sector->name,
+                'school_count'            => $totalSchools,
+                'total_students'          => $totalStudents,
+                'attending_students'      => $attendingStudents,
+                'reported_days'           => $reportedDays,
+                'average_attendance_rate' => round($avgRate, 2),
+                'average_rate'            => round($avgRate, 2),
+                'uniform_compliance_rate' => $uniformCompliance,
+                'compliance_percentage'   => $uniformCompliance,
+                'schools'                 => $sectorSchools,
             ];
         }
         return $stats;
@@ -225,11 +239,12 @@ class AttendanceStatsService
      */
     protected function buildSummary($schoolStats, $sectorStats, $start, $end, $days): array
     {
-        $totalSchools = count($schoolStats);
-        $totalStudents = array_sum(array_column($schoolStats, 'student_count'));
+        $totalSchools      = count($schoolStats);
+        $totalStudents     = array_sum(array_column($schoolStats, 'student_count'));
         $attendingStudents = 0;
-        $missingReports = 0;
+        $missingReports    = 0;
         $totalReportedDays = 0;
+        $totalViolations   = array_sum(array_column($schoolStats, 'total_uniform_violations'));
 
         foreach ($schoolStats as $stat) {
             $attendingStudents += ($stat['attendance_rate'] / 100) * $stat['student_count'];
@@ -239,19 +254,24 @@ class AttendanceStatsService
             }
         }
 
-        $avgRate = $totalStudents > 0 ? ($attendingStudents / $totalStudents) * 100 : 0;
-        
+        $avgRate         = $totalStudents > 0 ? ($attendingStudents / $totalStudents) * 100 : 0;
+        $possibleAtt     = $totalStudents * max($days, 1);
+        $uniformCompliance = $possibleAtt > 0
+            ? round((($possibleAtt - $totalViolations) / $possibleAtt) * 100, 2)
+            : 0;
+
         return [
-            'total_schools' => $totalSchools,
-            'total_sectors' => count($sectorStats),
-            'total_students' => $totalStudents,
-            'attending_students' => (int) round($attendingStudents),
-            'reported_days' => $totalReportedDays,
+            'total_schools'           => $totalSchools,
+            'total_sectors'           => count($sectorStats),
+            'total_students'          => $totalStudents,
+            'attending_students'      => (int) round($attendingStudents),
+            'reported_days'           => $totalReportedDays,
             'average_attendance_rate' => round($avgRate, 2),
+            'uniform_compliance_rate' => $uniformCompliance,
             'schools_missing_reports' => $missingReports,
             'period' => [
-                'start_date' => $start,
-                'end_date' => $end,
+                'start_date'  => $start,
+                'end_date'    => $end,
                 'school_days' => $days,
             ],
         ];
@@ -262,16 +282,18 @@ class AttendanceStatsService
      */
     protected function buildTrends($trendAggregates, $start, $end): array
     {
-        $trends = [];
+        $trends  = [];
         $current = CarbonImmutable::parse($start);
-        $stop = CarbonImmutable::parse($end);
+        $stop    = CarbonImmutable::parse($end);
 
         while ($current->lte($stop)) {
             $date = $current->toDateString();
-            $agg = $trendAggregates->get($date);
+            $agg  = $trendAggregates->get($date);
             $trends[] = [
-                'date' => $date,
-                'rate' => $agg ? round($agg->avg_rate, 2) : null,
+                'date'       => $date,
+                'short_date' => $current->format('d M'),
+                'rate'       => $agg ? round($agg->avg_rate, 2) : null,
+                'reported'   => (bool) $agg,
             ];
             $current = $current->addDay();
         }
