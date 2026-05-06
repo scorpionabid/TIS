@@ -45,7 +45,7 @@ function TruncatedTooltip({ text, children }: { text: string; children: React.Re
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs text-xs whitespace-pre-wrap break-words z-[100]">
+      <TooltipContent side="top" sideOffset={6} className="max-w-sm text-xs whitespace-pre-wrap break-words">
         {text}
       </TooltipContent>
     </Tooltip>
