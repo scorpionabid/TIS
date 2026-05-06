@@ -245,21 +245,42 @@ const getSchoolColor = (utisCode: string, palette: Map<string, number>): string 
   SCHOOL_PALETTE[(palette.get(utisCode) ?? 0) % SCHOOL_PALETTE.length];
 
 const PRINT_CARD_CSS = `
-  body { margin: 0; }
+  body { margin: 0; padding: 8px; background: #f8f8f8; }
   .card {
-    width: 45%; height: 250px; border: 2px solid #333; margin: 10px;
-    display: inline-block; padding: 15px; font-family: sans-serif;
-    position: relative; border-radius: 10px; page-break-inside: avoid;
-    vertical-align: top;
+    width: 44%; min-height: 290px; border: 2px solid #1e3a8a; margin: 8px;
+    display: inline-block; padding: 14px 16px 70px 16px; font-family: 'Segoe UI', Arial, sans-serif;
+    position: relative; border-radius: 12px; page-break-inside: avoid;
+    vertical-align: top; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
-  .header { font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; color: #1e40af; }
-  .row { margin: 5px 0; font-size: 14px; }
-  .label { font-size: 10px; color: #666; text-transform: uppercase; }
-  .utis-badge {
-    position: absolute; bottom: 15px; right: 15px;
-    border: 2px solid #333; padding: 4px 8px;
-    font-family: monospace; font-size: 13px; font-weight: bold; border-radius: 4px;
+  .header {
+    font-weight: 900; font-size: 13px; letter-spacing: 1px;
+    border-bottom: 2px solid #1e40af; padding-bottom: 7px; margin-bottom: 10px;
+    color: #1e40af; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;
   }
+  .seat-num {
+    background: #1e40af; color: #fff; font-size: 18px; font-weight: 900;
+    border-radius: 50%; width: 36px; height: 36px; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 6px; }
+  .row { margin: 4px 0; font-size: 13px; }
+  .row-full { margin: 4px 0; font-size: 13px; grid-column: 1 / -1; }
+  .label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 1px; }
+  .val { font-weight: 700; font-size: 13px; word-break: break-word; }
+  .val-lg { font-weight: 900; font-size: 15px; }
+  .badges {
+    position: absolute; bottom: 12px; left: 16px; right: 16px;
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .badge {
+    border: 2px solid #1e3a8a; padding: 3px 10px;
+    font-family: monospace; font-size: 12px; font-weight: bold;
+    border-radius: 6px; background: #f0f4ff; color: #1e3a8a;
+  }
+  .badge-child {
+    border-color: #6b21a8; background: #faf5ff; color: #6b21a8;
+  }
+  @media print { body { background: none; } .card { box-shadow: none; } }
 `;
 
 // Köhnə planlar: BOŞ seat-lər array-də yox idi → swap işləmirdi. Migration əlavə edir.
@@ -288,7 +309,9 @@ const migrateResults = (raw: CenterResult[]): CenterResult[] =>
 
 const ExamSeatingPlan: React.FC = () => {
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const importFileRef  = useRef<HTMLInputElement>(null);
+  const historyLoaded  = useRef(false);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState<Step>('upload');
@@ -310,11 +333,13 @@ const ExamSeatingPlan: React.FC = () => {
   const [swapStack, setSwapStack] = useState<CenterResult[][]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [centerSearch, setCenterSearch] = useState('');
   const [centerFilter, setCenterFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [selectedSeat, setSelectedSeat] = useState<{ centerIdx: number; roomIdx: number; seatIdx: number } | null>(null);
+  const [roomEditModal, setRoomEditModal] = useState<{ centerName: string; roomId: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Dialog states
@@ -346,6 +371,9 @@ const ExamSeatingPlan: React.FC = () => {
         })));
       }
     } catch (e) { console.warn('Load history failed', e); }
+
+    // Yüklənmə tamamlandı — artıq save effekti işləyə bilər
+    historyLoaded.current = true;
   }, []);
 
   // Safe save state - avoid localStorage for massive datasets (> 2000 students)
@@ -361,8 +389,9 @@ const ExamSeatingPlan: React.FC = () => {
     }
   }, [students, centerConfigs, results, currentStep]);
 
-  // Safe save history
+  // Safe save history — yalnız ilk yüklənmədən SONRA yazır
   useEffect(() => {
+    if (!historyLoaded.current) return; // İlk render: hələ yüklənməyib, yazma
     try {
       const data = JSON.stringify(history);
       localStorage.setItem('exam_seating_history', data);
@@ -928,6 +957,138 @@ const ExamSeatingPlan: React.FC = () => {
     return { totalStudents, usedSeats, emptySeats, singleCount, doubleCount, utisViolations, riskScore, riskStatus };
   };
 
+  // ── Re-import: eksport edilmiş Excel-i yenidən yüklə ───────────────────────────
+  const importExcelResult = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const wb   = XLSX.read(data, { type: 'array' });
+
+        // Sütun indeksləri (eksport formatına uyğun)
+        const COL = {
+          lastName: 1, firstName: 2, patronymic: 3, rayon: 4,
+          section: 6, grade: 7, schoolName: 8, utisCode: 9,
+          childId: 10, seatNumber: 11, roomName: 12, centerName: 13,
+        };
+
+        // Bütün sheetləri oxu (XÜLASƏ atlanır)
+        type Entry = {
+          student: Student;
+          seatNumber: number;
+          roomName: string;
+          centerName: string;
+        };
+        const allEntries: Entry[] = [];
+
+        for (const sName of wb.SheetNames) {
+          if (sName === 'XÜLASƏ') continue;
+          const ws   = wb.Sheets[sName];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as string[][];
+          const dataRows = rows.slice(1).filter(r => r[COL.firstName] || r[COL.lastName]);
+
+          dataRows.forEach((row, idx) => {
+            const gRaw = '';
+            allEntries.push({
+              student: {
+                id:         `reimport-${sName}-${idx}`,
+                center:     row[COL.centerName]  || 'Naməlum',
+                utisCode:   row[COL.utisCode]    || 'Naməlum',
+                firstName:  row[COL.firstName]   || '',
+                lastName:   row[COL.lastName]    || '',
+                patronymic: row[COL.patronymic]  || undefined,
+                rayon:      row[COL.rayon]        || undefined,
+                childId:    row[COL.childId]      || undefined,
+                grade:      row[COL.grade]        || '',
+                schoolName: row[COL.schoolName]   || '',
+                section:    row[COL.section]      || '',
+                gender:     'K',
+                note:       '',
+              },
+              seatNumber: parseInt(row[COL.seatNumber]) || 0,
+              roomName:   row[COL.roomName]   || 'Otaq 1',
+              centerName: row[COL.centerName] || 'Naməlum',
+            });
+          });
+        }
+
+        if (!allEntries.length) {
+          toast({ title: 'Xəta', description: 'Fayl boşdur və ya format tanınmadı.', variant: 'destructive' });
+          return;
+        }
+
+        // Mərkəz → Otaq → Oturacaqlar map et
+        const centerMap = new Map<string, Map<string, Entry[]>>();
+        allEntries.forEach(e => {
+          if (!centerMap.has(e.centerName)) centerMap.set(e.centerName, new Map());
+          const rm = centerMap.get(e.centerName)!;
+          if (!rm.has(e.roomName)) rm.set(e.roomName, []);
+          rm.get(e.roomName)!.push(e);
+        });
+
+        const newResults: CenterResult[] = [];
+        const newConfigs: Record<string, RoomConfig[]> = {};
+        const newStudents: Student[] = allEntries.map(e => e.student);
+
+        centerMap.forEach((rooms, centerName) => {
+          newConfigs[centerName] = [];
+          const roomResults: RoomResult[] = [];
+
+          rooms.forEach((entries, roomName) => {
+            const maxSeat   = Math.max(...entries.map(e => e.seatNumber), 0);
+            const totalDesks = Math.max(Math.ceil(maxSeat / 2), 1);
+
+            const config: RoomConfig = {
+              id:           `reimport-${centerName}-${roomName}`,
+              name:         roomName,
+              columns:      3,
+              rowsPerColumn: Math.ceil(totalDesks / 3),
+              totalDesks,
+            };
+            newConfigs[centerName].push(config);
+
+            // Bütün oturacaqları boş başlat
+            const seats: Seat[] = [];
+            for (let d = 1; d <= totalDesks; d++) {
+              seats.push({ seatNumber: (d - 1) * 2 + 1, deskNumber: d, position: 'Sol', type: 'BOŞ' });
+              seats.push({ seatNumber: (d - 1) * 2 + 2, deskNumber: d, position: 'Sağ', type: 'BOŞ' });
+            }
+
+            // Şagirdləri oturacaqlara yerləşdir
+            entries.forEach(entry => {
+              const sn = entry.seatNumber;
+              if (sn < 1) return;
+              const deskNum = Math.ceil(sn / 2);
+              const pos: 'Sol' | 'Sağ' = sn % 2 === 1 ? 'Sol' : 'Sağ';
+              const seatIdx = seats.findIndex(s => s.deskNumber === deskNum && s.position === pos);
+              if (seatIdx >= 0) {
+                seats[seatIdx] = { ...seats[seatIdx], type: 'CÜT', student: entry.student };
+              }
+            });
+
+            roomResults.push({ config, seats, stats: calcStats(seats, config) });
+          });
+
+          newResults.push({ centerName, rooms: roomResults });
+        });
+
+        setStudents(newStudents);
+        setCenterConfigs(newConfigs);
+        setResults(newResults);
+        setSwapStack([]);
+        setCurrentStep('results');
+        toast({
+          title: 'Excel yükləndi',
+          description: `${newStudents.length} şagird · ${newResults.length} mərkəz bərpa edildi.`,
+        });
+      } catch (err) {
+        console.error('Re-import error', err);
+        toast({ title: 'Xəta', description: 'Fayl oxuna bilmədi.', variant: 'destructive' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   // ── Template download ──────────────────────────────────────────────────────
   const downloadTemplate = async () => {
     const wb = new ExcelJS.Workbook();
@@ -991,16 +1152,38 @@ const ExamSeatingPlan: React.FC = () => {
   };
 
   // ── Print helpers (XSS-safe) ───────────────────────────────────────────────
-  const buildCard = (s: Seat, centerName: string, roomName: string) => `
+  const buildCard = (s: Seat, centerName: string, roomName: string) => {
+    const st = s.student!;
+    const fullName = `${escapeHtml(st.lastName)} ${escapeHtml(st.firstName)}${st.patronymic ? ' ' + escapeHtml(st.patronymic) : ''}`;
+    return `
     <div class="card">
-      <div class="header">BURAXILIŞ VƏRƏQƏSİ</div>
-      <div class="row"><div class="label">Şagird:</div><b>${escapeHtml(s.student?.firstName ?? '')} ${escapeHtml(s.student?.lastName ?? '')}</b></div>
-      <div class="row"><div class="label">Məktəb:</div>${escapeHtml(s.student?.schoolName ?? '')}</div>
-      <div class="row"><div class="label">Mərkəz / Otaq:</div><b>${escapeHtml(centerName)} / ${escapeHtml(roomName)}</b></div>
-      <div class="row"><div class="label">Oturacaq №:</div><b style="font-size:20px">${s.seatNumber}</b></div>
-      <div class="utis-badge">UTİS: ${escapeHtml(s.student?.utisCode ?? '')}</div>
+      <div class="header">
+        <span>BURAXILIŞ VƏRƏQƏSİ</span>
+        <div class="seat-num">${s.seatNumber}</div>
+      </div>
+
+      <div class="row-full row"><span class="label">Şagirdin tam adı</span><span class="val-lg">${fullName}</span></div>
+
+      <div class="grid2">
+        <div class="row"><span class="label">Mərkəz</span><span class="val">${escapeHtml(centerName)}</span></div>
+        <div class="row"><span class="label">Otaq</span><span class="val">${escapeHtml(roomName)}</span></div>
+
+        <div class="row"><span class="label">Sinif</span><span class="val">${escapeHtml(st.grade)}</span></div>
+        <div class="row"><span class="label">Tədris dili</span><span class="val">${escapeHtml(st.section)}</span></div>
+
+        <div class="row"><span class="label">Rayon</span><span class="val">${escapeHtml(st.rayon ?? '—')}</span></div>
+        <div class="row"><span class="label">Cinsiyyət</span><span class="val">${st.gender === 'K' ? 'Kişi' : 'Qadın'}</span></div>
+
+        <div class="row-full row"><span class="label">Məktəb</span><span class="val">${escapeHtml(st.schoolName)}</span></div>
+      </div>
+
+      <div class="badges">
+        ${st.childId ? `<span class="badge badge-child">Uşaq İD: ${escapeHtml(st.childId)}</span>` : ''}
+        <span class="badge">UTİS: ${escapeHtml(st.utisCode)}</span>
+      </div>
     </div>
   `;
+  };
 
   const openPrintWindow = (body: string, head = '') => {
     const win = window.open('', '_blank');
@@ -1202,6 +1385,153 @@ const ExamSeatingPlan: React.FC = () => {
     toast({ title: 'Excel hazırlandı' });
   };
 
+  // ── Excel export — Rayonlar üzrə ──────────────────────────────────────────
+  const exportByRayon = async () => {
+    const wb = new ExcelJS.Workbook();
+
+    // ── XÜLASƏ sheet ──────────────────────────────────────────────────────────
+    const summary = wb.addWorksheet('XÜLASƏ');
+    summary.columns = [
+      { header: 'Rayon',          key: 'rayon',    width: 20 },
+      { header: 'Şagird sayı',    key: 'students', width: 14 },
+      { header: 'Mərkəzlər',      key: 'centers',  width: 40 },
+    ];
+    const summaryHeaderRow = summary.getRow(1);
+    summaryHeaderRow.font = { bold: true };
+    summaryHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+    summaryHeaderRow.eachCell(c => {
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    const EXPORT_COLS_RAYON = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyRayonHeaderStyle = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = {
+          top: { style: 'medium' }, bottom: { style: 'medium' },
+          left: { style: 'medium' }, right: { style: 'medium' },
+        };
+      });
+    };
+
+    const applyRayonDataStyle = (row: ExcelJS.Row, isEven: boolean) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.fill      = isEven
+          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4FF' } }
+          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        cell.border    = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' },
+        };
+      });
+    };
+
+    // Collect all placed students across all results grouped by rayon
+    const rayonMap = new Map<string, { student: Student; seatNumber: number; roomName: string; centerName: string }[]>();
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        room.seats
+          .filter(s => s.student)
+          .forEach(s => {
+            const st = s.student!;
+            const rayon = st.rayon?.trim() || 'Naməlum';
+            if (!rayonMap.has(rayon)) rayonMap.set(rayon, []);
+            rayonMap.get(rayon)!.push({
+              student: st,
+              seatNumber: s.seatNumber,
+              roomName: room.config.name,
+              centerName: center.centerName,
+            });
+          });
+      });
+    });
+
+    // Sort rayons alphabetically
+    const sortedRayons = Array.from(rayonMap.keys()).sort((a, b) => a.localeCompare(b, 'az'));
+
+    // Summary rows
+    sortedRayons.forEach(rayon => {
+      const entries = rayonMap.get(rayon)!;
+      const centers = Array.from(new Set(entries.map(e => e.centerName))).join(', ');
+      const dataRow = summary.addRow({ rayon, students: entries.length, centers });
+      dataRow.height = 18;
+      dataRow.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    });
+
+    // One sheet per rayon
+    sortedRayons.forEach(rayon => {
+      const entries = rayonMap.get(rayon)!;
+      const sheetName = rayon.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheet = wb.addWorksheet(sheetName);
+      sheet.columns = EXPORT_COLS_RAYON.map(c => ({ header: c.header, width: c.width }));
+
+      const headerRow = sheet.getRow(1);
+      headerRow.values = EXPORT_COLS_RAYON.map(c => c.header);
+      applyRayonHeaderStyle(headerRow);
+
+      // Sort entries by centerName → roomName → seatNumber
+      const sorted = [...entries].sort((a, b) => {
+        const cc = a.centerName.localeCompare(b.centerName, 'az');
+        if (cc !== 0) return cc;
+        const rc = a.roomName.localeCompare(b.roomName, 'az');
+        if (rc !== 0) return rc;
+        return a.seatNumber - b.seatNumber;
+      });
+
+      sorted.forEach(({ student: st, seatNumber, roomName, centerName }, idx) => {
+        const dataRow = sheet.addRow([
+          idx + 1,
+          st.lastName,
+          st.firstName,
+          st.patronymic  ?? '',
+          st.rayon       ?? '',
+          '',                    // Sual kitabçasının variant — boş
+          st.section,
+          st.grade,
+          st.schoolName,
+          st.utisCode,
+          st.childId     ?? '',
+          seatNumber,
+          roomName,
+          centerName,
+        ]);
+        applyRayonDataStyle(dataRow, idx % 2 === 1);
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const date = new Date().toISOString().slice(0, 10);
+    saveAs(new Blob([buf]), `Imtahan_Rayonlar_${date}.xlsx`);
+    toast({ title: 'Rayonlar üzrə Excel hazırlandı', description: `${sortedRayons.length} rayon sheetə ixrac edildi.` });
+  };
+
   // ── Computed ───────────────────────────────────────────────────────────────
   const uniqueCenters = useMemo(() => Array.from(new Set(students.map(s => s.center))), [students]);
 
@@ -1273,20 +1603,20 @@ const ExamSeatingPlan: React.FC = () => {
     <div className="max-w-[1400px] mx-auto space-y-8 pb-20">
 
       {/* ── Step header ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-background/50 backdrop-blur-xl p-6 rounded-2xl border shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-background/50 backdrop-blur-xl p-4 sm:p-6 rounded-2xl border shadow-sm">
+        <div className="space-y-0.5">
+          <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             Professional Oturma Planı
           </h1>
-          <div className="flex items-center gap-4">
-            <p className="text-muted-foreground">Mükəmməl imtahan təşkili üçün ağıllı alət</p>
+          <div className="flex items-center gap-3">
+            <p className="text-muted-foreground text-sm hidden sm:block">Mükəmməl imtahan təşkili üçün ağıllı alət</p>
             <Button variant="ghost" size="sm" onClick={() => setShowResetDialog(true)} className="text-red-500 h-7 text-[10px] hover:bg-red-50">
               <RefreshCw className="w-3 h-3 mr-1" /> Yeni Plan
             </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
+        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 w-full md:w-auto scrollbar-none">
           {([
             { id: 'upload',  icon: Upload,       label: 'Yüklə'    },
             { id: 'mapping', icon: FileSpreadsheet, label: 'Xəritələ' },
@@ -1302,15 +1632,15 @@ const ExamSeatingPlan: React.FC = () => {
                 <div
                   onClick={() => isCompleted && setCurrentStep(s.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300',
+                    'flex items-center gap-1.5 px-2 sm:px-4 py-2 rounded-full transition-all duration-300 flex-shrink-0',
                     isCurrent   ? 'bg-primary text-primary-foreground shadow-lg scale-105' : 'bg-muted text-muted-foreground opacity-70',
                     isCompleted && 'cursor-pointer hover:opacity-100 hover:bg-muted/80',
                   )}
                 >
-                  <s.icon className="w-4 h-4" />
-                  <span className="text-sm font-medium whitespace-nowrap">{s.label}</span>
+                  <s.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap hidden xs:inline sm:inline">{s.label}</span>
                 </div>
-                {idx < 4 && <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                {idx < 4 && <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />}
               </React.Fragment>
             );
           })}
@@ -1322,11 +1652,11 @@ const ExamSeatingPlan: React.FC = () => {
         {/* ══════════════════ STEP: Upload ══════════════════ */}
         {currentStep === 'upload' && (
           <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <Card
               className={cn(
-                'border-2 border-dashed flex flex-col items-center justify-center p-12 text-center space-y-6 transition-all cursor-pointer group relative overflow-hidden',
+                'border-2 border-dashed flex flex-col items-center justify-center p-6 sm:p-12 text-center space-y-6 transition-all cursor-pointer group relative overflow-hidden',
                 isDragging ? 'border-primary bg-primary/10 scale-[1.01]' : 'hover:border-primary/50 hover:bg-primary/5',
               )}
               onClick={() => fileInputRef.current?.click()}
@@ -1360,8 +1690,33 @@ const ExamSeatingPlan: React.FC = () => {
               </Button>
             </Card>
 
+            {/* ── Re-import card ── */}
+            <Card className="p-6 sm:p-8 space-y-6 bg-emerald-50/50 border-emerald-100">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-100 rounded-xl"><Upload className="w-8 h-8 text-emerald-600" /></div>
+                <div>
+                  <h3 className="text-xl font-bold">Eksport Faylını Yüklə</h3>
+                  <p className="text-muted-foreground text-sm">Əvvəl ixrac edilmiş Excel planını redaktə üçün yenidən aç.</p>
+                </div>
+              </div>
+              <input
+                ref={importFileRef}
+                type="file"
+                className="hidden"
+                accept=".xlsx,.xls"
+                onChange={e => { const f = e.target.files?.[0]; if (f) importExcelResult(f); e.target.value = ''; }}
+              />
+              <Button
+                variant="outline" size="lg"
+                className="w-full bg-background border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => importFileRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" /> Planı Yüklə
+              </Button>
+            </Card>
+
             {history.length > 0 && (
-              <Card className="md:col-span-2 p-6 bg-slate-50 border-slate-200">
+              <Card className="col-span-1 md:col-span-3 p-6 bg-slate-50 border-slate-200">
                 <div className="flex items-center gap-2 mb-4">
                   <Calendar className="w-5 h-5 text-slate-500" />
                   <h3 className="font-bold">Yadda Saxlanılan Planlar</h3>
@@ -1482,6 +1837,7 @@ const ExamSeatingPlan: React.FC = () => {
 
             <Card className="overflow-hidden border-none shadow-xl">
               <div className="max-h-[600px] overflow-auto">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-md">
                     <TableRow>
@@ -1550,6 +1906,7 @@ const ExamSeatingPlan: React.FC = () => {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             </Card>
 
@@ -1561,181 +1918,291 @@ const ExamSeatingPlan: React.FC = () => {
         )}
 
         {/* ══════════════════ STEP: Config ══════════════════ */}
-        {currentStep === 'config' && (
-          <motion.div key="config" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
-            className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {currentStep === 'config' && (() => {
+          const filteredCenters = Object.keys(centerConfigs).filter(c =>
+            c.toLowerCase().includes(centerSearch.toLowerCase())
+          );
+          const editRoom = roomEditModal
+            ? centerConfigs[roomEditModal.centerName]?.find(r => r.id === roomEditModal.roomId)
+            : null;
 
-            {/* Left panel — centers + options */}
-            <Card className="lg:col-span-1 shadow-xl border-none bg-slate-50/50">
-              <CardHeader>
-                <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-slate-500">
-                  <Building2 className="w-4 h-4" /> Mərkəzlər
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 space-y-1">
-                {Object.keys(centerConfigs).map(cName => {
-                  const cap = centerCapacity[cName];
-                  const shortfall = cap && cap.capacity < cap.students;
-                  return (
-                    <div
-                      key={cName} onClick={() => setActiveCenter(cName)}
-                      className={cn(
-                        'p-4 rounded-2xl cursor-pointer transition-all border-2 mb-2',
-                        activeCenter === cName ? 'bg-white border-primary shadow-md' : 'bg-transparent border-transparent hover:bg-white/50',
-                        shortfall && 'border-red-200',
-                      )}
-                    >
-                      <span className="font-bold text-sm truncate block">{cName}</span>
-                      <div className={cn('flex items-center gap-1 text-[10px] mt-1', shortfall ? 'text-red-600 font-bold' : 'text-muted-foreground')}>
-                        <Users className="w-3 h-3" />
-                        {cap?.students ?? 0} şagird / {cap?.capacity ?? 0} yer
-                      </div>
-                      {shortfall && (
-                        <p className="text-[9px] text-red-500 mt-1">⚠ {cap.students - cap.capacity} şagird sığmayacaq</p>
-                      )}
-                    </div>
-                  );
-                })}
+          return (
+          <motion.div key="config" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="space-y-4">
 
-                {/* Seating type + options */}
-                <div className="pt-4 px-2 space-y-3">
-                  <div className="bg-white rounded-xl border p-3 space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Yerləşdirmə Strategiyası</Label>
-                    {SEATING_TYPES.map(({ type, label, desc }) => (
-                      <div
-                        key={type} onClick={() => setSeatingType(type)}
-                        className={cn(
-                          'p-2 rounded-lg cursor-pointer border transition-all',
-                          seatingType === type ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50',
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0', seatingType === type ? 'border-primary' : 'border-muted-foreground')}>
-                            {seatingType === type && <div className="w-2 h-2 rounded-full bg-primary" />}
-                          </div>
-                          <span className="text-xs font-bold">{label}</span>
-                        </div>
-                        <p className="text-[9px] text-muted-foreground ml-6 mt-0.5">{desc}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-white rounded-xl border">
-                    <Label className="text-[10px] font-bold uppercase">Cinsiyyət Balansı</Label>
-                    <input type="checkbox" checked={useGenderBalance} onChange={e => setUseGenderBalance(e.target.checked)} className="w-4 h-4" />
-                  </div>
-
-                  <Button variant="ghost" size="sm" className="w-full text-indigo-600 font-bold hover:bg-indigo-50" onClick={autoGenerateRoomsForAll}>
-                    <RefreshCw className="w-4 h-4 mr-2" /> Hamısı üçün Avto-Yarat
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Right panel — rooms */}
-            <div className="lg:col-span-3 space-y-6">
-              <div className="flex justify-between items-end">
-                <h3 className="text-2xl font-black">
-                  {activeCenter} <span className="text-slate-400 font-normal">otaqları</span>
-                </h3>
-                <Button size="sm" onClick={() => addRoomConfig(activeCenter)}>
-                  <Plus className="w-4 h-4 mr-2" /> Otaq Əlavə Et
+            {/* ── Sticky top nav bar ── */}
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md rounded-2xl border shadow-md px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentStep('review')}>
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Geri
                 </Button>
+                <span className="text-muted-foreground text-sm hidden sm:inline">Otaq konfiqurasiyası</span>
               </div>
-
-              {/* Capacity alert */}
-              {activeCenter && centerCapacity[activeCenter] && (() => {
-                const { students: sc, capacity: cap } = centerCapacity[activeCenter];
-                const diff = cap - sc;
-                return (
-                  <Alert className={diff < 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
-                    <AlertDescription className="text-sm">
-                      {diff < 0
-                        ? `⚠️ ${sc} şagird üçün yalnız ${cap} yer var — ${Math.abs(diff)} şagird sığmayacaq.`
-                        : `✅ ${sc} şagird üçün ${cap} yer var — ${diff} yer boş qalacaq.`
-                      }
-                    </AlertDescription>
-                  </Alert>
-                );
-              })()}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-auto pr-2 pb-4">
-                {centerConfigs[activeCenter]?.map((config, idx) => (
-                  <Card key={config.id} className="group hover:border-primary/50 transition-all shadow-sm">
-                    <CardContent className="p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div className="bg-slate-100 text-slate-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">{idx + 1}</div>
-                        <Button variant="ghost" size="sm" onClick={() => removeRoomConfig(activeCenter, config.id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2">
-                          <Label className="text-[10px] uppercase opacity-50 ml-1">Otaq Adı</Label>
-                          <Input value={config.name} onChange={e => updateRoomConfig(activeCenter, config.id, 'name', e.target.value)} className="h-8 text-sm font-bold" />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] uppercase opacity-50 ml-1">Sıra Sayı</Label>
-                          <Input type="number" value={config.columns} onChange={e => updateRoomConfig(activeCenter, config.id, 'columns', parseInt(e.target.value) || 1)} className="h-8" />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] uppercase opacity-50 ml-1 text-indigo-600 font-bold">Cəmi Parta</Label>
-                          <Input type="number" value={config.totalDesks ?? (config.columns * config.rowsPerColumn)} onChange={e => updateRoomConfig(activeCenter, config.id, 'totalDesks', parseInt(e.target.value) || 1)} className="h-8 border-indigo-200" />
-                        </div>
-                        <div className="col-span-2">
-                          <Label className="text-[10px] uppercase opacity-50 ml-1">Nəzarətçilər (Vergüllə)</Label>
-                          <Input placeholder="Əli Vəliyev, Həsən Həsənov" value={config.proctors ?? ''} onChange={e => updateRoomConfig(activeCenter, config.id, 'proctors', e.target.value)} className="h-8 text-xs" />
-                        </div>
-                      </div>
-                      <Badge className="w-full justify-center bg-slate-900 hover:bg-slate-900 py-1">
-                        {(config.totalDesks ?? (config.columns * config.rowsPerColumn)) * 2} Şagird Yeri
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <div className="flex justify-between items-center pt-8 border-t">
-                <Button variant="ghost" onClick={() => setCurrentStep('review')}><ArrowLeft className="w-4 h-4 mr-2" /> Geri</Button>
-                <Button size="lg" onClick={generatePlan} className="px-12 bg-gradient-to-r from-primary to-indigo-600 shadow-xl font-bold">
-                  <Shuffle className="w-4 h-4 mr-2" /> Planı Tamamla
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={autoGenerateRoomsForAll} className="text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                  <RefreshCw className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Avto-Yarat</span>
+                </Button>
+                <Button size="sm" onClick={generatePlan} className="bg-gradient-to-r from-primary to-indigo-600 shadow font-bold px-5">
+                  <Shuffle className="w-3.5 h-3.5 mr-1" /> Planı Tamamla
                 </Button>
               </div>
             </div>
+
+            {/* ── 2-column layout ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+              {/* Left: compact center panel */}
+              <div className="lg:col-span-1 space-y-3">
+
+                {/* Seating strategy */}
+                <Card className="border-none shadow-sm bg-slate-50/70">
+                  <CardContent className="p-3 space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Strategiya</Label>
+                    <div className="flex gap-1 flex-wrap">
+                      {SEATING_TYPES.map(({ type, label }) => (
+                        <button
+                          key={type}
+                          onClick={() => setSeatingType(type)}
+                          className={cn(
+                            'flex-1 min-w-[60px] text-[11px] font-bold px-2 py-1.5 rounded-lg border transition-all',
+                            seatingType === type
+                              ? 'bg-primary text-white border-primary shadow'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-primary/40',
+                          )}
+                        >{label}</button>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer select-none">
+                      <input type="checkbox" checked={useGenderBalance} onChange={e => setUseGenderBalance(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                      Cinsiyyət Balan sı
+                    </label>
+                  </CardContent>
+                </Card>
+
+                {/* Center search + list */}
+                <Card className="border-none shadow-sm">
+                  <CardContent className="p-2 space-y-1.5">
+                    <div className="flex items-center gap-1.5 px-1">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mərkəzlər</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{filteredCenters.length}/{Object.keys(centerConfigs).length}</span>
+                    </div>
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <input
+                        value={centerSearch}
+                        onChange={e => setCenterSearch(e.target.value)}
+                        placeholder="Axtar..."
+                        className="w-full pl-6 pr-2 py-1 text-xs rounded-lg border bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    {/* List */}
+                    <div className="space-y-0.5 max-h-[340px] overflow-y-auto pr-0.5">
+                      {filteredCenters.map(cName => {
+                        const cap = centerCapacity[cName];
+                        const diff = (cap?.capacity ?? 0) - (cap?.students ?? 0);
+                        const isActive = activeCenter === cName;
+                        return (
+                          <button
+                            key={cName}
+                            onClick={() => setActiveCenter(cName)}
+                            className={cn(
+                              'w-full text-left px-3 py-2 rounded-xl border-2 transition-all text-sm',
+                              isActive
+                                ? 'bg-white border-primary shadow-sm'
+                                : 'bg-transparent border-transparent hover:bg-white/60',
+                              diff < 0 && 'border-red-200',
+                            )}
+                          >
+                            <p className="font-bold text-xs truncate">{cName}</p>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">
+                                {cap?.students ?? 0} / {cap?.capacity ?? 0} yer
+                              </span>
+                              {cap && cap.capacity > 0 && (
+                                <span className={cn('text-[9px] font-bold',
+                                  diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-500' : 'text-blue-500'
+                                )}>
+                                  {diff > 0 ? `+${diff} boş` : diff < 0 ? `⚠ ${Math.abs(diff)}` : '= Dolu'}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right: room cards */}
+              <div className="lg:col-span-3 space-y-4">
+
+                {/* Center header + capacity alert */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black truncate max-w-[60%]">
+                    {activeCenter} <span className="text-slate-400 font-normal text-base">otaqları</span>
+                  </h3>
+                  <Button size="sm" onClick={() => addRoomConfig(activeCenter)}>
+                    <Plus className="w-4 h-4 mr-1" /> Otaq ƏLAVƎ Et
+                  </Button>
+                </div>
+
+                {activeCenter && centerCapacity[activeCenter] && (() => {
+                  const { students: sc, capacity: cap } = centerCapacity[activeCenter];
+                  const diff = cap - sc;
+                  return (
+                    <Alert className={cn('py-2', diff < 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50')}>
+                      <AlertDescription className="text-xs">
+                        {diff < 0
+                          ? `⚠️ ${sc} şagird üçün yalnız ${cap} yer var — ${Math.abs(diff)} şagird sığmayacaq.`
+                          : `✅ ${sc} şagird üçün ${cap} yer var — ${diff} yer boş qalacaq.`}
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
+
+                {/* Room cards grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {centerConfigs[activeCenter]?.map((config, idx) => {
+                    const seats = (config.totalDesks ?? (config.columns * config.rowsPerColumn)) * 2;
+                    return (
+                      <Card
+                        key={config.id}
+                        onClick={() => setRoomEditModal({ centerName: activeCenter, roomId: config.id })}
+                        className="cursor-pointer border-2 hover:border-primary/50 hover:shadow-md transition-all group"
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="w-6 h-6 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={e => { e.stopPropagation(); removeRoomConfig(activeCenter, config.id); }}
+                              className="w-6 h-6 p-0 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          <p className="font-bold text-sm leading-tight">{config.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {config.columns} cərgə · {config.totalDesks ?? config.columns * config.rowsPerColumn} parta
+                          </p>
+                          <div className="bg-slate-800 text-white text-[10px] font-bold rounded-lg py-1 text-center">
+                            {seats} yer
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Room edit modal ── */}
+            <Dialog open={!!roomEditModal} onOpenChange={open => !open && setRoomEditModal(null)}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Settings2 className="w-4 h-4 text-primary" />
+                    {editRoom?.name ?? 'Otaq'} — Konfiqurasiya
+                  </DialogTitle>
+                </DialogHeader>
+                {editRoom && roomEditModal && (
+                  <div className="space-y-4 py-2">
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold opacity-60">Otaq Adı</Label>
+                      <Input
+                        value={editRoom.name}
+                        onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'name', e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-[10px] uppercase font-bold opacity-60">Sıra Sayı (Cərgə)</Label>
+                        <Input
+                          type="number" min={1}
+                          value={editRoom.columns}
+                          onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'columns', parseInt(e.target.value) || 1)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase font-bold text-indigo-600">Cəmi Parta</Label>
+                        <Input
+                          type="number" min={1}
+                          value={editRoom.totalDesks ?? (editRoom.columns * editRoom.rowsPerColumn)}
+                          onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'totalDesks', parseInt(e.target.value) || 1)}
+                          className="mt-1 border-indigo-200"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold opacity-60">Nəzarətçilər (Virgüllə)</Label>
+                      <Input
+                        placeholder="Ǝli Vəliyev, Həsən Həsənov"
+                        value={editRoom.proctors ?? ''}
+                        onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'proctors', e.target.value)}
+                        className="mt-1 text-xs"
+                      />
+                    </div>
+                    <div className="bg-slate-800 text-white text-sm font-bold rounded-xl py-2 text-center">
+                      {(editRoom.totalDesks ?? (editRoom.columns * editRoom.rowsPerColumn)) * 2} Şagird Yeri
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRoomEditModal(null)}>Bağla</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
           </motion.div>
-        )}
+          );
+        })()}
 
         {/* ══════════════════ STEP: Results ══════════════════ */}
         {currentStep === 'results' && (
           <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
 
             {/* Sticky toolbar */}
-            <div className="sticky top-0 z-20 flex flex-col md:flex-row justify-between items-center gap-4 bg-background/95 backdrop-blur-md p-6 rounded-2xl border shadow-lg">
-              <h2 className="text-2xl font-bold">Nəticə</h2>
-              <div className="flex gap-2 flex-wrap justify-end">
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md p-4 sm:p-6 rounded-2xl border shadow-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl sm:text-2xl font-bold">Nəticə</h2>
                 <Tabs value={viewMode} onValueChange={val => setViewMode(val as 'list' | 'grid')}>
                   <TabsList className="bg-muted/50 p-1 rounded-xl">
-                    <TabsTrigger value="grid"><LayoutGrid className="w-4 h-4 mr-2" />Plan</TabsTrigger>
-                    <TabsTrigger value="list"><List className="w-4 h-4 mr-2" />Siyahı</TabsTrigger>
+                    <TabsTrigger value="grid"><LayoutGrid className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Plan</span></TabsTrigger>
+                    <TabsTrigger value="list"><List className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Siyahı</span></TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <Button variant="outline" onClick={() => setCurrentStep('config')}><ArrowLeft className="w-4 h-4 mr-2" /> Ayarlara Qayıt</Button>
-                <Button variant="outline" onClick={() => { setSaveName(`Plan ${new Date().toLocaleDateString()}`); setShowSaveDialog(true); }} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                  <CheckCircle2 className="w-4 h-4 mr-2" /> Yadda Saxla
+              </div>
+              <div className="flex gap-2 flex-wrap items-center">
+                <Button variant="outline" size="sm" onClick={() => setCurrentStep('config')}><ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden xs:inline">Ayarlara </span>Qayıt</Button>
+                <Button variant="outline" size="sm" onClick={() => { setSaveName(`Plan ${new Date().toLocaleDateString()}`); setShowSaveDialog(true); }} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
+                  <CheckCircle2 className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Yadda Saxla</span>
                 </Button>
-                <div className="flex gap-1">
-                  {selectedSeat && (
-                    <Button variant="destructive" size="sm" onClick={() => setSelectedSeat(null)} className="animate-pulse">Seçimi Ləğv Et</Button>
-                  )}
-                  {swapStack.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={undoSwap}><Undo2 className="w-3 h-3 mr-1" />Geri Al ({swapStack.length})</Button>
-                  )}
-                  <Button variant="secondary" size="sm" onClick={handlePrintAllCards} className="bg-blue-50 text-blue-700 hover:bg-blue-100"><Printer className="w-3 h-3 mr-1" />Vərəqlər</Button>
-                  <Button variant="secondary" size="sm" onClick={handlePrintAllProtocols} className="bg-amber-50 text-amber-700 hover:bg-amber-100"><FileSpreadsheet className="w-3 h-3 mr-1" />Protokollar</Button>
-                </div>
-                <Button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700"><Download className="w-4 h-4 mr-2" />Excel İxrac</Button>
+                {selectedSeat && (
+                  <Button variant="destructive" size="sm" onClick={() => setSelectedSeat(null)} className="animate-pulse">Ləğv Et</Button>
+                )}
+                {swapStack.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={undoSwap}><Undo2 className="w-3 h-3 sm:mr-1" /><span className="hidden sm:inline">Geri Al</span> ({swapStack.length})</Button>
+                )}
+                <Button variant="secondary" size="sm" onClick={handlePrintAllCards} className="bg-blue-50 text-blue-700 hover:bg-blue-100">
+                  <Printer className="w-3 h-3 sm:mr-1" /><span className="hidden sm:inline">Vərəqlər</span>
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handlePrintAllProtocols} className="bg-amber-50 text-amber-700 hover:bg-amber-100">
+                  <FileSpreadsheet className="w-3 h-3 sm:mr-1" /><span className="hidden sm:inline">Protokollar</span>
+                </Button>
+                <Button size="sm" onClick={exportToExcel} className="bg-green-600 hover:bg-green-700">
+                  <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Excel</span>
+                </Button>
+                <Button size="sm" onClick={exportByRayon} className="bg-blue-700 hover:bg-blue-800">
+                  <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Rayonlar üzrə</span>
+                </Button>
               </div>
             </div>
+
 
             {/* Global stats */}
             {globalStats && (
@@ -1790,120 +2257,171 @@ const ExamSeatingPlan: React.FC = () => {
 
                 {center.rooms.map((room, roomIdx) => (
                   <Card key={roomIdx} className="overflow-hidden border-none shadow-2xl">
-                    <CardHeader className="bg-gradient-to-r from-blue-600/10 to-indigo-600/10 p-6">
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        <div className="flex items-center gap-4">
-                          <CardTitle className="text-xl">{room.config.name}</CardTitle>
-                          <Badge className={cn('text-white', room.stats.riskStatus === 'Təhlükəsiz' ? 'bg-green-500' : room.stats.riskStatus === 'Orta Risk' ? 'bg-amber-500' : 'bg-red-600')}>
+                    <CardHeader className="bg-gradient-to-r from-blue-600/10 to-indigo-600/10 p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CardTitle className="text-lg">{room.config.name}</CardTitle>
+                          <Badge variant="secondary">Şagird: {room.stats.totalStudents}</Badge>
+                          <Badge className={cn('text-white text-xs', room.stats.riskStatus === 'Təhlükəsiz' ? 'bg-green-500' : room.stats.riskStatus === 'Orta Risk' ? 'bg-amber-500' : 'bg-red-600')}>
                             Risk: {room.stats.riskScore}% ({room.stats.riskStatus})
                           </Badge>
                         </div>
-                        <div className="flex gap-2 flex-wrap">
-                          <Badge variant="secondary">Şagird: {room.stats.totalStudents}</Badge>
+                        <div className="flex gap-1.5 flex-wrap">
                           <Button variant="outline" size="sm" onClick={() => regenerateRoom(centerIdx, roomIdx)}>
-                            <RefreshCw className="w-4 h-4 mr-1" /> Yenilə
+                            <RefreshCw className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Yenilə</span>
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handlePrintCards(center.centerName, room)}>
-                            <Printer className="w-4 h-4 mr-1" /> Vərəqlər
+                            <Printer className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Vərəqlər</span>
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handlePrint(room, center.centerName)}>
-                            <Printer className="w-4 h-4 mr-1" /> Çap
+                            <Printer className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Çap</span>
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handlePrintProtocol(center.centerName, room)}>
-                            <FileSpreadsheet className="w-4 h-4 mr-1" /> Protokol
+                            <FileSpreadsheet className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Protokol</span>
                           </Button>
                         </div>
                       </div>
                     </CardHeader>
 
-                    <CardContent className="p-6 bg-slate-50/50">
+                    <CardContent className="p-3 sm:p-5 bg-slate-50/50">
                       {viewMode === 'grid' ? (
-                        <div
-                          className="grid gap-x-12 gap-y-8 py-8 px-4 overflow-auto bg-white/50 rounded-3xl"
-                          style={{ gridTemplateColumns: `repeat(${room.config.columns}, 1fr)`, minWidth: `${room.config.columns * 180}px` }}
-                        >
-                          {Array.from({ length: room.config.columns }).map((_, colIdx) => {
-                            const totalDesks    = room.config.totalDesks ?? (room.config.columns * room.config.rowsPerColumn);
-                            const basePerCol    = Math.floor(totalDesks / room.config.columns);
-                            const extra         = totalDesks % room.config.columns;
-                            const colDeskCount  = basePerCol + (colIdx < extra ? 1 : 0);
-                            let startDesk = 1;
-                            for (let i = 0; i < colIdx; i++) startDesk += basePerCol + (i < extra ? 1 : 0);
+                        <div className="space-y-4">
 
-                            return (
-                              <div key={colIdx} className="flex flex-col gap-8">
-                                {Array.from({ length: colDeskCount }).map((_, deskRowIdx) => {
-                                  const deskNum = startDesk + deskRowIdx;
-                                  const sLIdx   = room.seats.findIndex(s => s.deskNumber === deskNum && s.position === 'Sol');
-                                  const sRIdx   = room.seats.findIndex(s => s.deskNumber === deskNum && s.position === 'Sağ');
-                                  const sL      = sLIdx >= 0 ? room.seats[sLIdx] : undefined;
-                                  const sR      = sRIdx >= 0 ? room.seats[sRIdx] : undefined;
+                          {/* ── Müəllim masası ── */}
+                          <div className="flex items-center justify-center">
+                            <div className="bg-slate-700 text-white text-xs font-bold px-8 py-2 rounded-xl shadow-md tracking-widest uppercase">
+                              Müəllim masası
+                            </div>
+                          </div>
 
-                                  // Uses outer centerIdx / roomIdx — not shadowed
-                                  const isSelected = (idx: number) =>
-                                    idx >= 0 &&
-                                    selectedSeat?.centerIdx === centerIdx &&
-                                    selectedSeat?.roomIdx   === roomIdx &&
-                                    selectedSeat?.seatIdx   === idx;
+                          {/* ── Taxtanın separator xətti ── */}
+                          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
 
-                                  const sameSchool = sL?.student && sR?.student && sL.student.utisCode === sR.student.utisCode;
-                                  // TƏK: student exists but partner slot is empty
-                                  const lIsTek = sL?.student && !sR?.student;
-                                  const rIsTek = sR?.student && !sL?.student;
-                                  // Show drop-hint on BOŞ slot when a seat is selected
-                                  const showDropHint = !!selectedSeat;
+                          {/* ── Sinif otağı: sütunlar + partalar ── */}
+                          <div className="overflow-x-auto pb-2">
+                            <div
+                              className="flex gap-6 min-w-fit px-2 py-4"
+                              style={{ justifyContent: room.config.columns <= 3 ? 'center' : 'flex-start' }}
+                            >
+                              {(() => {
+                                const totalDesks  = room.config.totalDesks ?? (room.config.columns * room.config.rowsPerColumn);
+                                const cols        = room.config.columns || 3;
+                                const rowsPerCol  = Math.ceil(totalDesks / cols);
+                                const showDropHint = !!selectedSeat;
+
+                                return Array.from({ length: cols }).map((_, colIdx) => {
+                                  const startDesk = colIdx * rowsPerCol + 1;
+                                  const endDesk   = Math.min(startDesk + rowsPerCol - 1, totalDesks);
 
                                   return (
-                                    <div key={deskRowIdx}>
-                                      <div className={cn(
-                                        'bg-background border shadow-md rounded-2xl p-2 h-[110px] flex flex-row gap-2 relative',
-                                        sameSchool ? 'border-red-500' : 'border-slate-200',
-                                      )}>
-                                        <div className="absolute -top-2 -right-2 w-5 h-5 bg-slate-800 text-white rounded-full flex items-center justify-center text-[9px] font-bold z-10">
-                                          {deskNum}
-                                        </div>
+                                    <div key={colIdx} className="flex flex-col gap-3" style={{ minWidth: 180 }}>
 
-                                        {([
-                                          { pos: 'Sol' as const, seat: sL, sIdx: sLIdx, isTek: lIsTek },
-                                          { pos: 'Sağ' as const, seat: sR, sIdx: sRIdx, isTek: rIsTek },
-                                        ]).map(({ pos, seat, sIdx, isTek }) => (
-                                          <div
-                                            key={pos}
-                                            onClick={() => sIdx >= 0 && handleSeatClick(centerIdx, roomIdx, sIdx)}
-                                            className={cn(
-                                              'flex-1 p-2 rounded-xl border-t-4 flex flex-col justify-center transition-all relative',
-                                              seat?.student
-                                                ? cn(getSchoolColor(seat.student.utisCode, centerPalette), 'cursor-pointer hover:scale-105')
-                                                : cn(
-                                                    'bg-slate-50 border-slate-200',
-                                                    showDropHint && sIdx >= 0 ? 'cursor-pointer hover:bg-amber-50 hover:border-amber-300 border-dashed' : 'cursor-default opacity-50',
-                                                  ),
-                                              isSelected(sIdx) && 'ring-4 ring-primary ring-offset-2 scale-105 z-20',
-                                            )}
-                                          >
-                                            <span className="text-[8px] font-bold opacity-40">{pos}</span>
-                                            {seat?.student ? (
-                                              <div className="mt-0.5">
-                                                <p className="text-[9px] font-bold truncate">{seat.student.firstName} {seat.student.lastName}</p>
-                                                <p className="text-[7px] opacity-80 truncate">{seat.student.schoolName}</p>
-                                                {isTek && (
-                                                  <span className="absolute top-1 right-1 text-[7px] bg-amber-400 text-white font-bold px-1 rounded">TƏK</span>
-                                                )}
+                                      {/* Cərgə başlığı */}
+                                      <div className="text-center">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                          {colIdx + 1}. Cərgə
+                                        </span>
+                                      </div>
+
+                                      {/* Partalar */}
+                                      {Array.from({ length: endDesk - startDesk + 1 }).map((_, rowIdx) => {
+                                        const deskNum = startDesk + rowIdx;
+                                        if (deskNum > totalDesks) return null;
+
+                                        const sLIdx = room.seats.findIndex(s => s.deskNumber === deskNum && s.position === 'Sol');
+                                        const sRIdx = room.seats.findIndex(s => s.deskNumber === deskNum && s.position === 'Sağ');
+                                        const sL    = sLIdx >= 0 ? room.seats[sLIdx] : undefined;
+                                        const sR    = sRIdx >= 0 ? room.seats[sRIdx] : undefined;
+
+                                        const isSelected = (idx: number) =>
+                                          idx >= 0 &&
+                                          selectedSeat?.centerIdx === centerIdx &&
+                                          selectedSeat?.roomIdx   === roomIdx &&
+                                          selectedSeat?.seatIdx   === idx;
+
+                                        const sameSchool = sL?.student && sR?.student && sL.student.utisCode === sR.student.utisCode;
+                                        const lIsTek = sL?.student && !sR?.student;
+                                        const rIsTek = sR?.student && !sL?.student;
+
+                                        return (
+                                          <div key={deskNum} className="relative">
+                                            {/* Parta kartı */}
+                                            <div className={cn(
+                                              'bg-white border-2 rounded-xl shadow-sm flex flex-row gap-1.5 p-1.5 h-[108px] transition-shadow hover:shadow-md',
+                                              sameSchool ? 'border-red-400' : 'border-slate-200',
+                                            )}>
+                                              {/* Parta nömrəsi */}
+                                              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 min-w-[22px] h-[18px] bg-slate-700 text-white rounded-md flex items-center justify-center text-[9px] font-black px-1 shadow z-10">
+                                                {deskNum}
                                               </div>
-                                            ) : (
-                                              <p className={cn('text-[9px] font-bold uppercase', showDropHint && sIdx >= 0 ? 'text-amber-500' : 'text-slate-400')}>
-                                                {showDropHint && sIdx >= 0 ? '+ buraya' : 'Boş'}
-                                              </p>
+
+                                              {([
+                                                { pos: 'Sol' as const, seat: sL, sIdx: sLIdx, isTek: lIsTek },
+                                                { pos: 'Sağ' as const, seat: sR, sIdx: sRIdx, isTek: rIsTek },
+                                              ]).map(({ pos, seat, sIdx, isTek }) => (
+                                                <div
+                                                  key={pos}
+                                                  onClick={() => sIdx >= 0 && handleSeatClick(centerIdx, roomIdx, sIdx)}
+                                                  className={cn(
+                                                    'flex-1 rounded-lg border-t-[3px] p-1.5 flex flex-col gap-0.5 transition-all relative overflow-hidden',
+                                                    seat?.student
+                                                      ? cn(getSchoolColor(seat.student.utisCode, centerPalette), 'cursor-pointer hover:brightness-95 active:scale-95')
+                                                      : cn(
+                                                          'bg-slate-50 border-slate-200',
+                                                          showDropHint && sIdx >= 0
+                                                            ? 'cursor-pointer hover:bg-amber-50 hover:border-amber-300 border-dashed border-t-[3px]'
+                                                            : 'opacity-35',
+                                                        ),
+                                                    isSelected(sIdx) && 'ring-2 ring-primary ring-offset-1 scale-95 z-10',
+                                                  )}
+                                                >
+                                                  {/* Mövqe etiketi */}
+                                                  <span className="text-[7px] font-bold opacity-50 uppercase leading-none">{pos}</span>
+
+                                                  {seat?.student ? (
+                                                    <>
+                                                      <p className="text-[9px] font-black leading-tight line-clamp-2 mt-0.5">
+                                                        {seat.student.lastName} {seat.student.firstName}
+                                                      </p>
+                                                      <p className="text-[7px] text-slate-500 leading-tight line-clamp-1 mt-auto">
+                                                        {seat.student.grade} · {seat.student.section}
+                                                      </p>
+                                                      {isTek && (
+                                                        <span className="absolute top-0.5 right-0.5 text-[6px] bg-amber-400 text-white font-bold px-0.5 rounded leading-tight">TƏK</span>
+                                                      )}
+                                                    </>
+                                                  ) : (
+                                                    <p className={cn(
+                                                      'text-[8px] font-bold uppercase mt-auto',
+                                                      showDropHint && sIdx >= 0 ? 'text-amber-500' : 'text-slate-300',
+                                                    )}>
+                                                      {showDropHint && sIdx >= 0 ? '⬇ buraya' : 'Boş'}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+
+                                            {/* Parta altındakı ayırıcı cığır (corridor effect) */}
+                                            {rowIdx < endDesk - startDesk && (
+                                              <div className="h-1.5" />
                                             )}
                                           </div>
-                                        ))}
-                                      </div>
+                                        );
+                                      })}
                                     </div>
                                   );
-                                })}
-                              </div>
-                            );
-                          })}
+                                });
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* ── Arxa divar ── */}
+                          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+                          <div className="text-center">
+                            <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Qapı</span>
+                          </div>
+
                         </div>
                       ) : (
                         <Table>
@@ -1942,12 +2460,12 @@ const ExamSeatingPlan: React.FC = () => {
       {/* Floating bar — review step */}
       {currentStep === 'review' && students.length > 0 && (
         <motion.div initial={{ y: 100 }} animate={{ y: 0 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-xl border shadow-2xl px-8 py-4 rounded-full flex items-center gap-8 z-50">
+          className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-[90vw] max-w-sm bg-background/90 backdrop-blur-xl border shadow-2xl px-5 py-3 rounded-2xl flex items-center justify-between gap-4 z-50">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
+            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
             <span className="text-sm font-bold">{students.length} Şagird</span>
           </div>
-          <Button size="sm" onClick={() => setCurrentStep('config')}>Davam Et</Button>
+          <Button size="sm" onClick={() => setCurrentStep('config')}>Davam Et <ArrowRight className="w-3 h-3 ml-1" /></Button>
         </motion.div>
       )}
 
