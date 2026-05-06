@@ -152,7 +152,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
               value={editFormData.name}
               onChange={(e) => handleEditFieldChange('name', e.target.value)}
               className="h-7 text-xs font-semibold py-0 flex-1"
-              maxLength={255}
+              maxLength={500}
               onClick={(e) => e.stopPropagation()}
             />
           ) : (

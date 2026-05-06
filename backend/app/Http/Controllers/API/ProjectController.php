@@ -198,7 +198,7 @@ class ProjectController extends Controller
     public function addActivity(Request $request, $projectId)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:500',
             'description' => 'nullable|string',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
@@ -235,7 +235,7 @@ class ProjectController extends Controller
     public function updateActivity(Request $request, $activityId)
     {
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
+            'name' => 'sometimes|string|max:500',
             'description' => 'nullable|string',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',

@@ -147,7 +147,7 @@ export function ProjectActivityCreateRow({
               value={formData.name}
               onChange={(e) => handleFieldChange("name", e.target.value)}
               className="h-8 text-[11px] w-full border-none focus-visible:ring-0 px-0 font-bold bg-transparent"
-              maxLength={255}
+              maxLength={500}
               autoFocus
             />
           </div>
