@@ -716,10 +716,18 @@ const ExamSeatingPlan: React.FC = () => {
       if (nonempty.length === 0) { pairs.push([undefined, undefined]); continue; }
 
       if (nonempty.length === 1) {
-        // Yalnız bir məktəb qalıb — məcburi iki şagird (violation)
-        const a = nonempty[0].pop();
-        const b = nonempty[0].length > 0 ? nonempty[0].pop() : undefined;
-        pairs.push([a, b]);
+        const remainingDesks     = deskCount - d;
+        const remainingStudents  = nonempty[0].length;
+
+        if (remainingStudents <= remainingDesks) {
+          // Hər şagird üçün ayrı parta var → Sol=A, Sağ=BOŞ (0 violation)
+          pairs.push([nonempty[0].pop(), undefined]);
+        } else {
+          // Partalar çatmır → məcburi (A,A) violation
+          const a = nonempty[0].pop();
+          const b = nonempty[0].length > 0 ? nonempty[0].pop() : undefined;
+          pairs.push([a, b]);
+        }
         continue;
       }
 
