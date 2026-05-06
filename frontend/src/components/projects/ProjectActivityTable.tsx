@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Check, Settings2, ChevronDown } from 'lucide-react';
+import { Check, Settings2, ChevronDown, List, CheckCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { useColumnSettings } from '@/hooks/projects/useColumnSettings';
@@ -387,13 +387,13 @@ interface ActivityGlobalFiltersProps {
 }
 
 export function ActivityGlobalFilters({ activeFilter, onFilterChange }: ActivityGlobalFiltersProps) {
-  const filters: { id: ActivityFilter; label: string }[] = [
-    { id: 'all', label: 'Hamısı' },
-    { id: 'mine', label: 'Mənim' },
-    { id: 'overdue', label: 'Gecikənlər' },
+  const filters: { id: ActivityFilter; label: string; icon: React.ElementType }[] = [
+    { id: 'all',     label: 'Hamısı',     icon: List },
+    { id: 'mine',    label: 'Mənim',      icon: CheckCircle },
+    { id: 'overdue', label: 'Gecikənlər', icon: Clock },
   ];
   return (
-    <div className="flex items-center gap-1.5 p-1 bg-background/50 rounded-lg border shadow-sm">
+    <div className="flex items-center gap-1 p-1 bg-background/50 rounded-lg border shadow-sm">
       {filters.map((f) => (
         <Button
           key={f.id}
@@ -401,11 +401,12 @@ export function ActivityGlobalFilters({ activeFilter, onFilterChange }: Activity
           size="sm"
           onClick={() => onFilterChange(f.id)}
           className={cn(
-            'h-7 px-3 text-xs font-medium transition-colors',
+            'h-7 px-2 sm:px-3 text-xs font-medium transition-colors gap-1.5',
             activeFilter === f.id ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          {f.label}
+          <f.icon className="w-3 h-3 shrink-0" />
+          <span className="hidden sm:inline">{f.label}</span>
         </Button>
       ))}
     </div>

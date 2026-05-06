@@ -400,27 +400,27 @@ export default function Projects() {
             />
 
             <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as any)} className="w-full">
-              <TabsList className="mb-5 h-10 rounded-xl bg-muted/50 p-1 gap-0.5">
-                <TabsTrigger value="projects" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <Briefcase className="w-3.5 h-3.5" />
-                  <span>Layihələr</span>
+              <TabsList className="mb-5 h-10 rounded-xl bg-muted/50 p-1 gap-0.5 w-full">
+                <TabsTrigger value="projects" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Layihələr</span>
                   {projects.length > 0 && (
-                    <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-semibold text-primary tabular-nums">
+                    <span className="rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-semibold text-primary tabular-nums">
                       {projects.length}
                     </span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="my_activities" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <ListTodo className="w-3.5 h-3.5" />
-                  <span>Fəaliyyətlərim</span>
+                <TabsTrigger value="my_activities" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <ListTodo className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Fəaliyyətlərim</span>
                 </TabsTrigger>
-                <TabsTrigger value="urgent" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Təcili</span>
+                <TabsTrigger value="urgent" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Təcili</span>
                 </TabsTrigger>
-                <TabsTrigger value="stats" className="gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Statistika</span>
+                <TabsTrigger value="stats" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
+                  <Activity className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Statistika</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -544,9 +544,9 @@ export default function Projects() {
             </AnimatePresence>
 
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/60 px-3 py-2 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-2 shadow-sm">
               {/* View mode segmented control */}
-              <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
+              <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 self-start sm:self-auto">
                 {([
                   { value: 'table',     label: 'Cədvəl',   icon: TableIcon },
                   { value: 'timeline',  label: 'Zaman Oxu',icon: CalendarIcon },
@@ -557,13 +557,13 @@ export default function Projects() {
                     key={v.value}
                     onClick={() => setActiveView(v.value)}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium transition-all',
+                      'flex items-center gap-1.5 rounded-md px-2.5 sm:px-3 h-8 text-xs font-medium transition-all',
                       activeView === v.value
                         ? 'bg-background text-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
-                    <v.icon className="w-3 h-3" />
+                    <v.icon className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">{v.label}</span>
                   </button>
                 ))}
@@ -579,10 +579,11 @@ export default function Projects() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1.5 px-3 text-xs font-medium hover:text-primary"
+                  className="h-8 gap-1.5 px-2 sm:px-3 text-xs font-medium hover:text-primary"
                   onClick={() => projectService.exportProject(selectedProject.id)}
                 >
-                  <Download className="w-3.5 h-3.5" /> Excel
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Excel</span>
                 </Button>
                 <Button
                   variant="ghost"
