@@ -142,12 +142,13 @@ export function ProjectActivityCreateRow({
       <TableRow className="bg-primary/[0.02] hover:bg-primary/[0.04] transition-colors h-9">
         <TableCell className="p-0 sticky left-0 z-20 bg-card border-r" style={{ width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth }}>
           <div className="flex items-center gap-2 px-3">
-            <Input 
-              placeholder="Yeni fəaliyyət adı..." 
-              value={formData.name} 
-              onChange={(e) => handleFieldChange("name", e.target.value)} 
-              className="h-8 text-[11px] w-full border-none focus-visible:ring-0 px-0 font-bold bg-transparent" 
-              autoFocus 
+            <Input
+              placeholder="Yeni fəaliyyət adı..."
+              value={formData.name}
+              onChange={(e) => handleFieldChange("name", e.target.value)}
+              className="h-8 text-[11px] w-full border-none focus-visible:ring-0 px-0 font-bold bg-transparent"
+              maxLength={255}
+              autoFocus
             />
           </div>
         </TableCell>
