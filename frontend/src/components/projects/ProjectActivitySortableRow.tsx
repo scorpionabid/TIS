@@ -13,6 +13,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   X,
   Check,
   Lock,
@@ -34,6 +39,18 @@ import {
   type ActivityPriority,
 } from '@/utils/projectStatus';
 import { ProjectActivityCreateRow } from './ProjectActivityCreateRow';
+
+function TruncatedTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  if (!text) return <>{children}</>;
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs whitespace-pre-wrap break-words z-[100]">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export interface SortableRowProps {
   activity: ProjectActivity;
@@ -129,19 +146,23 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
           }}
         >
           {!activity.is_editable && <Lock className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
-          <span className={cn('text-[12px] font-semibold tracking-tight truncate', !activity.is_editable && 'text-muted-foreground/70')}>
-            {isEditing ? (
-              <Input
-                autoFocus
-                value={editFormData.name}
-                onChange={(e) => handleEditFieldChange('name', e.target.value)}
-                className="h-7 text-xs font-semibold py-0"
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              activity.name
-            )}
-          </span>
+          {isEditing ? (
+            <Input
+              autoFocus
+              value={editFormData.name}
+              onChange={(e) => handleEditFieldChange('name', e.target.value)}
+              className="h-7 text-xs font-semibold py-0 flex-1"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <TruncatedTooltip
+              text={[activity.name, activity.description].filter(Boolean).join('\n─────────────\n')}
+            >
+              <span className={cn('text-[12px] font-semibold tracking-tight truncate', !activity.is_editable && 'text-muted-foreground/70')}>
+                {activity.name}
+              </span>
+            </TruncatedTooltip>
+          )}
         </div>
       </TableCell>
 
@@ -312,21 +333,27 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
       {/* Expected Outcome */}
       {isVisible('expected_outcome') && (
         <TableCell className="text-left py-1 px-4 text-[11px] text-muted-foreground border-r" style={{ width: columnWidths['expected_outcome'] || 180 }} onClick={() => startEditing(activity)}>
-          <div className="line-clamp-1">{activity.expected_outcome || '-'}</div>
+          <TruncatedTooltip text={activity.expected_outcome || ''}>
+            <div className="line-clamp-1">{activity.expected_outcome || '-'}</div>
+          </TruncatedTooltip>
         </TableCell>
       )}
 
       {/* KPI Metrics */}
       {isVisible('kpi_metrics') && (
         <TableCell className="text-left py-1 px-4 text-[11px] text-muted-foreground border-r" style={{ width: columnWidths['kpi_metrics'] || 150 }} onClick={() => startEditing(activity)}>
-          <div className="line-clamp-1">{activity.kpi_metrics || '-'}</div>
+          <TruncatedTooltip text={activity.kpi_metrics || ''}>
+            <div className="line-clamp-1">{activity.kpi_metrics || '-'}</div>
+          </TruncatedTooltip>
         </TableCell>
       )}
 
       {/* Risks */}
       {isVisible('risks') && (
         <TableCell className="text-left py-1 px-4 text-[11px] text-destructive/70 italic border-r" style={{ width: columnWidths['risks'] || 150 }} onClick={() => startEditing(activity)}>
-          <div className="line-clamp-1">{activity.risks || '-'}</div>
+          <TruncatedTooltip text={activity.risks || ''}>
+            <div className="line-clamp-1">{activity.risks || '-'}</div>
+          </TruncatedTooltip>
         </TableCell>
       )}
 
@@ -354,14 +381,18 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
       {/* Description */}
       {isVisible('description') && (
         <TableCell className="text-left py-1 px-4 text-[11px] text-muted-foreground border-r" style={{ width: columnWidths['description'] || 300 }} onClick={() => startEditing(activity)}>
-          <div className="line-clamp-1">{activity.description || '-'}</div>
+          <TruncatedTooltip text={activity.description || ''}>
+            <div className="line-clamp-1">{activity.description || '-'}</div>
+          </TruncatedTooltip>
         </TableCell>
       )}
 
       {/* Notes */}
       {isVisible('notes') && (
         <TableCell className="text-left py-1 px-4 text-[11px] text-muted-foreground border-r" style={{ width: columnWidths['notes'] || 300 }} onClick={() => startEditing(activity)}>
-          <div className="line-clamp-1">{activity.notes || '-'}</div>
+          <TruncatedTooltip text={activity.notes || ''}>
+            <div className="line-clamp-1">{activity.notes || '-'}</div>
+          </TruncatedTooltip>
         </TableCell>
       )}
 
