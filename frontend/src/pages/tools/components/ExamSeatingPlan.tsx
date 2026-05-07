@@ -1592,7 +1592,9 @@ const ExamSeatingPlan: React.FC = () => {
           .filter(s => s.student)
           .forEach(s => {
             const st = s.student!;
-            const grade = st.grade?.trim() || 'Naməlum';
+            const rawGrade = st.grade?.trim() || '';
+            // "6 a", "6b", "6A1" → "6" | "10" → "10" | "Naməlum" if empty
+            const grade = rawGrade.match(/^(\d+)/)?.[1] || rawGrade || 'Naməlum';
             if (!gradeMap.has(grade)) gradeMap.set(grade, []);
             gradeMap.get(grade)!.push({
               student: st,
