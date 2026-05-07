@@ -1543,9 +1543,8 @@ const ExamSeatingPlan: React.FC = () => {
     ];
     const summHdr = summary.getRow(1);
     summHdr.font = { bold: true };
-    summHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF166534' } };
+    summHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
     summHdr.eachCell(c => {
-      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
       c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
     });
@@ -1570,20 +1569,17 @@ const ExamSeatingPlan: React.FC = () => {
     const applyHdr = (row: ExcelJS.Row) => {
       row.height = 36;
       row.eachCell(cell => {
-        cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF166534' } };
+        cell.font      = { bold: true, color: { argb: 'FF000000' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         cell.border    = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'medium' }, right: { style: 'medium' } };
       });
     };
 
-    const applyData = (row: ExcelJS.Row, isEven: boolean) => {
+    const applyData = (row: ExcelJS.Row, _isEven: boolean) => {
       row.height = 18;
       row.eachCell(cell => {
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
-        cell.fill = isEven
-          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
-          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
       });
     };
@@ -1617,7 +1613,7 @@ const ExamSeatingPlan: React.FC = () => {
     sortedGrades.forEach(grade => {
       const entries = gradeMap.get(grade)!;
       const centers = Array.from(new Set(entries.map(e => e.centerName))).join(', ');
-      const dataRow = summary.addRow({ grade, students: entries.length, centers });
+      const dataRow = summary.addRow({ grade: `${grade} sinif`, students: entries.length, centers });
       dataRow.height = 18;
       dataRow.eachCell(cell => {
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -1627,7 +1623,7 @@ const ExamSeatingPlan: React.FC = () => {
 
     sortedGrades.forEach(grade => {
       const entries = gradeMap.get(grade)!;
-      const sheetName = grade.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheetName = `${grade} sinif`.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
       const sheet = wb.addWorksheet(sheetName);
       sheet.columns = COLS.map(c => ({ header: c.header, width: c.width }));
 
