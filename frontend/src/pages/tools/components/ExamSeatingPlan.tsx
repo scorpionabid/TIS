@@ -1532,6 +1532,144 @@ const ExamSeatingPlan: React.FC = () => {
     toast({ title: 'Rayonlar üzrə Excel hazırlandı', description: `${sortedRayons.length} rayon sheetə ixrac edildi.` });
   };
 
+  // ── Excel export — Siniflər üzrə ──────────────────────────────────────────
+  const exportByGrade = async () => {
+    const wb = new ExcelJS.Workbook();
+    const summary = wb.addWorksheet('XÜLASƏ');
+    summary.columns = [
+      { header: 'Sinif',          key: 'grade',    width: 14 },
+      { header: 'Şagird sayı',    key: 'students', width: 14 },
+      { header: 'Mərkəzlər',      key: 'centers',  width: 50 },
+    ];
+    const summHdr = summary.getRow(1);
+    summHdr.font = { bold: true };
+    summHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF166534' } };
+    summHdr.eachCell(c => {
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    const COLS = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyHdr = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF166534' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'medium' }, right: { style: 'medium' } };
+      });
+    };
+
+    const applyData = (row: ExcelJS.Row, isEven: boolean) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.fill = isEven
+          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
+          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    };
+
+    const gradeMap = new Map<string, { student: Student; seatNumber: number; roomName: string; centerName: string }[]>();
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        room.seats
+          .filter(s => s.student)
+          .forEach(s => {
+            const st = s.student!;
+            const grade = st.grade?.trim() || 'Naməlum';
+            if (!gradeMap.has(grade)) gradeMap.set(grade, []);
+            gradeMap.get(grade)!.push({
+              student: st,
+              seatNumber: s.seatNumber,
+              roomName: room.config.name,
+              centerName: center.centerName,
+            });
+          });
+      });
+    });
+
+    const sortedGrades = Array.from(gradeMap.keys()).sort((a, b) => {
+      const numA = parseInt(a); const numB = parseInt(b);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return a.localeCompare(b, 'az');
+    });
+
+    sortedGrades.forEach(grade => {
+      const entries = gradeMap.get(grade)!;
+      const centers = Array.from(new Set(entries.map(e => e.centerName))).join(', ');
+      const dataRow = summary.addRow({ grade, students: entries.length, centers });
+      dataRow.height = 18;
+      dataRow.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    });
+
+    sortedGrades.forEach(grade => {
+      const entries = gradeMap.get(grade)!;
+      const sheetName = grade.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheet = wb.addWorksheet(sheetName);
+      sheet.columns = COLS.map(c => ({ header: c.header, width: c.width }));
+
+      const headerRow = sheet.getRow(1);
+      headerRow.values = COLS.map(c => c.header);
+      applyHdr(headerRow);
+
+      const sorted = [...entries].sort((a, b) => {
+        const cc = a.centerName.localeCompare(b.centerName, 'az');
+        if (cc !== 0) return cc;
+        const rc = a.roomName.localeCompare(b.roomName, 'az');
+        if (rc !== 0) return rc;
+        return a.seatNumber - b.seatNumber;
+      });
+
+      sorted.forEach(({ student: st, seatNumber, roomName, centerName }, idx) => {
+        const dataRow = sheet.addRow([
+          idx + 1,
+          st.lastName,
+          st.firstName,
+          st.patronymic  ?? '',
+          st.rayon       ?? '',
+          '',
+          st.section,
+          st.grade,
+          st.schoolName,
+          st.utisCode,
+          st.childId     ?? '',
+          seatNumber,
+          roomName,
+          centerName,
+        ]);
+        applyData(dataRow, idx % 2 === 1);
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const date = new Date().toISOString().slice(0, 10);
+    saveAs(new Blob([buf]), `Imtahan_Sinifler_${date}.xlsx`);
+    toast({ title: 'Siniflər üzrə Excel hazırlandı', description: `${sortedGrades.length} sinif sheetə ixrac edildi.` });
+  };
+
   // ── Computed ───────────────────────────────────────────────────────────────
   const uniqueCenters = useMemo(() => Array.from(new Set(students.map(s => s.center))), [students]);
 
@@ -2199,6 +2337,9 @@ const ExamSeatingPlan: React.FC = () => {
                 </Button>
                 <Button size="sm" onClick={exportByRayon} className="bg-blue-700 hover:bg-blue-800">
                   <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Rayonlar üzrə</span>
+                </Button>
+                <Button size="sm" onClick={exportByGrade} className="bg-emerald-700 hover:bg-emerald-800">
+                  <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Siniflər üzrə</span>
                 </Button>
               </div>
             </div>
