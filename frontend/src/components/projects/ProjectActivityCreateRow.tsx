@@ -146,6 +146,12 @@ export function ProjectActivityCreateRow({
               placeholder="Yeni fəaliyyət adı..."
               value={formData.name}
               onChange={(e) => handleFieldChange("name", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isSubmitting && formData.name.trim()) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               className="h-8 text-[11px] w-full border-none focus-visible:ring-0 px-0 font-bold bg-transparent"
               maxLength={500}
               autoFocus
