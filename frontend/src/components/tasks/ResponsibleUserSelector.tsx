@@ -350,7 +350,7 @@ export function ResponsibleUserSelector({
               </Button>
             ))}
           </div>
-          {roleFilter && !isFetching && total > 0 && (
+          {roleFilter && !isFetching && displayedUsers.length > 0 && (
             <Button
               type="button"
               size="sm"
@@ -361,7 +361,7 @@ export function ResponsibleUserSelector({
             >
               {isSelectingAll
                 ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Yüklənir...</>
-                : <><CheckSquare className="h-3.5 w-3.5" />{roleDisplayNames[roleFilter] ?? roleFilter} — hamısını seç ({total})</>
+                : <><CheckSquare className="h-3.5 w-3.5" />{roleDisplayNames[roleFilter] ?? roleFilter} — hamısını seç ({total || displayedUsers.length})</>
               }
             </Button>
           )}
