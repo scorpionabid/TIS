@@ -305,13 +305,18 @@ class LinkShareDatabaseController extends BaseController
 
             if ($user->hasRole('superadmin')) {
                 // SuperAdmin sees all departments
-            } elseif ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
+            } elseif ($user->hasRole('regionadmin')) {
                 $userInstitution = $user->institution;
                 if ($userInstitution) {
                     // Region + bütün alt hierarchy (sector level 3 daxil)
                     $childIds = $userInstitution->getAllChildrenIds() ?? [];
                     $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
                     $query->whereIn('institution_id', $scopeIds);
+                }
+            } elseif ($user->hasRole('regionoperator')) {
+                // Yalnız öz institutunun departamentləri
+                if ($user->institution_id) {
+                    $query->where('institution_id', $user->institution_id);
                 }
             } elseif ($user->hasRole('sektoradmin')) {
                 $userInstitution = $user->institution;
