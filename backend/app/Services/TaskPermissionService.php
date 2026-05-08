@@ -447,6 +447,12 @@ class TaskPermissionService extends BaseService
                 'sektoradmin',
                 'sektoroperator',
                 'schooladmin',
+                'teacher',
+                'müəllim',
+                'metodik',
+                'muavin',
+                'psixoloq',
+                'user',
             ];
         }
 

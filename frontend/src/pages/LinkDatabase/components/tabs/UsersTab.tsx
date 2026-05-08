@@ -30,6 +30,12 @@ export function UsersTab({ control, isLoading }: UsersTabProps) {
             }}
             disabled={isLoading}
             bypassHierarchyFilter={true}
+            allowedRoles={[
+              'regionadmin', 'regionoperator',
+              'sektoradmin', 'schooladmin',
+              'teacher', 'müəllim', 'metodik',
+              'muavin', 'psixoloq', 'user',
+            ]}
           />
         )}
       />
