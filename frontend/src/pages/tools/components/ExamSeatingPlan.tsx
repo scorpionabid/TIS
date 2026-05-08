@@ -8,7 +8,7 @@ import {
   Calendar, Building2, FileSpreadsheet, Settings2,
   ArrowRight, ArrowLeft, LayoutGrid, List, Printer, Edit3,
   X, Plus, RefreshCw, Search, Shuffle,
-  Undo2, ChevronUp, ChevronDown, Filter,
+  Undo2, ChevronUp, ChevronDown, Filter, RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -245,42 +245,54 @@ const getSchoolColor = (utisCode: string, palette: Map<string, number>): string 
   SCHOOL_PALETTE[(palette.get(utisCode) ?? 0) % SCHOOL_PALETTE.length];
 
 const PRINT_CARD_CSS = `
-  body { margin: 0; padding: 8px; background: #f8f8f8; }
+  @page { size: A4 portrait; margin: 10mm; }
+  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
+
+  /* 2 kart / sətir, A4 üzərindən 3 sətir = 6 kart/səhifə */
   .card {
-    width: 44%; min-height: 290px; border: 2px solid #1e3a8a; margin: 8px;
-    display: inline-block; padding: 14px 16px 70px 16px; font-family: 'Segoe UI', Arial, sans-serif;
-    position: relative; border-radius: 12px; page-break-inside: avoid;
-    vertical-align: top; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    width: 47%;
+    min-height: 88mm;
+    border: 1.5px solid #1e3a8a;
+    margin: 1.5mm 1%;
+    display: inline-block;
+    padding: 4mm 5mm 14mm 5mm;
+    position: relative;
+    border-radius: 6px;
+    page-break-inside: avoid;
+    vertical-align: top;
+    background: #fff;
+    box-sizing: border-box;
   }
+  /* Hər 6 kartdan sonra yeni səhifə */
+  .card:nth-child(6n) { page-break-after: always; }
+
   .header {
-    font-weight: 900; font-size: 13px; letter-spacing: 1px;
-    border-bottom: 2px solid #1e40af; padding-bottom: 7px; margin-bottom: 10px;
-    color: #1e40af; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;
+    font-weight: 900; font-size: 10px; letter-spacing: 0.8px;
+    border-bottom: 1.5px solid #1e40af; padding-bottom: 3mm; margin-bottom: 3mm;
+    color: #1e40af; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
   }
   .seat-num {
-    background: #1e40af; color: #fff; font-size: 18px; font-weight: 900;
-    border-radius: 50%; width: 36px; height: 36px; display: flex;
-    align-items: center; justify-content: center; flex-shrink: 0;
+    background: #1e40af; color: #fff; font-size: 16px; font-weight: 900;
+    border-radius: 50%; width: 9mm; height: 9mm;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 6px; }
-  .row { margin: 4px 0; font-size: 13px; }
-  .row-full { margin: 4px 0; font-size: 13px; grid-column: 1 / -1; }
-  .label { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 1px; }
-  .val { font-weight: 700; font-size: 13px; word-break: break-word; }
-  .val-lg { font-weight: 900; font-size: 15px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 4mm; margin-top: 2mm; }
+  .row { margin: 1mm 0; font-size: 11px; }
+  .row-full { margin: 1mm 0; font-size: 11px; grid-column: 1 / -1; }
+  .label { font-size: 7.5px; color: #888; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 0.5mm; }
+  .val  { font-weight: 700; font-size: 11px; word-break: break-word; }
+  .val-lg { font-weight: 900; font-size: 13px; }
   .badges {
-    position: absolute; bottom: 12px; left: 16px; right: 16px;
-    display: flex; gap: 8px; justify-content: flex-end;
+    position: absolute; bottom: 3mm; left: 5mm; right: 5mm;
+    display: flex; gap: 2mm; justify-content: flex-end; flex-wrap: wrap;
   }
   .badge {
-    border: 2px solid #1e3a8a; padding: 3px 10px;
-    font-family: monospace; font-size: 12px; font-weight: bold;
-    border-radius: 6px; background: #f0f4ff; color: #1e3a8a;
+    border: 1.5px solid #1e3a8a; padding: 1mm 3mm;
+    font-family: monospace; font-size: 9px; font-weight: bold;
+    border-radius: 4px; background: #f0f4ff; color: #1e3a8a;
   }
-  .badge-child {
-    border-color: #6b21a8; background: #faf5ff; color: #6b21a8;
-  }
-  @media print { body { background: none; } .card { box-shadow: none; } }
+  .badge-child { border-color: #6b21a8; background: #faf5ff; color: #6b21a8; }
 `;
 
 // Köhnə planlar: BOŞ seat-lər array-də yox idi → swap işləmirdi. Migration əlavə edir.
@@ -343,8 +355,9 @@ const ExamSeatingPlan: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
 
   // Dialog states
-  const [showResetDialog, setShowResetDialog] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showResetDialog,  setShowResetDialog]  = useState(false);
+  const [showSaveDialog,   setShowSaveDialog]   = useState(false);
+  const [showReplanDialog, setShowReplanDialog] = useState(false);
   const [saveName, setSaveName] = useState('');
 
   // ── Persistence ───────────────────────────────────────────────────────────
@@ -1188,8 +1201,10 @@ const ExamSeatingPlan: React.FC = () => {
   const openPrintWindow = (body: string, head = '') => {
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`<html><head>${head}</head><body onload="window.print()">${body}</body></html>`);
+    win.document.write(`<html><head>${head}</head><body>${body}</body></html>`);
     win.document.close();
+    // Stillər tam yüklənəndən sonra çap başlasın (onload bəzən erkən işləyir)
+    setTimeout(() => win.print(), 500);
   };
 
   const handlePrintCards = (centerName: string, room: RoomResult) =>
@@ -1703,6 +1718,13 @@ const ExamSeatingPlan: React.FC = () => {
     return res;
   }, [centerConfigs, students]);
 
+  // Bütün mərkəzlər üzrə yer çatışmazlığı (config xəbərdarlığı)
+  const shortfallCenters = useMemo(() =>
+    Object.entries(centerCapacity)
+      .filter(([, cap]) => cap.capacity < cap.students)
+      .map(([name, cap]) => ({ name, shortfall: cap.students - cap.capacity })),
+  [centerCapacity]);
+
   // Hər mərkəz üçün utisCode → rəng indeksi xəritəsi (nəticə dəyişdikdə yenilənir)
   const centerPalettes = useMemo(() => {
     const palettes = new Map<string, Map<string, number>>();
@@ -1883,7 +1905,10 @@ const ExamSeatingPlan: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Sütunların Uyğunlaşdırılması</CardTitle>
-                <p className="text-sm text-muted-foreground">Sütun adları avtomatik uyğunlaşdırıldı. Yoxlayın və lazım olsa düzəldin.</p>
+                <p className="text-sm text-muted-foreground">
+                  ✅ <strong>{rawRows.length - 1}</strong> şagird sətri ·{' '}
+                  <strong>{rawRows[0]?.length ?? 0}</strong> sütun tapıldı — avtomatik uyğunlaşdırıldı, yoxlayın.
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -2175,6 +2200,16 @@ const ExamSeatingPlan: React.FC = () => {
               {/* Right: room cards */}
               <div className="lg:col-span-3 space-y-4">
 
+                {/* Bütün mərkəzlər üzrə xəbərdarlıq */}
+                {shortfallCenters.length > 0 && (
+                  <Alert className="border-red-200 bg-red-50 py-2">
+                    <AlertDescription className="text-xs">
+                      ⚠️ <strong>{shortfallCenters.length} mərkəzdə</strong> yer çatışmazlığı:{' '}
+                      {shortfallCenters.map(c => `${c.name} (−${c.shortfall})`).join(' · ')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Center header + capacity alert */}
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-black truncate max-w-[60%]">
@@ -2313,31 +2348,63 @@ const ExamSeatingPlan: React.FC = () => {
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="flex gap-2 flex-wrap items-center">
-                <Button variant="outline" size="sm" onClick={() => setCurrentStep('config')}><ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden xs:inline">Ayarlara </span>Qayıt</Button>
-                <Button variant="outline" size="sm" onClick={() => { setSaveName(`Plan ${new Date().toLocaleDateString()}`); setShowSaveDialog(true); }} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                  <CheckCircle2 className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Yadda Saxla</span>
+              <div className="flex gap-1.5 flex-wrap items-center">
+
+                {/* Qrup 1 — Naviqasiya */}
+                <Button variant="outline" size="sm" onClick={() => setCurrentStep('config')}>
+                  <ArrowLeft className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Ayarlara Qayıt</span>
                 </Button>
+                <Button variant="outline" size="sm"
+                  onClick={() => swapStack.length > 0 ? setShowReplanDialog(true) : generatePlan()}
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Yenidən Planla</span>
+                </Button>
+                <Button variant="outline" size="sm"
+                  onClick={() => { setSaveName(`Plan ${new Date().toLocaleDateString()}`); setShowSaveDialog(true); }}
+                  className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Yadda Saxla</span>
+                </Button>
+
+                {/* Separator */}
+                <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+                {/* Qrup 2 — Redaktə (şərti) */}
                 {selectedSeat && (
-                  <Button variant="destructive" size="sm" onClick={() => setSelectedSeat(null)} className="animate-pulse">Ləğv Et</Button>
+                  <Button variant="destructive" size="sm" onClick={() => setSelectedSeat(null)} className="animate-pulse">
+                    <X className="w-3.5 h-3.5 mr-1" />Ləğv Et
+                  </Button>
                 )}
                 {swapStack.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={undoSwap}><Undo2 className="w-3 h-3 sm:mr-1" /><span className="hidden sm:inline">Geri Al</span> ({swapStack.length})</Button>
+                  <Button variant="outline" size="sm" onClick={undoSwap}>
+                    <Undo2 className="w-3 h-3 mr-1" /><span className="hidden sm:inline">Geri Al</span> ({swapStack.length})
+                  </Button>
                 )}
+
+                {/* Separator */}
+                <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+                {/* Qrup 3 — Çap */}
                 <Button variant="secondary" size="sm" onClick={handlePrintAllCards} className="bg-blue-50 text-blue-700 hover:bg-blue-100">
-                  <Printer className="w-3 h-3 sm:mr-1" /><span className="hidden sm:inline">Vərəqlər</span>
+                  <Printer className="w-3 h-3 mr-1" /><span className="hidden sm:inline">Vərəqlər</span>
                 </Button>
                 <Button variant="secondary" size="sm" onClick={handlePrintAllProtocols} className="bg-amber-50 text-amber-700 hover:bg-amber-100">
-                  <FileSpreadsheet className="w-3 h-3 sm:mr-1" /><span className="hidden sm:inline">Protokollar</span>
+                  <FileSpreadsheet className="w-3 h-3 mr-1" /><span className="hidden sm:inline">Protokollar</span>
                 </Button>
+
+                {/* Separator */}
+                <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+                {/* Qrup 4 — Export */}
                 <Button size="sm" onClick={exportToExcel} className="bg-green-600 hover:bg-green-700">
-                  <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Excel</span>
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Excel</span>
                 </Button>
                 <Button size="sm" onClick={exportByRayon} className="bg-blue-700 hover:bg-blue-800">
-                  <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Rayonlar üzrə</span>
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Rayonlar</span>
                 </Button>
                 <Button size="sm" onClick={exportByGrade} className="bg-emerald-700 hover:bg-emerald-800">
-                  <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Siniflər üzrə</span>
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Siniflər</span>
                 </Button>
               </div>
             </div>
@@ -2402,8 +2469,13 @@ const ExamSeatingPlan: React.FC = () => {
                           <CardTitle className="text-lg">{room.config.name}</CardTitle>
                           <Badge variant="secondary">Şagird: {room.stats.totalStudents}</Badge>
                           <Badge className={cn('text-white text-xs', room.stats.riskStatus === 'Təhlükəsiz' ? 'bg-green-500' : room.stats.riskStatus === 'Orta Risk' ? 'bg-amber-500' : 'bg-red-600')}>
-                            Risk: {room.stats.riskScore}% ({room.stats.riskStatus})
+                            Risk: {room.stats.riskScore}%
                           </Badge>
+                          {room.stats.utisViolations > 0 && (
+                            <Badge className="bg-red-100 text-red-700 border border-red-300 text-xs">
+                              ⚠ {room.stats.utisViolations} pozulma
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
                           <Button variant="outline" size="sm" onClick={() => regenerateRoom(centerIdx, roomIdx)}>
@@ -2609,6 +2681,27 @@ const ExamSeatingPlan: React.FC = () => {
       )}
 
       {/* ── Dialogs ── */}
+
+      <AlertDialog open={showReplanDialog} onOpenChange={setShowReplanDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Yenidən Planla</AlertDialogTitle>
+            <AlertDialogDescription>
+              Manual dəyişikliklər ({swapStack.length} əməliyyat) silinəcək. Plan sıfırdan yenidən qurulacaq.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv Et</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={() => { setShowReplanDialog(false); generatePlan(); }}
+            >
+              Yenidən Planla
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
