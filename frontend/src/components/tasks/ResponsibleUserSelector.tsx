@@ -13,7 +13,7 @@ import {
   roleDisplayNames,
 } from '@/components/tasks/config/taskFormFields';
 import { useAssignableUsers } from '@/hooks/tasks/useAssignableUsers';
-import { AssignableUser } from '@/services/tasks';
+import { AssignableUser, taskService } from '@/services/tasks';
 import { useQuery } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import {
@@ -62,6 +62,7 @@ export function ResponsibleUserSelector({
   const [roleFilter, setRoleFilter] = React.useState<string | null>(null);
   const [selectedRegionId, setSelectedRegionId] = React.useState<number | null>(null);
   const [selectedCache, setSelectedCache] = React.useState<CachedUsers>({});
+  const [isSelectingAll, setIsSelectingAll] = React.useState(false);
 
   const activeRoles = React.useMemo(() => {
     const roles = allowedRoles?.length ? allowedRoles : ASSIGNABLE_ROLES;
@@ -89,7 +90,7 @@ export function ResponsibleUserSelector({
     return Array.isArray(raw) ? raw : [];
   }, [regionsData]);
 
-  const perPage = roleFilter ? 500 : selectedRegionId ? 200 : 50;
+  const perPage = selectedRegionId ? 200 : 50;
 
   const {
     users,
@@ -139,6 +140,29 @@ export function ResponsibleUserSelector({
     const merged = Array.from(new Set([...value, ...allIds]));
     onChange(merged);
   }, [users, value, onChange]);
+
+  const handleSelectAllRole = React.useCallback(async () => {
+    if (!roleFilter || isSelectingAll) return;
+    setIsSelectingAll(true);
+    try {
+      const result = await taskService.getAssignableUsers({
+        role: roleFilter,
+        origin_scope: originScope ?? undefined,
+        region_id: selectedRegionId ?? undefined,
+        per_page: 2000,
+        page: 1,
+      });
+      const allIds = result.data.map((u) => u.id.toString());
+      setSelectedCache((prev) => {
+        const next = { ...prev };
+        result.data.forEach((u) => { next[u.id.toString()] = u; });
+        return next;
+      });
+      onChange(Array.from(new Set([...value, ...allIds])));
+    } finally {
+      setIsSelectingAll(false);
+    }
+  }, [roleFilter, originScope, selectedRegionId, value, onChange, isSelectingAll]);
 
   const displayedUsers = React.useMemo(
     () => (Array.isArray(users) ? users : []),
@@ -326,17 +350,19 @@ export function ResponsibleUserSelector({
               </Button>
             ))}
           </div>
-          {roleFilter && !isFetching && displayedUsers.length > 0 && (
+          {roleFilter && !isFetching && total > 0 && (
             <Button
               type="button"
               size="sm"
               variant="outline"
               className="gap-1.5 text-xs w-full"
-              onClick={handleSelectAllVisible}
-              disabled={disabled}
+              onClick={handleSelectAllRole}
+              disabled={disabled || isSelectingAll}
             >
-              <CheckSquare className="h-3.5 w-3.5" />
-              {roleDisplayNames[roleFilter] ?? roleFilter} — hamısını seç ({displayedUsers.length})
+              {isSelectingAll
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Yüklənir...</>
+                : <><CheckSquare className="h-3.5 w-3.5" />{roleDisplayNames[roleFilter] ?? roleFilter} — hamısını seç ({total})</>
+              }
             </Button>
           )}
         </div>

@@ -826,7 +826,7 @@ class TaskPermissionService extends BaseService
         }
 
         $perPage = (int) ($filters['per_page'] ?? 120);
-        $perPage = max(1, min($perPage, 500));
+        $perPage = max(1, min($perPage, 2000));
 
         // Custom role ordering based on current user's role
         $roleOrder = [];
