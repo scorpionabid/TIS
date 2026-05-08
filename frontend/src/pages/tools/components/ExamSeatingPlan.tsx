@@ -1683,6 +1683,134 @@ const ExamSeatingPlan: React.FC = () => {
     toast({ title: 'Siniflər üzrə Excel hazırlandı', description: `${sortedGrades.length} sinif sheetə ixrac edildi.` });
   };
 
+  // ── Məktəblər üzrə ZIP export ─────────────────────────────────────────────
+  // Hər məktəb üçün ayrı Excel → hamısı bir ZIP faylında
+  const exportSchoolsZip = async () => {
+    // jszip ExcelJS-in asılılığı kimi artıq mövcuddur
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+
+    // Bütün oturacaqlı şagirdləri məktəbə görə qruplaşdır
+    type Entry = { student: Student; seatNumber: number; roomName: string; centerName: string };
+    const schoolMap = new Map<string, Entry[]>();
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        room.seats.filter(s => s.student).forEach(s => {
+          const st = s.student!;
+          const key = `${st.utisCode}___${st.schoolName}`;
+          if (!schoolMap.has(key)) schoolMap.set(key, []);
+          schoolMap.get(key)!.push({
+            student: st, seatNumber: s.seatNumber,
+            roomName: room.config.name, centerName: center.centerName,
+          });
+        });
+      });
+    });
+
+    if (schoolMap.size === 0) {
+      toast({ title: 'Xəta', description: 'Heç bir şagird tapılmadı.', variant: 'destructive' });
+      return;
+    }
+
+    const COLS = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyHeader = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FF000000' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = {
+          top: { style: 'medium' }, bottom: { style: 'medium' },
+          left: { style: 'medium' }, right: { style: 'medium' },
+        };
+      });
+    };
+
+    const applyData = (row: ExcelJS.Row, even: boolean) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.fill = even
+          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } }
+          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        cell.border = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' },
+        };
+      });
+    };
+
+    // Hər məktəb üçün ayrı Excel yarat
+    const sortedKeys = Array.from(schoolMap.keys()).sort((a, b) => a.localeCompare(b, 'az'));
+
+    for (const key of sortedKeys) {
+      const entries = schoolMap.get(key)!;
+      const [utisCode, schoolName] = key.split('___');
+
+      const wb   = new ExcelJS.Workbook();
+      const sheet = wb.addWorksheet('Oturma Planı');
+      sheet.columns = COLS.map(c => ({ header: c.header, width: c.width }));
+
+      // Başlıq
+      const headerRow = sheet.getRow(1);
+      headerRow.values = COLS.map(c => c.header);
+      applyHeader(headerRow);
+
+      // Şagird sətirləri — Yer üzrə artan sıra
+      const sorted = [...entries].sort((a, b) => a.seatNumber - b.seatNumber);
+      sorted.forEach(({ student: st, seatNumber, roomName, centerName }, idx) => {
+        const row = sheet.addRow([
+          idx + 1,
+          st.lastName,
+          st.firstName,
+          st.patronymic  ?? '',
+          st.rayon       ?? '',
+          '',                     // Sual kitabçasının variant — boş
+          st.section,
+          st.grade,
+          st.schoolName,
+          st.utisCode,
+          st.childId     ?? '',
+          seatNumber,
+          roomName,
+          centerName,
+        ]);
+        applyData(row, idx % 2 === 1);
+      });
+
+      // Fayl adı: UTİS_MəktəbAdı.xlsx (xüsusi simvollar silinir)
+      const safeName = `${utisCode}_${schoolName}`.replace(/[\\/*?:[\]<>|]/g, '_').substring(0, 60);
+      const buf = await wb.xlsx.writeBuffer();
+      zip.file(`${safeName}.xlsx`, buf);
+    }
+
+    // ZIP yüklə
+    const date    = new Date().toISOString().slice(0, 10);
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    saveAs(zipBlob, `Mekteb_Planlari_${date}.zip`);
+    toast({
+      title: 'ZIP hazırlandı',
+      description: `${schoolMap.size} məktəb üçün Excel faylları ZIP-ə yığıldı.`,
+    });
+  };
+
   // ── Computed ───────────────────────────────────────────────────────────────
   const uniqueCenters = useMemo(() => Array.from(new Set(students.map(s => s.center))), [students]);
 
@@ -2405,6 +2533,9 @@ const ExamSeatingPlan: React.FC = () => {
                 </Button>
                 <Button size="sm" onClick={exportByGrade} className="bg-emerald-700 hover:bg-emerald-800">
                   <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Siniflər</span>
+                </Button>
+                <Button size="sm" onClick={exportSchoolsZip} className="bg-purple-700 hover:bg-purple-800">
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Məktəblər (ZIP)</span>
                 </Button>
               </div>
             </div>
