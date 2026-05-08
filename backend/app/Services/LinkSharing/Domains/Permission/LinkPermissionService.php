@@ -43,7 +43,8 @@ class LinkPermissionService
      */
     public function canCreateLinkWithScope($user, $scope): bool
     {
-        $availableScopes = $this->getAvailableScopesForRole($user->role->name);
+        $roleName = $user->roles?->first()?->name ?? '';
+        $availableScopes = $this->getAvailableScopesForRole($roleName);
 
         return in_array($scope, array_keys($availableScopes));
     }
@@ -63,6 +64,13 @@ class LinkPermissionService
                 'public' => 'Açıq',
             ],
             'regionadmin' => [
+                'regional' => 'Regional',
+                'sectoral' => 'Sektor',
+                'institutional' => 'Qurum',
+                'specific_users' => 'Xüsusi istifadəçilər',
+                'public' => 'Açıq',
+            ],
+            'regionoperator' => [
                 'regional' => 'Regional',
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
@@ -93,6 +101,7 @@ class LinkPermissionService
         $roles = [
             'superadmin' => ['all', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim', 'şagird'],
             'regionadmin' => ['sektoradmin', 'schooladmin', 'müəllim', 'şagird'],
+            'regionoperator' => ['regionadmin', 'regionoperator', 'sektoradmin'],
             'sektoradmin' => ['schooladmin', 'müəllim', 'şagird'],
             'schooladmin' => ['müəllim', 'şagird'],
         ];
@@ -114,7 +123,7 @@ class LinkPermissionService
             return Institution::active()->pluck('name', 'id')->toArray();
         }
 
-        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
+        if ($user->hasAnyRole(['regionadmin', 'regionoperator']) && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
 
             return Institution::whereIn('id', $childIds)->pluck('name', 'id')->toArray();

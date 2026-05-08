@@ -59,25 +59,10 @@ export function useLinkDatabaseData({
     placeholderData: (prev: PaginatedResponse<LinkShare> | undefined) => prev,
   });
 
-  // Current links with client-side filter fallback
-  const currentLinks = useMemo<LinkShare[]>(() => {
-    let rawLinks: LinkShare[] = departmentLinks?.data || [];
-
-    if (filters.linkType !== 'all') {
-      const hasServerFilter = rawLinks.length === 0 || rawLinks.every(l => l.link_type === filters.linkType);
-      if (!hasServerFilter && rawLinks.some(l => l.link_type !== filters.linkType)) {
-        rawLinks = rawLinks.filter(l => l.link_type === filters.linkType);
-      }
-    }
-    if (filters.status !== 'all') {
-      rawLinks = rawLinks.filter(l => l.status === filters.status);
-    }
-    if (filters.isFeatured !== null) {
-      rawLinks = rawLinks.filter(l => l.is_featured === filters.isFeatured);
-    }
-
-    return rawLinks;
-  }, [departmentLinks, filters.linkType, filters.status, filters.isFeatured]);
+  const currentLinks = useMemo<LinkShare[]>(
+    () => departmentLinks?.data || [],
+    [departmentLinks]
+  );
 
   // Computed stats
   const stats = useMemo<LinkDatabaseStats>(() => {

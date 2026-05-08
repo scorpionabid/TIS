@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
 import type {
   ViewMode,
@@ -18,9 +17,6 @@ const DEFAULT_FILTERS: LinkDatabaseFiltersState = {
 };
 
 export function useLinkDatabaseState() {
-  const [searchParams] = useSearchParams();
-  const currentView = searchParams.get('view') || 'departments';
-
   // Navigation
   const [activeTab, setActiveTab] = useState<string>('');
 
@@ -38,7 +34,6 @@ export function useLinkDatabaseState() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const [isTrackingPanelOpen, setIsTrackingPanelOpen] = useState(false);
   const [selectedLink, setSelectedLink] = useState<LinkShare | null>(null);
   const [trackingLink, setTrackingLink] = useState<LinkShare | null>(null);
@@ -81,7 +76,6 @@ export function useLinkDatabaseState() {
     setIsCreateModalOpen(false);
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(false);
-    setIsBulkUploadModalOpen(false);
     setIsTrackingPanelOpen(false);
     setSelectedLink(null);
     setTrackingLink(null);
@@ -95,14 +89,6 @@ export function useLinkDatabaseState() {
   const closeTrackingPanel = useCallback(() => {
     setIsTrackingPanelOpen(false);
     setTrackingLink(null);
-  }, []);
-
-  const openBulkUploadModal = useCallback(() => {
-    setIsBulkUploadModalOpen(true);
-  }, []);
-
-  const closeBulkUploadModal = useCallback(() => {
-    setIsBulkUploadModalOpen(false);
   }, []);
 
   // Filter handlers
@@ -154,7 +140,6 @@ export function useLinkDatabaseState() {
 
   return {
     // Tab
-    currentView,
     activeTab,
     setActiveTab,
     isOnSchoolsTab,
@@ -183,13 +168,10 @@ export function useLinkDatabaseState() {
     isCreateModalOpen,
     isEditModalOpen,
     isDeleteModalOpen,
-    isBulkUploadModalOpen,
     selectedLink,
     openCreateModal,
     openEditModal,
     openDeleteModal,
-    openBulkUploadModal,
-    closeBulkUploadModal,
     closeModals,
 
     // Tracking

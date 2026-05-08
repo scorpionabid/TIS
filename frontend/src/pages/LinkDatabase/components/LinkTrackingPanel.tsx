@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useLinkSharingOverview } from '@/hooks/resources/useLinkSharingOverview';
+import type { Resource } from '@/types/resources';
 import type { LinkShare } from '../types/linkDatabase.types';
 
 interface LinkTrackingPanelProps {
@@ -24,9 +25,9 @@ interface LinkTrackingPanelProps {
 
 export function LinkTrackingPanel({ link, onClose }: LinkTrackingPanelProps) {
   const { data: overview, isLoading, isError, refetch } = useLinkSharingOverview(
-    link as any,
+    link as unknown as Resource,
     true,
-    false // single link overview for now
+    false
   );
 
   const stats = useMemo(() => {

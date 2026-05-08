@@ -187,7 +187,7 @@ export default function LinkDatabase() {
               onFilterChange={state.updateFilter}
               onResetFilters={state.resetFilters}
               onViewModeChange={state.setViewMode}
-              canCreate={canCreate}
+              canCreate={canCreate && !state.isOnSchoolsTab}
               selectedCount={state.selectedLinkIds.size}
               isBulkDeleting={actions.isBulkDeleting}
               onCreateClick={state.openCreateModal}

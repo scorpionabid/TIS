@@ -33,49 +33,41 @@ export function useLinkDatabaseActions({
     // Invalidate all related queries
     queryClient.invalidateQueries({ queryKey: ['link-database-tab'] });
     queryClient.invalidateQueries({ queryKey: ['link-database-departments'] });
-    queryClient.invalidateQueries({ queryKey: ['link-database-sectors'] });
     queryClient.invalidateQueries({ queryKey: ['link-resources'] });
   }, [queryClient]);
 
   // Optimistically remove link(s) from all cached queries
   const removeFromCache = useCallback((linkIds: number | number[]) => {
     const ids = new Set(Array.isArray(linkIds) ? linkIds : [linkIds]);
-    const prefixes = [['link-database-department'], ['link-database-sector']];
 
-    prefixes.forEach((prefix) => {
-      queryClient.setQueriesData<PaginatedResponse<LinkShare>>(
-        { queryKey: prefix },
-        (oldData) => {
-          if (!oldData?.data) return oldData;
-          const filtered = oldData.data.filter((link) => !ids.has(link.id));
-          return {
-            ...oldData,
-            data: filtered,
-            total: Math.max(0, (oldData.total || 0) - (oldData.data.length - filtered.length)),
-          };
-        }
-      );
-    });
+    queryClient.setQueriesData<PaginatedResponse<LinkShare>>(
+      { queryKey: ['link-database-tab'] },
+      (oldData) => {
+        if (!oldData?.data) return oldData;
+        const filtered = oldData.data.filter((link) => !ids.has(link.id));
+        return {
+          ...oldData,
+          data: filtered,
+          total: Math.max(0, (oldData.total || 0) - (oldData.data.length - filtered.length)),
+        };
+      }
+    );
   }, [queryClient]);
 
   // Optimistically update link status in cache
   const updateStatusInCache = useCallback((linkId: number, newStatus: LinkShare['status']) => {
-    const prefixes = [['link-database-department'], ['link-database-sector']];
-
-    prefixes.forEach((prefix) => {
-      queryClient.setQueriesData<PaginatedResponse<LinkShare>>(
-        { queryKey: prefix },
-        (oldData) => {
-          if (!oldData?.data) return oldData;
-          return {
-            ...oldData,
-            data: oldData.data.map((link) =>
-              link.id === linkId ? { ...link, status: newStatus } : link
-            ),
-          };
-        }
-      );
-    });
+    queryClient.setQueriesData<PaginatedResponse<LinkShare>>(
+      { queryKey: ['link-database-tab'] },
+      (oldData) => {
+        if (!oldData?.data) return oldData;
+        return {
+          ...oldData,
+          data: oldData.data.map((link) =>
+            link.id === linkId ? { ...link, status: newStatus } : link
+          ),
+        };
+      }
+    );
   }, [queryClient]);
 
   // Create link

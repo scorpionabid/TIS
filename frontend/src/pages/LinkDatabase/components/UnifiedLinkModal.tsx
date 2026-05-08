@@ -17,6 +17,7 @@ import { linkFormSchema, type LinkFormValues } from '../schemas/linkForm.schema'
 import type { Department, LinkShare } from '../types/linkDatabase.types';
 import { cn } from '@/lib/utils';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { USER_ROLES } from '@/constants/roles';
 import { GeneralTab } from './tabs/GeneralTab';
 import { PermissionsTab } from './tabs/PermissionsTab';
 import { DepartmentsTab } from './tabs/DepartmentsTab';
@@ -58,7 +59,8 @@ export function UnifiedLinkModal({
   onCreateSubmit,
   isLoading = false,
 }: UnifiedLinkModalProps) {
-  const { isSektorAdmin, currentUser } = useRoleCheck();
+  const { isSektorAdmin, hasAnyRole, currentUser } = useRoleCheck();
+  const isRegionOperator = hasAnyRole([USER_ROLES.REGIONOPERATOR]);
   const [modalActiveTab, setModalActiveTab] = useState<ModalTab>('general');
 
   const buildDefaults = useCallback((): LinkFormValues => {
@@ -97,9 +99,13 @@ export function UnifiedLinkModal({
       target_departments: initialDepts,
       target_institutions: initialInsts,
       target_users: [],
-      target_roles: isSektorAdmin ? ['sektoradmin'] : ['regionadmin'],
+      target_roles: isSektorAdmin
+        ? ['sektoradmin']
+        : isRegionOperator
+          ? ['regionadmin', 'regionoperator', 'sektoradmin']
+          : ['regionadmin'],
     };
-  }, [mode, selectedLink, activeTab, isSektorAdmin, currentUser?.institution_id]);
+  }, [mode, selectedLink, activeTab, isSektorAdmin, isRegionOperator, currentUser?.institution_id]);
 
   const form = useForm<LinkFormValues>({
     resolver: zodResolver(linkFormSchema),
