@@ -465,6 +465,7 @@ class TaskPermissionService extends BaseService
 
         if ($user->hasRole('regionoperator')) {
             return [
+                'regionadmin',
                 'regionoperator',
                 'sektoradmin',
                 'sektoroperator',
