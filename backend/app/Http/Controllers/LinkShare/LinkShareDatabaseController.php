@@ -314,8 +314,15 @@ class LinkShareDatabaseController extends BaseController
                     $query->whereIn('institution_id', $scopeIds);
                 }
             } elseif ($user->hasRole('regionoperator')) {
-                // Yalnız öz institutunun departamentləri
-                if ($user->institution_id) {
+                $assignedDepts = array_values(array_filter($user->departments ?? []));
+                if (! empty($assignedDepts)) {
+                    // Təyin edilmiş departamentlər varsa — yalnız onlar
+                    $query->whereIn('id', $assignedDepts);
+                } elseif ($user->department_id) {
+                    // Tək departament təyin edilibsə — yalnız o
+                    $query->where('id', $user->department_id);
+                } elseif ($user->institution_id) {
+                    // Heç biri yoxdursa — bütün institution departamentləri (fallback)
                     $query->where('institution_id', $user->institution_id);
                 }
             } elseif ($user->hasRole('sektoradmin')) {

@@ -46,7 +46,7 @@ class StoreUserRequest extends FormRequest
                 new DepartmentBelongsToInstitution($this->input('institution_id')),
             ],
             'departments' => 'nullable|array',
-            'departments.*' => 'string',
+            'departments.*' => 'integer|exists:departments,id',
             'is_active' => 'nullable|boolean',
 
             // ========================================

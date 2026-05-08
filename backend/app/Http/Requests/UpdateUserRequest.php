@@ -35,7 +35,7 @@ class UpdateUserRequest extends FormRequest
                 new DepartmentBelongsToInstitution($this->input('institution_id')),
             ],
             'departments' => 'nullable|array',
-            'departments.*' => 'string',
+            'departments.*' => 'integer|exists:departments,id',
             'is_active' => 'sometimes|boolean',
             'password' => 'nullable|string|min:8|confirmed',
             'password_confirmation' => 'nullable|string|min:8',

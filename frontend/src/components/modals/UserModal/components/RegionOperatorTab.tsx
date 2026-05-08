@@ -97,16 +97,18 @@ export function RegionOperatorTab({
 
   // Clear department selection when institution changes
   const institutionId = formData.institution_id;
-  const departmentId = formData.department_id;
 
   useEffect(() => {
-    if (institutionId && departmentId) {
-      const selectedDept = availableDepartments.find((d) => d.id.toString() === departmentId);
-      if (selectedDept && selectedDept.institution_id !== selectedInstitutionId) {
-        setFormData((prev: any) => ({ ...prev, department_id: '' }));
+    if (institutionId) {
+      const currentDepts: number[] = formData.departments ?? [];
+      const validDepts = currentDepts.filter(id =>
+        availableDepartments.some(d => d.id === id && d.institution_id === selectedInstitutionId)
+      );
+      if (validDepts.length !== currentDepts.length) {
+        setFormData((prev: any) => ({ ...prev, departments: validDepts, department_id: validDepts[0] ?? null }));
       }
     }
-  }, [institutionId, departmentId, availableDepartments, selectedInstitutionId, setFormData]);
+  }, [institutionId, availableDepartments, selectedInstitutionId]);
 
   // Basic fields for RegionOperator (without permission checkboxes)
   const basicFields = [
@@ -174,13 +176,13 @@ export function RegionOperatorTab({
       },
     },
     {
-      name: 'department_id',
-      label: 'Departament',
-      type: 'select',
-      required: true,
+      name: 'departments',
+      label: 'Departamentlər',
+      type: 'multiselect',
+      required: false,
       options: filteredDepartments.map(dept => ({
         label: dept.name,
-        value: dept.id.toString(),
+        value: dept.id,
       })),
       placeholder: !selectedInstitutionId
         ? '⚠️ Əvvəl müəssisə seçin'
@@ -188,13 +190,20 @@ export function RegionOperatorTab({
           ? 'Departamentlər yüklənir...'
           : filteredDepartments.length === 0
             ? '⚠️ Bu müəssisədə departament yoxdur'
-            : 'Departament seçin',
+            : 'Departament(lər) seçin',
       disabled: loadingOptions || !selectedInstitutionId || filteredDepartments.length === 0,
       helperText: !selectedInstitutionId
         ? '⚠️ Müəssisə seçildikdən sonra aktiv olacaq'
         : filteredDepartments.length === 0
           ? '⚠️ Bu müəssisədə aktiv departament tapılmadı'
-          : `✓ ${filteredDepartments.length} departament mövcuddur`,
+          : `✓ ${filteredDepartments.length} departament mövcuddur — seçilməsə hamısı görünür`,
+      onChange: (values: number[]) => {
+        setFormData((prev: any) => ({
+          ...prev,
+          departments: values,
+          department_id: values[0] ?? null,
+        }));
+      },
     },
     {
       name: 'is_active',
