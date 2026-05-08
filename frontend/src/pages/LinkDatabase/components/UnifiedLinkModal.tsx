@@ -7,7 +7,6 @@ import {
   Loader2,
   Link2,
   Info,
-  ShieldCheck,
   Users,
   Star,
   LayoutDashboard,
@@ -16,9 +15,7 @@ import { linkFormSchema, type LinkFormValues } from '../schemas/linkForm.schema'
 import type { LinkShare } from '../types/linkDatabase.types';
 import { cn } from '@/lib/utils';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { USER_ROLES } from '@/constants/roles';
 import { GeneralTab } from './tabs/GeneralTab';
-import { PermissionsTab } from './tabs/PermissionsTab';
 import { UsersTab } from './tabs/UsersTab';
 import { FeaturesTab } from './tabs/FeaturesTab';
 
@@ -33,13 +30,12 @@ interface UnifiedLinkModalProps {
   isLoading?: boolean;
 }
 
-type ModalTab = 'general' | 'permissions' | 'users' | 'features';
+type ModalTab = 'general' | 'users' | 'features';
 
 const MODAL_TABS: Array<{ id: ModalTab; label: string; icon: React.ElementType; color: string }> = [
-  { id: 'general',     label: 'Ümumi',   icon: Info,        color: 'text-blue-500' },
-  { id: 'permissions', label: 'İzinlər', icon: ShieldCheck, color: 'text-orange-500' },
-  { id: 'users',       label: 'Şəxslər', icon: Users,       color: 'text-cyan-500' },
-  { id: 'features',    label: 'Özəllik', icon: Star,        color: 'text-yellow-500' },
+  { id: 'general',  label: 'Ümumi',   icon: Info,  color: 'text-blue-500' },
+  { id: 'users',    label: 'Şəxslər', icon: Users, color: 'text-cyan-500' },
+  { id: 'features', label: 'Özəllik', icon: Star,  color: 'text-yellow-500' },
 ];
 
 const TAB_IDS = MODAL_TABS.map((t) => t.id);
@@ -54,8 +50,7 @@ export function UnifiedLinkModal({
   onCreateSubmit,
   isLoading = false,
 }: UnifiedLinkModalProps) {
-  const { isSektorAdmin, hasAnyRole, currentUser } = useRoleCheck();
-  const isRegionOperator = hasAnyRole([USER_ROLES.REGIONOPERATOR]);
+  const { isSektorAdmin, currentUser } = useRoleCheck();
   const [modalActiveTab, setModalActiveTab] = useState<ModalTab>('general');
 
   const buildDefaults = useCallback((): LinkFormValues => {
@@ -94,13 +89,9 @@ export function UnifiedLinkModal({
       target_departments: initialDepts,
       target_institutions: initialInsts,
       target_users: [],
-      target_roles: isSektorAdmin
-        ? ['sektoradmin']
-        : isRegionOperator
-          ? ['regionadmin', 'regionoperator', 'sektoradmin']
-          : ['regionadmin'],
+      target_roles: [],
     };
-  }, [mode, selectedLink, activeTab, isSektorAdmin, isRegionOperator, currentUser?.institution_id]);
+  }, [mode, selectedLink, activeTab, isSektorAdmin, currentUser?.institution_id]);
 
   const form = useForm<LinkFormValues>({
     resolver: zodResolver(linkFormSchema),
@@ -231,9 +222,6 @@ export function UnifiedLinkModal({
                 watchedExpiry={watch('expires_at')}
                 onClearExpiry={() => setValue('expires_at', '')}
               />
-            )}
-            {modalActiveTab === 'permissions' && (
-              <PermissionsTab control={control} />
             )}
             {modalActiveTab === 'users' && (
               <UsersTab control={control} isLoading={isLoading} />
