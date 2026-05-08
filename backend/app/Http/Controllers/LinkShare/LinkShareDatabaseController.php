@@ -52,7 +52,8 @@ class LinkShareDatabaseController extends BaseController
                     $q->whereNull('target_roles')
                       ->orWhereJsonLength('target_roles', 0)
                       ->orWhereJsonContains('target_roles', [$userRole])
-                      ->orWhere('shared_by', $userId);
+                      ->orWhere('shared_by', $userId)
+                      ->orWhereJsonContains('target_users', $userId);
                 });
             }
 
@@ -322,6 +323,9 @@ class LinkShareDatabaseController extends BaseController
                     }
                     $query->whereIn('institution_id', $scopeIds);
                 }
+            } elseif ($user->institution_id) {
+                // Schooladmin, müəllim və digər school-level rollar öz institutunun departamentlərini görür
+                $query->where('institution_id', $user->institution_id);
             } else {
                 $query->whereRaw('1 = 0');
             }
