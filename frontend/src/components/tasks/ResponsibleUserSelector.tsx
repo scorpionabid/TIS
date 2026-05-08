@@ -90,7 +90,7 @@ export function ResponsibleUserSelector({
     return Array.isArray(raw) ? raw : [];
   }, [regionsData]);
 
-  const perPage = roleFilter ? 200 : selectedRegionId ? 200 : 50;
+  const perPage = roleFilter ? 2000 : selectedRegionId ? 200 : 50;
 
   const {
     users,
