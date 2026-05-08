@@ -278,7 +278,7 @@ class TaskPermissionService extends BaseService
 
         $scope = [$userInstitution->id];
 
-        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
+        if ($user->hasAnyRole(['regionadmin', 'regionoperator']) && $userInstitution->level == 2) {
             $scope = array_unique(array_merge([$userInstitution->id], $userInstitution->getAllChildrenIds()));
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $scope = array_unique(array_merge([$userInstitution->id], $userInstitution->getAllChildrenIds()));
