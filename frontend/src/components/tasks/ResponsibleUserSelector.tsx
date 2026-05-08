@@ -89,7 +89,7 @@ export function ResponsibleUserSelector({
     return Array.isArray(raw) ? raw : [];
   }, [regionsData]);
 
-  const perPage = selectedRegionId ? 200 : 50;
+  const perPage = selectedRegionId || roleFilter ? 200 : 50;
 
   const {
     users,
@@ -326,6 +326,19 @@ export function ResponsibleUserSelector({
               </Button>
             ))}
           </div>
+          {roleFilter && !isFetching && displayedUsers.length > 0 && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs w-full"
+              onClick={handleSelectAllVisible}
+              disabled={disabled}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              {roleDisplayNames[roleFilter] ?? roleFilter} — hamısını seç ({displayedUsers.length})
+            </Button>
+          )}
         </div>
       </div>
 
