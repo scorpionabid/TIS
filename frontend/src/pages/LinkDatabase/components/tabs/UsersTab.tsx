@@ -29,6 +29,7 @@ export function UsersTab({ control, isLoading }: UsersTabProps) {
               field.onChange(parsed);
             }}
             disabled={isLoading}
+            bypassHierarchyFilter={true}
           />
         )}
       />

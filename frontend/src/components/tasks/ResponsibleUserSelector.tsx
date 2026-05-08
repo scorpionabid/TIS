@@ -33,6 +33,7 @@ export interface ResponsibleUserSelectorProps {
   context?: 'project';
   allowedRoles?: string[];
   disabled?: boolean;
+  bypassHierarchyFilter?: boolean;
 }
 
 type CachedUsers = Record<string, AssignableUser>;
@@ -50,6 +51,7 @@ export function ResponsibleUserSelector({
   context,
   allowedRoles,
   disabled = false,
+  bypassHierarchyFilter = false,
 }: ResponsibleUserSelectorProps) {
   const { currentUser } = useAuth();
   const currentUserRole = (currentUser?.role as UserRole) || USER_ROLES.MUELLIM;
@@ -66,10 +68,11 @@ export function ResponsibleUserSelector({
 
     return Array.from(new Set(roles.map((role) => role.toLowerCase())))
       .filter(role => {
+        if (bypassHierarchyFilter) return true;
         const targetLevel = ROLE_HIERARCHY[role as UserRole] || 99;
         return targetLevel >= currentUserLevel;
       });
-  }, [allowedRoles, currentUserLevel]);
+  }, [allowedRoles, currentUserLevel, bypassHierarchyFilter]);
 
   // Fetch regions (level=2 institutions) for the region picker
   const { data: regionsData } = useQuery({
