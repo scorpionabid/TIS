@@ -242,7 +242,6 @@ export default function LinkDatabase() {
       <UnifiedLinkModal
         isOpen={state.isCreateModalOpen || state.isEditModalOpen}
         onClose={state.closeModals}
-        departments={data.departments}
         activeTab={state.activeTab}
         mode={state.isEditModalOpen ? 'edit' : 'create'}
         selectedLink={state.selectedLink}

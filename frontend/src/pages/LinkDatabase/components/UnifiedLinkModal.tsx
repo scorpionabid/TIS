@@ -8,26 +8,23 @@ import {
   Link2,
   Info,
   ShieldCheck,
-  Target,
   Users,
   Star,
   LayoutDashboard,
 } from 'lucide-react';
 import { linkFormSchema, type LinkFormValues } from '../schemas/linkForm.schema';
-import type { Department, LinkShare } from '../types/linkDatabase.types';
+import type { LinkShare } from '../types/linkDatabase.types';
 import { cn } from '@/lib/utils';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { USER_ROLES } from '@/constants/roles';
 import { GeneralTab } from './tabs/GeneralTab';
 import { PermissionsTab } from './tabs/PermissionsTab';
-import { DepartmentsTab } from './tabs/DepartmentsTab';
 import { UsersTab } from './tabs/UsersTab';
 import { FeaturesTab } from './tabs/FeaturesTab';
 
 interface UnifiedLinkModalProps {
   isOpen: boolean;
   onClose: () => void;
-  departments: Department[];
   activeTab: string;
   mode?: 'create' | 'edit';
   selectedLink?: LinkShare | null;
@@ -36,14 +33,13 @@ interface UnifiedLinkModalProps {
   isLoading?: boolean;
 }
 
-type ModalTab = 'general' | 'permissions' | 'departments' | 'users' | 'features';
+type ModalTab = 'general' | 'permissions' | 'users' | 'features';
 
 const MODAL_TABS: Array<{ id: ModalTab; label: string; icon: React.ElementType; color: string }> = [
-  { id: 'general',     label: 'Ümumi',         icon: Info,        color: 'text-blue-500' },
-  { id: 'permissions', label: 'İzinlər',        icon: ShieldCheck, color: 'text-orange-500' },
-  { id: 'departments', label: 'Departamentlər', icon: Target,      color: 'text-indigo-500' },
-  { id: 'users',       label: 'Şəxslər',        icon: Users,       color: 'text-cyan-500' },
-  { id: 'features',    label: 'Özəllik',        icon: Star,        color: 'text-yellow-500' },
+  { id: 'general',     label: 'Ümumi',   icon: Info,        color: 'text-blue-500' },
+  { id: 'permissions', label: 'İzinlər', icon: ShieldCheck, color: 'text-orange-500' },
+  { id: 'users',       label: 'Şəxslər', icon: Users,       color: 'text-cyan-500' },
+  { id: 'features',    label: 'Özəllik', icon: Star,        color: 'text-yellow-500' },
 ];
 
 const TAB_IDS = MODAL_TABS.map((t) => t.id);
@@ -51,7 +47,6 @@ const TAB_IDS = MODAL_TABS.map((t) => t.id);
 export function UnifiedLinkModal({
   isOpen,
   onClose,
-  departments,
   activeTab,
   mode = 'create',
   selectedLink,
@@ -239,9 +234,6 @@ export function UnifiedLinkModal({
             )}
             {modalActiveTab === 'permissions' && (
               <PermissionsTab control={control} />
-            )}
-            {modalActiveTab === 'departments' && (
-              <DepartmentsTab control={control} departments={departments} />
             )}
             {modalActiveTab === 'users' && (
               <UsersTab control={control} isLoading={isLoading} />
