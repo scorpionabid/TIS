@@ -8,18 +8,12 @@ import type { CreateLinkData, LinkShare } from '../types/linkDatabase.types';
 export type DeleteType = 'soft' | 'hard';
 
 interface UseLinkDatabaseActionsParams {
-  isOnSchoolsTab: boolean;
   currentDepartmentId: number | null;
-  currentSectorId: number | null;
-  selectedSchool: number | null;
   onSuccess?: () => void;
 }
 
 export function useLinkDatabaseActions({
-  isOnSchoolsTab,
   currentDepartmentId,
-  currentSectorId,
-  selectedSchool,
   onSuccess,
 }: UseLinkDatabaseActionsParams) {
   const { toast } = useToast();
@@ -73,17 +67,11 @@ export function useLinkDatabaseActions({
   // Create link
   const createMutation = useMutation({
     mutationFn: async (data: CreateLinkData) => {
-      if (isOnSchoolsTab && selectedSchool) {
-        return linkDatabaseService.createLinkForSector(selectedSchool, data);
-      } else if (currentSectorId) {
-        return linkDatabaseService.createLinkForSector(currentSectorId, data);
-      } else if (currentDepartmentId) {
-        return linkDatabaseService.createLinkForDepartment(
-          currentDepartmentId.toString(),
-          data
-        );
-      }
-      throw new Error('Hədəf seçilməyib');
+      if (!currentDepartmentId) throw new Error('Departament seçilməyib');
+      return linkDatabaseService.createLinkForDepartment(
+        currentDepartmentId.toString(),
+        data
+      );
     },
     onSuccess: () => {
       toast({ title: 'Uğurlu', description: 'Link uğurla yaradıldı' });

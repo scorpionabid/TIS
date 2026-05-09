@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { linkDatabaseService } from '@/services/linkDatabase';
 import type {
@@ -6,32 +6,40 @@ import type {
   LinkDatabaseStats,
   LinkShare,
   PaginatedResponse,
+  Department,
 } from '../types/linkDatabase.types';
 
 interface UseLinkDatabaseDataParams {
-  activeTab: string;
-  debouncedSearch: string;
   filters: LinkDatabaseFiltersState;
+  debouncedSearch: string;
   currentPage: number;
   perPage: number;
+  updateFilter: (key: 'departmentId', value: string) => void;
 }
 
 export function useLinkDatabaseData({
-  activeTab,
-  debouncedSearch,
   filters,
+  debouncedSearch,
   currentPage,
   perPage,
+  updateFilter,
 }: UseLinkDatabaseDataParams) {
   // Fetch departments
   const {
     data: departments = [],
     isLoading: isLoadingDepartments,
-  } = useQuery({
+  } = useQuery<Department[]>({
     queryKey: ['link-database-departments'],
     queryFn: () => linkDatabaseService.getDepartments(),
     staleTime: 60 * 1000,
   });
+
+  // Auto-select: departments yüklənəndə ilk deptId-ni seç
+  useEffect(() => {
+    if (!filters.departmentId && departments.length > 0) {
+      updateFilter('departmentId', departments[0].id.toString());
+    }
+  }, [departments, filters.departmentId, updateFilter]);
 
   // Build filter params for API
   const apiFilters = useMemo(() => ({
@@ -45,16 +53,27 @@ export function useLinkDatabaseData({
     is_featured: filters.isFeatured ?? undefined,
   }), [debouncedSearch, filters, perPage, currentPage]);
 
-  // Fetch links for active tab (yalnız departament-based)
+  // Fetch links for selected department
   const {
     data: departmentLinks,
     isLoading: isLoadingLinks,
     isFetching: isFetchingLinks,
     refetch: refetchLinks,
   } = useQuery({
-    queryKey: ['link-database-tab', activeTab, debouncedSearch, filters.sortBy, filters.sortDirection, filters.linkType, filters.status, filters.isFeatured, currentPage, perPage],
-    queryFn: () => linkDatabaseService.getLinksByDepartmentType(activeTab, apiFilters),
-    enabled: !!activeTab && !isNaN(parseInt(activeTab)),
+    queryKey: [
+      'link-database-tab',
+      filters.departmentId,
+      debouncedSearch,
+      filters.sortBy,
+      filters.sortDirection,
+      filters.linkType,
+      filters.status,
+      filters.isFeatured,
+      currentPage,
+      perPage,
+    ],
+    queryFn: () => linkDatabaseService.getLinksByDepartmentType(filters.departmentId, apiFilters),
+    enabled: !!filters.departmentId,
     staleTime: 30 * 1000,
     placeholderData: (prev: PaginatedResponse<LinkShare> | undefined) => prev,
   });
@@ -76,9 +95,10 @@ export function useLinkDatabaseData({
   }, [departmentLinks]);
 
   // Featured links
-  const featuredLinks = useMemo(() => {
-    return (departmentLinks?.data || []).filter((l) => l.is_featured);
-  }, [departmentLinks]);
+  const featuredLinks = useMemo(
+    () => (departmentLinks?.data || []).filter((l) => l.is_featured),
+    [departmentLinks]
+  );
 
   // Pagination metadata
   const paginationMeta = useMemo(() => ({
@@ -90,10 +110,10 @@ export function useLinkDatabaseData({
 
   return {
     departments,
+    isLoadingDepartments,
     currentLinks,
     isLoadingLinks,
     isFetchingLinks,
-    isLoadingDepartments,
     stats,
     featuredLinks,
     paginationMeta,

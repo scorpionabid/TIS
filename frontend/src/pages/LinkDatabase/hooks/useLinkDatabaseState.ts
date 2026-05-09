@@ -9,6 +9,7 @@ import { DEFAULT_PER_PAGE } from '../constants/linkDatabase.constants';
 
 const DEFAULT_FILTERS: LinkDatabaseFiltersState = {
   search: '',
+  departmentId: '',
   linkType: 'all',
   status: 'all',
   isFeatured: null,
@@ -17,9 +18,6 @@ const DEFAULT_FILTERS: LinkDatabaseFiltersState = {
 };
 
 export function useLinkDatabaseState() {
-  // Navigation
-  const [activeTab, setActiveTab] = useState<string>('');
-
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
@@ -27,7 +25,7 @@ export function useLinkDatabaseState() {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
 
-  // Filters
+  // Filters (departmentId daxil)
   const [filters, setFilters] = useState<LinkDatabaseFiltersState>(DEFAULT_FILTERS);
 
   // Modals
@@ -45,22 +43,16 @@ export function useLinkDatabaseState() {
   const debouncedSearch = useDebounce(filters.search, 300);
 
   // Derived
-  const isOnSchoolsBulkTab  = activeTab === 'schools_bulk';
-  const isOnSchoolsIndivTab = activeTab === 'schools_individual';
-  const isOnSchoolsTab      = isOnSchoolsBulkTab || isOnSchoolsIndivTab;
-  const currentDepartmentId = !isOnSchoolsTab ? parseInt(activeTab) || null : null;
+  const currentDepartmentId = parseInt(filters.departmentId) || null;
 
-
-  // Reset page when filters/tab change
+  // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedLinkIds(new Set());
-  }, [debouncedSearch, filters.linkType, filters.status, filters.isFeatured, filters.sortBy, filters.sortDirection, activeTab]);
+  }, [debouncedSearch, filters.departmentId, filters.linkType, filters.status, filters.isFeatured, filters.sortBy, filters.sortDirection]);
 
   // Modal handlers
-  const openCreateModal = useCallback(() => {
-    setIsCreateModalOpen(true);
-  }, []);
+  const openCreateModal = useCallback(() => setIsCreateModalOpen(true), []);
 
   const openEditModal = useCallback((link: LinkShare) => {
     setSelectedLink(link);
@@ -100,7 +92,11 @@ export function useLinkDatabaseState() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
+    setFilters((prev) => ({
+      ...DEFAULT_FILTERS,
+      // departmentId seçimini qoru — yalnız digər filterləri sıfırla
+      departmentId: prev.departmentId,
+    }));
   }, []);
 
   // Sort handler
@@ -116,37 +112,18 @@ export function useLinkDatabaseState() {
   const toggleLinkSelection = useCallback((id: number) => {
     setSelectedLinkIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }, []);
 
   const selectAllLinks = useCallback((ids: number[]) => {
-    setSelectedLinkIds((prev) => {
-      if (prev.size === ids.length) {
-        return new Set();
-      }
-      return new Set(ids);
-    });
+    setSelectedLinkIds((prev) => prev.size === ids.length ? new Set() : new Set(ids));
   }, []);
 
-  const clearSelection = useCallback(() => {
-    setSelectedLinkIds(new Set());
-  }, []);
+  const clearSelection = useCallback(() => setSelectedLinkIds(new Set()), []);
 
   return {
-    // Tab
-    activeTab,
-    setActiveTab,
-    isOnSchoolsTab,
-    isOnSchoolsBulkTab,
-    isOnSchoolsIndivTab,
-    currentDepartmentId,
-
     // View
     viewMode,
     setViewMode,
@@ -163,6 +140,9 @@ export function useLinkDatabaseState() {
     updateFilter,
     resetFilters,
     toggleSort,
+
+    // Derived
+    currentDepartmentId,
 
     // Modals
     isCreateModalOpen,

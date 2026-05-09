@@ -14,6 +14,7 @@ export type LinkStatus = 'active' | 'expired' | 'disabled';
 
 export interface LinkDatabaseFiltersState {
   search: string;
+  departmentId: string;
   linkType: LinkType | 'all';
   status: LinkStatus | 'all';
   isFeatured: boolean | null;

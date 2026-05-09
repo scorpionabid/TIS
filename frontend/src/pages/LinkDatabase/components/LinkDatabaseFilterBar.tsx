@@ -15,13 +15,14 @@ import {
   LayoutList,
   Plus,
   Trash2,
+  Building2,
 } from 'lucide-react';
-import type { ViewMode, LinkDatabaseFiltersState } from '../types/linkDatabase.types';
+import type { ViewMode, LinkDatabaseFiltersState, Department } from '../types/linkDatabase.types';
 
 interface LinkDatabaseFilterBarProps {
-  title: string;
   filters: LinkDatabaseFiltersState;
   viewMode: ViewMode;
+  departments: Department[];
   canCreate?: boolean;
   selectedCount?: number;
   isBulkDeleting?: boolean;
@@ -33,24 +34,28 @@ interface LinkDatabaseFilterBarProps {
 }
 
 const STATUS_CHIPS = [
-  { value: 'all',      label: 'Hamısı',      icon: null,         active: (s: string, f: boolean | null) => s === 'all' && !f },
-  { value: 'active',   label: 'Aktiv',        icon: CheckCircle,  active: (s: string) => s === 'active' },
-  { value: 'disabled', label: 'Deaktiv',      icon: Clock,        active: (s: string) => s === 'disabled' },
-  { value: 'featured', label: 'Vurğulananlar', icon: Star,        active: (_s: string, f: boolean | null) => !!f },
+  { value: 'all',      label: 'Hamısı' },
+  { value: 'active',   label: 'Aktiv',         icon: CheckCircle },
+  { value: 'disabled', label: 'Deaktiv',        icon: Clock },
+  { value: 'featured', label: 'Vurğulananlar',  icon: Star },
 ] as const;
 
 const TYPE_CHIPS = [
-  { value: 'all',      label: 'Hamısı', icon: null },
-  { value: 'external', label: 'Xarici', icon: Globe },
-  { value: 'video',    label: 'Video',  icon: Video },
-  { value: 'form',     label: 'Form',   icon: LayoutList },
-  { value: 'document', label: 'Sənəd',  icon: FileText },
+  { value: 'all',      label: 'Hamısı' },
+  { value: 'external', label: 'Xarici',  icon: Globe },
+  { value: 'video',    label: 'Video',   icon: Video },
+  { value: 'form',     label: 'Form',    icon: LayoutList },
+  { value: 'document', label: 'Sənəd',   icon: FileText },
 ] as const;
 
+const CHIP_BASE = 'flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-bold transition-all border whitespace-nowrap';
+const CHIP_ACTIVE = 'bg-[#1e293b] border-[#1e293b] text-white shadow-sm';
+const CHIP_INACTIVE = 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50';
+
 export function LinkDatabaseFilterBar({
-  title,
   filters,
   viewMode,
+  departments,
   canCreate,
   selectedCount = 0,
   isBulkDeleting,
@@ -83,61 +88,36 @@ export function LinkDatabaseFilterBar({
     return filters.status === value;
   };
 
-  const ViewModeToggle = () => (
-    <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100 shrink-0">
-      <button
-        onClick={() => onViewModeChange('grid')}
-        className={cn(
-          'h-8 w-8 flex items-center justify-center rounded-lg transition-all',
-          viewMode === 'grid' ? 'bg-white shadow-sm text-[#1e293b]' : 'text-gray-400 hover:text-gray-600'
-        )}
-        title="Böyük Kartlar"
-      >
-        <LayoutGrid className="h-4 w-4" />
-      </button>
-      <button
-        onClick={() => onViewModeChange('compact')}
-        className={cn(
-          'h-8 w-8 flex items-center justify-center rounded-lg transition-all',
-          viewMode === 'compact' ? 'bg-white shadow-sm text-[#1e293b]' : 'text-gray-400 hover:text-gray-600'
-        )}
-        title="Yığcam Siyahı"
-      >
-        <List className="h-4 w-4" />
-      </button>
-      <button
-        onClick={() => onViewModeChange('table')}
-        className={cn(
-          'h-8 w-8 flex items-center justify-center rounded-lg transition-all',
-          viewMode === 'table' ? 'bg-white shadow-sm text-[#1e293b]' : 'text-gray-400 hover:text-gray-600'
-        )}
-        title="Cədvəl Görünüşü"
-      >
-        <LayoutList className="h-4 w-4" />
-      </button>
-    </div>
-  );
+  const Divider = () => <div className="w-px h-5 bg-gray-200 mx-0.5 shrink-0" />;
 
   return (
     <div className="flex flex-col gap-2 w-full">
-      {/* Row 1: Title + View Toggle + Actions */}
+      {/* Row 1: View Toggle + Actions */}
       <div className="flex items-center gap-2">
-        <h1 className="text-base font-black text-[#0f172a] truncate min-w-0 mr-1">{title}</h1>
+        {/* View mode */}
+        <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100 shrink-0">
+          {([
+            { mode: 'grid' as ViewMode,    Icon: LayoutGrid, title: 'Böyük Kartlar' },
+            { mode: 'compact' as ViewMode, Icon: List,        title: 'Yığcam Siyahı' },
+            { mode: 'table' as ViewMode,   Icon: LayoutList,  title: 'Cədvəl Görünüşü' },
+          ] as const).map(({ mode, Icon, title }) => (
+            <button
+              key={mode}
+              onClick={() => onViewModeChange(mode)}
+              title={title}
+              className={cn(
+                'h-8 w-8 flex items-center justify-center rounded-lg transition-all',
+                viewMode === mode ? 'bg-white shadow-sm text-[#1e293b]' : 'text-gray-400 hover:text-gray-600'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
 
         <div className="flex-1" />
 
-        <ViewModeToggle />
-
-        {canCreate && onCreateClick && (
-          <Button
-            onClick={onCreateClick}
-            className="h-9 px-3 sm:px-5 rounded-xl font-black bg-[#1e293b] hover:bg-[#0f172a] text-white shadow-lg shadow-gray-200 border-0 text-xs shrink-0 flex items-center gap-1.5"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Yeni Keçid</span>
-          </Button>
-        )}
-
+        {/* Reset + bulk delete */}
         {(hasActiveFilters || selectedCount > 0) && (
           <div className="flex items-center gap-1">
             {hasActiveFilters && (
@@ -152,11 +132,21 @@ export function LinkDatabaseFilterBar({
             )}
           </div>
         )}
+
+        {canCreate && onCreateClick && (
+          <Button
+            onClick={onCreateClick}
+            className="h-9 px-3 sm:px-5 rounded-xl font-black bg-[#1e293b] hover:bg-[#0f172a] text-white shadow-lg shadow-gray-200 border-0 text-xs shrink-0 flex items-center gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Yeni Keçid</span>
+          </Button>
+        )}
       </div>
 
-      {/* Row 2: Search + scrollable chips */}
+      {/* Row 2: Search + chip strip */}
       <div className="flex items-center gap-2">
-        {/* Search Input */}
+        {/* Search */}
         <div className="relative w-full sm:w-48 shrink-0 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none transition-colors group-focus-within:text-primary" />
           <Input
@@ -178,46 +168,56 @@ export function LinkDatabaseFilterBar({
         {/* Scrollable chip strip */}
         <div className="flex-1 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1.5 min-w-max">
-            {/* Status chips */}
-            {STATUS_CHIPS.map(({ value, label }) => {
-              const active = isStatusActive(value);
-              return (
-                <button
-                  key={value}
-                  onClick={() => handleStatusChip(value)}
-                  className={cn(
-                    'h-8 px-3 rounded-full text-[11px] font-bold transition-all border whitespace-nowrap',
-                    active
-                      ? 'bg-[#1e293b] border-[#1e293b] text-white shadow-sm'
-                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
 
-            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            {/* Department chips */}
+            {departments.length > 0 && (
+              <>
+                {departments.map((dept) => {
+                  const active = filters.departmentId === dept.id.toString();
+                  return (
+                    <button
+                      key={dept.id}
+                      onClick={() => onFilterChange('departmentId', dept.id.toString())}
+                      className={cn(CHIP_BASE, active ? CHIP_ACTIVE : CHIP_INACTIVE)}
+                    >
+                      <Building2 className="h-3 w-3 shrink-0" />
+                      {dept.short_name || dept.name}
+                    </button>
+                  );
+                })}
+                <Divider />
+              </>
+            )}
+
+            {/* Status chips */}
+            {STATUS_CHIPS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => handleStatusChip(value)}
+                className={cn(CHIP_BASE, isStatusActive(value) ? CHIP_ACTIVE : CHIP_INACTIVE)}
+              >
+                {label}
+              </button>
+            ))}
+
+            <Divider />
 
             {/* Type chips */}
-            {TYPE_CHIPS.map(({ value, label, icon: Icon }) => {
+            {TYPE_CHIPS.map(({ value, label, ...rest }) => {
+              const Icon = 'icon' in rest ? rest.icon : null;
               const active = filters.linkType === value;
               return (
                 <button
                   key={value}
                   onClick={() => onFilterChange('linkType', value as LinkDatabaseFiltersState['linkType'])}
-                  className={cn(
-                    'flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-bold transition-all border whitespace-nowrap',
-                    active
-                      ? 'bg-[#1e293b] border-[#1e293b] text-white'
-                      : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:text-gray-600'
-                  )}
+                  className={cn(CHIP_BASE, active ? CHIP_ACTIVE : CHIP_INACTIVE)}
                 >
                   {Icon && <Icon className="h-3 w-3" />}
                   {label}
                 </button>
               );
             })}
+
           </div>
         </div>
       </div>
