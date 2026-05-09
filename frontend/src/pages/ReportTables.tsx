@@ -720,7 +720,7 @@ export default function ReportTables() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-3 sm:p-6 max-w-full mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -786,17 +786,6 @@ export default function ReportTables() {
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Statistika</span>
             </Button>
-            {!isSchoolUser && (
-              <Button
-                variant={viewMode === 'link_shares' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('link_shares')}
-                className="gap-1"
-              >
-                <Link2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Linklər</span>
-              </Button>
-            )}
             {canViewMaster && (
               <Button
                 variant={viewMode === 'master' ? 'secondary' : 'ghost'}
