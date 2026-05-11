@@ -8,6 +8,7 @@ import {
   Loader2,
   Clock,
   FileSpreadsheet,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ interface PersonalLinksViewProps {
   isLoading: boolean;
   onEdit: (link: AssignedResource) => void;
   onDelete: (link: AssignedResource) => void;
+  onDeleteAll?: (ids: number[]) => void;
   onBulkUpload: () => void;
   onCreateNew: () => void;
   searchTerm: string;
@@ -46,6 +48,7 @@ export function PersonalLinksView({
   isLoading,
   onEdit,
   onDelete,
+  onDeleteAll,
   onBulkUpload,
   searchTerm,
   onSearchChange,
@@ -54,6 +57,30 @@ export function PersonalLinksView({
   isManager,
 }: PersonalLinksViewProps) {
   const [selectedLinkId, setSelectedLinkId] = useState<number | null>(links[0]?.id ?? null);
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+
+  const toggleCheck = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (checkedIds.size === filteredLinks.length) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(filteredLinks.map(l => l.id)));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (onDeleteAll && checkedIds.size > 0) {
+      onDeleteAll(Array.from(checkedIds));
+    }
+  };
 
   const selectedLink = useMemo(
     () => links.find(l => l.id === selectedLinkId) ?? links[0] ?? null,
@@ -87,22 +114,69 @@ export function PersonalLinksView({
       {/* ─── LEFT: link list ─────────────────────────────────────── */}
       <div className="w-[300px] flex-shrink-0 flex flex-col border-r border-border/60">
 
-        {/* Toolbar — 1 sətir */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Link axtar..."
-              className="pl-8 h-8 text-xs bg-muted/30 border-0 focus-visible:ring-1"
-              value={searchTerm}
-              onChange={e => onSearchChange(e.target.value)}
-            />
+        {/* Toolbar */}
+        <div className="flex flex-col gap-1.5 px-3 py-2 border-b border-border/60">
+          {/* Row 1: search + excel */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Link axtar..."
+                className="pl-8 h-8 text-xs bg-muted/30 border-0 focus-visible:ring-1"
+                value={searchTerm}
+                onChange={e => onSearchChange(e.target.value)}
+              />
+            </div>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs shrink-0" onClick={onBulkUpload}>
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
           </div>
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs shrink-0" onClick={onBulkUpload}>
-            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-            <span className="hidden sm:inline">Excel</span>
-          </Button>
+
+          {/* Row 2: select all + delete selected */}
+          {filteredLinks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center transition-colors ${
+                  checkedIds.size === filteredLinks.length
+                    ? 'bg-primary border-primary'
+                    : checkedIds.size > 0
+                    ? 'bg-primary/40 border-primary/60'
+                    : 'border-border'
+                }`}>
+                  {checkedIds.size > 0 && (
+                    <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 12 12">
+                      {checkedIds.size === filteredLinks.length
+                        ? <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        : <path d="M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      }
+                    </svg>
+                  )}
+                </div>
+                {checkedIds.size === 0
+                  ? 'Hamısını seç'
+                  : `${checkedIds.size} seçilib`
+                }
+              </button>
+
+              {checkedIds.size > 0 && onDeleteAll && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 gap-1 text-[11px] shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 ml-auto"
+                  onClick={handleDeleteSelected}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Seçilmişi sil ({checkedIds.size})
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* List */}
@@ -140,11 +214,29 @@ export function PersonalLinksView({
                 const scopeLabel = SCOPE_LABELS[link.share_scope ?? ''] ?? '';
 
                 return (
-                  <div key={link.id}>
+                  <div key={link.id} className="flex items-start">
+                    {/* Checkbox */}
+                    <div
+                      className="flex items-center justify-center w-8 pt-3 shrink-0 cursor-pointer"
+                      onClick={e => toggleCheck(link.id, e)}
+                    >
+                      <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center transition-colors ${
+                        checkedIds.has(link.id)
+                          ? 'bg-primary border-primary'
+                          : 'border-border hover:border-primary/60'
+                      }`}>
+                        {checkedIds.has(link.id) && (
+                          <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 12 12">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+
                     <button
                       onClick={() => setSelectedLinkId(link.id)}
                       className={cn(
-                        'group w-full text-left px-3 py-2.5 transition-colors',
+                        'group flex-1 text-left px-2 py-2.5 transition-colors min-w-0',
                         isActive
                           ? 'bg-primary/5 border-l-2 border-primary'
                           : 'border-l-2 border-transparent hover:bg-muted/50'

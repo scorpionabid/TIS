@@ -58,6 +58,8 @@ export default function MyResources() {
   const [detailResource, setDetailResource]     = useState<AssignedResource | null>(null);
   const [editingResource, setEditingResource]   = useState<AssignedResource | null>(null);
   const [pendingDelete, setPendingDelete]       = useState<AssignedResource | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [isDeletingAll, setIsDeletingAll]       = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen]   = useState(false);
   const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const [resourceModalType, setResourceModalType]       = useState<'link' | 'document'>('link');
@@ -235,6 +237,31 @@ export default function MyResources() {
     }
   }, [pendingDelete, queryClient, toast]);
 
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([]);
+
+  const handleDeleteSelected = useCallback((ids: number[]) => {
+    setPendingDeleteIds(ids);
+    setConfirmDeleteAll(true);
+  }, []);
+
+  const confirmDeleteAllLinks = useCallback(async () => {
+    setIsDeletingAll(true);
+    const ids = pendingDeleteIds.length > 0
+      ? pendingDeleteIds
+      : personalLinks.filter(r => r.type === 'link').map(l => l.id);
+    try {
+      await Promise.allSettled(ids.map(id => resourceService.delete(id, 'link')));
+      queryClient.invalidateQueries({ queryKey: ['personal-links'] });
+      toast({ title: `${ids.length} link silindi` });
+    } catch {
+      toast({ title: 'Xəta baş verdi', variant: 'destructive' });
+    } finally {
+      setIsDeletingAll(false);
+      setConfirmDeleteAll(false);
+      setPendingDeleteIds([]);
+    }
+  }, [pendingDeleteIds, personalLinks, queryClient, toast]);
+
   const openCreateModal = useCallback((type: 'link' | 'document') => {
     setResourceModalType(type);
     setEditingResource(null);
@@ -360,6 +387,7 @@ export default function MyResources() {
                     isLoading={isPersonalLinksLoading}
                     onEdit={handleEditResource}
                     onDelete={handleDeleteResource}
+                    onDeleteAll={handleDeleteSelected}
                     onBulkUpload={() => setIsBulkUploadModalOpen(true)}
                     onCreateNew={() => openCreateModal('link')}
                     searchTerm={searchTerm}
@@ -461,6 +489,31 @@ export default function MyResources() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Confirmation */}
+      <AlertDialog open={confirmDeleteAll} onOpenChange={open => !open && setConfirmDeleteAll(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              Bütün toplu linkləri sil
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{pendingDeleteIds.length > 0 ? pendingDeleteIds.length : personalLinks.filter(r => r.type === 'link').length} link</strong> tamamilə silinəcək.
+              Bu əməliyyat geri alına bilməz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingAll}>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteAllLinks}
+              disabled={isDeletingAll}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingAll ? 'Silinir...' : 'Bəli, hamısını sil'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

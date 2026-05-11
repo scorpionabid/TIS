@@ -22,7 +22,7 @@ export function InstitutionTargeting({
   const watchedInstitutionIds = form.watch('target_institutions');
   const selectedIds: number[] = useMemo(() => {
     if (Array.isArray(watchedInstitutionIds)) {
-      return watchedInstitutionIds;
+      return watchedInstitutionIds.map((id: any) => Number(id)).filter((id: number) => !isNaN(id));
     }
     return EMPTY_INSTITUTION_IDS;
   }, [watchedInstitutionIds]);
@@ -46,12 +46,17 @@ export function InstitutionTargeting({
   }, [availableInstitutions]);
 
   const filteredInstitutions = useMemo(() => {
-    if (!searchTerm.trim()) return normalizedInstitutions;
-    const query = searchTerm.toLowerCase();
-    return normalizedInstitutions.filter((inst) =>
-      inst.name.toLowerCase().includes(query)
-    );
-  }, [normalizedInstitutions, searchTerm]);
+    const list = searchTerm.trim()
+      ? normalizedInstitutions.filter(inst => inst.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      : [...normalizedInstitutions];
+    // Seçilmişlər yuxarıda
+    list.sort((a, b) => {
+      const aSelected = selectedIds.includes(a.id) ? 0 : 1;
+      const bSelected = selectedIds.includes(b.id) ? 0 : 1;
+      return aSelected - bSelected;
+    });
+    return list;
+  }, [normalizedInstitutions, searchTerm, selectedIds]);
 
   const counts = useMemo(() => ({
     all: normalizedInstitutions.length,
@@ -157,17 +162,55 @@ export function InstitutionTargeting({
     }
   }, [departmentsSelected, selectedIds.length, updateSelection]);
 
+  const selectedInstitutions = useMemo(() =>
+    normalizedInstitutions.filter(inst => selectedIds.includes(inst.id)),
+    [normalizedInstitutions, selectedIds]
+  );
+
+  const CHIP_LIMIT = 5;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Label className="text-base font-semibold flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-blue-500" />
-          Müəssisələri seçin
-        </Label>
+    <div className="space-y-3">
+      {/* Selected strip — institutions yüklənməsə də count dərhal görünür */}
+      <div className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl min-h-[44px] transition-colors ${
+        selectedCount > 0 ? 'bg-blue-50/60 border-blue-200' : 'bg-muted/30 border-border/50'
+      }`}>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Building2 className={`h-3.5 w-3.5 ${selectedCount > 0 ? 'text-blue-600' : 'text-muted-foreground'}`} />
+          <span className={`text-xs font-semibold ${selectedCount > 0 ? 'text-blue-700' : 'text-muted-foreground'}`}>
+            {selectedCount > 0 ? `${selectedCount} müəssisə seçilib` : 'Seçilməyib'}
+          </span>
+        </div>
         {selectedCount > 0 && (
-          <Badge variant="secondary" className="text-sm">
-            {selectedCount} seçildi
-          </Badge>
+          <>
+            <div className="flex-1 flex items-center gap-1 flex-wrap min-w-0">
+              {selectedInstitutions.length > 0
+                ? selectedInstitutions.slice(0, CHIP_LIMIT).map(inst => (
+                    <span key={inst.id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-blue-700 text-[11px] font-medium border border-blue-200 max-w-[180px] shadow-sm">
+                      <span className="truncate">{inst.name}</span>
+                      <button type="button" onClick={() => toggleInstitution(inst.id, false)}
+                        className="shrink-0 text-blue-400 hover:text-blue-700">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))
+                : (
+                  // Institutions hələ yüklənmir — sadəcə count göstər
+                  <span className="text-[11px] text-blue-600 italic">Yüklənir...</span>
+                )
+              }
+              {selectedInstitutions.length > CHIP_LIMIT && (
+                <span className="text-[11px] text-blue-600 font-medium">
+                  +{selectedCount - CHIP_LIMIT} daha
+                </span>
+              )}
+            </div>
+            <button type="button" onClick={handleClear}
+              className="shrink-0 text-[11px] text-blue-600/70 hover:text-red-600 transition-colors whitespace-nowrap">
+              Hamısını sil
+            </button>
+          </>
         )}
       </div>
 
@@ -201,88 +244,47 @@ export function InstitutionTargeting({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <Button
+      {/* Action + quick-select — 1 sətir */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
           type="button"
-          variant="outline"
-          size="sm"
           onClick={handleSelectAll}
           disabled={departmentsSelected || filteredInstitutions.length === 0}
+          className="h-7 inline-flex items-center gap-1 px-2.5 rounded-full text-[11px] font-semibold border bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
-          <Users className="h-4 w-4 mr-1" />
-          {searchTerm
-            ? `Görünənləri seç (${filteredInstitutions.length})`
-            : `Hamısını seç (${counts.all})`
-          }
-        </Button>
-        <Button
+          <Users className="h-3 w-3" />
+          {searchTerm ? `Görünənləri seç (${filteredInstitutions.length})` : `Hamısını seç (${counts.all})`}
+        </button>
+
+        <button
           type="button"
-          variant="outline"
-          size="sm"
           onClick={handleClear}
           disabled={selectedCount === 0}
+          className="h-7 inline-flex items-center gap-1 px-2.5 rounded-full text-[11px] font-semibold border border-gray-200 bg-white text-gray-500 hover:border-red-300 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
-          <X className="h-4 w-4 mr-1" />
+          <X className="h-3 w-3" />
           Seçimi ləğv et
-        </Button>
-      </div>
+        </button>
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => handleSelectByLevel(2)}
-          disabled={departmentsSelected || counts.regional === 0}
-        >
-          <Building2 className="h-4 w-4 mr-1" />
-          Regional ({counts.regional})
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => handleSelectByLevel(3)}
-          disabled={departmentsSelected || counts.sector === 0}
-        >
-          <Target className="h-4 w-4 mr-1" />
-          Sektor ({counts.sector})
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            handleSelectByPredicate((inst: Institution) => {
-              const type = (inst.type || '').toLowerCase();
-              return (
-                ['secondary_school', 'vocational_school', 'school'].includes(type) ||
-                (inst.level === 4 && inst.name.toLowerCase().includes('məktəb'))
-              );
-            })
-          }
-          disabled={departmentsSelected || counts.schools === 0}
-        >
-          <Building2 className="h-4 w-4 mr-1" />
-          Məktəb ({counts.schools})
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            handleSelectByPredicate((inst: Institution) =>
-              inst.level === 4 && (
-                inst.name.toLowerCase().includes('bağça') ||
-                inst.name.toLowerCase().includes('uşaq')
-              )
-            )
-          }
-          disabled={departmentsSelected || counts.preschools === 0}
-        >
-          <Users className="h-4 w-4 mr-1" />
-          Məktəbəqədər ({counts.preschools})
-        </Button>
+        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+
+        {[
+          { label: `Regional (${counts.regional})`,     icon: Building2, disabled: counts.regional === 0,  onClick: () => handleSelectByLevel(2) },
+          { label: `Sektor (${counts.sector})`,         icon: Target,    disabled: counts.sector === 0,    onClick: () => handleSelectByLevel(3) },
+          { label: `Məktəb (${counts.schools})`,        icon: Building2, disabled: counts.schools === 0,   onClick: () => handleSelectByPredicate((inst: Institution) => { const t = (inst.type||'').toLowerCase(); return ['secondary_school','vocational_school','school'].includes(t)||(inst.level===4&&inst.name.toLowerCase().includes('məktəb')); }) },
+          { label: `Məktəbəqədər (${counts.preschools})`, icon: Users,   disabled: counts.preschools === 0, onClick: () => handleSelectByPredicate((inst: Institution) => inst.level===4&&(inst.name.toLowerCase().includes('bağça')||inst.name.toLowerCase().includes('uşaq'))) },
+        ].map(({ label, icon: Icon, disabled, onClick }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={onClick}
+            disabled={departmentsSelected || disabled}
+            className="h-7 inline-flex items-center gap-1 px-2.5 rounded-full text-[11px] font-semibold border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            <Icon className="h-3 w-3" />
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="border rounded-lg max-h-60 overflow-y-auto">

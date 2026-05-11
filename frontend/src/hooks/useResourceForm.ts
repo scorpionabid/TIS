@@ -172,10 +172,10 @@ export function useResourceForm({
         type: resource.type,
         title: resource.title,
         description: resource.description || '',
-        target_institutions: resource.target_institutions || [],
+        target_institutions: (resource.target_institutions || []).map(Number).filter(n => !isNaN(n)),
         target_roles: resource.target_roles || [],
-        target_departments: resource.target_departments || [],
-        target_users: resource.target_users || [],
+        target_departments: (resource.target_departments || []).map(Number).filter(n => !isNaN(n)),
+        target_users: (resource.target_users || []).map(Number).filter(n => !isNaN(n)),
         // Link fields
         ...(resource.type === 'link' && {
           url: resource.url || '',
@@ -219,17 +219,8 @@ export function useResourceForm({
   }, [shouldUseSuperiorInstitutions, availableInstitutions, form]);
 
   useEffect(() => {
-    console.log('[useResourceForm] isOpen changed', {
-      isOpen,
-      hasDefaulted: hasDefaultedInstitutionsRef.current,
-      currentTargets: form.getValues('target_institutions')?.length || 0,
-      timestamp: new Date().toISOString()
-    });
-    if (isOpen && !hasDefaultedInstitutionsRef.current) {
-      console.log('[useResourceForm] attempting to set default institutions');
-      maybeDefaultInstitutions();
-    }
-  }, [isOpen, maybeDefaultInstitutions, form]);
+    // Auto-selection deaktiv edilib — istifadəçi özü seçir
+  }, [isOpen]);
 
   // Reset form when modal closes
   useEffect(() => {

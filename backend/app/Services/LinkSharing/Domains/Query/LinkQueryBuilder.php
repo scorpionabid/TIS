@@ -698,6 +698,12 @@ class LinkQueryBuilder
                         'level' => $link->institution->level,
                         'type'  => $link->institution->type ?? '',
                     ] : null,
+                    'target_institutions' => $link->target_institutions ?? [],
+                    'target_users'        => $link->target_users ?? [],
+                    'target_roles'        => $link->target_roles ?? [],
+                    'target_departments'  => $link->target_departments ?? [],
+                    'is_featured'         => $link->is_featured ?? false,
+                    'expires_at'          => $link->expires_at?->toISOString(),
                     'is_new' => $link->created_at?->isAfter(now()->subDays(7)) ?? false,
                     'viewed_at' => $userViews->get('link_' . $link->id)?->last_viewed_at?->toISOString(),
                 ];

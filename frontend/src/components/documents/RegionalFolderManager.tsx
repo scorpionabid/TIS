@@ -3,9 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection } from '../../types/documentCollection';
 import { Folder, FolderArchive, Plus, Edit, Trash2, Download, History, FileText, Search, Clock, Users, LayoutGrid, Building2, MapPin, GraduationCap, Lock, Unlock, User as UserIcon } from 'lucide-react';
-import CreateFolderDialog from './CreateFolderDialog';
+import { UnifiedFolderModal } from '@/components/modals/UnifiedFolderModal';
 import { Badge } from '@/components/ui/badge';
-import RenameFolderDialog from './RenameFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import FolderDocumentsViewOptimizedV2 from './FolderDocumentsViewOptimizedV2';
 import AuditLogViewer from './AuditLogViewer';
@@ -676,7 +675,8 @@ const RegionalFolderManager: React.FC = () => {
 
       {/* Dialogs */}
       {showCreateDialog && (
-        <CreateFolderDialog
+        <UnifiedFolderModal
+          mode="create"
           currentCount={currentInstitutionFoldersCount}
           onClose={() => setShowCreateDialog(false)}
           onSuccess={handleFolderCreated}
@@ -684,7 +684,8 @@ const RegionalFolderManager: React.FC = () => {
       )}
 
       {showRenameDialog && selectedFolder && (
-        <RenameFolderDialog
+        <UnifiedFolderModal
+          mode="edit"
           folder={selectedFolder}
           onClose={() => {
             setShowRenameDialog(false);

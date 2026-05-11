@@ -10,10 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Link2, FileText, Target, Sparkles,
+  Link2, FileText, Sparkles,
   Building2, Users as UsersIcon,
   CheckCircle2, ChevronRight, ChevronLeft,
   Star, Calendar, Upload, X, Loader2,
@@ -26,8 +25,7 @@ import type { Resource } from '@/types/resources';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ResourceType   = 'link' | 'document';
-type TargetingMode  = 'institutions' | 'users';
+type ResourceType = 'link' | 'document';
 
 interface UnifiedResourceModalProps {
   isOpen: boolean;
@@ -41,14 +39,16 @@ interface UnifiedResourceModalProps {
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
 const LINK_TABS = [
-  { id: 'general',  label: 'Ümumi',    icon: Link2,     color: 'blue'  },
-  { id: 'target',   label: 'Hədəf',    icon: Target,    color: 'green' },
-  { id: 'features', label: 'Özəllik',  icon: Sparkles,  color: 'amber' },
+  { id: 'general',      label: 'Ümumi',        icon: Link2,     color: 'blue'   },
+  { id: 'institutions', label: 'Müəssisələr',  icon: Building2, color: 'green'  },
+  { id: 'users',        label: 'İstifadəçilər', icon: UsersIcon, color: 'violet' },
+  { id: 'features',     label: 'Özəllik',      icon: Sparkles,  color: 'amber'  },
 ] as const;
 
 const DOC_TABS = [
-  { id: 'general', label: 'Ümumi',  icon: FileText, color: 'blue'  },
-  { id: 'target',  label: 'Hədəf',  icon: Target,   color: 'green' },
+  { id: 'general',      label: 'Ümumi',        icon: FileText,  color: 'blue'   },
+  { id: 'institutions', label: 'Müəssisələr',  icon: Building2, color: 'green'  },
+  { id: 'users',        label: 'İstifadəçilər', icon: UsersIcon, color: 'violet' },
 ] as const;
 
 type LinkTabId = typeof LINK_TABS[number]['id'];
@@ -56,9 +56,10 @@ type DocTabId  = typeof DOC_TABS[number]['id'];
 type TabId     = LinkTabId | DocTabId;
 
 const COLOR_MAP: Record<string, { dot: string; active: string; text: string }> = {
-  blue:  { dot: 'bg-blue-500',   active: 'bg-blue-50 border-l-2 border-blue-500',  text: 'text-blue-700'  },
-  green: { dot: 'bg-emerald-500',active: 'bg-emerald-50 border-l-2 border-emerald-500', text: 'text-emerald-700' },
-  amber: { dot: 'bg-amber-500',  active: 'bg-amber-50 border-l-2 border-amber-500', text: 'text-amber-700' },
+  blue:   { dot: 'bg-blue-500',   active: 'bg-blue-50 border-l-2 border-blue-500',      text: 'text-blue-700'   },
+  green:  { dot: 'bg-emerald-500',active: 'bg-emerald-50 border-l-2 border-emerald-500', text: 'text-emerald-700' },
+  violet: { dot: 'bg-violet-500', active: 'bg-violet-50 border-l-2 border-violet-500',   text: 'text-violet-700' },
+  amber:  { dot: 'bg-amber-500',  active: 'bg-amber-50 border-l-2 border-amber-500',     text: 'text-amber-700'  },
 };
 
 // ─── URL helpers ──────────────────────────────────────────────────────────────
@@ -179,98 +180,18 @@ function LinkGeneralSection({ form }: { form: any }) {
   );
 }
 
-function TargetSection({ form, availableInstitutions, resourceType, isOpen, mode, resource }: {
-  form: any;
-  availableInstitutions: any[];
-  resourceType: ResourceType;
-  isOpen: boolean;
-  mode: 'create' | 'edit';
-  resource?: Resource | null;
-}) {
-  const [targetingMode, setTargetingMode] = useState<TargetingMode>(
-    form.getValues('share_scope') === 'specific_users' ? 'users' : 'institutions'
-  );
-
-  const handleModeChange = (next: TargetingMode) => {
-    setTargetingMode(next);
-    if (next === 'institutions') {
-      form.setValue('target_users', []);
-      form.setValue('share_scope', 'institutional');
-    } else {
-      form.setValue('target_institutions', []);
-      form.setValue('target_departments', []);
-      form.setValue('target_roles', []);
-      form.setValue('share_scope', 'specific_users');
-    }
-  };
-
-  // Restore localStorage preferences
-  useEffect(() => {
-    if (!isOpen || mode === 'edit' || resource) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(TARGETING_KEY) || '{}');
-      if (!saved?.mode) return;
-      setTargetingMode(saved.mode);
-      if (saved.share_scope) form.setValue('share_scope', saved.share_scope);
-      if (saved.mode === 'institutions' && saved.target_institutions?.length)
-        form.setValue('target_institutions', saved.target_institutions);
-      if (saved.mode === 'users' && saved.target_users?.length)
-        form.setValue('target_users', saved.target_users);
-    } catch { /* ignore */ }
-  }, [isOpen, mode, resource, form]);
-
-  // Persist
-  useEffect(() => {
-    const sub = form.watch((val: any, { name }: { name?: string }) => {
-      if (!name || !['target_institutions', 'target_users', 'share_scope'].includes(name)) return;
-      localStorage.setItem(TARGETING_KEY, JSON.stringify({
-        mode: targetingMode,
-        share_scope: val.share_scope,
-        target_institutions: val.target_institutions || [],
-        target_users: val.target_users || [],
-      }));
-    });
-    return () => sub.unsubscribe();
-  }, [form, targetingMode]);
-
+function InstitutionsSection({ form, availableInstitutions }: { form: any; availableInstitutions: any[] }) {
   return (
-    <div className="space-y-5 animate-in fade-in slide-in-from-right-3 duration-200">
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Paylaşma üsulu</p>
-        <RadioGroup value={targetingMode} onValueChange={v => handleModeChange(v as TargetingMode)}
-          className="grid grid-cols-2 gap-3">
-          {[
-            { val: 'institutions', label: 'Müəssisələr', sub: 'Region, Sektor, Məktəb',
-              Icon: Building2, active: 'border-blue-500 bg-blue-50',  iconBg: 'bg-blue-100',  iconC: 'text-blue-600' },
-            { val: 'users',        label: 'İstifadəçilər', sub: 'Xüsusi şəxslər',
-              Icon: UsersIcon, active: 'border-emerald-500 bg-emerald-50', iconBg: 'bg-emerald-100', iconC: 'text-emerald-600' },
-          ].map(({ val, label, sub, Icon, active, iconBg, iconC }) => (
-            <div key={val}
-              className={cn(
-                'relative flex items-center gap-3 border-2 rounded-xl p-4 cursor-pointer transition-all',
-                targetingMode === val ? active : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              )}>
-              <RadioGroupItem value={val} id={`${resourceType}-${val}`} className="shrink-0" />
-              <Label htmlFor={`${resourceType}-${val}`} className="cursor-pointer flex items-center gap-3 flex-1">
-                <div className={cn('p-2 rounded-lg', targetingMode === val ? iconBg : 'bg-gray-100')}>
-                  <Icon className={cn('h-4 w-4', targetingMode === val ? iconC : 'text-gray-500')} />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">{label}</p>
-                  <p className="text-xs text-gray-500">{sub}</p>
-                </div>
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
-      </div>
+    <div className="animate-in fade-in slide-in-from-right-3 duration-200">
+      <InstitutionTargeting form={form} availableInstitutions={availableInstitutions} />
+    </div>
+  );
+}
 
-      <div className="border-t pt-4">
-        {targetingMode === 'institutions'
-          ? <InstitutionTargeting form={form} availableInstitutions={availableInstitutions} />
-          : <UserTargeting form={form} />
-        }
-      </div>
+function UsersSection({ form }: { form: any }) {
+  return (
+    <div className="animate-in fade-in slide-in-from-right-3 duration-200">
+      <UserTargeting form={form} />
     </div>
   );
 }
@@ -473,8 +394,20 @@ export function UnifiedResourceModal({
 
   // Reset tab on open
   useEffect(() => {
-    if (isOpen) setActiveTab(tabs[0].id);
-  }, [isOpen, type]);
+    if (!isOpen) return;
+    // Edit rejimində seçilmiş data-ya görə tab açılır
+    if (mode === 'edit' && resource) {
+      if ((resource.target_institutions?.length ?? 0) > 0) {
+        setActiveTab('institutions');
+      } else if ((resource.target_users?.length ?? 0) > 0) {
+        setActiveTab('users');
+      } else {
+        setActiveTab(tabs[0].id);
+      }
+    } else {
+      setActiveTab(tabs[0].id);
+    }
+  }, [isOpen, type, mode, resource]);
 
   const {
     form,
@@ -498,9 +431,7 @@ export function UnifiedResourceModal({
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent
-        className="w-full sm:max-w-[800px] p-0 flex flex-col sm:flex-row h-[92vh] sm:h-[620px] sm:max-h-[700px] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
-        onInteractOutside={e => e.preventDefault()}
-        onEscapeKeyDown={e => e.preventDefault()}
+        className="w-full sm:max-w-[960px] p-0 flex flex-col sm:flex-row h-[94vh] sm:h-[720px] sm:max-h-[820px] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
       >
 
         {/* ── Mobile: horizontal tabs ── */}
@@ -546,22 +477,38 @@ export function UnifiedResourceModal({
           {/* Nav items */}
           <nav className="flex-1 py-3 px-2">
             {tabs.map((tab, idx) => {
-              const Icon  = tab.icon;
-              const c     = COLOR_MAP[tab.color];
-              const done  = idx < currentIdx;
+              const Icon   = tab.icon;
+              const c      = COLOR_MAP[tab.color];
               const active = tab.id === activeTab;
+
+              // Count badge: institutions / users tab-larında seçilmiş say
+              const watchedInst  = form.watch('target_institutions');
+              const watchedUsers = form.watch('target_users');
+              const tabCount =
+                tab.id === 'institutions' ? (Array.isArray(watchedInst)  ? watchedInst.length  : 0) :
+                tab.id === 'users'        ? (Array.isArray(watchedUsers) ? watchedUsers.length : 0) :
+                0;
+
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all mb-1',
+                    'w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all mb-1',
                     active ? `${c.active} ${c.text}` : 'text-gray-500 hover:bg-white hover:text-gray-800'
                   )}>
-                  <div className={cn('h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-[10px]',
-                    active ? `${c.dot} text-white` : done ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-400'
+                  <div className={cn('h-6 w-6 rounded-full flex items-center justify-center shrink-0',
+                    active ? `${c.dot} text-white` : 'bg-gray-200 text-gray-400'
                   )}>
-                    {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                    <Icon className="h-3.5 w-3.5" />
                   </div>
-                  {tab.label}
+                  <span className="flex-1 text-left">{tab.label}</span>
+                  {tabCount > 0 && (
+                    <span className={cn(
+                      'text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center',
+                      active ? 'bg-white/30 text-current' : `${c.dot} text-white`
+                    )}>
+                      {tabCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -581,45 +528,29 @@ export function UnifiedResourceModal({
         {/* ── Right: content + footer ── */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           <div className="flex-1 overflow-y-auto p-6">
+            {/* Form-level errors */}
+            {form.formState.errors.title && (
+              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
+                <X className="h-4 w-4 shrink-0 mt-0.5" />
+                {String(form.formState.errors.title.message)}
+              </div>
+            )}
             <form id="unified-resource-form" onSubmit={form.handleSubmit(handleSubmit)}>
-              {isLink ? (
-                <>
-                  {activeTab === 'general'  && <LinkGeneralSection form={form} />}
-                  {activeTab === 'target'   && (
-                    <TargetSection
-                      form={form}
-                      availableInstitutions={availableInstitutions}
-                      resourceType="link"
-                      isOpen={isOpen}
-                      mode={mode}
-                      resource={resource}
-                    />
-                  )}
-                  {activeTab === 'features' && <LinkFeaturesSection form={form} />}
-                </>
-              ) : (
-                <>
-                  {activeTab === 'general' && (
-                    <DocGeneralSection
-                      form={form}
-                      selectedFile={selectedFile}
-                      setSelectedFile={setSelectedFile}
-                      mode={mode}
-                      currentFileName={resource?.original_filename}
-                    />
-                  )}
-                  {activeTab === 'target'  && (
-                    <TargetSection
-                      form={form}
-                      availableInstitutions={availableInstitutions}
-                      resourceType="document"
-                      isOpen={isOpen}
-                      mode={mode}
-                      resource={resource}
-                    />
-                  )}
-                </>
+              {activeTab === 'general' && isLink && <LinkGeneralSection form={form} />}
+              {activeTab === 'general' && !isLink && (
+                <DocGeneralSection
+                  form={form}
+                  selectedFile={selectedFile}
+                  setSelectedFile={setSelectedFile}
+                  mode={mode}
+                  currentFileName={resource?.original_filename}
+                />
               )}
+              {activeTab === 'institutions' && (
+                <InstitutionsSection form={form} availableInstitutions={availableInstitutions} />
+              )}
+              {activeTab === 'users' && <UsersSection form={form} />}
+              {activeTab === 'features' && <LinkFeaturesSection form={form} />}
             </form>
           </div>
 
