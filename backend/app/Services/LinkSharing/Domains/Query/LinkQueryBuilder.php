@@ -756,10 +756,11 @@ class LinkQueryBuilder
                         'created_by' => $document->uploaded_by,
                         'url' => null,
                         'link_type' => null,
+                        'access_level' => $document->access_level,
                         'is_downloadable' => $document->is_downloadable ?? true,
                         'is_viewable_online' => $document->is_viewable_online ?? false,
                         'click_count' => 0,
-                        'download_count' => 0, // TODO: Get from DocumentDownload model
+                        'download_count' => 0,
                         'file_size' => $document->file_size,
                         'mime_type' => $document->mime_type,
                         'original_filename' => $document->original_filename,
@@ -769,6 +770,12 @@ class LinkQueryBuilder
                             'name' => $document->uploader?->name ?? 'N/A',
                             'institution' => $document->institution?->name ?? 'N/A',
                         ],
+                        'institution' => $document->institution ? [
+                            'id'    => $document->institution->id,
+                            'name'  => $document->institution->name,
+                            'level' => $document->institution->level,
+                            'type'  => $document->institution->type ?? '',
+                        ] : null,
                         'is_new' => $document->created_at?->isAfter(now()->subDays(7)) ?? false,
                         'viewed_at' => $userViews->get('document_' . $document->id)?->last_viewed_at?->toISOString(),
                     ];
