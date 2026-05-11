@@ -387,8 +387,8 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
               </div>
             )}
             
-            {/* Spacer */}
-            <div className="flex-1 hidden lg:block" />
+            {/* Spacer — yalnız searchRowExtra yoxdursa işləyir */}
+            {!searchRowExtra && <div className="flex-1 hidden lg:block" />}
             
             {/* Filter Button (if needed) */}
             {onFilterClick && (
