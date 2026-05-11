@@ -1,0 +1,41 @@
+57739b4b feat(my-resources): apply scope filter to documents tab
+d60dcc27 fix(my-resources): scope filter by assignment target, not creator level
+ad441933 fix(my-resources): apply RegionalFolderManager level logic to scope filter tabs
+2db447b1 feat(my-resources): unify toolbar across all tabs — RegionalFolderManager pattern
+d6b056e2 feat(my-resources): add scope filter tabs to Linklər tab
+13d5d3bc refactor(link-database): replace department sidebar with filter chips
+2dabb8db fix(report-tables): remove Links tab, fix statistics layout and mobile responsiveness
+f903c0e4 fix(link-database): rol filtr aktiv olduqda bütün istifadəçilər göstərilir
+98f79844 fix(link-database): rol filtr aktiv olduqda 200 istifadəçi göstər
+0c9e5041 fix(link-database): hamısını seç düyməsi həmişə görünsün
+a8715dd1 fix(link-database): hamısını seç — regiona uyğun tam siyahı
+fca3d8d6 fix(link-database): per_page validation 200→500 artırıldı
+12142f0b fix(link-database): şəxslər tab-ında 500-ə qədər istifadəçi yüklənsin
+4ffdbdc8 feat(link-database): şəxslər tab-ında rol seçimi və hamısını seç
+120904fb fix(link-database): şəxslər tab-ında bütün rollar seçilə bilsin
+0fd496e7 feat(link-database): İzinlər tab-ı silindi, target_roles boş
+ba401a0b feat(link-database): Departamentlər tab-ı modal-dan silindi
+293d04a1 fix(link-database): regionoperator sektoradmin və schooladmin şəxsləri görsün
+90f321cf fix(link-database): regionoperator şəxslər tab-ında regionadmin görsün
+4b2b9d08 fix(link-database): şəxslər tab-ında bütün rollar görünsün
+b5046dca feat(link-database): istifadəçini departamentə təyin etmək və yalnız onu göstərmək
+63683ec7 fix(link-database): regionoperator yalnız öz departamentini görsün
+addf009b feat(link-database): əməkdaşlar öz departamentini görsün, target_users linki görsün
+2ed8c908 fix(link-database): regionoperator link yarada bilsin, optimistik update düzəlt
+b4796dc3 feat(projects): fəaliyyət adı inputunda Enter ilə saxla, Space DnD bug düzəlt
+c9e9ad2e feat(tools): Məktəblər üzrə ZIP export
+a98a40ed feat(tools): UI yaxşılaşdırma — Yenidən Planla, çap düzəlişi, xəbərdarlıqlar
+993c28d1 fix(tools): exportByGrade — sinif nomresini normalize et (6a,6b -> 6 sinif)
+6db724b8 fix(tools): exportByGrade — stil duzeldildi, sheet adi '4 sinif' formatinda
+cce08534 feat(tools): ExamSeatingPlan — sinifler uzre Excel eksport elave edildi - exportByGrade funksiyasi: her sinif ucun ayrica sheet - XULASE seyfesi: sinif, sagird sayi, merkez siyahisi - Yesil rengli header, alternativ setir renglendirmesi - Toolbar-a 'Sinifler uzre' duymen elave edildi
+7a64f6e2 feat(tools): ExamSeatingPlan UX ve responsivlik yenilikler - Config step sticky nav, modal room edit, center search - Classroom grid view (mugallim masasi, cergeler, qapi) - Buraxis veregesi: Usaq ID badge, 2 sutunlu melumat - Merkez kartlarinda bos yer sayi - Excel re-import funksionalligi - History localStorage race condition fix - Mobil responsivlik duzeltmeleri
+049aa098 fix(attendance): regional overview — sektor, trend və summary sahə uyğunsuzluqları
+730b1b82 fix(tooltip): TooltipContent portal içinə alındı — backdrop-filter clipping həll edildi
+8989811c feat(projects): mobile responsive — tablar, toolbar, filter düymələri
+81d4860c fix(projects): activity name sütunu varchar(191)→varchar(500) genişləndirildi
+05745b94 fix(projects): activity name inputlarına maxLength=255 əlavə edildi
+b9a3297f feat(projects): fəaliyyət adı və uzun mətn sütunlarına tooltip əlavə edildi
+9f054ca0 fix(tools): Greedy Pair — BOŞ yer olduqda eyni məktəb zorla cütlənmirdi
+21dc56d7 fix(tools): 2-mərhələli alqoritm → Greedy Pair (kök problemi həll edildi)
+9cde083b fix(tools): məktəb rəngi + 2-mərhələli yerləşdirmə alqoritmi
+83491b64 feat(link-database): mobile responsive layout
