@@ -56,6 +56,7 @@ export default function MyResources() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy]         = useState<SortBy>('date_desc');
   const [categoryFilter]            = useState<string>('all');
+  const [linkScopeFilter, setLinkScopeFilter] = useState<'all' | 'regional' | 'sectoral' | 'institutional'>('all');
   const [selectedFolder, setSelectedFolder]     = useState<DocumentCollection | null>(null);
   const [detailResource, setDetailResource]     = useState<AssignedResource | null>(null);
   const [editingResource, setEditingResource]   = useState<AssignedResource | null>(null);
@@ -156,6 +157,12 @@ export default function MyResources() {
     }
     return data;
   }, [rawResources, sortBy, categoryFilter]);
+
+  const filteredLinks = useMemo(() => {
+    const links = resourcesData.filter(r => r.type === 'link');
+    if (linkScopeFilter === 'all') return links;
+    return links.filter(r => r.share_scope === linkScopeFilter);
+  }, [resourcesData, linkScopeFilter]);
 
   // ── Handlers (must be before early returns) ─────────────────────────────────
 
@@ -337,8 +344,33 @@ export default function MyResources() {
             </TabsList>
 
             <TabsContent value="links" className="mt-0">
+              {/* Scope filter tabs */}
+              <div className="flex items-center gap-1 pt-3 pb-1 overflow-x-auto no-scrollbar">
+                {([
+                  { value: 'all',          label: 'Hamısı',    count: resourcesData.filter(r => r.type === 'link').length },
+                  { value: 'regional',     label: 'Region',    count: resourcesData.filter(r => r.type === 'link' && r.share_scope === 'regional').length },
+                  { value: 'sectoral',     label: 'Sektor',    count: resourcesData.filter(r => r.type === 'link' && r.share_scope === 'sectoral').length },
+                  { value: 'institutional',label: 'Məktəblər', count: resourcesData.filter(r => r.type === 'link' && r.share_scope === 'institutional').length },
+                ] as const).map(({ value, label, count }) => (
+                  <button
+                    key={value}
+                    onClick={() => setLinkScopeFilter(value)}
+                    className={`flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-semibold border transition-all whitespace-nowrap ${
+                      linkScopeFilter === value
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                    <span className={`px-1 py-0.5 rounded-full text-[10px] ${linkScopeFilter === value ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               <ResourceTabContent
-                resources={resourcesData.filter(r => r.type === 'link')}
+                resources={filteredLinks}
                 isLoading={isLoading}
                 resourceType="link"
                 isManager={isManager}
