@@ -25,22 +25,22 @@ const colorMap: Record<StatChip['color'], string> = {
 
 export function CurriculumStatsBar({ chips, className }: CurriculumStatsBarProps) {
   return (
-    <div className={cn('flex items-center gap-2 flex-wrap', className)}>
+    <div className={cn('flex items-center gap-1.5 w-full', className)}>
       {chips.map((chip) => (
         <div
           key={chip.label}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold whitespace-nowrap shrink-0',
+            'flex flex-1 items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-semibold min-w-0',
             colorMap[chip.color],
-            chip.highlight && 'ring-2 ring-offset-1 ring-current/30 font-black'
+            chip.highlight && 'font-black ring-1 ring-inset ring-current/20'
           )}
         >
-          <span className="opacity-70 font-medium">{chip.label}:</span>
-          <span className="font-black tabular-nums">
+          <span className="opacity-60 font-medium truncate hidden sm:inline">{chip.label}:</span>
+          <span className="font-black tabular-nums whitespace-nowrap">
             {typeof chip.value === 'number'
               ? chip.value % 1 === 0 ? chip.value : chip.value.toFixed(1)
               : chip.value}
-            <span className="text-[9px] ml-0.5 opacity-60">s</span>
+            <span className="text-[9px] ml-0.5 opacity-50">s</span>
           </span>
         </div>
       ))}

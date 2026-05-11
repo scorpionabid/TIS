@@ -230,30 +230,30 @@ export default function CurriculumPlan() {
 
                 {/* Grades Tab */}
                 {activeTab === 'grades' && (
-                  <div className="space-y-0">
-                    <div className="flex flex-wrap items-center gap-2 px-1 pb-3">
-                      <CurriculumStatsBar chips={[
-                        { label: 'Ümumi',        value: grandTotal.plan + grandTotal.split, color: 'blue'    },
-                        { label: 'Dərsd.kənar',  value: grandTotal.extra,                  color: 'purple'  },
-                        { label: 'Dərnək',       value: grandTotal.club,                   color: 'emerald' },
-                        { label: 'Fərdi',        value: grandTotal.indiv,                  color: 'orange'  },
-                        { label: 'Evdə',         value: grandTotal.home,                   color: 'amber'   },
-                        { label: 'Xüsusi',       value: grandTotal.special,                color: 'rose'    },
-                        { label: 'CƏMİ DƏ. YÜKÜ', value: grandTotal.total,                color: 'indigo', highlight: true },
-                      ]} />
-                    </div>
-                    <GradeManager
-                      baseConfig={curriculumGradeEntityConfig}
-                      initialFilters={{
-                        institution_id: institutionId,
-                        academic_year_id: academicYearId,
-                        include: 'grade_subjects,homeroom_teacher,academic_year,institution',
-                      }}
-                      masterPlan={masterPlan}
-                      categoryLimits={categoryLimits}
-                      isLocked={isLocked}
-                    />
-                  </div>
+                  <GradeManager
+                    baseConfig={curriculumGradeEntityConfig}
+                    initialFilters={{
+                      institution_id: institutionId,
+                      academic_year_id: academicYearId,
+                      include: 'grade_subjects,homeroom_teacher,academic_year,institution',
+                    }}
+                    masterPlan={masterPlan}
+                    categoryLimits={categoryLimits}
+                    isLocked={isLocked}
+                    searchRowExtra={
+                      <CurriculumStatsBar
+                        chips={[
+                          { label: 'Ümumi',      value: grandTotal.plan + grandTotal.split, color: 'blue'    },
+                          { label: 'Dərsd.kən.', value: grandTotal.extra,                  color: 'purple'  },
+                          { label: 'Dərnək',     value: grandTotal.club,                   color: 'emerald' },
+                          { label: 'Fərdi',      value: grandTotal.indiv,                  color: 'orange'  },
+                          { label: 'Evdə',       value: grandTotal.home,                   color: 'amber'   },
+                          { label: 'Xüsusi',     value: grandTotal.special,                color: 'rose'    },
+                          { label: 'CƏMİ',       value: grandTotal.total,                  color: 'indigo', highlight: true },
+                        ]}
+                      />
+                    }
+                  />
                 )}
 
                 {/* Workload Tab */}

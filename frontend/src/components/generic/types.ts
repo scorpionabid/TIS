@@ -240,6 +240,7 @@ export interface GenericManagerProps<T extends BaseEntity, TFilters extends Base
   statsVariant?: 'default' | 'compact';
   filterVariant?: 'default' | 'inline';
   readOnly?: boolean;
+  searchRowExtra?: ReactNode;
 }
 
 // Hook return type extension

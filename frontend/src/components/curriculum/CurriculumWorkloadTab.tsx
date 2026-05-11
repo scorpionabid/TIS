@@ -56,14 +56,14 @@ export function CurriculumWorkloadTab({ teachers, loadingTeachers, onOpenDrawer 
           />
         </div>
         {!loadingTeachers && (
-          <CurriculumStatsBar chips={[
-            { label: 'Ümumi t.',   value: workloadTotals.teaching,        color: 'blue'    },
-            { label: 'Fərdi',      value: workloadTotals.individual,      color: 'orange'  },
-            { label: 'Evdə',       value: workloadTotals.home,            color: 'amber'   },
-            { label: 'Xüsusi',     value: workloadTotals.special,         color: 'rose'    },
-            { label: 'Dərsd.kənar',value: workloadTotals.extracurricular, color: 'purple'  },
-            { label: 'Dərnək',     value: workloadTotals.club,            color: 'emerald' },
-            { label: 'CƏMİ',       value: workloadTotals.total,           color: 'indigo', highlight: true },
+          <CurriculumStatsBar className="flex-1 min-w-0" chips={[
+            { label: 'Ümumi t.',    value: workloadTotals.teaching,        color: 'blue'    },
+            { label: 'Fərdi',       value: workloadTotals.individual,      color: 'orange'  },
+            { label: 'Evdə',        value: workloadTotals.home,            color: 'amber'   },
+            { label: 'Xüsusi',      value: workloadTotals.special,         color: 'rose'    },
+            { label: 'Dərsd.kən.',  value: workloadTotals.extracurricular, color: 'purple'  },
+            { label: 'Dərnək',      value: workloadTotals.club,            color: 'emerald' },
+            { label: 'CƏMİ',        value: workloadTotals.total,           color: 'indigo', highlight: true },
           ]} />
         )}
       </div>

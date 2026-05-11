@@ -103,6 +103,9 @@ export interface ModernManagerHeaderProps {
   // Responsive
   className?: string;
   hideTitleSection?: boolean;
+
+  // Extra content rendered next to the search input (same row)
+  searchRowExtra?: React.ReactNode;
 }
 
 const getStatColorClasses = (color: string) => {
@@ -159,6 +162,7 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
   showTemplate = false,
   className,
   hideTitleSection = false,
+  searchRowExtra,
 }) => {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   
@@ -312,9 +316,9 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
 
         {/* Bottom Row - Search and Tabs */}
         <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-100">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
             {/* Search Input */}
-            <div className="relative w-full lg:max-w-xs">
+            <div className="relative shrink-0 w-full lg:w-64">
               <Search className={cn(
                 "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
                 isSearchFocused ? "text-blue-500" : "text-slate-400"
@@ -341,7 +345,14 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
                 </button>
               )}
             </div>
-            
+
+            {/* Extra content (e.g. stats chips) — fills remaining space */}
+            {searchRowExtra && (
+              <div className="flex-1 min-w-0">
+                {searchRowExtra}
+              </div>
+            )}
+
             {/* Tabs Row */}
             {tabs.length > 0 && (
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide pb-1 lg:pb-0">

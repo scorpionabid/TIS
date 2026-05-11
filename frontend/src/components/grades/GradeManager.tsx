@@ -49,6 +49,7 @@ interface GradeManagerProps {
   masterPlan?: any;
   categoryLimits?: Record<number, any>;
   isLocked?: boolean;
+  searchRowExtra?: React.ReactNode;
 }
 
 /**
@@ -61,14 +62,15 @@ interface GradeManagerProps {
  * - Features enhanced search and filtering capabilities
  * - Maintains consistent error handling and loading states
  */
-export const GradeManager: React.FC<GradeManagerProps> = ({ 
-  className, 
-  baseConfig, 
-  onAfterCreate, 
+export const GradeManager: React.FC<GradeManagerProps> = ({
+  className,
+  baseConfig,
+  onAfterCreate,
   initialFilters,
   masterPlan,
   categoryLimits,
-  isLocked = false
+  isLocked = false,
+  searchRowExtra,
 }) => {
   // Modal states for grade-specific operations
   const [createModalOpen, setCreateModalOpen] = React.useState(false);
@@ -474,6 +476,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
         customLogic={customLogic}
         className={className}
         readOnly={isLocked}
+        searchRowExtra={searchRowExtra}
       />
 
       {/* Grade Creation Modal */}
@@ -493,6 +496,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
           onClose={handleCloseModals}
           onUpdate={() => {
             queryClient.invalidateQueries({ queryKey: ['grades'] });
+            queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
+            queryClient.invalidateQueries({ queryKey: ['curriculum-plan-master'] });
+            queryClient.invalidateQueries({ queryKey: ['detailed-workload'] });
           }}
           isLocked={isLocked}
         />

@@ -25,6 +25,7 @@ export function GenericManagerV2<
   statsVariant = 'default',
   filterVariant = 'default',
   readOnly = false,
+  searchRowExtra,
 }: GenericManagerProps<T, TFilters, TCreateData>) {
   
   const manager = useEntityManagerV2(config, customLogic);
@@ -158,6 +159,7 @@ export function GenericManagerV2<
         showTemplate={config.headerConfig?.showTemplate === true}
         onTemplate={features.import && customLogic?.onTemplateClick ? customLogic.onTemplateClick : undefined}
         hideTitleSection={config.headerConfig?.hideTitleSection}
+        searchRowExtra={searchRowExtra}
       />
 
       {/* Bulk Actions */}
