@@ -34,27 +34,27 @@ const StatCard = ({ title, value, icon, color, description, trend }: CardProps) 
 
   return (
     <Card className="overflow-hidden border-none shadow-premium bg-white/50 backdrop-blur-sm dark:bg-slate-900/50 transition-all hover:translate-y-[-2px] hover:shadow-xl">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{title}</p>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1 sm:space-y-2 min-w-0">
+            <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest truncate">{title}</p>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums truncate">
               {value}
             </h3>
             {description && (
-              <p className="text-xs text-slate-400 font-medium">{description}</p>
+              <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">{description}</p>
             )}
             {trend && (
               <div className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold",
                 trend.isPositive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
               )}>
                 {trend.value}
               </div>
             )}
           </div>
-          <div className={cn("p-3 rounded-2xl", iconBgMap[color])}>
-            {React.cloneElement(icon as React.ReactElement, { size: 24, className: cn("stroke-[2.5px]", colorMap[color].split(' ')[1]) })}
+          <div className={cn("p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0", iconBgMap[color])}>
+            {React.cloneElement(icon as React.ReactElement, { className: cn("h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5px]", colorMap[color].split(' ')[1]) })}
           </div>
         </div>
       </CardContent>

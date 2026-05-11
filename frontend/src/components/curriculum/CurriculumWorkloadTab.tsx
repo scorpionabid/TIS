@@ -45,7 +45,7 @@ export function CurriculumWorkloadTab({ teachers, loadingTeachers, onOpenDrawer 
   return (
     <div className="bg-white rounded-3xl shadow-premium overflow-hidden border border-slate-200/60 p-1">
       <div className="p-4 border-b border-slate-100 flex flex-wrap items-center gap-4">
-        <div className="relative min-w-[300px] max-w-md shrink-0">
+        <div className="relative w-full sm:w-auto sm:min-w-[300px] max-w-md shrink-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"

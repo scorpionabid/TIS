@@ -121,7 +121,7 @@ export const CurriculumApprovalToolbar: React.FC<CurriculumApprovalToolbarProps>
         <Card className={cn(
           "transition-all duration-500 overflow-hidden relative group border border-slate-100 bg-white",
           isMinimal 
-            ? "flex flex-row items-center justify-between p-0 rounded-none h-auto gap-4 bg-transparent border-none shadow-none" 
+            ? "flex flex-col sm:flex-row items-center justify-between p-3 sm:p-0 rounded-2xl sm:rounded-none h-auto gap-4 bg-slate-50/50 sm:bg-transparent border-slate-100 sm:border-none shadow-sm sm:shadow-none" 
             : "flex flex-col lg:flex-row lg:items-center justify-between p-6 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 gap-4 min-h-[120px]",
           !isMinimal && (approval.status === 'approved' ? "ring-1 ring-emerald-500/5" : 
           approval.status === 'submitted' ? "ring-1 ring-blue-500/5" :
@@ -157,16 +157,16 @@ export const CurriculumApprovalToolbar: React.FC<CurriculumApprovalToolbarProps>
 
           {/* 2. MIDDLE: Status Label & Info (Integrated for minimal) */}
           <div className={cn(
-             "flex items-center gap-4 transition-all transition-opacity px-4 border-l border-slate-100/50 ml-4",
+             "flex flex-col sm:flex-row items-center gap-2 sm:gap-4 transition-all transition-opacity sm:px-4 sm:border-l sm:border-slate-100/50 sm:ml-4",
              isMinimal ? "opacity-100" : "opacity-0 invisible h-0 w-0"
           )}>
             <span className={cn(
-              "font-black py-1.5 px-4 rounded-full text-[11px] border shadow-sm transition-all whitespace-nowrap uppercase tracking-wider",
+              "font-black py-1.5 px-4 rounded-full text-[10px] sm:text-[11px] border shadow-sm transition-all whitespace-nowrap uppercase tracking-wider",
               config.color
             )}>
               {config.label}
             </span>
-            <h3 className="font-bold text-slate-500 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis max-w-[400px] italic">
+            <h3 className="font-bold text-slate-500 text-[11px] sm:text-[13px] text-center sm:text-left italic leading-tight">
               {config.description}
             </h3>
           </div>
@@ -178,11 +178,11 @@ export const CurriculumApprovalToolbar: React.FC<CurriculumApprovalToolbarProps>
           )}
 
           {/* 3. RIGHT: Actions & Deadline */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
             {deadline && (approval.status === 'draft' || approval.status === 'returned' || approval.status === 'submitted') && (
               <div className={cn(
                 "flex border-slate-200/60 transition-all",
-                isMinimal ? "flex-row items-center gap-2 pl-3 border-l" : "hidden sm:flex flex-col border-l pl-6 ml-2"
+                isMinimal ? "flex-row items-center justify-center gap-2 sm:pl-3 sm:border-l w-full sm:w-auto" : "hidden sm:flex flex-col border-l pl-6 ml-2"
               )}>
                 {!isMinimal && (
                   <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
@@ -191,15 +191,15 @@ export const CurriculumApprovalToolbar: React.FC<CurriculumApprovalToolbarProps>
                 )}
                 <div className={cn(
                   "font-bold tracking-tight tabular-nums whitespace-nowrap",
-                  isMinimal ? "text-[8px] text-slate-400" : "text-base text-slate-800 font-black tracking-tighter",
+                  isMinimal ? "text-[10px] sm:text-[8px] text-slate-400" : "text-base text-slate-800 font-black tracking-tighter",
                 )}>
-                  {isMinimal && <Clock size={8} className="inline mr-1 opacity-50" />}
+                  <Clock size={isMinimal ? 12 : 8} className="inline mr-1 opacity-50 sm:h-2 sm:w-2" />
                   {format(new Date(deadline), isMinimal ? 'dd.MM HH:mm' : 'dd.MM.yyyy HH:mm')}
                 </div>
               </div>
             )}
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center">
             {/* School Admin Actions */}
             {userRole === 'schooladmin' && (
               <>
@@ -208,29 +208,29 @@ export const CurriculumApprovalToolbar: React.FC<CurriculumApprovalToolbarProps>
                     onClick={onSubmit} 
                     disabled={isProcessing}
                     className={cn(
-                      "text-white shadow-md transition-all hover:scale-105 active:scale-[0.98]",
-                      isMinimal ? "h-10 bg-slate-900 hover:bg-slate-800 rounded-xl px-5 font-black text-[11px] uppercase tracking-widest" : "h-14 bg-slate-900 hover:bg-slate-800 rounded-2xl px-8 font-black uppercase tracking-[0.2em]"
+                      "text-white shadow-md transition-all hover:scale-105 active:scale-[0.98] w-full sm:w-auto",
+                      isMinimal ? "h-10 bg-slate-900 hover:bg-slate-800 rounded-xl px-5 font-black text-[10px] sm:text-[11px] uppercase tracking-widest" : "h-14 bg-slate-900 hover:bg-slate-800 rounded-2xl px-8 font-black uppercase tracking-[0.2em]"
                     )}
                   >
-                    <Send className={cn("mr-1", isMinimal ? "h-4 w-4" : "mr-3 h-4 w-4")} /> Təsdiqə Göndər
+                    <Send className={cn("mr-1", isMinimal ? "h-3.5 w-3.5" : "mr-3 h-4 w-4")} /> Təsdiqə Göndər
                   </Button>
                 )}
                 {approval.status === 'submitted' && (
                   <div className={cn(
-                    "flex items-center gap-2 text-blue-700",
+                    "flex items-center gap-2 text-blue-700 w-full sm:w-auto justify-center",
                     isMinimal ? "px-4 py-2 rounded-xl bg-blue-50/50 border border-blue-100" : "px-6 py-4 rounded-[1.5rem] bg-blue-50/50 border border-blue-100"
                   )}>
-                    <Lock className={cn(isMinimal ? "h-4 w-4" : "h-4 w-4")} /> 
-                    <span className={cn(isMinimal ? "text-[10px] font-black uppercase tracking-widest" : "text-[11px] font-black uppercase tracking-widest")}>Gözləmədə</span>
+                    <Lock className={cn("h-4 w-4")} /> 
+                    <span className={cn("text-[10px] font-black uppercase tracking-widest")}>Gözləmədə</span>
                   </div>
                 )}
                 {approval.status === 'approved' && (
                   <div className={cn(
-                    "flex items-center gap-2 text-emerald-700",
+                    "flex items-center gap-2 text-emerald-700 w-full sm:w-auto justify-center",
                     isMinimal ? "px-4 py-2 rounded-xl bg-emerald-50/50 border border-emerald-100" : "px-6 py-4 rounded-[1.5rem] bg-emerald-50/50 border border-emerald-100"
                   )}>
-                    <CheckCircle2 className={cn(isMinimal ? "h-4 w-4" : "h-4 w-4")} /> 
-                    <span className={cn(isMinimal ? "text-[10px] font-black uppercase tracking-widest" : "text-[11px] font-black uppercase tracking-widest")}>Təsdiqlənib</span>
+                    <CheckCircle2 className={cn("h-4 w-4")} /> 
+                    <span className={cn("text-[10px] font-black uppercase tracking-widest")}>Təsdiqlənib</span>
                   </div>
                 )}
               </>
