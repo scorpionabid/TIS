@@ -1,8 +1,9 @@
 import { Loader2, Search, Clock } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { SchoolTeacher } from '@/services/schoolAdmin';
 import { workloadColumns } from '@/components/teachers/configurations/teacherConfig';
 import { LevelTotal } from '@/hooks/useCurriculumPlanData';
+import { CurriculumStatsBar } from './CurriculumStatsBar';
 
 interface Props {
   teachers: SchoolTeacher[];
@@ -13,6 +14,20 @@ interface Props {
 
 export function CurriculumWorkloadTab({ teachers, loadingTeachers, onOpenDrawer }: Props) {
   const [workloadSearch, setWorkloadSearch] = useState('');
+
+  const workloadTotals = useMemo(() => {
+    const sum = (key: keyof SchoolTeacher) =>
+      teachers.reduce((acc, t) => acc + (Number(t[key]) || 0), 0);
+    return {
+      teaching:       sum('workload_teaching_hours'),
+      individual:     sum('workload_individual_school'),
+      home:           sum('workload_home_education'),
+      special:        sum('workload_special_education'),
+      extracurricular:sum('workload_extracurricular_hours'),
+      club:           sum('workload_club_hours'),
+      total:          sum('workload_total_hours'),
+    };
+  }, [teachers]);
 
   const filtered = teachers.filter(t => {
     if (!workloadSearch) return true;
@@ -29,17 +44,28 @@ export function CurriculumWorkloadTab({ teachers, loadingTeachers, onOpenDrawer 
 
   return (
     <div className="bg-white rounded-3xl shadow-premium overflow-hidden border border-slate-200/60 p-1">
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-        <div className="relative w-full max-w-md">
+      <div className="p-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] max-w-xs shrink-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Müəllim axtar (ad, soyad, ixtisas...)"
+            placeholder="Müəllim axtar..."
             value={workloadSearch}
             onChange={(e) => setWorkloadSearch(e.target.value)}
-            className="w-full pl-12 pr-6 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
+            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
           />
         </div>
+        {!loadingTeachers && (
+          <CurriculumStatsBar chips={[
+            { label: 'Ümumi t.',   value: workloadTotals.teaching,        color: 'blue'    },
+            { label: 'Fərdi',      value: workloadTotals.individual,      color: 'orange'  },
+            { label: 'Evdə',       value: workloadTotals.home,            color: 'amber'   },
+            { label: 'Xüsusi',     value: workloadTotals.special,         color: 'rose'    },
+            { label: 'Dərsd.kənar',value: workloadTotals.extracurricular, color: 'purple'  },
+            { label: 'Dərnək',     value: workloadTotals.club,            color: 'emerald' },
+            { label: 'CƏMİ',       value: workloadTotals.total,           color: 'indigo', highlight: true },
+          ]} />
+        )}
       </div>
 
       {loadingTeachers ? (

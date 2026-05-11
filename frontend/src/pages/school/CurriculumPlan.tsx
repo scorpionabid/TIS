@@ -14,6 +14,7 @@ import { TeacherWorkloadDrawer } from '@/components/curriculum/TeacherWorkloadDr
 import { CurriculumSummaryTiles } from '@/components/curriculum/CurriculumSummaryTiles';
 import { CurriculumYigimTable } from '@/components/curriculum/CurriculumYigimTable';
 import { CurriculumInstructionTab } from '@/components/curriculum/CurriculumInstructionTab';
+import { CurriculumStatsBar } from '@/components/curriculum/CurriculumStatsBar';
 import { GradeManager } from '@/components/grades/GradeManager';
 import { curriculumGradeEntityConfig } from '@/components/grades/configurations/gradeConfig';
 import { TeacherWorkloadDetailTable } from '@/components/teachers/TeacherWorkloadDetailTable';
@@ -229,17 +230,30 @@ export default function CurriculumPlan() {
 
                 {/* Grades Tab */}
                 {activeTab === 'grades' && (
-                  <GradeManager
-                    baseConfig={curriculumGradeEntityConfig}
-                    initialFilters={{
-                      institution_id: institutionId,
-                      academic_year_id: academicYearId,
-                      include: 'grade_subjects,homeroom_teacher,academic_year,institution',
-                    }}
-                    masterPlan={masterPlan}
-                    categoryLimits={categoryLimits}
-                    isLocked={isLocked}
-                  />
+                  <div className="space-y-0">
+                    <div className="flex flex-wrap items-center gap-2 px-1 pb-3">
+                      <CurriculumStatsBar chips={[
+                        { label: 'Ümumi',        value: grandTotal.plan + grandTotal.split, color: 'blue'    },
+                        { label: 'Dərsd.kənar',  value: grandTotal.extra,                  color: 'purple'  },
+                        { label: 'Dərnək',       value: grandTotal.club,                   color: 'emerald' },
+                        { label: 'Fərdi',        value: grandTotal.indiv,                  color: 'orange'  },
+                        { label: 'Evdə',         value: grandTotal.home,                   color: 'amber'   },
+                        { label: 'Xüsusi',       value: grandTotal.special,                color: 'rose'    },
+                        { label: 'CƏMİ DƏ. YÜKÜ', value: grandTotal.total,                color: 'indigo', highlight: true },
+                      ]} />
+                    </div>
+                    <GradeManager
+                      baseConfig={curriculumGradeEntityConfig}
+                      initialFilters={{
+                        institution_id: institutionId,
+                        academic_year_id: academicYearId,
+                        include: 'grade_subjects,homeroom_teacher,academic_year,institution',
+                      }}
+                      masterPlan={masterPlan}
+                      categoryLimits={categoryLimits}
+                      isLocked={isLocked}
+                    />
+                  </div>
                 )}
 
                 {/* Workload Tab */}
