@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Search, Plus, Loader2,
   LayoutGrid, LayoutList,
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AssignedResourceGrid } from './AssignedResourceGrid';
 import { cn } from '@/lib/utils';
+import { useLongPress } from '@/hooks/useLongPress';
 import type { AssignedResource } from '@/types/resources';
 
 type ScopeFilter = 'all' | 'region' | 'sector' | 'school';
@@ -49,6 +50,59 @@ function getResourceTab(r: AssignedResource): ScopeFilter {
   }
 }
 
+function storageKey(resourceType: 'link' | 'document') {
+  return `atis-my-resources-${resourceType}-scope`;
+}
+
+function readDefault(resourceType: 'link' | 'document'): ScopeFilter {
+  try {
+    const v = localStorage.getItem(storageKey(resourceType));
+    if (v === 'all' || v === 'region' || v === 'sector' || v === 'school') return v;
+  } catch { /* ignore */ }
+  return 'all';
+}
+
+// ScopeChip — long-press ilə default seçim + progress bar
+interface ScopeChipProps {
+  value: ScopeFilter;
+  label: string;
+  count: number;
+  icon: React.ElementType | null;
+  active: boolean;
+  onClick: () => void;
+  onSetDefault: () => void;
+}
+
+function ScopeChip({ value, label, count, icon: Icon, active, onClick, onSetDefault }: ScopeChipProps) {
+  const { handlers, pressing, progress } = useLongPress(onSetDefault, 5000);
+
+  return (
+    <button
+      onClick={onClick}
+      {...handlers}
+      title={pressing ? `${Math.round(progress * 100)}% — buraxın: default seçilir` : 'Saxlayın: default et'}
+      className={cn(
+        'relative h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap border select-none overflow-hidden',
+        active
+          ? 'bg-primary text-white border-primary shadow-sm'
+          : 'bg-white text-muted-foreground border-gray-200 hover:bg-gray-50',
+      )}
+    >
+      {Icon && <Icon className="h-3 w-3 shrink-0" />}
+      {label}
+      <span className="ml-0.5 opacity-70">({count})</span>
+
+      {/* Long-press progress bar */}
+      {pressing && (
+        <span
+          className="absolute bottom-0 left-0 h-0.5 bg-current opacity-60 transition-none"
+          style={{ width: `${progress * 100}%` }}
+        />
+      )}
+    </button>
+  );
+}
+
 export function ResourceTabContent({
   resources,
   isLoading,
@@ -64,7 +118,7 @@ export function ResourceTabContent({
   onDelete,
   onCreateNew,
 }: ResourceTabContentProps) {
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>(() => readDefault(resourceType));
   const [viewMode, setViewMode]       = useState<ViewMode>('comfortable');
 
   const isLink = resourceType === 'link';
@@ -80,6 +134,11 @@ export function ResourceTabContent({
     if (scopeFilter === 'all') return resources;
     return resources.filter(r => getResourceTab(r) === scopeFilter);
   }, [resources, scopeFilter]);
+
+  const handleSetDefault = useCallback((value: ScopeFilter) => {
+    try { localStorage.setItem(storageKey(resourceType), value); } catch { /* ignore */ }
+    setScopeFilter(value);
+  }, [resourceType]);
 
   if (isLoading) {
     return (
@@ -129,21 +188,17 @@ export function ResourceTabContent({
 
           {/* Scope chips */}
           <div className="flex items-center gap-1.5 border-l pl-3 h-6 border-gray-200 shrink-0">
-            {SCOPE_LEVELS.map(({ value, label, icon: Icon }) => (
-              <button
+            {SCOPE_LEVELS.map(({ value, label, icon }) => (
+              <ScopeChip
                 key={value}
+                value={value}
+                label={label}
+                count={counts[value]}
+                icon={icon}
+                active={scopeFilter === value}
                 onClick={() => setScopeFilter(value)}
-                className={cn(
-                  'h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap border',
-                  scopeFilter === value
-                    ? 'bg-primary text-white border-primary shadow-sm'
-                    : 'bg-white text-muted-foreground border-gray-200 hover:bg-gray-50'
-                )}
-              >
-                {Icon && <Icon className="h-3 w-3" />}
-                {label}
-                <span className="ml-0.5 opacity-70">({counts[value]})</span>
-              </button>
+                onSetDefault={() => handleSetDefault(value)}
+              />
             ))}
           </div>
 

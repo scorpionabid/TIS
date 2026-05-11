@@ -210,28 +210,9 @@ export function ColumnEditor({
           </div>
         ) : (
           /* Expanded: Main Fields */
-          <div className="flex-1 grid grid-cols-3 gap-2">
+          <div className="flex-1 grid grid-cols-2 gap-2">
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Açar ad</Label>
-              <Input
-                value={column.key}
-                onChange={(e) =>
-                  onUpdate(
-                    index,
-                    'key',
-                    e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-                  )
-                }
-                placeholder="col_1"
-                disabled={disabled}
-                className={cn(
-                  'text-sm h-8',
-                  errors?.some((e) => e.includes('Açar ad')) && 'border-red-500'
-                )}
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Etiket</Label>
+              <Label className="text-xs text-gray-500 mb-1 block">Sütun adı</Label>
               <Input
                 value={column.label}
                 onChange={(e) => onUpdate(index, 'label', e.target.value)}
@@ -384,6 +365,27 @@ export function ColumnEditor({
           <p className="text-xs text-gray-500 font-medium mt-2 mb-2">Əlavə parametrlər</p>
 
           <div className="space-y-3">
+            {/* Key field — technical, hidden from main view */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Açar ad <span className="text-gray-400 font-normal">(texniki)</span></Label>
+              <Input
+                value={column.key}
+                onChange={(e) =>
+                  onUpdate(
+                    index,
+                    'key',
+                    e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')
+                  )
+                }
+                placeholder="col_1"
+                disabled={disabled}
+                className={cn(
+                  'text-sm h-8 font-mono',
+                  errors?.some((e) => e.includes('Açar ad')) && 'border-red-500'
+                )}
+              />
+            </div>
+
             {/* Hint */}
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Kömək mətni</Label>

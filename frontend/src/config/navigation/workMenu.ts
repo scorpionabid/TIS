@@ -107,15 +107,6 @@ export const workMenuGroups: MenuGroup[] = [
         permissions: ['report_table_responses.write'],
       },
       {
-        id: 'link-database',
-        label: 'Keçidlər',
-        path: '/link-database',
-        icon: ExternalLink,
-        roles: REGION_AND_ABOVE,
-        permissions: ['links.read'],
-        description: 'Faydalı resurslara sürətli keçidlər paneli',
-      },
-      {
         id: 'my-resources',
         label: 'Resurslar',
         path: '/my-resources',

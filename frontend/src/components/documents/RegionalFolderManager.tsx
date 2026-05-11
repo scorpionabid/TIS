@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection } from '../../types/documentCollection';
@@ -13,6 +13,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { canUserCreateRegionalFolder, canUserManageFolder } from '@/utils/permissions';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useLongPress } from '@/hooks/useLongPress';
+
+const FOLDER_SCOPE_KEY = 'atis-my-resources-folder-scope';
+
+function readFolderDefault(): string {
+  try {
+    const v = localStorage.getItem(FOLDER_SCOPE_KEY);
+    if (v && ['all', 'region', 'sector', 'school'].includes(v)) return v;
+  } catch { /* ignore */ }
+  return 'all';
+}
 
 const getFolderTabLevel = (
   folder: DocumentCollection, 
@@ -50,12 +61,47 @@ const getFolderTabLevel = (
 };
 
 
+interface FolderScopeChipProps {
+  level: { value: string; label: string; count: number; icon: React.ElementType };
+  activeTab: string;
+  onSelect: (v: string) => void;
+  onSetDefault: (v: string) => void;
+}
+
+function FolderScopeChip({ level, activeTab, onSelect, onSetDefault }: FolderScopeChipProps) {
+  const active = activeTab === level.value;
+  const { handlers, pressing, progress } = useLongPress(() => onSetDefault(level.value), 5000);
+
+  return (
+    <button
+      onClick={() => onSelect(level.value)}
+      {...handlers}
+      title={pressing ? `${Math.round(progress * 100)}% — buraxın: default seçilir` : 'Saxlayın: default et'}
+      className={`relative h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap border select-none overflow-hidden ${
+        active
+          ? 'bg-primary text-white border-primary shadow-sm'
+          : 'bg-white text-muted-foreground border-gray-200 hover:bg-gray-50'
+      }`}
+    >
+      <level.icon className="h-3 w-3" />
+      {level.label}
+      <span className="ml-0.5 opacity-70">({level.count})</span>
+      {pressing && (
+        <span
+          className="absolute bottom-0 left-0 h-0.5 bg-current opacity-60"
+          style={{ width: `${progress * 100}%` }}
+        />
+      )}
+    </button>
+  );
+}
+
 const RegionalFolderManager: React.FC = () => {
   const { currentUser: user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>(readFolderDefault);
   const [viewMode, setViewMode] = useState<'comfortable' | 'compact'>('compact');
 
 
@@ -262,6 +308,11 @@ const RegionalFolderManager: React.FC = () => {
     return folders.filter(f => f.owner_institution_id === userInstitutionId).length;
   }, [folders, userInstitutionId]);
 
+  const handleSetFolderDefault = useCallback((value: string) => {
+    try { localStorage.setItem(FOLDER_SCOPE_KEY, value); } catch { /* ignore */ }
+    setActiveTab(value);
+  }, []);
+
   // Wait for user to load from AuthContext
   if (!user) {
     return (
@@ -335,19 +386,13 @@ const RegionalFolderManager: React.FC = () => {
               { value: 'sector', label: 'Sektor', count: counts.sector, icon: MapPin },
               { value: 'school', label: 'Məktəblər', count: counts.school, icon: GraduationCap },
             ].map(level => (
-              <button
+              <FolderScopeChip
                 key={level.value}
-                onClick={() => setActiveTab(level.value)}
-                className={`h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap border ${
-                  activeTab === level.value 
-                    ? 'bg-primary text-white border-primary shadow-sm' 
-                    : 'bg-white text-muted-foreground border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <level.icon className="h-3 w-3" />
-                {level.label}
-                <span className={`ml-0.5 opacity-70`}>({level.count})</span>
-              </button>
+                level={level}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+                onSetDefault={handleSetFolderDefault}
+              />
             ))}
           </div>
 

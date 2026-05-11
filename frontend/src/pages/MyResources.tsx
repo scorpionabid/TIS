@@ -21,7 +21,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import { ResourceModal } from '@/components/modals/ResourceModal';
+import { UnifiedResourceModal } from '@/components/modals/UnifiedResourceModal';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -423,21 +423,18 @@ export default function MyResources() {
         }}
       />
 
-      {isResourceModalOpen && (
-        <ResourceModal
-          isOpen={isResourceModalOpen}
-          resourceType={resourceModalType}
-          resource={editingResource}
-          mode={editingResource ? 'edit' : 'create'}
-          lockedTab={resourceModalType === 'link' ? 'links' : 'documents'}
-          onClose={() => { setIsResourceModalOpen(false); setEditingResource(null); }}
-          onResourceSaved={() => {
-            setIsResourceModalOpen(false);
-            setEditingResource(null);
-            queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
-          }}
-        />
-      )}
+      <UnifiedResourceModal
+        isOpen={isResourceModalOpen}
+        type={resourceModalType}
+        resource={editingResource}
+        mode={editingResource ? 'edit' : 'create'}
+        onClose={() => { setIsResourceModalOpen(false); setEditingResource(null); }}
+        onResourceSaved={() => {
+          setIsResourceModalOpen(false);
+          setEditingResource(null);
+          queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
+        }}
+      />
 
       <LinkBulkUploadModal
         isOpen={isBulkUploadModalOpen}

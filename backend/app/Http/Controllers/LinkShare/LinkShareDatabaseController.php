@@ -53,7 +53,8 @@ class LinkShareDatabaseController extends BaseController
                       ->orWhereJsonLength('target_roles', 0)
                       ->orWhereJsonContains('target_roles', [$userRole])
                       ->orWhere('shared_by', $userId)
-                      ->orWhereJsonContains('target_users', $userId);
+                      ->orWhereJsonContains('target_users', (int) $userId)
+                      ->orWhereJsonContains('target_users', (string) $userId);
                 });
             }
 
@@ -314,16 +315,13 @@ class LinkShareDatabaseController extends BaseController
                     $query->whereIn('institution_id', $scopeIds);
                 }
             } elseif ($user->hasRole('regionoperator')) {
-                $assignedDepts = array_values(array_filter($user->departments ?? []));
-                if (! empty($assignedDepts)) {
-                    // Təyin edilmiş departamentlər varsa — yalnız onlar
-                    $query->whereIn('id', $assignedDepts);
-                } elseif ($user->department_id) {
-                    // Tək departament təyin edilibsə — yalnız o
-                    $query->where('id', $user->department_id);
-                } elseif ($user->institution_id) {
-                    // Heç biri yoxdursa — bütün institution departamentləri (fallback)
-                    $query->where('institution_id', $user->institution_id);
+                // Regionoperator öz regionundakı bütün hierarchy departamentlərini görür
+                // (regionadmin ilə eyni scope — link visibility ayrıca target_roles/target_users ilə idarə olunur)
+                $userInstitution = $user->institution;
+                if ($userInstitution) {
+                    $childIds = $userInstitution->getAllChildrenIds() ?? [];
+                    $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+                    $query->whereIn('institution_id', $scopeIds);
                 }
             } elseif ($user->hasRole('sektoradmin')) {
                 $userInstitution = $user->institution;

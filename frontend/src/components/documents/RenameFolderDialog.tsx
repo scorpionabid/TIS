@@ -4,7 +4,8 @@ import documentCollectionService from '../../services/documentCollectionService'
 import { institutionService } from '../../services/institutions';
 import { userService } from '../../services/users';
 import type { DocumentCollection } from '../../types/documentCollection';
-import { X, Edit, Building2, Users, Target, Search, User as UserIcon } from 'lucide-react';
+import { X, Edit, Building2, Users, Target, Search, User as UserIcon, Folder, Settings } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { hasRole } from '@/utils/permissions';
 
@@ -142,20 +143,57 @@ const RenameFolderDialog: React.FC<RenameFolderDialogProps> = ({ folder, onClose
   const canTargetUsers = !!targetRoles;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Edit className="text-blue-600" size={24} />
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent
+        className="w-full sm:max-w-[780px] p-0 flex flex-col sm:flex-row h-[92vh] sm:h-[640px] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
+        onInteractOutside={e => e.preventDefault()}
+        onEscapeKeyDown={e => e.preventDefault()}
+      >
+
+        {/* Sidebar */}
+        <div className="hidden sm:flex w-[190px] shrink-0 flex-col bg-gray-50 border-r">
+          <div className="p-5 border-b">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-blue-600 text-white">
+                <Edit className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-gray-800">Qovluq Redaktə</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Dəyişdirilir</p>
+              </div>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">Qovluğu Redaktə Et</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
-          </button>
+          <nav className="flex-1 py-3 px-2 space-y-1">
+            {[
+              { icon: Folder,   label: 'Ümumi',        color: 'bg-blue-500'    },
+              { icon: Target,   label: 'Hədəf',        color: 'bg-emerald-500' },
+              { icon: Users,    label: 'İstifadəçilər', color: 'bg-violet-500' },
+              { icon: Settings, label: 'Parametrlər',  color: 'bg-amber-500'   },
+            ].map(({ icon: Icon, label, color }) => (
+              <div key={label} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500">
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center ${color}`}>
+                  <Icon className="h-3.5 w-3.5 text-white" />
+                </div>
+                {label}
+              </div>
+            ))}
+          </nav>
         </div>
+
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Mobile header */}
+          <div className="flex sm:hidden items-center justify-between px-4 py-3 border-b bg-gray-50 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-blue-600 text-white">
+                <Edit className="h-4 w-4" />
+              </div>
+              <span className="font-bold text-sm">Qovluq Redaktə</span>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X size={20} />
+            </button>
+          </div>
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
@@ -362,23 +400,26 @@ const RenameFolderDialog: React.FC<RenameFolderDialogProps> = ({ folder, onClose
         </form>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              İmtina
-            </button>
-            <button
-              type="submit"
-              onClick={handleSubmit}
-              disabled={loading || !name.trim()}
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Yadda saxlanılır...' : 'Yadda Saxla'}
-            </button>
-          </div>
+        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t bg-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-gray-500 hover:text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-all"
+          >
+            Ləğv et
+          </button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={loading || !name.trim()}
+            className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 shadow-sm"
+          >
+            {loading ? 'Yadda saxlanılır...' : 'Yadda Saxla'}
+          </button>
         </div>
-      </div>
-    </div>
+        </div>{/* end main content */}
+      </DialogContent>
+    </Dialog>
   );
 };
 
