@@ -17,14 +17,13 @@ export function CurriculumWorkloadTab({ teachers, loadingTeachers, onOpenDrawer 
   const filtered = teachers.filter(t => {
     if (!workloadSearch) return true;
     const search = workloadSearch.toLowerCase();
-    const tRaw = t as Record<string, unknown>;
     return (
       t.first_name?.toLowerCase().includes(search) ||
       t.last_name?.toLowerCase().includes(search) ||
-      (tRaw.patronymic as string)?.toLowerCase().includes(search) ||
-      (tRaw.specialty as string)?.toLowerCase().includes(search) ||
+      t.patronymic?.toLowerCase().includes(search) ||
+      t.specialty?.toLowerCase().includes(search) ||
       t.email?.toLowerCase().includes(search) ||
-      (tRaw.employee_id as string)?.toLowerCase().includes(search)
+      t.employee_id?.toLowerCase().includes(search)
     );
   });
 

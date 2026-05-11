@@ -235,63 +235,63 @@ export const workloadColumns: ColumnConfig<SchoolTeacher>[] = [
     label: 'Qiymətləndirmə növü',
     width: 'w-[140px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs">{(teacher as any).assessment_type || '—'}</span>,
+    render: (teacher) => <span className="text-xs">{teacher.assessment_type || '—'}</span>,
   },
   {
     key: 'assessment_score',
     label: 'Qiymətləndirmə balı',
     width: 'w-[100px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs font-bold">{teacher.assessment_score ?? '—'}</span>,
+    render: (teacher) => <span className="text-xs font-bold">{teacher.assessment_score ?? '—'}</span>,
   },
   {
     key: 'workload_teaching_hours',
     label: 'Dərs yükü (ümumi təhsil)',
     width: 'w-[90px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs font-bold text-blue-700">{teacher.workload_teaching_hours ?? 0}</span>,
+    render: (teacher) => <span className="text-xs font-bold text-blue-700">{teacher.workload_teaching_hours ?? 0}</span>,
   },
   {
     key: 'workload_individual_school',
     label: 'Fərdi təhsil (məktəbdə)',
     width: 'w-[120px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs">{(teacher as any).workload_individual_school ?? 0}</span>,
+    render: (teacher) => <span className="text-xs">{teacher.workload_individual_school ?? 0}</span>,
   },
   {
     key: 'workload_home_education',
     label: 'Evdə təhsil',
     width: 'w-[100px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs">{(teacher as any).workload_home_education ?? 0}</span>,
+    render: (teacher) => <span className="text-xs">{teacher.workload_home_education ?? 0}</span>,
   },
   {
     key: 'workload_special_education',
     label: 'Xüsusi təhsil',
     width: 'w-[100px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs">{(teacher as any).workload_special_education ?? 0}</span>,
+    render: (teacher) => <span className="text-xs">{teacher.workload_special_education ?? 0}</span>,
   },
   {
     key: 'workload_extracurricular_hours',
     label: 'Dərsdən kənar məşğələ',
     width: 'w-[120px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs font-bold text-amber-700">{teacher.workload_extracurricular_hours ?? 0}</span>,
+    render: (teacher) => <span className="text-xs font-bold text-amber-700">{teacher.workload_extracurricular_hours ?? 0}</span>,
   },
   {
     key: 'workload_club_hours',
     label: 'Dərnək',
     width: 'w-[90px]',
     align: 'center',
-    render: (teacher: any) => <span className="text-xs font-bold text-purple-700">{teacher.workload_club_hours ?? 0}</span>,
+    render: (teacher) => <span className="text-xs font-bold text-purple-700">{teacher.workload_club_hours ?? 0}</span>,
   },
   {
     key: 'workload_total_hours',
     label: 'Ümumi dərs yükü',
     width: 'w-[110px]',
     align: 'center',
-    render: (teacher: any) => (
+    render: (teacher) => (
       <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs">
         {teacher.workload_total_hours ?? 0}
       </span>

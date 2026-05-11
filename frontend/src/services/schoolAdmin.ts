@@ -167,8 +167,14 @@ export interface SchoolTeacher extends BaseEntity {
   workload_teaching_hours?: number;
   workload_club_hours?: number;
   workload_extracurricular_hours?: number;
+  workload_individual_school?: number;
+  workload_home_education?: number;
+  workload_special_education?: number;
 
   // New teacher fields from teacher management improvement
+  patronymic?: string;
+  specialty?: string;
+  assessment_type?: string;
   position_type?: 'direktor' | 'direktor_muavini_tedris' | 'direktor_muavini_inzibati' |
                   'terbiye_isi_uzre_direktor_muavini' | 'metodik_birlesme_rəhbəri' |
                   'muəllim_sinif_rəhbəri' | 'muəllim' | 'psixoloq' | 'kitabxanaçı' |

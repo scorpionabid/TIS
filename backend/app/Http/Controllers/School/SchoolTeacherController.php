@@ -57,12 +57,14 @@ class SchoolTeacherController extends Controller
         if (! $user->hasRole('superadmin')) {
             if (! $targetInstitutionId) {
                 \Log::warning('⚠️ [SchoolTeacherController Debug] No target institution ID');
+
                 return response()->json(['error' => 'Müəssisə ID təyin edilməyib'], 400);
             }
 
             // Verify access using DataIsolationHelper
             if (! \App\Helpers\DataIsolationHelper::canAccessInstitution($user, (int) $targetInstitutionId)) {
                 \Log::warning('❌ [SchoolTeacherController Debug] Access denied to institution', ['target_id' => $targetInstitutionId]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu müəssisəyə giriş icazəniz yoxdur.',
@@ -77,17 +79,17 @@ class SchoolTeacherController extends Controller
                 // Primary institution match
                 $q->where('institution_id', $targetInstitutionId)
                   // OR linked via teacherWorkplaces (for multi-school teachers)
-                  ->orWhereHas('teacherWorkplaces', function ($subQ) use ($targetInstitutionId) {
-                      $subQ->where('institution_id', $targetInstitutionId);
-                  });
+                    ->orWhereHas('teacherWorkplaces', function ($subQ) use ($targetInstitutionId) {
+                        $subQ->where('institution_id', $targetInstitutionId);
+                    });
             });
 
         // Filter by educational roles
         $teachers = $query
             ->whereHas('roles', function ($q) {
                 $q->whereIn('name', [
-                    'müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat', 
-                    'teacher', 'schooladmin', 'məktəbadmin'
+                    'müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat',
+                    'teacher', 'schooladmin', 'məktəbadmin',
                 ]);
             })
             ->with([
@@ -111,39 +113,40 @@ class SchoolTeacherController extends Controller
         }
 
         $teachers = $teachers->map(function ($teacher) {
-                $user_profile = $teacher->profile;
-                $teacher_profile = $teacher->teacherProfile;
-                $workplace = $teacher->teacherWorkplaces->first();
+            $user_profile = $teacher->profile;
+            $teacher_profile = $teacher->teacherProfile;
+            $workplace = $teacher->teacherWorkplaces->first();
 
-                return [
-                    'id' => $teacher->id,
-                    'employee_id' => $teacher->username ?: ($teacher->utis_code ?: ($user_profile?->utis_code ?? ($user_profile?->national_id ?? ($teacher_profile?->national_id ?? '')))),
-                    'first_name' => $user_profile?->first_name ?? ($teacher->first_name ?? ($teacher_profile?->first_name ?? '')),
-                    'last_name' => $user_profile?->last_name ?? ($teacher->last_name ?? ($teacher_profile?->last_name ?? '')),
-                    'name' => $teacher->name,
-                    'email' => $teacher->email,
-                    'phone' => $user_profile?->contact_phone ?? ($teacher_profile?->phone ?? ''),
-                    'department' => $teacher->department?->name ?? '',
-                    'institution' => $teacher->institution?->name ?? '',
-                    'workplace_type' => $workplace?->workplace_priority ?? ($user_profile?->workplace_type ?? 'primary'),
-                    'position' => $teacher->roles?->first()?->name ?? '',
-                    'position_type' => $workplace?->position_type ?? ($user_profile?->position_type ?? null),
-                    'employment_status' => $workplace?->employment_type ?? ($user_profile?->employment_status ?? null),
-                    'specialty' => $user_profile?->specialty ?? ($teacher_profile?->specialization ?? null),
-                    'assessment_type' => $user_profile?->assessment_type ?? null,
-                    'assessment_score' => $user_profile?->assessment_score ?? null,
-                    'hire_date' => $workplace?->start_date ?? ($user_profile?->hire_date ?? null),
-                    'birth_date' => $user_profile?->birth_date ?? null,
-                    'address' => $user_profile?->address ?? ($teacher_profile?->address ?? ''),
-                    'emergency_contact' => $user_profile?->emergency_contact ?? ($teacher_profile?->emergency_contact_phone ?? ''),
-                    'qualifications' => $user_profile?->qualifications ?? ($teacher_profile?->qualifications ?? []),
-                    'subjects' => $workplace?->subjects ?? ($user_profile?->subjects ?? ($teacher_profile?->subject ? [$teacher_profile->subject] : [])),
-                    'salary' => $workplace?->salary_amount ?? ($user_profile?->salary ?? null),
-                    'is_active' => $teacher->is_active,
-                    'last_login_at' => $teacher->last_login_at,
-                    'created_at' => $teacher->created_at,
-                ];
-            });
+            return [
+                'id' => $teacher->id,
+                'employee_id' => $teacher->username ?: ($teacher->utis_code ?: ($user_profile?->utis_code ?? ($user_profile?->national_id ?? ($teacher_profile?->national_id ?? '')))),
+                'first_name' => $user_profile?->first_name ?? ($teacher->first_name ?? ($teacher_profile?->first_name ?? '')),
+                'last_name' => $user_profile?->last_name ?? ($teacher->last_name ?? ($teacher_profile?->last_name ?? '')),
+                'patronymic' => $user_profile?->patronymic ?? ($teacher_profile?->patronymic ?? null),
+                'name' => $teacher->name,
+                'email' => $teacher->email,
+                'phone' => $user_profile?->contact_phone ?? ($teacher_profile?->phone ?? ''),
+                'department' => $teacher->department?->name ?? '',
+                'institution' => $teacher->institution?->name ?? '',
+                'workplace_type' => $workplace?->workplace_priority ?? ($user_profile?->workplace_type ?? 'primary'),
+                'position' => $teacher->roles?->first()?->name ?? '',
+                'position_type' => $workplace?->position_type ?? ($user_profile?->position_type ?? null),
+                'employment_status' => $workplace?->employment_type ?? ($user_profile?->employment_status ?? null),
+                'specialty' => $user_profile?->specialty ?? ($teacher_profile?->specialization ?? null),
+                'assessment_type' => $user_profile?->assessment_type ?? null,
+                'assessment_score' => $user_profile?->assessment_score ?? null,
+                'hire_date' => $workplace?->start_date ?? ($user_profile?->hire_date ?? null),
+                'birth_date' => $user_profile?->birth_date ?? null,
+                'address' => $user_profile?->address ?? ($teacher_profile?->address ?? ''),
+                'emergency_contact' => $user_profile?->emergency_contact ?? ($teacher_profile?->emergency_contact_phone ?? ''),
+                'qualifications' => $user_profile?->qualifications ?? ($teacher_profile?->qualifications ?? []),
+                'subjects' => $workplace?->subjects ?? ($user_profile?->subjects ?? ($teacher_profile?->subject ? [$teacher_profile->subject] : [])),
+                'salary' => $workplace?->salary_amount ?? ($user_profile?->salary ?? null),
+                'is_active' => $teacher->is_active,
+                'last_login_at' => $teacher->last_login_at,
+                'created_at' => $teacher->created_at,
+            ];
+        });
 
         $teacherIds = $teachers->pluck('id')->values();
 
@@ -163,6 +166,7 @@ class SchoolTeacherController extends Controller
                         ->on('grade_subjects.education_type', '=', 'teaching_loads.education_type');
                 })
                 ->whereIn('teaching_loads.teacher_id', $teacherIds->all())
+                ->whereNull('teaching_loads.deleted_at')
                 ->when($request->get('academic_year_id'), fn ($q, $yr) => $q->where('classes.academic_year_id', (int) $yr)
                 )
                 ->select([
@@ -208,12 +212,12 @@ class SchoolTeacherController extends Controller
     public function getTeacher(Request $request, int $teacherId): JsonResponse
     {
         try {
-        $user = auth()->user();
-        $isRegional = $request->has('regional_scope');
+            $user = auth()->user();
+            $isRegional = $request->has('regional_scope');
 
-        if (! $user->can('teachers.read') && ! $isRegional) {
-            return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
-        }
+            if (! $user->can('teachers.read') && ! $isRegional) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
 
             $requestedInstitutionId = $request->get('institution_id');
             $targetInstitutionId = $requestedInstitutionId ?: ($user->institution_id ?? null);
@@ -225,9 +229,9 @@ class SchoolTeacherController extends Controller
             $teacher = User::where('id', $teacherId)
                 ->where(function ($q) use ($targetInstitutionId) {
                     $q->where('institution_id', $targetInstitutionId)
-                      ->orWhereHas('teacherWorkplaces', function ($subQ) use ($targetInstitutionId) {
-                          $subQ->where('institution_id', $targetInstitutionId);
-                      });
+                        ->orWhereHas('teacherWorkplaces', function ($subQ) use ($targetInstitutionId) {
+                            $subQ->where('institution_id', $targetInstitutionId);
+                        });
                 })
                 ->whereHas('roles', function ($query) {
                     $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat', 'teacher']);
@@ -528,12 +532,12 @@ class SchoolTeacherController extends Controller
     public function updateTeacher(Request $request, int $teacherId): JsonResponse
     {
         try {
-        $user = auth()->user();
-        $isRegional = $request->has('regional_scope');
+            $user = auth()->user();
+            $isRegional = $request->has('regional_scope');
 
-        if (! $user->can('teachers.update') && ! $isRegional) {
-            return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
-        }
+            if (! $user->can('teachers.update') && ! $isRegional) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
 
             $requestedInstitutionId = $request->get('institution_id');
             $targetInstitutionId = $requestedInstitutionId ?: ($user->institution_id ?? null);
@@ -545,9 +549,9 @@ class SchoolTeacherController extends Controller
             $teacher = User::where('id', $teacherId)
                 ->where(function ($q) use ($targetInstitutionId) {
                     $q->where('institution_id', $targetInstitutionId)
-                      ->orWhereHas('teacherWorkplaces', function ($subQ) use ($targetInstitutionId) {
-                          $subQ->where('institution_id', $targetInstitutionId);
-                      });
+                        ->orWhereHas('teacherWorkplaces', function ($subQ) use ($targetInstitutionId) {
+                            $subQ->where('institution_id', $targetInstitutionId);
+                        });
                 })
                 ->whereHas('roles', function ($query) {
                     $query->whereIn('name', ['müəllim', 'muavin', 'təşkilatçı', 'psixoloq', 'tesarrufat']);
@@ -695,16 +699,16 @@ class SchoolTeacherController extends Controller
             $user = auth()->user();
             $isRegional = $request->has('regional_scope');
 
-        if (! $user->can('teachers.delete') && ! $isRegional) {
-            return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
-        }
+            if (! $user->can('teachers.delete') && ! $isRegional) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
 
-        $requestedInstitutionId = $request->get('institution_id');
-        $targetInstitutionId = $requestedInstitutionId ?: ($user->institution_id ?? null);
+            $requestedInstitutionId = $request->get('institution_id');
+            $targetInstitutionId = $requestedInstitutionId ?: ($user->institution_id ?? null);
 
-        if (! $targetInstitutionId) {
-            return response()->json(['error' => 'Müəssisə ID müəyyən edilməyib'], 400);
-        }
+            if (! $targetInstitutionId) {
+                return response()->json(['error' => 'Müəssisə ID müəyyən edilməyib'], 400);
+            }
 
             // Find teacher
             $query = User::where('id', $teacherId)
@@ -894,12 +898,12 @@ class SchoolTeacherController extends Controller
     public function importTeachers(Request $request): JsonResponse
     {
         try {
-        $user = auth()->user();
-        $isRegional = $request->has('regional_scope');
+            $user = auth()->user();
+            $isRegional = $request->has('regional_scope');
 
-        if (! $user->can('teachers.write') && ! $isRegional) {
-            return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
-        }
+            if (! $user->can('teachers.write') && ! $isRegional) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
 
             $requestedInstitutionId = $request->get('institution_id');
             $targetInstitutionId = $requestedInstitutionId ?: ($user->institution_id ?? null);
