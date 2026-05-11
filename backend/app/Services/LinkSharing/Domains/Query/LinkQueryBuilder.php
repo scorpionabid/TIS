@@ -667,6 +667,7 @@ class LinkQueryBuilder
                     'created_by' => $link->shared_by,
                     'url' => $link->url,
                     'link_type' => $link->link_type,
+                    'share_scope' => $link->share_scope,
                     'is_downloadable' => false,
                     'is_viewable_online' => true,
                     'click_count' => $link->click_count ?? 0,
@@ -680,6 +681,23 @@ class LinkQueryBuilder
                         'name' => $link->sharedBy?->name ?? 'N/A',
                         'institution' => $link->institution?->name ?? 'N/A',
                     ],
+                    'uploader' => $link->sharedBy ? [
+                        'id' => $link->sharedBy->id,
+                        'first_name' => $link->sharedBy->first_name ?? '',
+                        'last_name'  => $link->sharedBy->last_name  ?? '',
+                        'institution' => $link->institution ? [
+                            'id'    => $link->institution->id,
+                            'name'  => $link->institution->name,
+                            'level' => $link->institution->level,
+                            'type'  => $link->institution->type ?? '',
+                        ] : null,
+                    ] : null,
+                    'institution' => $link->institution ? [
+                        'id'    => $link->institution->id,
+                        'name'  => $link->institution->name,
+                        'level' => $link->institution->level,
+                        'type'  => $link->institution->type ?? '',
+                    ] : null,
                     'is_new' => $link->created_at?->isAfter(now()->subDays(7)) ?? false,
                     'viewed_at' => $userViews->get('link_' . $link->id)?->last_viewed_at?->toISOString(),
                 ];

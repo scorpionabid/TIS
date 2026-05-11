@@ -10,7 +10,7 @@ import { AssignedResourceGrid } from './AssignedResourceGrid';
 import { cn } from '@/lib/utils';
 import type { AssignedResource } from '@/types/resources';
 
-type ScopeFilter = 'all' | 'regional' | 'sectoral' | 'institutional';
+type ScopeFilter = 'all' | 'region' | 'sector' | 'school';
 type ViewMode    = 'comfortable' | 'compact';
 
 interface ResourceTabContentProps {
@@ -30,11 +30,22 @@ interface ResourceTabContentProps {
 }
 
 const SCOPE_LEVELS = [
-  { value: 'all'          as ScopeFilter, label: 'Hamısı',    icon: null           },
-  { value: 'regional'     as ScopeFilter, label: 'Region',    icon: Building2      },
-  { value: 'sectoral'     as ScopeFilter, label: 'Sektor',    icon: MapPin         },
-  { value: 'institutional'as ScopeFilter, label: 'Məktəblər', icon: GraduationCap  },
+  { value: 'all'    as ScopeFilter, label: 'Hamısı',    icon: null          },
+  { value: 'region' as ScopeFilter, label: 'Region',    icon: Building2     },
+  { value: 'sector' as ScopeFilter, label: 'Sektor',    icon: MapPin        },
+  { value: 'school' as ScopeFilter, label: 'Məktəblər', icon: GraduationCap },
 ] as const;
+
+// RegionalFolderManager-dəki getFolderTabLevel ilə eyni məntiq
+function getResourceLevel(r: AssignedResource): number {
+  const level = r.uploader?.institution?.level ?? r.institution?.level;
+  if (level) return level;
+  // share_scope fallback
+  if (r.share_scope === 'regional') return 2;
+  if (r.share_scope === 'sectoral') return 3;
+  if (r.share_scope === 'institutional') return 4;
+  return 2; // default: region
+}
 
 export function ResourceTabContent({
   resources,
@@ -57,15 +68,18 @@ export function ResourceTabContent({
   const isLink = resourceType === 'link';
 
   const counts = useMemo(() => ({
-    all:          resources.length,
-    regional:     resources.filter(r => r.share_scope === 'regional').length,
-    sectoral:     resources.filter(r => r.share_scope === 'sectoral').length,
-    institutional:resources.filter(r => r.share_scope === 'institutional').length,
+    all:    resources.length,
+    region: resources.filter(r => { const l = getResourceLevel(r); return l <= 2; }).length,
+    sector: resources.filter(r => getResourceLevel(r) === 3).length,
+    school: resources.filter(r => getResourceLevel(r) === 4).length,
   }), [resources]);
 
   const filtered = useMemo(() => {
-    if (scopeFilter === 'all') return resources;
-    return resources.filter(r => r.share_scope === scopeFilter);
+    if (scopeFilter === 'all')    return resources;
+    if (scopeFilter === 'region') return resources.filter(r => getResourceLevel(r) <= 2);
+    if (scopeFilter === 'sector') return resources.filter(r => getResourceLevel(r) === 3);
+    if (scopeFilter === 'school') return resources.filter(r => getResourceLevel(r) === 4);
+    return resources;
   }, [resources, scopeFilter]);
 
   if (isLoading) {
