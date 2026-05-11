@@ -63,8 +63,10 @@ class GradeBookController extends Controller
         if ($institutionIdParam !== null && $institutionIdParam !== '') {
             $institutionId = (int) $institutionIdParam;
             $query->where('grade_book_sessions.institution_id', '=', $institutionId);
-        } else {
-            // Institution ID yoxdursa — istifadəçinin hierarchy-sinə görə məhdudlaşdır
+        }
+
+        // Apply regional scope for data isolation (except superadmin)
+        if (! $user->hasRole('superadmin')) {
             $query = DataIsolationHelper::applyRegionalScope($query, $user);
         }
 

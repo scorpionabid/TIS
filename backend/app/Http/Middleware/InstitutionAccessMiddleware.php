@@ -54,30 +54,6 @@ class InstitutionAccessMiddleware
      */
     private function hasInstitutionAccess($user, $institutionId): bool
     {
-        // User's own institution
-        if ($user->institution_id == $institutionId) {
-            return true;
-        }
-
-        // RegionAdmin can access institutions in their region
-        if ($user->hasRole('regionadmin')) {
-            $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->type === 'region') {
-                $requestedInstitution = \App\Models\Institution::find($institutionId);
-                if ($requestedInstitution && $requestedInstitution->isDescendantOf($userInstitution)) {
-                    return true;
-                }
-            }
-        }
-
-        // SektorAdmin can access schools in their sector
-        if ($user->hasRole('sektoradmin')) {
-            $requestedInstitution = \App\Models\Institution::find($institutionId);
-            if ($requestedInstitution && $requestedInstitution->isDescendantOf($user->institution)) {
-                return true;
-            }
-        }
-
-        return false;
+        return \App\Services\InstitutionAccessService::canAccess($user, (int) $institutionId);
     }
 }

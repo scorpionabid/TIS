@@ -15,7 +15,7 @@ use App\Http\Controllers\UnifiedAssessmentController;
 use Illuminate\Support\Facades\Route;
 
 // Assessment Management Routes
-Route::prefix('assessments')->middleware('permission:assessments.read')->group(function () {
+Route::prefix('assessments')->middleware('role_or_permission:superadmin|regionadmin|regionoperator|assessments.read')->group(function () {
     Route::get('/', [AssessmentController::class, 'index']);
     Route::post('/', [AssessmentController::class, 'store'])->middleware('permission:assessments.create');
     Route::get('/{assessment}', [AssessmentController::class, 'show']);
@@ -42,7 +42,7 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
 });
 
 // Unified Assessment Hub Routes (New Implementation)
-Route::prefix('unified-assessments')->middleware('permission:assessments.read')->group(function () {
+Route::prefix('unified-assessments')->middleware('role_or_permission:superadmin|regionadmin|regionoperator|assessments.read')->group(function () {
     // Dashboard data endpoint for SchoolAssessments.tsx
     Route::get('/dashboard', [UnifiedAssessmentController::class, 'getDashboardData']);
 
@@ -158,12 +158,12 @@ Route::prefix('grade-books')->middleware('auth:sanctum')->group(function () {
     Route::get('/analysis/export-comprehensive', [GradeBookController::class, 'exportComprehensive'])->middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin');
 
     // CRUD
-    Route::get('/', [GradeBookController::class, 'index'])->middleware('permission:assessments.read');
+    Route::get('/', [GradeBookController::class, 'index'])->middleware('role_or_permission:superadmin|regionadmin|regionoperator|sektoradmin|assessments.read');
     Route::post('/', [GradeBookController::class, 'store'])->middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin');
-    Route::get('/{gradeBook}', [GradeBookController::class, 'show'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}', [GradeBookController::class, 'show'])->middleware('role_or_permission:superadmin|regionadmin|regionoperator|sektoradmin|assessments.read');
 
     // Students with scores
-    Route::get('/{gradeBook}/students', [GradeBookController::class, 'getStudentsWithScores'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/students', [GradeBookController::class, 'getStudentsWithScores'])->middleware('role_or_permission:superadmin|regionadmin|regionoperator|sektoradmin|assessments.read');
 
     // Student grade history analytics
     Route::get('/{gradeBook}/students/{studentId}/history', [GradeHistoryController::class, 'history'])->middleware('permission:assessments.read');

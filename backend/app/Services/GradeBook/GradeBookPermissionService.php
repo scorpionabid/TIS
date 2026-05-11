@@ -110,7 +110,7 @@ class GradeBookPermissionService
                 || (int) $inst->parent_id === $sectorId;
         }
 
-        if ($user->hasRole('regionadmin')) {
+        if ($user->hasAnyRole(['regionadmin', 'regionoperator'])) {
             $regionId = $this->deriveRegionId($user->institution);
             if (! $regionId) {
                 return false;
@@ -205,7 +205,7 @@ class GradeBookPermissionService
         }
 
         // Region admins can view schools in their region (direct or via sector)
-        if ($user->hasRole('regionadmin')) {
+        if ($user->hasAnyRole(['regionadmin', 'regionoperator'])) {
             $regionId = $this->deriveRegionId($userInstitution);
             if (! $regionId) {
                 return false;
@@ -255,7 +255,7 @@ class GradeBookPermissionService
         }
 
         if ($level === 'region') {
-            if ($role === 'regionadmin') {
+            if ($user->hasAnyRole(['regionadmin', 'regionoperator'])) {
                 return $institution && $institution->id == ($regionId ?? $institution->id);
             }
 
@@ -263,7 +263,7 @@ class GradeBookPermissionService
         }
 
         if ($level === 'sector') {
-            if ($role === 'regionadmin' && $sectorId) {
+            if ($user->hasAnyRole(['regionadmin', 'regionoperator']) && $sectorId) {
                 $sector = \App\Models\Institution::where('id', $sectorId)
                     ->where('type', 'sector_education_office')
                     ->first();
@@ -287,7 +287,7 @@ class GradeBookPermissionService
                 return false;
             }
 
-            if ($role === 'regionadmin') {
+            if ($user->hasAnyRole(['regionadmin', 'regionoperator'])) {
                 return $institution && $targetInstitution->parent_id === $institution->id;
             }
             if ($role === 'sektoradmin') {

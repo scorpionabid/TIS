@@ -21,32 +21,38 @@ class DataIsolationHelper
             return $query;
         }
 
-        $primaryRole = $user->roles->first();
-        if (! $primaryRole) {
-            // If no role, restrict to impossible condition
+        $allowedIds = self::getAllowedInstitutionIds($user);
+
+        if ($allowedIds->isEmpty()) {
             return $query->whereRaw('1 = 0');
         }
 
-        switch ($primaryRole->name) {
-            case 'regionadmin':
-                return self::applyRegionAdminScope($query, $user, $resourceType);
+        switch ($resourceType) {
+            case 'surveys':
+                return $query->where(function ($q) use ($allowedIds) {
+                    $q->whereHas('targets', function ($subQ) use ($allowedIds) {
+                        $subQ->whereIn('institution_id', $allowedIds);
+                    })->orWhere('creator_id', auth()->id());
+                });
 
-            case 'regionoperator':
-                return self::applyRegionOperatorScope($query, $user, $resourceType);
+            case 'users':
+            case 'departments':
+            case 'institutions':
+            case 'students':
+            case 'approvals':
+            case 'classes':
+                $column = $resourceType === 'institutions' ? 'id' : 'institution_id';
+                return $query->whereIn($column, $allowedIds);
 
-            case 'sektoradmin':
-                return self::applySektorAdminScope($query, $user, $resourceType);
-
-            case 'schooladmin':
-            case 'məktəbadmin':
-                return self::applyMektebAdminScope($query, $user, $resourceType);
-
-            case 'müəllim':
-                return self::applyMuellimScope($query, $user, $resourceType);
+            case 'teachers':
+                return $query->whereIn('institution_id', $allowedIds)
+                    ->whereHas('roles', function ($q) {
+                        $q->where('name', 'müəllim');
+                    });
 
             default:
-                // Unknown role, restrict access
-                return $query->whereRaw('1 = 0');
+                // For resources that have institution_id column
+                return $query->whereIn('institution_id', $allowedIds);
         }
     }
 

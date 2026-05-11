@@ -763,25 +763,7 @@ class GradeManagementService
 
     private function getUserAccessibleInstitutions(User $user): array
     {
-        if ($user->hasRole('superadmin')) {
-            return Institution::pluck('id')->toArray();
-        }
-
-        $institutions = [];
-
-        if ($user->hasRole('regionadmin')) {
-            $institutions = Institution::where('parent_id', $user->institution_id)
-                ->orWhere('id', $user->institution_id)
-                ->pluck('id')->toArray();
-        } elseif ($user->hasRole('sektoradmin')) {
-            $institutions = Institution::where('parent_id', $user->institution_id)
-                ->orWhere('id', $user->institution_id)
-                ->pluck('id')->toArray();
-        } else {
-            $institutions = [$user->institution_id];
-        }
-
-        return array_filter($institutions);
+        return \App\Services\InstitutionAccessService::getAccessibleInstitutions($user);
     }
 
     private function validateGradeCreation(array $data): void

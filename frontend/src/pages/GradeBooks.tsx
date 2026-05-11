@@ -198,7 +198,7 @@ const GradeBooksPage: React.FC = () => {
       .finally(() => setFullTreeLoading(false));
   }, [canViewHierarchy]);
 
-  const canViewList = hasPermission('assessments.read');
+  const canViewList = hasPermission('assessments.read') || isRegionAdmin || isSectorAdmin;
   const canCreate = hasPermission('assessments.create') && roleCanCreate;
 
   // Selection handler: we select school nodes here
