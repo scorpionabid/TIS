@@ -78,7 +78,7 @@ class TeachingLoadApiController extends Controller
                 'subject_id' => 'required|exists:subjects,id',
                 'education_type' => 'required|string|in:umumi,ferdi,evde,xususi',
                 'class_id' => 'required|exists:grades,id',
-                'weekly_hours' => 'required|numeric|min:1|max:40',
+                'weekly_hours' => 'required|numeric|min:0.5|max:40',
                 'academic_year_id' => 'required|exists:academic_years,id',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -300,7 +300,7 @@ class TeachingLoadApiController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $validated = $request->validate([
-            'weekly_hours' => 'required|numeric|min:1|max:40',
+            'weekly_hours' => 'required|numeric|min:0.5|max:40',
         ]);
 
         $updated = DB::table('teaching_loads')
@@ -494,7 +494,7 @@ class TeachingLoadApiController extends Controller
             'assignments.*.subject_id' => 'required|exists:subjects,id',
             // Frontend sends Grade/Class (grades table) id
             'assignments.*.class_id' => 'required|exists:grades,id',
-            'assignments.*.weekly_hours' => 'required|numeric|min:1|max:40',
+            'assignments.*.weekly_hours' => 'required|numeric|min:0.5|max:40',
             'assignments.*.academic_year_id' => 'required|exists:academic_years,id',
         ]);
 
