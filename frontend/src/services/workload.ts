@@ -30,6 +30,7 @@ export interface CreateTeachingLoadData {
   class_id: number;
   weekly_hours: number;
   academic_year_id: number;
+  education_type?: string;
 }
 
 export interface UpdateTeachingLoadData {

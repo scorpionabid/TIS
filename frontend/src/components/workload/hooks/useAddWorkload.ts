@@ -288,7 +288,7 @@ export function useAddWorkload({
         class_id: selectedClass,
         weekly_hours: weeklyHours,
         academic_year_id: academicYearId || 1
-      } as any);
+      });
 
       toast({ title: 'Uğurla Əlavə Edildi', description: `${teacherName} üçün dərs yükü əlavə edildi` });
       queryClient.invalidateQueries({ queryKey: ['teaching-loads'] });

@@ -156,7 +156,10 @@ class TeachingLoadApiController extends Controller
                 ->first();
 
             $isSplit = $gradeSubject ? (bool) $gradeSubject->is_split_groups : false;
-            $maxTeachers = $isSplit ? ($gradeSubject->group_count ?? 2) : 1;
+            $isIndividualType = in_array($validated['education_type'], ['ferdi', 'evde', 'xususi']);
+            // Individual education types allow multiple teacher assignments (one per student).
+            // For umumi: 1 teacher unless subject is split into groups.
+            $maxTeachers = $isIndividualType ? PHP_INT_MAX : ($isSplit ? ($gradeSubject->group_count ?? 2) : 1);
 
             // Check total teachers already assigned
             $assignedTeacherCount = DB::table('teaching_loads')
