@@ -1,4 +1,4 @@
-import { RegionAdminDashboard } from "@/components/regionadmin/RegionAdminDashboard";
+import { ModernRegionAdminDashboard as RegionAdminDashboard } from "@/components/dashboard/modern/ModernRegionAdminDashboard";
 import { RegionOperatorDashboard } from "@/components/regionoperator/RegionOperatorDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { USER_ROLES } from "@/constants/roles";

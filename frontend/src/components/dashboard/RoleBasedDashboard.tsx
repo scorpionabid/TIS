@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 
 // Lazy load dashboard components for better performance
 const SchoolAdminDashboard = lazy(() => 
-  import('./SchoolAdminDashboard').then(module => ({
-    default: module.SchoolAdminDashboard
+  import('./modern/ModernSchoolAdminDashboard').then(module => ({
+    default: module.ModernSchoolAdminDashboard
   }))
 );
 const MuavinDashboard = lazy(() => 

@@ -8,26 +8,26 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 // Lazy load dashboard components for better performance
 const SuperAdminDashboardOptimized = lazy(() => 
-  import("@/components/dashboard/SuperAdminDashboardOptimized").then(module => ({
-    default: module.SuperAdminDashboardOptimized
+  import("@/components/dashboard/modern/ModernSuperAdminDashboard").then(module => ({
+    default: module.ModernSuperAdminDashboard
   }))
 );
 
 const RegionAdminDashboard = lazy(() => 
-  import("@/components/regionadmin/RegionAdminDashboard").then(module => ({
-    default: module.RegionAdminDashboard
+  import("@/components/dashboard/modern/ModernRegionAdminDashboard").then(module => ({
+    default: module.ModernRegionAdminDashboard
   }))
 );
 
 const RegionOperatorDashboard = lazy(() => 
-  import("@/components/regionoperator/RegionOperatorDashboard").then(module => ({
-    default: module.RegionOperatorDashboard
+  import("@/components/dashboard/modern/ModernRegionOperatorDashboard").then(module => ({
+    default: module.ModernRegionOperatorDashboard
   }))
 );
 
 const SektorAdminDashboard = lazy(() => 
-  import("@/components/sektoradmin/SektorAdminDashboard").then(module => ({
-    default: module.SektorAdminDashboard
+  import("@/components/dashboard/modern/ModernSektorAdminDashboard").then(module => ({
+    default: module.ModernSektorAdminDashboard
   }))
 );
 
@@ -124,7 +124,8 @@ const IndexOptimized = () => {
       // School-related roles
       case USER_ROLES.SCHOOLADMIN:
       case USER_ROLES.MUELLIM:
-        console.log('🔍 DashboardComponent Debug: Selected RoleBasedDashboard (School)');
+        console.log('🔍 DashboardComponent Debug: Selected ModernSchoolAdminDashboard/RoleBasedDashboard');
+        // We use RoleBasedDashboard for teachers and school admins as it handles the sub-roles
         return RoleBasedDashboard;
 
       default:
@@ -195,7 +196,7 @@ const IndexOptimized = () => {
   });
 
   return (
-    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
+    <div className="w-full min-h-full">
       <Suspense fallback={<DashboardLoader />}>
         <ErrorBoundary fallback={DashboardError}>
           <DashboardComponent />
