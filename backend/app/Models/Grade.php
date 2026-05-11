@@ -183,7 +183,13 @@ class Grade extends Model
      */
     public function getFullNameAttribute(): string
     {
-        return "{$this->class_level}-{$this->name}";
+        $level = (int) ($this->class_level ?? 0);
+        $name = trim($this->name ?? '');
+        
+        // Remove trailing commas, spaces, or dots
+        $name = preg_replace('/[,.\s]+$/u', '', $name);
+        
+        return "{$level}-{$name}";
     }
 
     /**
@@ -191,10 +197,14 @@ class Grade extends Model
      */
     public function getDisplayNameAttribute(): string
     {
+        $level = (int) ($this->class_level ?? 0);
+        $name = preg_replace('/[,.\s]+$/u', '', trim($this->name ?? ''));
+        $specialty = preg_replace('/[,.\s]+$/u', '', trim($this->specialty ?? ''));
+
         $parts = array_filter([
-            "{$this->class_level} sinif",
-            $this->name,
-            $this->specialty,
+            "{$level} sinif",
+            $name,
+            $specialty,
         ]);
 
         return implode(' - ', $parts);

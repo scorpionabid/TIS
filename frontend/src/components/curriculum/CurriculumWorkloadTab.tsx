@@ -44,15 +44,15 @@ export function CurriculumWorkloadTab({ teachers, loadingTeachers, onOpenDrawer 
 
   return (
     <div className="bg-white rounded-3xl shadow-premium overflow-hidden border border-slate-200/60 p-1">
-      <div className="p-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[220px] max-w-xs shrink-0">
+      <div className="p-4 border-b border-slate-100 flex flex-wrap items-center gap-4">
+        <div className="relative min-w-[300px] max-w-md shrink-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Müəllim axtar..."
+            placeholder="Müəllim adı, ixtisası və ya ID üzrə axtar..."
             value={workloadSearch}
             onChange={(e) => setWorkloadSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium placeholder:text-slate-400"
           />
         </div>
         {!loadingTeachers && (

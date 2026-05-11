@@ -75,7 +75,14 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teacher-workload', teacherId] });
+      queryClient.invalidateQueries({ queryKey: ['teaching-loads'] });
+      queryClient.invalidateQueries({ queryKey: ['teaching-loads-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['detailed-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['grade-subjects'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-statistics'] });
+      queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['curriculum-plan-master'] });
       toast({ title: 'Dərs yükü silindi' });
     },
   });

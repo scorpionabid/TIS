@@ -39,6 +39,28 @@ class CurriculumPlanService
             )
             ->get();
 
+        // Calculate total planned hours across all ACTUAL classes (grades)
+        $plannedHours = DB::table('grade_subjects')
+            ->join('grades', 'grade_subjects.grade_id', '=', 'grades.id')
+            ->join('subjects', 'grade_subjects.subject_id', '=', 'subjects.id')
+            ->where('grades.institution_id', $institutionId)
+            ->where('grades.academic_year_id', $yearId)
+            ->groupBy(
+                'grade_subjects.subject_id', 
+                'subjects.name',
+                'subjects.code',
+                DB::raw("COALESCE(NULLIF(grade_subjects.education_type, ''), 'umumi')")
+            )
+            ->select(
+                'grade_subjects.subject_id',
+                'subjects.name as subject_name',
+                'subjects.code as subject_code',
+                DB::raw("COALESCE(NULLIF(grade_subjects.education_type, ''), 'umumi') as education_type"),
+                DB::raw('SUM(grade_subjects.weekly_hours * (CASE WHEN grade_subjects.is_split_groups THEN COALESCE(grade_subjects.group_count, 1) ELSE 1 END)) as total_planned'),
+                DB::raw('STRING_AGG(DISTINCT grade_subjects.grade_id::text, \',\') as grade_ids')
+            )
+            ->get();
+
         // (subject_id, education_type) cütlüklərini tap: bu institution+il üçün ən azı bir sinifə əlavə edilmiş fənlər.
         // grade_subjects.education_type NULL olarsa 'umumi' sayılır.
         $gradeSubjectKeys = DB::table('grade_subjects')
@@ -64,6 +86,7 @@ class CurriculumPlanService
         return [
             'items' => $plans,
             'assigned_hours' => $assignedHours,
+            'planned_hours' => $plannedHours,
             'approval' => $this->getApprovalStatus($institutionId, $yearId),
             'deadline' => $settings['deadline'],
             'is_locked' => $settings['is_locked'],

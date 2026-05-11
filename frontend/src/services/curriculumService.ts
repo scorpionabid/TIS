@@ -79,6 +79,7 @@ class CurriculumService {
     return {
       items: data.items || [],
       assignedHours: data.assigned_hours || [],
+      plannedHours: data.planned_hours || [],
       approval: data.approval,
       deadline: data.deadline,
       is_locked: data.is_locked,

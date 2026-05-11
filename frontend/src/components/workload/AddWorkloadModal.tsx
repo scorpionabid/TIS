@@ -129,14 +129,14 @@ export default function AddWorkloadModal(props: AddWorkloadModalProps) {
                   <SelectValue placeholder={!selectedSubjectKey ? "Əvvəlcə Fənn seçin..." : filteredGradesLoading ? "Yüklənir..." : availableGrades.length === 0 ? "Sinif tapılmadı" : "Sinif seçin"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableGrades.map((grade: Grade) => {
-                    const isAssigned = existingLoads.some(l => l.class_id === grade.id && `${l.subject_id}_${l.education_type || 'umumi'}` === selectedSubjectKey);
-                    return (
-                      <SelectItem key={grade.id} value={grade.id.toString()} disabled={isAssigned}>
-                        {grade.full_name?.trim() || grade.name} {isAssigned ? "(Təyin edilib)" : ""}
+                  {availableGrades
+                    .filter(grade => !existingLoads.some(l => l.class_id === grade.id && `${l.subject_id}_${l.education_type || 'umumi'}` === selectedSubjectKey))
+                    .map((grade: Grade) => (
+                      <SelectItem key={grade.id} value={grade.id.toString()}>
+                        {grade.full_name?.trim() || grade.name}
                       </SelectItem>
-                    );
-                  })}
+                    ))
+                  }
                 </SelectContent>
               </Select>
             </div>

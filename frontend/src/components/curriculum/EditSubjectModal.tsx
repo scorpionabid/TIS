@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Clock } from 'lucide-react';
+import { X, Save, AlertCircle, BookOpen, Clock } from 'lucide-react';
 import curriculumService from '../../services/curriculumService';
 import type { GradeSubject, UpdateGradeSubjectDTO, GradeSubjectFormData, EducationType } from '../../types/curriculum';
 import { WEEKLY_HOURS_OPTIONS, GROUP_COUNT_OPTIONS, EDUCATION_TYPE_LABELS } from '../../types/curriculum';
@@ -152,16 +152,15 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 transition-all duration-300">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden ring-1 ring-black/5">
-        {/* Header - Sticky */}
         <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
-              <Save className="h-5 w-5 text-amber-600" />
+            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Fənn Düzəlişi</h2>
+              <h2 className="text-xl font-bold text-slate-800">Fənn Redaktəsi</h2>
               <p className="text-sm font-medium text-slate-400">
-                {gradeSubject.subject_name} - {gradeName}
+                {gradeName} sinfi
               </p>
             </div>
           </div>
@@ -216,7 +215,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                       setFormData({ ...formData, education_type: e.target.value as EducationType });
                       setError(null);
                     }}
-                    className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer"
+                    className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
                   >
                     <option value="umumi">Ümumi təhsil</option>
                     <option value="ferdi">Fərdi təhsil</option>
@@ -230,7 +229,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                       {(() => {
                         const budget = getCategoryBudgetInfo();
                         if (budget) {
-                          return <span className="ml-2 text-amber-600">(Limit: {budget.remaining})</span>;
+                          return <span className="ml-2 text-indigo-500">(Limit: {budget.remaining})</span>;
                         }
                         return null;
                       })()}
@@ -243,7 +242,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                         max={10}
                         value={formData.weekly_hours}
                         onChange={(e) => setFormData({ ...formData, weekly_hours: Number(e.target.value) })}
-                        className="w-full h-10 px-3 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-amber-500 outline-none transition-all"
+                        className="w-full h-10 px-3 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                         required
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-300 uppercase pointer-events-none">saat</span>
@@ -271,7 +270,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                       })}
                       className={`flex-1 h-9 rounded-xl text-xs font-bold transition-all border-2 ${
                         activity.checked
-                          ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                          ? 'bg-slate-800 border-slate-800 text-white shadow-sm'
                           : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200'
                       }`}
                     >
@@ -284,7 +283,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
               {/* Row 3: Grouping & Total */}
               <div className="pt-4 border-t border-slate-100 space-y-4">
                 <div className={`p-3 rounded-xl border transition-all ${
-                  formData.is_split_groups ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-100' : 'bg-slate-50 border-slate-100 text-slate-700'
+                  formData.is_split_groups ? 'bg-indigo-600 border-indigo-700 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 border-slate-100 text-slate-700'
                 }`}>
                   <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input
@@ -295,7 +294,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                         is_split_groups: e.target.checked,
                         group_count: e.target.checked ? Math.max(2, formData.group_count) : 1
                       })}
-                      className="w-4 h-4 rounded text-amber-600 focus:ring-offset-0 focus:ring-0"
+                      className="w-4 h-4 rounded text-indigo-500 focus:ring-offset-0 focus:ring-0"
                     />
                     <span className="text-xs font-bold">Qruplara bölünür</span>
                   </label>
@@ -308,8 +307,8 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                           onClick={() => setFormData({ ...formData, group_count: count })}
                           className={`flex-1 h-7 rounded-lg text-[10px] font-black tracking-tight transition-all ${
                             formData.group_count === count 
-                              ? 'bg-white text-amber-700 shadow-sm' 
-                              : 'bg-amber-400/30 text-white/70 hover:bg-amber-400/50'
+                              ? 'bg-white text-indigo-700 shadow-sm' 
+                              : 'bg-indigo-500/30 text-white/70 hover:bg-indigo-500/50'
                           }`}
                         >
                           {count} QRUP
@@ -323,7 +322,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={2}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-amber-500 outline-none transition-all resize-none placeholder:text-slate-300"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none placeholder:text-slate-300"
                   placeholder="Fənn üçün əlavə qeydlər..."
                 />
               </div>
@@ -337,7 +336,7 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-8 py-2.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-all shadow-lg shadow-amber-100 active:scale-95 disabled:opacity-40 select-none"
+                className="px-8 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95 disabled:opacity-40 select-none"
               >
                 {submitting ? 'Saxlanılır...' : 'Yadda Saxla'}
               </button>

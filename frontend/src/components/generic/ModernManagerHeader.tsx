@@ -318,10 +318,10 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
         <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-100">
           <div className="flex flex-col lg:flex-row lg:items-center gap-3">
             {/* Search Input */}
-            <div className="relative shrink-0 w-full lg:w-64">
+            <div className="relative shrink-0 w-full lg:w-96 group">
               <Search className={cn(
-                "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
-                isSearchFocused ? "text-blue-500" : "text-slate-400"
+                "absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-all duration-300",
+                isSearchFocused ? "text-blue-600 scale-110" : "text-slate-400"
               )} />
               <Input
                 type="text"
@@ -331,9 +331,9 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
                 className={cn(
-                  "pl-10 pr-9 h-10 bg-white border-slate-200 rounded-lg transition-all text-sm",
-                  "focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-sm",
-                  isSearchFocused && "border-blue-500 ring-2 ring-blue-500/20"
+                  "pl-11 pr-10 h-11 bg-white border-slate-200 rounded-2xl transition-all duration-300 text-sm font-medium",
+                  "focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-sm hover:border-slate-300",
+                  isSearchFocused && "border-blue-500 shadow-md ring-4 ring-blue-500/10"
                 )}
               />
               {searchTerm && (

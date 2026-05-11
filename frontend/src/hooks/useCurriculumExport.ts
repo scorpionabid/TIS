@@ -195,36 +195,58 @@ export function useCurriculumExport(deps: ExportDeps) {
     }
 
     if (mode === 'all' || activeTab === 'subjects') {
-      const hMaster = [['№', 'Fənn', 'Təhsil Növü', ...LEVELS_XLSX.map(l => l.label), 'Cəmi', 'Təyin edilib', 'Vakant']];
+      const typeLabels: Record<string, string> = {
+        umumi: 'I-XI siniflər üzrə',
+        extra: 'Dərsdənkənar məşğələlər',
+        ferdi: 'Fərdi təhsil',
+        evde: 'Evdə təhsil',
+        xususi: 'Xüsusi təhsil',
+        dernek: 'Dərnək məşğələləri',
+      };
+
       const groups: Record<string, Record<string, unknown>[]> = {};
       (masterPlan as Record<string, unknown>[]).forEach(item => {
-        const key = `${item.subject_id}_${item.education_type}`;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(item);
+        const type = (item.education_type as string) || 'umumi';
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(item);
       });
-      const dMaster = Object.entries(groups).map(([key, items], idx) => {
-        const [subjId, edType] = key.split('_');
-        const hMap: Record<string, number> = {};
-        items.forEach(it => {
-          const lKey = LEVELS_XLSX.find(l => l.level === it.class_level)?.key;
-          if (lKey) hMap[lKey] = Number(it.hours) || 0;
+
+      Object.entries(groups).forEach(([type, typeItems]) => {
+        if (typeItems.length === 0) return;
+
+        const hMaster = [['№', 'Fənn', 'Təhsil Növü', ...LEVELS_XLSX.map(l => l.label), 'Cəmi', 'Təyin edilib', 'Vakant']];
+        const subGroups: Record<string, Record<string, unknown>[]> = {};
+        typeItems.forEach(item => {
+          const key = `${item.subject_id}`;
+          if (!subGroups[key]) subGroups[key] = [];
+          subGroups[key].push(item);
         });
-        const total = LEVELS_XLSX.reduce((s, l) => s + (hMap[l.key] || 0), 0);
-        const assigned = (assignedHours as Record<string, unknown>[]).find(
-          a => a.subject_id === Number(subjId) && a.education_type === edType,
-        );
-        const assignedVal = Number((assigned as Record<string, unknown> | undefined)?.total_assigned) || 0;
-        return [
-          idx + 1,
-          (items[0].subject as Record<string, unknown>)?.name || '—',
-          edType.toUpperCase(),
-          ...LEVELS_XLSX.map(l => hMap[l.key] || 0),
-          total, assignedVal, total - assignedVal,
-        ];
-      });
-      sheets.push({
-        sheetName: 'Fənn və Vakansiyalar', headers: hMaster, data: dMaster,
-        columnWidths: [5, 25, 12, ...LEVELS_XLSX.map(() => 6), 10, 10, 10],
+
+        const dMaster = Object.entries(subGroups).map(([subjId, items], idx) => {
+          const hMap: Record<string, number> = {};
+          items.forEach(it => {
+            const lKey = LEVELS_XLSX.find(l => l.level === it.class_level)?.key;
+            if (lKey) hMap[lKey] = Number(it.hours) || 0;
+          });
+          const total = LEVELS_XLSX.reduce((s, l) => s + (hMap[l.key] || 0), 0);
+          const assigned = (assignedHours as Record<string, unknown>[]).find(
+            a => a.subject_id === Number(subjId) && a.education_type === type,
+          );
+          const assignedVal = Number((assigned as Record<string, unknown> | undefined)?.total_assigned) || 0;
+          return [
+            idx + 1,
+            (items[0].subject as Record<string, unknown>)?.name || '—',
+            type.toUpperCase(),
+            ...LEVELS_XLSX.map(l => hMap[l.key] || 0),
+            total, assignedVal, total - assignedVal,
+          ];
+        });
+
+        const sheetName = typeLabels[type] || `Fənn_${type}`;
+        sheets.push({
+          sheetName, headers: hMaster, data: dMaster,
+          columnWidths: [5, 25, 12, ...LEVELS_XLSX.map(() => 6), 10, 10, 10],
+        });
       });
     }
 
