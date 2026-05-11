@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { format, addDays } from 'date-fns';
 import { Plus, Save, X, Loader2, Calendar as CalendarIcon, User, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,13 @@ export function ProjectActivityCreateRow({
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isExpanded && nameInputRef.current) {
+      nameInputRef.current.focus({ preventScroll: true });
+    }
+  }, [isExpanded]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -143,6 +150,7 @@ export function ProjectActivityCreateRow({
         <TableCell className="p-0 sticky left-0 z-20 bg-card border-r" style={{ width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth }}>
           <div className="flex items-center gap-2 px-3">
             <Input
+              ref={nameInputRef}
               placeholder="Yeni fəaliyyət adı..."
               value={formData.name}
               onChange={(e) => handleFieldChange("name", e.target.value)}
@@ -154,7 +162,6 @@ export function ProjectActivityCreateRow({
               }}
               className="h-8 text-[11px] w-full border-none focus-visible:ring-0 px-0 font-bold bg-transparent"
               maxLength={500}
-              autoFocus
             />
           </div>
         </TableCell>

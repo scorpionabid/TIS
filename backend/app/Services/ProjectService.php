@@ -9,9 +9,9 @@ use App\Models\ProjectActivityLog;
 use App\Models\ProjectAssignment;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 
 class ProjectService extends BaseService
 {
@@ -42,7 +42,7 @@ class ProjectService extends BaseService
         // 1. Created by them or anyone in their institution hierarchy (descendants)
         // 2. Projects where they are explicitly assigned
         // 3. Projects where they are assigned to an activity
-        
+
         return $query->where(function ($q) use ($user) {
             $q->where(function ($subQ) use ($user) {
                 $institution = $user->institution;
@@ -58,14 +58,14 @@ class ProjectService extends BaseService
                     $subQ->where('created_by', $user->id);
                 }
             })
-            ->orWhereHas('assignments', function ($subQ) use ($user) {
-                $subQ->where('user_id', $user->id);
-            })
-            ->orWhereHas('activities.assignedEmployees', function ($subQ) use ($user) {
-                $subQ->where('users.id', $user->id);
-            })
+                ->orWhereHas('assignments', function ($subQ) use ($user) {
+                    $subQ->where('user_id', $user->id);
+                })
+                ->orWhereHas('activities.assignedEmployees', function ($subQ) use ($user) {
+                    $subQ->where('users.id', $user->id);
+                })
             // Explicitly include projects created by the user themselves
-            ->orWhere('created_by', $user->id);
+                ->orWhere('created_by', $user->id);
         });
     }
 
@@ -87,7 +87,9 @@ class ProjectService extends BaseService
         }
 
         $project = Project::find($projectId);
-        if (!$project) return false;
+        if (! $project) {
+            return false;
+        }
 
         // Project creator can always edit
         if ($project->created_by === $user->id) {
@@ -171,12 +173,12 @@ class ProjectService extends BaseService
     {
         return DB::transaction(function () use ($id, $data) {
             $project = Project::findOrFail($id);
-            
+
             // Extract only the fields that are in the fillable array
             $projectData = collect($data)->only([
-                'name', 'description', 'start_date', 'end_date', 'total_goal', 'status'
+                'name', 'description', 'start_date', 'end_date', 'total_goal', 'status',
             ])->toArray();
-            
+
             $project->update($projectData);
 
             if (isset($data['employee_ids']) && is_array($data['employee_ids'])) {
@@ -203,7 +205,7 @@ class ProjectService extends BaseService
         $project = Project::findOrFail($id);
 
         // Authorization check: Admin, hierarchy admin or creator
-        if (!$this->canEditProject($id, $user)) {
+        if (! $this->canEditProject($id, $user)) {
             throw new \Exception('Bu layihəni silmək üçün icazəniz yoxdur.');
         }
 
@@ -211,10 +213,10 @@ class ProjectService extends BaseService
             // Activities deletion will trigger activity log deletions if cascading is not set
             // In ATIS, we usually rely on cascade deletes in DB, but let's be explicit if needed
             // However, the project model should have cascading relationships or we do it here
-            $project->activities()->each(function($activity) {
+            $project->activities()->each(function ($activity) {
                 $activity->delete(); // This calls the delete on activities
             });
-            
+
             $project->assignments()->delete();
             $project->delete();
         });
@@ -228,17 +230,17 @@ class ProjectService extends BaseService
         $activities = \App\Models\ProjectActivity::whereIn('id', $activityIds)->get();
 
         foreach ($activities as $activity) {
-            if (!$this->canEditActivity($activity, $user)) {
+            if (! $this->canEditActivity($activity, $user)) {
                 continue; // Skip if no permission
             }
 
             // Update only allowed fields
             $allowedFields = ['status', 'priority', 'start_date', 'end_date', 'category', 'budget', 'parent_id'];
             $updateData = array_intersect_key($data, array_flip($allowedFields));
-            
-            if (!empty($updateData)) {
+
+            if (! empty($updateData)) {
                 $activity->update($updateData);
-                $this->logActivityAction($activity->id, 'updated', 'Toplu yenilənmə ilə dəyişdirildi', $user->id);
+                $this->logActivityAction($activity->id, $user->id, 'updated', null, null, null, 'Toplu yenilənmə ilə dəyişdirildi');
             }
 
             // Handle batch assignment if employee_ids provided
@@ -260,22 +262,25 @@ class ProjectService extends BaseService
         }
 
         // Aggregate stats directly in DB for performance
-        // We count both pivot assignments and primary user_id assignments
+        // UNION deduplicates activity-user pairs from both pivot table and user_id column
+        // to prevent double-counting when an activity has the same user assigned via both mechanisms
+        $assignmentSubquery = '(
+            SELECT id as activity_id, user_id FROM project_activities WHERE user_id IS NOT NULL
+            UNION
+            SELECT project_activity_id as activity_id, user_id FROM project_activity_user
+        ) as assignments';
+
         $stats = DB::table('project_activities as pa')
             ->select('u.id', 'u.name', 'pa.status', DB::raw('count(*) as count'))
-            ->leftJoin('project_activity_user as pau', 'pa.id', '=', 'pau.project_activity_id')
-            ->leftJoin('users as u', function ($join) {
-                $join->on('pau.user_id', '=', 'u.id')
-                    ->orOn('pa.user_id', '=', 'u.id');
-            })
+            ->join(DB::raw($assignmentSubquery), 'pa.id', '=', 'assignments.activity_id')
+            ->join('users as u', 'assignments.user_id', '=', 'u.id')
             ->whereIn('pa.project_id', $projectIds)
-            ->whereNotNull('u.id')
             ->groupBy('u.id', 'u.name', 'pa.status')
             ->get();
 
         $workload = [];
         foreach ($stats as $stat) {
-            if (!isset($workload[$stat->id])) {
+            if (! isset($workload[$stat->id])) {
                 $workload[$stat->id] = [
                     'id' => $stat->id,
                     'name' => $stat->name,
@@ -284,7 +289,7 @@ class ProjectService extends BaseService
                     'checking' => 0,
                     'stuck' => 0,
                     'completed' => 0,
-                    'total' => 0
+                    'total' => 0,
                 ];
             }
             if (isset($workload[$stat->id][$stat->status])) {
@@ -311,7 +316,7 @@ class ProjectService extends BaseService
 
         if (isset($data['employee_ids']) && is_array($data['employee_ids'])) {
             $activity->assignedEmployees()->sync($data['employee_ids']);
-            
+
             // Send notifications to all assigned employees
             foreach ($data['employee_ids'] as $empId) {
                 if ($empId != $user->id) {
@@ -333,7 +338,7 @@ class ProjectService extends BaseService
         }
 
         // Log creation
-        $this->logActivityAction($activity->id, $user->id, 'created', null, null, "Fəaliyyət yaradıldı: {$activity->name}");
+        $this->logActivityAction($activity->id, $user->id, 'created', null, null, null, "Fəaliyyət yaradıldı: {$activity->name}");
 
         return $activity->load(['assignedEmployees', 'employee']);
     }
@@ -344,8 +349,8 @@ class ProjectService extends BaseService
     public function updateActivity(int $activityId, array $data, User $user): ProjectActivity
     {
         $activity = ProjectActivity::findOrFail($activityId);
-        
-        if (!$this->canEditActivity($activity, $user)) {
+
+        if (! $this->canEditActivity($activity, $user)) {
             throw new \Exception('Bu fəaliyyəti redaktə etmək üçün icazəniz yoxdur.');
         }
 
@@ -441,7 +446,7 @@ class ProjectService extends BaseService
     {
         $accessibleProjectsQuery = $this->getAccessibleProjectsQuery($user);
         $projectIds = $accessibleProjectsQuery->pluck('id');
-        
+
         $projects = $accessibleProjectsQuery->with('activities')->get();
 
         $stats = [
@@ -496,12 +501,12 @@ class ProjectService extends BaseService
     public function deleteActivity(int $activityId, User $user): void
     {
         $activity = ProjectActivity::with(['project', 'subActivities'])->findOrFail($activityId);
-        
+
         // Authorization: Admin or Project Creator
-        $canDelete = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']) || 
+        $canDelete = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']) ||
                      $activity->project->created_by === $user->id;
-                     
-        if (!$canDelete) {
+
+        if (! $canDelete) {
             throw new \Exception('Bu fəaliyyəti silmək üçün icazəniz yoxdur.');
         }
 
@@ -564,10 +569,10 @@ class ProjectService extends BaseService
                     $subQuery->where('users.id', $user->id);
                 });
         })
-        ->with(['project', 'assignedEmployees'])
-        ->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
-        ->orderBy('end_date', 'asc')
-        ->get();
+            ->with(['project', 'assignedEmployees'])
+            ->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
+            ->orderBy('end_date', 'asc')
+            ->get();
     }
 
     /**
@@ -583,10 +588,10 @@ class ProjectService extends BaseService
             ->whereNotIn('status', ['completed'])
             ->where(function ($q) use ($sevenDaysFromNow) {
                 $q->where('end_date', '<', now()->startOfDay()) // overdue
-                  ->orWhere(function ($q2) use ($sevenDaysFromNow) {
-                      $q2->where('end_date', '>=', now()->startOfDay())
-                         ->where('end_date', '<=', $sevenDaysFromNow); // upcoming 7 days
-                  });
+                    ->orWhere(function ($q2) use ($sevenDaysFromNow) {
+                        $q2->where('end_date', '>=', now()->startOfDay())
+                            ->where('end_date', '<=', $sevenDaysFromNow); // upcoming 7 days
+                    });
             })
             ->with(['project', 'assignedEmployees'])
             ->orderBy('end_date', 'asc')
@@ -602,14 +607,14 @@ class ProjectService extends BaseService
         $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
-        $hasAssignedActivity = $project->activities()->where(function($q) use ($user) {
+        $hasAssignedActivity = $project->activities()->where(function ($q) use ($user) {
             $q->where('user_id', $user->id)
-              ->orWhereHas('assignedEmployees', fn($sq) => $sq->where('users.id', $user->id));
+                ->orWhereHas('assignedEmployees', fn ($sq) => $sq->where('users.id', $user->id));
         })->exists();
 
         // If user has NO link to the project at all, they see nothing
-        if (!$isAdmin && !$isCreator && !$isProjectMember && !$hasAssignedActivity) {
-            return new \Illuminate\Database\Eloquent\Collection();
+        if (! $isAdmin && ! $isCreator && ! $isProjectMember && ! $hasAssignedActivity) {
+            return new \Illuminate\Database\Eloquent\Collection;
         }
 
         // EVERYONE linked to the project sees ALL activities for context
@@ -627,8 +632,8 @@ class ProjectService extends BaseService
         }
 
         // Use the same logic as canEditProject
-        return $this->canEditProject($activity->project_id, $user) || 
-               $activity->user_id === $user->id || 
+        return $this->canEditProject($activity->project_id, $user) ||
+               $activity->user_id === $user->id ||
                $activity->assignedEmployees()->where('users.id', $user->id)->exists();
     }
 
