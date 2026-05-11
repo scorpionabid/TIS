@@ -38,6 +38,7 @@ interface AssignedResourceGridProps {
   isManager?: boolean;
   currentUserId?: number;
   currentUserRole?: string;
+  viewMode?: 'comfortable' | 'compact';
 }
 
 function getResourceIcon(resource: AssignedResource): React.ReactNode {
@@ -148,6 +149,7 @@ export function AssignedResourceGrid({
   isManager,
   currentUserId,
   currentUserRole,
+  viewMode = 'comfortable',
 }: AssignedResourceGridProps) {
   if (resources.length === 0) {
     return (
@@ -161,7 +163,9 @@ export function AssignedResourceGrid({
 
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className={viewMode === 'compact'
+        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2'
+        : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3'}>
         {resources.map((resource: AssignedResource) => {
           const expired    = resource.expires_at && isExpired(resource.expires_at);
           const expiringSoon = resource.expires_at && !expired && isExpiringSoon(resource.expires_at);

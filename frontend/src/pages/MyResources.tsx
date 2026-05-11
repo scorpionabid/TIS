@@ -38,7 +38,6 @@ import { ResourceTabContent } from '@/components/resources/ResourceTabContent';
 import { CollectionsTabContent } from '@/components/resources/CollectionsTabContent';
 
 type ActiveTab = 'links' | 'documents' | 'collections' | 'personal_links';
-type SortBy    = 'date_desc' | 'date_asc' | 'title_asc' | 'title_desc';
 
 const TAB_TRIGGER_CLASS =
   'relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-2 pb-3 pt-2 text-xs font-medium text-muted-foreground transition-all data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none hover:text-blue-600 group';
@@ -54,9 +53,7 @@ export default function MyResources() {
   const [activeTab, setActiveTab]   = useState<ActiveTab>('links');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortBy, setSortBy]         = useState<SortBy>('date_desc');
   const [categoryFilter]            = useState<string>('all');
-  const [linkScopeFilter, setLinkScopeFilter] = useState<'all' | 'regional' | 'sectoral' | 'institutional'>('all');
   const [selectedFolder, setSelectedFolder]     = useState<DocumentCollection | null>(null);
   const [detailResource, setDetailResource]     = useState<AssignedResource | null>(null);
   const [editingResource, setEditingResource]   = useState<AssignedResource | null>(null);
@@ -146,23 +143,13 @@ export default function MyResources() {
 
   const resourcesData = useMemo(() => {
     let data = [...rawResources];
-    switch (sortBy) {
-      case 'date_desc': data.sort((a, b) => new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime()); break;
-      case 'date_asc':  data.sort((a, b) => new Date(a.assigned_at || a.created_at).getTime() - new Date(b.assigned_at || b.created_at).getTime()); break;
-      case 'title_asc': data.sort((a, b) => a.title.localeCompare(b.title, 'az')); break;
-      case 'title_desc':data.sort((a, b) => b.title.localeCompare(a.title, 'az')); break;
-    }
+    // Default sort: ən yeni əvvəl
+    data.sort((a, b) => new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime());
     if (categoryFilter !== 'all') {
       data = data.filter(r => r.type === 'document' ? r.category === categoryFilter : r.link_type === categoryFilter);
     }
     return data;
-  }, [rawResources, sortBy, categoryFilter]);
-
-  const filteredLinks = useMemo(() => {
-    const links = resourcesData.filter(r => r.type === 'link');
-    if (linkScopeFilter === 'all') return links;
-    return links.filter(r => r.share_scope === linkScopeFilter);
-  }, [resourcesData, linkScopeFilter]);
+  }, [rawResources, categoryFilter]);
 
   // ── Handlers (must be before early returns) ─────────────────────────────────
 
@@ -344,42 +331,15 @@ export default function MyResources() {
             </TabsList>
 
             <TabsContent value="links" className="mt-0">
-              {/* Scope filter tabs */}
-              <div className="flex items-center gap-1 pt-3 pb-1 overflow-x-auto no-scrollbar">
-                {([
-                  { value: 'all',          label: 'Hamısı',    count: resourcesData.filter(r => r.type === 'link').length },
-                  { value: 'regional',     label: 'Region',    count: resourcesData.filter(r => r.type === 'link' && r.share_scope === 'regional').length },
-                  { value: 'sectoral',     label: 'Sektor',    count: resourcesData.filter(r => r.type === 'link' && r.share_scope === 'sectoral').length },
-                  { value: 'institutional',label: 'Məktəblər', count: resourcesData.filter(r => r.type === 'link' && r.share_scope === 'institutional').length },
-                ] as const).map(({ value, label, count }) => (
-                  <button
-                    key={value}
-                    onClick={() => setLinkScopeFilter(value)}
-                    className={`flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-semibold border transition-all whitespace-nowrap ${
-                      linkScopeFilter === value
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {label}
-                    <span className={`px-1 py-0.5 rounded-full text-[10px] ${linkScopeFilter === value ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                      {count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
               <ResourceTabContent
-                resources={filteredLinks}
+                resources={resourcesData.filter(r => r.type === 'link')}
                 isLoading={isLoading}
                 resourceType="link"
                 isManager={isManager}
                 currentUserId={currentUser?.id}
                 currentUserRole={currentUser?.role?.toLowerCase()}
                 searchTerm={searchTerm}
-                sortBy={sortBy}
                 onSearchChange={setSearchTerm}
-                onSortChange={setSortBy}
                 onResourceAction={handleResourceAction}
                 onCardClick={setDetailResource}
                 onEdit={handleEditResource}
@@ -421,9 +381,7 @@ export default function MyResources() {
                 currentUserId={currentUser?.id}
                 currentUserRole={currentUser?.role?.toLowerCase()}
                 searchTerm={searchTerm}
-                sortBy={sortBy}
                 onSearchChange={setSearchTerm}
-                onSortChange={setSortBy}
                 onResourceAction={handleResourceAction}
                 onCardClick={setDetailResource}
                 onEdit={handleEditResource}

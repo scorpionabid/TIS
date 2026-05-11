@@ -87,26 +87,9 @@ export function PersonalLinksView({
       {/* ─── LEFT: link list ─────────────────────────────────────── */}
       <div className="w-[300px] flex-shrink-0 flex flex-col border-r border-border/60">
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Toplu Linklər</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{filteredLinks.length} link</p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onBulkUpload}
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-            Excel ilə yüklə
-          </Button>
-        </div>
-
-        {/* Search */}
-        <div className="px-3 py-2 border-b border-border/40">
-          <div className="relative">
+        {/* Toolbar — 1 sətir */}
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60">
+          <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="text"
@@ -116,6 +99,10 @@ export function PersonalLinksView({
               onChange={e => onSearchChange(e.target.value)}
             />
           </div>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs shrink-0" onClick={onBulkUpload}>
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Excel</span>
+          </Button>
         </div>
 
         {/* List */}
