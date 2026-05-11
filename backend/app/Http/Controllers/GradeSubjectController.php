@@ -97,7 +97,7 @@ class GradeSubjectController extends Controller
             ->pluck('subject_id')
             ->toArray();
 
-        // Yalnız curriculum_plans-da (Fənn və Vakansiyalar) bu müəssisə/tədris ili üzrə 
+        // Yalnız curriculum_plans-da (Fənn və Vakansiyalar) bu müəssisə/tədris ili üzrə
         // ümumiyyətlə hər hansı bir saat təyin edilibmi?
         $hasGlobalPlanForType = \DB::table('curriculum_plans')
             ->where('institution_id', $grade->institution_id)
@@ -111,7 +111,9 @@ class GradeSubjectController extends Controller
             })
             ->exists();
 
-        $subjectQuery = Subject::active()->forClassLevel($grade->class_level);
+        $subjectQuery = Subject::active()
+            ->forClassLevel($grade->class_level)
+            ->whereNotIn('subjects.id', $assignedSubjectIds);
 
         // Əgər plan istifadə olunursa (məktəb artıq fənləri və saatları Master Planda müəyyən edibsə),
         // o zaman yalnız Master Planda qeyd edilmiş və saatı 0-dan böyük olan fənləri göstər.
@@ -134,8 +136,29 @@ class GradeSubjectController extends Controller
         }
 
         $availableSubjects = $subjectQuery
-            ->orderBy('name')
-            ->get(['id', 'name', 'short_name', 'code', 'category', 'weekly_hours'])
+            ->leftJoin('curriculum_plans', function ($join) use ($grade, $educationType) {
+                $join->on('curriculum_plans.subject_id', '=', 'subjects.id')
+                    ->where('curriculum_plans.institution_id', '=', $grade->institution_id)
+                    ->where('curriculum_plans.academic_year_id', '=', $grade->academic_year_id)
+                    ->where('curriculum_plans.class_level', '=', $grade->class_level)
+                    ->where(function ($q) use ($educationType) {
+                        $q->where('curriculum_plans.education_type', $educationType);
+                        if ($educationType === 'umumi') {
+                            $q->orWhereNull('curriculum_plans.education_type');
+                        }
+                    });
+            })
+            ->orderBy('subjects.name')
+            ->select([
+                'subjects.id',
+                'subjects.name',
+                'subjects.short_name',
+                'subjects.code',
+                'subjects.category',
+                'curriculum_plans.hours as plan_hours',
+                'subjects.weekly_hours as default_hours',
+            ])
+            ->get()
             ->map(function ($subject) {
                 return [
                     'id' => $subject->id,
@@ -143,7 +166,7 @@ class GradeSubjectController extends Controller
                     'short_name' => $subject->short_name,
                     'code' => $subject->code,
                     'category' => $subject->category,
-                    'weekly_hours' => $subject->weekly_hours,
+                    'weekly_hours' => (float) ($subject->plan_hours ?? $subject->default_hours),
                 ];
             });
 
@@ -240,27 +263,26 @@ class GradeSubjectController extends Controller
             ], 422);
         }
 
+        // Per-grade limit check: curriculum_plans.hours = max hours this subject can have in a SINGLE grade.
+        // Each grade is checked independently — the plan is replicated across grades, not pooled.
         if ($plan) {
-            $totalUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
-                $q->where('institution_id', $grade->institution_id)
-                    ->where('academic_year_id', $grade->academic_year_id)
-                    ->where('class_level', $grade->class_level);
-            })
+            $usedInThisGrade = GradeSubject::where('grade_id', $grade->id)
                 ->where('subject_id', $validated['subject_id'])
                 ->where('education_type', $validated['education_type'])
                 ->sum('weekly_hours');
 
-            if (($totalUsedInLevel + $validated['weekly_hours']) > $plan->hours) {
-                $remaining = max(0, $plan->hours - $totalUsedInLevel);
+            if (($usedInThisGrade + $validated['weekly_hours']) > $plan->hours) {
+                $remaining = max(0, $plan->hours - $usedInThisGrade);
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Tədris planına görə bu fənn üçün qalan limit {$remaining} saatdır (Səviyyə üzrə cəmi {$plan->hours}s olmalıdır).",
+                    'message' => "Tədris planına görə bu fənn üçün bu sinifdə qalan limit {$remaining} saatdır (Sinif üzrə maksimum {$plan->hours}s).",
                 ], 422);
             }
         }
 
-        // Kateqoriya büdcəsi yoxlanışı (Səviyyə üzrə cəmi)
+        // Per-grade category budget: total hours for this education_type in THIS grade
+        // must not exceed the plan limit for this category at this class level.
         $categoryBudget = \App\Models\CurriculumPlan::where('institution_id', $grade->institution_id)
             ->where('academic_year_id', $grade->academic_year_id)
             ->where('class_level', $grade->class_level)
@@ -268,20 +290,16 @@ class GradeSubjectController extends Controller
             ->sum('hours');
 
         if ($categoryBudget > 0) {
-            $currentUsedInLevel = GradeSubject::whereHas('grade', function ($q) use ($grade) {
-                $q->where('institution_id', $grade->institution_id)
-                    ->where('academic_year_id', $grade->academic_year_id)
-                    ->where('class_level', $grade->class_level);
-            })
+            $currentUsedInThisGrade = GradeSubject::where('grade_id', $grade->id)
                 ->where('education_type', $validated['education_type'])
                 ->sum('weekly_hours');
 
-            if (($currentUsedInLevel + $validated['weekly_hours']) > $categoryBudget) {
-                $remaining = max(0, $categoryBudget - $currentUsedInLevel);
+            if (($currentUsedInThisGrade + $validated['weekly_hours']) > $categoryBudget) {
+                $remaining = max(0, $categoryBudget - $currentUsedInThisGrade);
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Səviyyə üzrə cari istifadə: {$currentUsedInLevel}s, qalan: {$remaining}s.",
+                    'message' => "Bu kateqoriya üzrə tədris planı limiti ({$categoryBudget}s) aşılacaq. Bu sinifdə cari istifadə: {$currentUsedInThisGrade}s, qalan: {$remaining}s.",
                 ], 422);
             }
         }
@@ -322,9 +340,9 @@ class GradeSubjectController extends Controller
         } catch (\Illuminate\Database\QueryException $e) {
             DB::rollBack();
             Log::error('GradeSubject store QueryException: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             $message = 'Məlumat bazası xətası: ' . $e->getMessage();
             if ($e->getCode() === '23505') {
                 $message = 'Bu fənn artıq bu sinif və təhsil növü üçün əlavə edilib.';
@@ -338,7 +356,7 @@ class GradeSubjectController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('GradeSubject store Unexpected Exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -596,6 +614,7 @@ class GradeSubjectController extends Controller
             'data' => $stats,
         ]);
     }
+
     /**
      * Bulk remove subjects from grade curriculum.
      */

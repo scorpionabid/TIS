@@ -146,65 +146,76 @@ class GradeQueryService
 
     /**
      * Apply subject-specific filters.
+     *
+     * Logic:
+     *  1. Show grades whose class_level has a curriculum_plans entry (Step 1) for this subject —
+     *     grade_subjects (Step 2) being done or not does not block the list.
+     *  2. Exclude grades where teaching_loads hours already fully cover the planned hours.
+     *     "Planned hours" = grade_subjects.weekly_hours (if Step 2 done) OR curriculum_plans.hours (fallback).
      */
     protected function applySubjectFilters(Builder $query, int $subjectId, ?string $eduType, $institutionId, Request $request): void
     {
-        $query->where(function ($mainQ) use ($subjectId, $eduType, $institutionId, $request) {
-            // Option 1: Explicitly assigned in Sinif Tədris Planı (grade_subjects)
-            $mainQ->whereHas('gradeSubjects', function ($q) use ($subjectId, $eduType) {
-                $q->where('grade_subjects.subject_id', $subjectId);
-                if ($eduType) {
-                    $q->where(function ($q2) use ($eduType) {
-                        $q2->where('grade_subjects.education_type', $eduType);
-                        if ($eduType === 'umumi') {
-                            $q2->orWhereNull('grade_subjects.education_type');
-                        }
-                    });
-                }
-            })
-            // Option 2: Planned for this class level in Master Plan (curriculum_plans)
-            ->orWhereExists(function ($q) use ($subjectId, $eduType, $institutionId, $request) {
-                $q->select(\DB::raw(1))
-                    ->from('curriculum_plans')
-                    ->whereColumn('curriculum_plans.class_level', 'grades.class_level')
-                    ->where('curriculum_plans.subject_id', $subjectId)
-                    ->where('curriculum_plans.institution_id', (int) $institutionId);
-                
-                if ($request->has('academic_year_id')) {
-                    $q->where('curriculum_plans.academic_year_id', $request->academic_year_id);
-                }
-
-                if ($eduType) {
-                    $q->where('curriculum_plans.education_type', $eduType);
-                }
-            });
-        });
-
-        // Exclude fully covered subjects
         $eduTypeVal = $eduType ?? 'umumi';
+
+        // 1. Only show grades that have a curriculum_plans entry for this subject+type+class_level
+        $query->whereRaw(
+            'EXISTS (
+                SELECT 1 FROM curriculum_plans cp
+                WHERE cp.class_level     = grades.class_level
+                  AND cp.institution_id  = grades.institution_id
+                  AND cp.academic_year_id = grades.academic_year_id
+                  AND cp.subject_id      = ?
+                  AND cp.hours           > 0
+                  AND (cp.education_type = ? OR (? = \'umumi\' AND cp.education_type IS NULL))
+            )',
+            [$subjectId, $eduTypeVal, $eduTypeVal]
+        );
+
+        // 2. Exclude grades where teaching hours already cover the plan
+        //    - Use grade_subjects.weekly_hours if Step 2 was done (more specific, supports split groups)
+        //    - Fall back to curriculum_plans.hours if grade_subjects doesn't exist yet
         $query->whereRaw(
             'NOT EXISTS (
                 SELECT 1
-                FROM grade_subjects gs2
-                INNER JOIN classes c2
-                    ON  c2.institution_id   = grades.institution_id
-                    AND c2.academic_year_id = grades.academic_year_id
-                    AND c2.grade_level      = grades.class_level
-                    AND c2.section          = grades.name
-                WHERE gs2.grade_id    = grades.id
-                  AND gs2.subject_id  = ?
-                  AND (gs2.education_type = ? OR (? = \'umumi\' AND gs2.education_type IS NULL))
+                FROM classes c2
+                WHERE c2.institution_id   = grades.institution_id
+                  AND c2.academic_year_id = grades.academic_year_id
+                  AND c2.grade_level      = grades.class_level
+                  AND c2.section          = grades.name
                   AND (
                       SELECT COALESCE(SUM(tl.weekly_hours), 0)
                       FROM teaching_loads tl
-                      WHERE tl.class_id    = c2.id
-                        AND tl.subject_id  = ?
-                        AND tl.deleted_at  IS NULL
+                      WHERE tl.class_id   = c2.id
+                        AND tl.subject_id = ?
+                        AND tl.deleted_at IS NULL
                         AND (tl.education_type = ? OR (? = \'umumi\' AND tl.education_type IS NULL))
-                  ) >= gs2.weekly_hours
-                     * CASE WHEN gs2.is_split_groups THEN gs2.group_count ELSE 1 END
+                  ) >= COALESCE(
+                      (
+                          SELECT gs2.weekly_hours
+                               * CASE WHEN gs2.is_split_groups THEN COALESCE(gs2.group_count, 1) ELSE 1 END
+                          FROM grade_subjects gs2
+                          WHERE gs2.grade_id   = grades.id
+                            AND gs2.subject_id = ?
+                            AND (gs2.education_type = ? OR (? = \'umumi\' AND gs2.education_type IS NULL))
+                          LIMIT 1
+                      ),
+                      (
+                          SELECT cp2.hours
+                          FROM curriculum_plans cp2
+                          WHERE cp2.class_level     = grades.class_level
+                            AND cp2.institution_id  = grades.institution_id
+                            AND cp2.academic_year_id = grades.academic_year_id
+                            AND cp2.subject_id      = ?
+                            AND (cp2.education_type = ? OR (? = \'umumi\' AND cp2.education_type IS NULL))
+                          LIMIT 1
+                      )
+                  )
             )',
-            [$subjectId, $eduTypeVal, $eduTypeVal, $subjectId, $eduTypeVal, $eduTypeVal]
+            [
+                $subjectId, $eduTypeVal, $eduTypeVal,  // teaching_loads
+                $subjectId, $eduTypeVal, $eduTypeVal,  // grade_subjects hours
+                $subjectId, $eduTypeVal, $eduTypeVal,  // curriculum_plans hours fallback
+            ]
         );
     }
 

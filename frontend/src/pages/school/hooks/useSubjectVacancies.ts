@@ -182,7 +182,8 @@ export function useSubjectVacancies({
     return { totalSelected, totalAssigned, vacancy, clubVacancy: cVac };
   }, [rowsWithAssigned, propAssignedHours, getRowSum]);
 
-  const displayStats = activeTab === 'statistika' ? grandStats : stats;
+  // Header həmişə bütün tabların (Ümumi+Fərdi+Evdə+Xüsusi) cəmini göstərməlidir.
+  const displayStats = grandStats;
 
   const handleAddSubject = (subjectId: number) => {
     const subject = allSubjects.find(s => s.id === subjectId);

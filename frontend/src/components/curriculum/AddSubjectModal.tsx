@@ -61,6 +61,19 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
     void loadAvailableSubjects();
   }, [loadAvailableSubjects]);
 
+  // Automatically set weekly hours when a subject is selected
+  useEffect(() => {
+    if (formData.subject_id) {
+      const selectedSubj = availableSubjects.find(s => s.id === formData.subject_id);
+      if (selectedSubj) {
+        setFormData(prev => ({
+          ...prev,
+          weekly_hours: selectedSubj.weekly_hours
+        }));
+      }
+    }
+  }, [formData.subject_id, availableSubjects]);
+
   // Scroll to top when modal opens
   useEffect(() => {
     const scrollContainer = document.querySelector('.overflow-y-auto');
@@ -141,6 +154,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
     try {
       setSubmitting(true);
       await curriculumService.addSubjectToCurriculum(gradeId, dto);
+      await loadAvailableSubjects();
       setFormData(defaultGradeSubjectFormData);
       setError(null);
       onSuccess(true);
