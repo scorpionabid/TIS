@@ -155,7 +155,7 @@ export const GreetingHeader = () => {
       </div>
 
       <Dialog open={isTimePanelOpen} onOpenChange={setIsTimePanelOpen}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden border-none glass-card rounded-[32px] md:rounded-[40px] modern-shadow h-[90vh] md:h-[80vh] w-[95vw]">
+        <DialogContent className="sm:max-w-6xl p-0 overflow-hidden border-none glass-card rounded-[32px] md:rounded-[40px] modern-shadow h-[90vh] md:h-[85vh] w-[95vw]">
           <div className="flex flex-col md:flex-row h-full">
             {/* Sidebar / Top Nav on Mobile */}
             <div className="w-full md:w-24 flex md:flex-col items-center justify-center md:py-10 bg-slate-900/5 dark:bg-white/5 border-b md:border-b-0 md:border-r border-primary/5 gap-6 md:gap-10 p-4 md:p-0">
