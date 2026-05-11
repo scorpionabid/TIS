@@ -35,39 +35,55 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     }
   }, [isOpen, doc]);
 
+  const getFileType = () => {
+    const ext  = (doc?.file_extension ?? doc?.original_filename?.split('.').pop() ?? '').toLowerCase();
+    const mime = doc?.mime_type ?? '';
+    const isImg   = mime.startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
+    const isPdfF  = mime === 'application/pdf' || ext === 'pdf';
+    const isXls   = mime.includes('spreadsheet') || mime.includes('excel') || ['xlsx','xls'].includes(ext);
+    const isWord  = mime.includes('officedocument.wordprocessing') || mime.includes('msword') || ['docx','doc'].includes(ext);
+    const isPpt   = mime.includes('officedocument.presentation') || ['pptx','ppt'].includes(ext);
+    return { isImg, isPdfF, isXls, isWord, isPpt };
+  };
+
   const loadPreview = async () => {
     if (!doc) return;
-    
+
+    const { isImg, isPdfF, isXls, isWord, isPpt } = getFileType();
+
+    // Office/Word/PPT faylları brauzerdə göstərilə bilmir — download button göstər
+    if (isWord || isPpt) {
+      setLoading(false);
+      return; // previewUrl=null → fallback UI göstərilir
+    }
+
     setLoading(true);
     setError(null);
-    
-    try {
-      // We use the downloadDocument service which returns a Blob
-      const blob = await documentCollectionService.downloadDocument(doc.id);
-      
-      const isExcelFile = doc.mime_type?.includes('spreadsheet') || 
-                          doc.mime_type?.includes('excel') || 
-                          doc.file_extension?.toLowerCase() === 'xlsx' || 
-                          doc.file_extension?.toLowerCase() === 'xls' ||
-                          doc.original_filename?.toLowerCase().endsWith('.xlsx') ||
-                          doc.original_filename?.toLowerCase().endsWith('.xls');
 
-      if (isExcelFile) {
+    try {
+      const blob = await documentCollectionService.downloadDocument(doc.id);
+
+      if (isXls) {
         const arrayBuffer = await blob.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Generate an HTML table from the worksheet
-        const htmlStr = XLSX.utils.sheet_to_html(worksheet, { id: 'excel-preview-table' });
-        setExcelHtml(htmlStr);
+        const workbook    = XLSX.read(arrayBuffer, { type: 'array' });
+        const worksheet   = workbook.Sheets[workbook.SheetNames[0]];
+        setExcelHtml(XLSX.utils.sheet_to_html(worksheet, { id: 'excel-preview-table' }));
+      } else if (isImg || isPdfF) {
+        setPreviewUrl(window.URL.createObjectURL(blob));
       } else {
-        const url = window.URL.createObjectURL(blob);
-        setPreviewUrl(url);
+        // Naməlum format — yüklənir, brauzerdə görünmür
+        setLoading(false);
+        return;
       }
     } catch (err: any) {
-      console.error('Preview error:', err);
-      setError('Sənəd yüklənərkən xəta baş verdi. Zəhmət olmasa yükləyib baxın.');
+      const status = err?.response?.status;
+      if (status === 403) {
+        setError('Bu sənədi yükləmək icazəniz yoxdur.');
+      } else if (status === 404) {
+        setError('Fayl tapılmadı. Silinmiş ola bilər.');
+      } else {
+        setError('Sənəd yüklənərkən xəta baş verdi.');
+      }
     } finally {
       setLoading(false);
     }
@@ -75,10 +91,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isImage = doc?.mime_type?.startsWith('image/') || doc?.file_extension?.toLowerCase() === 'jpg' || doc?.file_extension?.toLowerCase() === 'png' || doc?.file_extension?.toLowerCase() === 'jpeg';
-  const isPDF = doc?.mime_type === 'application/pdf' || doc?.file_extension?.toLowerCase() === 'pdf';
-  const isExcel = doc?.mime_type?.includes('spreadsheet') || doc?.mime_type?.includes('excel') || doc?.file_extension?.toLowerCase() === 'xlsx' || doc?.file_extension?.toLowerCase() === 'xls' || doc?.original_filename?.toLowerCase().endsWith('.xlsx') || doc?.original_filename?.toLowerCase().endsWith('.xls');
-  const isOffice = doc?.mime_type?.includes('officedocument') || doc?.mime_type?.includes('msword') || doc?.file_extension?.toLowerCase() === 'docx' || doc?.file_extension?.toLowerCase() === 'doc';
+  const { isImg: isImage, isPdfF: isPDF, isXls: isExcel, isWord: isOffice } = getFileType();
 
   const handleDownload = () => {
     if (doc) {
@@ -192,23 +205,27 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           )}
 
           {!loading && !error && !previewUrl && !excelHtml && (
-                <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200 max-w-md">
-                  <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileText size={32} />
-                  </div>
-                  <h4 className="text-gray-900 font-semibold mb-2">Genişləndirilmiş Baxış</h4>
-                  <p className="text-sm text-gray-500 mb-6">
-                    Bu fayl növü ({doc?.file_extension?.toUpperCase()}) birbaşa brauzerdə göstərilə bilmir. 
-                    Tam baxış üçün sənədi yükləməyiniz xahiş olunur.
-                  </p>
-                  <button
-                    onClick={handleDownload}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-md shadow-blue-200"
-                  >
-                    <Download size={18} />
-                    Sənədi Yüklə və Bax
-                  </button>
-                </div>
+            <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200 max-w-md">
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileText size={32} />
+              </div>
+              <h4 className="text-gray-900 font-semibold mb-2">
+                {isOffice ? 'Word Sənədi' : `${doc?.file_extension?.toUpperCase() ?? 'Fayl'} Sənədi`}
+              </h4>
+              <p className="text-sm text-gray-500 mb-6">
+                {isOffice
+                  ? 'Word sənədlərini birbaşa brauzerdə açmaq mümkün deyil. Yükləyib Microsoft Word ilə aça bilərsiniz.'
+                  : `Bu fayl növü (${doc?.file_extension?.toUpperCase()}) brauzerdə göstərilə bilmir. Yükləyib baxın.`
+                }
+              </p>
+              <button
+                onClick={handleDownload}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-md shadow-blue-200"
+              >
+                <Download size={18} />
+                {isOffice ? 'Word Sənədini Yüklə' : 'Sənədi Yüklə'}
+              </button>
+            </div>
           )}
         </div>
 
