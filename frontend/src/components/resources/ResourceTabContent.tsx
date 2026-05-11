@@ -36,15 +36,14 @@ const SCOPE_LEVELS = [
   { value: 'school' as ScopeFilter, label: 'Məktəblər', icon: GraduationCap },
 ] as const;
 
-// RegionalFolderManager-dəki getFolderTabLevel ilə eyni məntiq
-function getResourceLevel(r: AssignedResource): number {
-  const level = r.uploader?.institution?.level ?? r.institution?.level;
-  if (level) return level;
-  // share_scope fallback
-  if (r.share_scope === 'regional') return 2;
-  if (r.share_scope === 'sectoral') return 3;
-  if (r.share_scope === 'institutional') return 4;
-  return 2; // default: region
+// Hədəf scope-a görə tab müəyyən edilir (kim üçün yaradıldı)
+function getResourceTab(r: AssignedResource): ScopeFilter {
+  switch (r.share_scope) {
+    case 'regional':     return 'region';
+    case 'sectoral':     return 'sector';
+    case 'institutional':return 'school';
+    default:             return 'all';
+  }
 }
 
 export function ResourceTabContent({
@@ -69,17 +68,14 @@ export function ResourceTabContent({
 
   const counts = useMemo(() => ({
     all:    resources.length,
-    region: resources.filter(r => { const l = getResourceLevel(r); return l <= 2; }).length,
-    sector: resources.filter(r => getResourceLevel(r) === 3).length,
-    school: resources.filter(r => getResourceLevel(r) === 4).length,
+    region: resources.filter(r => getResourceTab(r) === 'region').length,
+    sector: resources.filter(r => getResourceTab(r) === 'sector').length,
+    school: resources.filter(r => getResourceTab(r) === 'school').length,
   }), [resources]);
 
   const filtered = useMemo(() => {
-    if (scopeFilter === 'all')    return resources;
-    if (scopeFilter === 'region') return resources.filter(r => getResourceLevel(r) <= 2);
-    if (scopeFilter === 'sector') return resources.filter(r => getResourceLevel(r) === 3);
-    if (scopeFilter === 'school') return resources.filter(r => getResourceLevel(r) === 4);
-    return resources;
+    if (scopeFilter === 'all') return resources;
+    return resources.filter(r => getResourceTab(r) === scopeFilter);
   }, [resources, scopeFilter]);
 
   if (isLoading) {
