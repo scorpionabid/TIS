@@ -24,6 +24,58 @@ class TaskAssignmentService extends BaseService
     }
 
     /**
+     * Sync task assignments (add new ones, remove old ones)
+     */
+    public function syncTaskAssignments(Task $task, array $assignedUserIds, $user): void
+    {
+        DB::transaction(function () use ($task, $assignedUserIds, $user) {
+            $assignedUserIds = collect($assignedUserIds)
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->toArray();
+
+            // Get current assignments
+            $currentAssignments = $task->assignments()->whereNotNull('assigned_user_id')->get();
+            $currentUserIds = $currentAssignments->pluck('assigned_user_id')->toArray();
+
+            // Users to remove
+            $userIdsToRemove = array_diff($currentUserIds, $assignedUserIds);
+
+            if (! empty($userIdsToRemove)) {
+                $task->assignments()
+                    ->whereIn('assigned_user_id', $userIdsToRemove)
+                    ->whereNotIn('assignment_status', ['completed', 'cancelled', 'rejected'])
+                    ->delete();
+            }
+
+            // Users to add
+            $userIdsToAdd = array_diff($assignedUserIds, $currentUserIds);
+
+            if (! empty($userIdsToAdd)) {
+                $usersToAdd = User::whereIn('id', $userIdsToAdd)->with('roles')->get();
+                foreach ($usersToAdd as $targetUser) {
+                    $roleName = $targetUser->roles->first()?->name;
+                    TaskAssignment::create([
+                        'task_id' => $task->id,
+                        'institution_id' => $targetUser->institution_id,
+                        'assigned_role' => $roleName ?? 'schooladmin',
+                        'assigned_user_id' => $targetUser->id,
+                        'priority' => $task->priority,
+                        'progress' => 0,
+                        'due_date' => $task->deadline,
+                        'assignment_status' => 'pending',
+                        'assigned_at' => now(),
+                    ]);
+                }
+            }
+
+            // Update overall task progress
+            $this->updateTaskProgressFromAssignments($task->fresh('assignments'));
+        });
+    }
+
+    /**
      * Create hierarchical task assignments
      */
     public function createHierarchicalTask(array $data, $user): array
@@ -580,6 +632,12 @@ class TaskAssignmentService extends BaseService
                 'id' => $assignment->assignedUser->id,
                 'name' => $assignment->assignedUser->name,
                 'email' => $assignment->assignedUser->email,
+                'role_display' => $assignment->assignedUser->role?->display_name,
+                'role' => $assignment->assignedUser->role ? [
+                    'id' => $assignment->assignedUser->role->id,
+                    'name' => $assignment->assignedUser->role->name,
+                    'display_name' => $assignment->assignedUser->role->display_name,
+                ] : null,
             ] : null,
             'assigned_role' => $assignment->assigned_role,
             'assigned_user_id' => $assignment->assigned_user_id,

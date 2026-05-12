@@ -789,7 +789,7 @@ class TaskPermissionService extends BaseService
         ]);
 
         $query = \App\Models\User::query()
-            ->with(['roles:id,name', 'institution:id,name,level,parent_id'])
+            ->with(['role:id,name,display_name', 'roles:id,name,display_name', 'institution:id,name,level,parent_id'])
             ->select(['id', 'first_name', 'last_name', 'username', 'email', 'institution_id', 'is_active'])
             ->where('is_active', true)
             ->whereHas('roles', function ($roleQuery) use ($allowedRoles, $roleFilter) {
@@ -867,7 +867,7 @@ class TaskPermissionService extends BaseService
         );
 
         $data = $users->getCollection()->map(function (\App\Models\User $assignableUser) use ($institutionMap) {
-            $primaryRole = $assignableUser->roles->first();
+            $primaryRole = $assignableUser->role ?? $assignableUser->roles->first();
             $institution = $assignableUser->institution;
             $institutionId = $institution?->id;
             $institutionMeta = $institutionId ? ($institutionMap[$institutionId] ?? null) : null;
@@ -886,6 +886,7 @@ class TaskPermissionService extends BaseService
                     'depth' => $institutionMeta['depth'] ?? 0,
                 ] : null,
                 'role' => $primaryRole?->name,
+                'role_display' => $primaryRole?->display_name ?? $primaryRole?->name,
                 'is_active' => $assignableUser->is_active,
             ];
         });

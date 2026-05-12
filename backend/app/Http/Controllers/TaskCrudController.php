@@ -34,7 +34,9 @@ class TaskCrudController extends BaseTaskController
         try {
             // Optimized query with selective eager loading
             $query = Task::with([
-                'creator:id,first_name,last_name,email,username',
+                'creator:id,first_name,last_name,email,username,role_id',
+                'creator.role:id,name,display_name',
+                'creator.roles:id,name,display_name',
                 'assignee:id,first_name,last_name,username',
                 'assignedInstitution:id,name,type',
                 'approver:id,first_name,last_name',
@@ -45,7 +47,9 @@ class TaskCrudController extends BaseTaskController
                 'assignments' => function ($query) {
                     $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress', 'assignment_metadata', 'due_date')
                         ->with([
-                            'assignedUser:id,first_name,last_name,username',
+                            'assignedUser:id,first_name,last_name,username,role_id',
+                            'assignedUser.role:id,name,display_name',
+                            'assignedUser.roles:id,name,display_name',
                             'institution:id,name',
                         ])
                         ->latest();
@@ -148,11 +152,15 @@ class TaskCrudController extends BaseTaskController
 
         try {
             $query = Task::with([
-                'creator',
-                'assignee',
-                'assignedInstitution',
-                'approver',
-                'assignments.assignedUser:id,first_name,last_name,username',
+                'creator:id,first_name,last_name,email,username,role_id',
+                'creator.role:id,name,display_name',
+                'creator.roles:id,name,display_name',
+                'assignee:id,first_name,last_name,username',
+                'assignedInstitution:id,name,type',
+                'approver:id,first_name,last_name',
+                'assignments.assignedUser:id,first_name,last_name,username,role_id',
+                'assignments.assignedUser.role:id,name,display_name',
+                'assignments.assignedUser.roles:id,name,display_name',
                 'assignments.institution:id,name',
                 'subDelegations.delegatedToUser',
             ])
@@ -423,6 +431,8 @@ class TaskCrudController extends BaseTaskController
             'deadline' => 'nullable|date|after:now',
             'deadline_time' => 'nullable|date_format:H:i',
             'notes' => 'nullable|string',
+            'assigned_user_ids' => 'nullable|array',
+            'assigned_user_ids.*' => 'integer|exists:users,id',
         ]);
 
         try {
@@ -460,6 +470,11 @@ class TaskCrudController extends BaseTaskController
                 'title', 'description', 'category', 'source', 'priority',
                 'status', 'progress', 'deadline', 'deadline_time', 'notes',
             ]));
+
+            // Sync assignments if assigned_user_ids provided
+            if ($request->has('assigned_user_ids')) {
+                $this->assignmentService->syncTaskAssignments($task, $request->input('assigned_user_ids'), $user);
+            }
 
             // Log task update
             $this->auditService->logTaskUpdated($task, $oldValues);

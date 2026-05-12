@@ -26,6 +26,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { Settings } from 'lucide-react';
 import { formatUserName } from '@/utils/taskFormatters';
 
 interface ExcelTaskRowProps {
@@ -107,12 +108,17 @@ export function ExcelTaskRow({
   // Merge users from original assignments into availableUsers so MultiSelectCell
   // can resolve names even if the assigned user isn't in the assignable users list
   const mergedUsers = useMemo(() => {
-    const usersMap = new Map<number, { id: number; name: string; email?: string }>();
+    const usersMap = new Map<number, { id: number; name: string; email?: string; role_display?: string }>();
     availableUsers.forEach(u => usersMap.set(u.id, u));
     originalAssignments.forEach(a => {
       const user = a.assignedUser || (a as any).assigned_user;
       if (user?.id && !usersMap.has(user.id)) {
-        usersMap.set(user.id, { id: user.id, name: user.name, email: user.email });
+        usersMap.set(user.id, { 
+          id: user.id, 
+          name: user.name, 
+          email: user.email,
+          role_display: user.role?.display_name || user.role?.name || user.roles?.[0]?.display_name || user.roles?.[0]?.name || user.role_display
+        });
       }
     });
     return Array.from(usersMap.values());
@@ -208,14 +214,21 @@ export function ExcelTaskRow({
           <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-200">
             {task.creator?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
           </div>
-          <span className="text-xs font-medium text-slate-700 truncate max-w-[100px]">
-            {formatUserName(task.creator?.name || '-')}
-          </span>
+          <div className="flex flex-col leading-tight overflow-hidden">
+            <span className="text-xs font-medium text-slate-700 truncate max-w-[120px]">
+              {formatUserName(task.creator?.name || '-')}
+            </span>
+            { (task.creator?.role?.display_name || task.creator?.roles?.[0]?.display_name) && (
+              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                {task.creator.role?.display_name || (task.creator as any).roles?.[0]?.display_name}
+              </span>
+            )}
+          </div>
         </div>
       </td>
 
       {/* Assignees */}
-      <td className="px-2 py-1">
+      <td className="px-2 py-1 group/assignees relative">
         <MultiSelectCell
           selectedIds={originalAssignments.map(a => a.assigned_user_id).filter(Boolean) as number[] || []}
           options={mergedUsers}
@@ -224,7 +237,13 @@ export function ExcelTaskRow({
           onSave={(ids) => saveEdit(task.id, { assigned_user_ids: ids } as any)}
           onCancel={cancelEdit}
           placeholder="Məsul şəxs seçin"
+          className="border-0 bg-transparent hover:bg-muted/30 p-0 pr-6"
         />
+        {!isEditing(task.id, 'assignees') && canEdit && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/assignees:opacity-100 transition-opacity pointer-events-none">
+            <Settings className="h-3 w-3 text-muted-foreground/50" />
+          </div>
+        )}
       </td>
 
       {/* Yönləndirilib (Delegated To) */}

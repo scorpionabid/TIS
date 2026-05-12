@@ -219,6 +219,7 @@ export default function Tasks() {
           priority: payload.priority,
           deadline: payload.deadline,
           notes: payload.notes,
+          assigned_user_ids: payload.assigned_user_ids,
         };
         await updateTask.mutateAsync({ id: selectedTask.id, data: updatePayload });
       } else {

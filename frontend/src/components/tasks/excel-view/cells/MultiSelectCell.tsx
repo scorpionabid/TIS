@@ -27,6 +27,7 @@ interface MultiSelectOption {
   id: number;
   name: string;
   email?: string;
+  role_display?: string;
 }
 
 interface MultiSelectCellProps {
@@ -119,18 +120,29 @@ export function MultiSelectCell({
             variant="outline"
             role="combobox"
             aria-expanded={isOpen}
-            className={cn('h-auto min-h-[32px] justify-between text-sm', className)}
+            className={cn('h-auto min-h-[32px] w-full justify-between text-sm bg-white/50 border-slate-200 hover:bg-white transition-all', className)}
             disabled={isLoading}
           >
-            <div className="flex flex-wrap gap-1 flex-1">
+            <div className="flex flex-wrap gap-1.5 flex-1 py-1">
               {selected.length === 0 ? (
-                <span className="text-muted-foreground">{placeholder}</span>
+                <span className="text-muted-foreground text-xs">{placeholder}</span>
               ) : (
                 selectedUsers.map((user) => (
-                  <Badge key={user.id} variant="secondary" className="text-xs">
-                    {formatDisplayName(user.name)}
+                  <Badge 
+                    key={user.id} 
+                    variant="secondary" 
+                    className="text-[10px] h-auto py-1.5 px-2 bg-indigo-50 text-indigo-700 border-indigo-100 flex items-center gap-2 group"
+                  >
+                    <div className="flex flex-col items-start text-left leading-[1.2]">
+                      <span className="font-semibold">{formatDisplayName(user.name)}</span>
+                      {user.role_display && (
+                        <span className="text-[9px] opacity-70 font-normal">
+                          {user.role_display}
+                        </span>
+                      )}
+                    </div>
                     <X
-                      className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+                      className="h-3 w-3 cursor-pointer hover:text-destructive shrink-0 opacity-40 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => handleRemove(user.id, e)}
                     />
                   </Badge>
@@ -140,28 +152,36 @@ export function MultiSelectCell({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="İstifadəçi axtar..." />
-            <CommandEmpty>İstifadəçi tapılmadı</CommandEmpty>
-            <CommandGroup className="max-h-[200px] overflow-y-auto">
+        <PopoverContent className="w-[320px] p-0 shadow-xl border-slate-200" align="start">
+          <Command className="rounded-lg">
+            <CommandInput placeholder="İstifadəçi axtar..." className="h-9 text-sm" />
+            <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">İstifadəçi tapılmadı</CommandEmpty>
+            <CommandGroup className="max-h-[250px] overflow-y-auto p-1">
               {options.map((user) => (
                 <CommandItem
                   key={user.id}
                   value={user.name}
                   onSelect={() => handleToggle(user.id)}
+                  className="rounded-md cursor-pointer py-2"
                 >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      selected.includes(user.id) ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{formatDisplayName(user.name)}</span>
-                    {user.email && (
-                      <span className="text-xs text-muted-foreground">{user.email}</span>
-                    )}
+                  <div className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border border-primary/20 mr-2 transition-colors",
+                    selected.includes(user.id) ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"
+                  )}>
+                    {selected.includes(user.id) && <Check className="h-3 w-3" />}
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-slate-800">{formatDisplayName(user.name)}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {user.role_display && (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0 rounded font-medium">
+                          {user.role_display}
+                        </span>
+                      )}
+                      {user.email && (
+                        <span className="text-[10px] text-muted-foreground truncate">{user.email}</span>
+                      )}
+                    </div>
                   </div>
                 </CommandItem>
               ))}
@@ -181,43 +201,62 @@ export function MultiSelectCell({
     <div
       onClick={onEdit}
       className={cn(
-        'px-3 py-2 cursor-pointer hover:bg-muted/50 rounded transition-colors min-h-[32px] flex items-center',
-        selectedUsers.length === 0 && 'text-muted-foreground italic',
+        'px-2 py-1.5 cursor-pointer hover:bg-indigo-50/50 rounded-md transition-all min-h-[36px] flex items-center group/cell',
+        selectedUsers.length === 0 && 'text-muted-foreground italic text-xs',
         className
       )}
     >
       {selectedUsers.length === 0 ? (
         placeholder
       ) : (
-        <div className="flex items-center gap-1 overflow-hidden">
-          {visibleUsers.map((user) => (
-            <Badge key={user.id} variant="secondary" className="text-xs truncate max-w-[120px] shrink-0">
-              {formatDisplayName(user.name)}
-            </Badge>
-          ))}
+        <div className="flex items-center gap-2 overflow-hidden w-full">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+            {visibleUsers.map((user) => (
+              <div key={user.id} className="flex flex-col leading-[1.1] min-w-0 group/user">
+                <span className="text-[11px] font-bold text-slate-700 truncate group-hover/cell:text-primary transition-colors">
+                  {formatDisplayName(user.name)}
+                </span>
+                {user.role_display ? (
+                  <span className="text-[9px] text-muted-foreground/80 font-medium truncate italic">
+                    {user.role_display}
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-red-400/60 font-medium truncate italic">
+                    Vəzifə təyin edilməyib
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          
           {hasOverflow && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center h-5 min-w-[28px] px-1.5 rounded-full bg-muted text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
+                  className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 hover:bg-primary hover:text-white transition-all shrink-0 shadow-sm"
                   onClick={(e) => e.stopPropagation()}
                   title={`və ${hiddenUsers.length} nəfər daha`}
                 >
                   +{hiddenUsers.length}
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-[220px] p-2" align="start" onClick={(e) => e.stopPropagation()}>
-                <div className="text-xs font-medium text-muted-foreground mb-2">
-                  Bütün məsul şəxslər ({selectedUsers.length})
+              <PopoverContent className="w-[260px] p-2 shadow-xl border-slate-200" align="end" onClick={(e) => e.stopPropagation()}>
+                <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-3 px-1">
+                  Məsul şəxslər ({selectedUsers.length})
                 </div>
-                <div className="flex flex-col gap-1.5 max-h-[200px] overflow-y-auto">
+                <div className="flex flex-col gap-2 max-h-[250px] overflow-y-auto pr-1">
                   {selectedUsers.map((user) => (
-                    <div key={user.id} className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-muted/50">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold shrink-0">
+                    <div key={user.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold shrink-0 border border-indigo-100">
                         {getInitials(user.name)}
                       </div>
-                      <span className="text-sm truncate">{formatDisplayName(user.name)}</span>
+                      <div className="flex flex-col leading-tight overflow-hidden">
+                        <span className="text-xs font-bold text-slate-800 truncate">{formatDisplayName(user.name)}</span>
+                        {user.role_display && (
+                          <span className="text-[10px] text-muted-foreground truncate italic">{user.role_display}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -51,11 +51,15 @@ export interface Task extends BaseEntity {
     id: number;
     name: string;
     email: string;
+    role?: { display_name: string };
+    roles?: Array<{ display_name: string }>;
   };
   assignee?: {
     id: number;
     name: string;
     email: string;
+    role?: { display_name: string };
+    roles?: Array<{ display_name: string }>;
   };
   assignedInstitution?: {
     id: number;
@@ -82,11 +86,20 @@ export interface Task extends BaseEntity {
       id: number;
       name: string;
       email?: string;
+      role_display?: string;
+      role?: {
+        display_name: string;
+      };
+      roles?: Array<{
+        display_name: string;
+      }>;
     } | null;
     assigned_user?: {
       id: number;
       name: string;
       email?: string;
+      role_display?: string;
+      roles?: Array<{ display_name: string }>;
     } | null;
   }>;
   user_assignment?: UserAssignmentSummary | null;
@@ -237,6 +250,7 @@ export interface UpdateTaskData {
   progress?: number;
   notes?: string;
   completion_notes?: string;
+  assigned_user_ids?: number[];
 }
 
 export interface TaskFilters extends PaginationParams {
@@ -311,6 +325,10 @@ export interface AssignableUser {
   username?: string | null;
   email: string | null;
   role?: string | null;
+  role_display?: string | null;
+  roles?: Array<{
+    display_name: string;
+  }>;
   is_active: boolean;
   institution?: {
     id: number;
