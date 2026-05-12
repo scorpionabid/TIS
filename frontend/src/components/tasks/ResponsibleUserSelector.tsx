@@ -323,9 +323,9 @@ export function ResponsibleUserSelector({
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-                      {user.role && (
+                      {(user.role_display || user.role) && (
                         <p className="text-[11px] text-muted-foreground">
-                          {roleDisplayNames[user.role.toLowerCase()] ?? user.role}
+                          {user.role_display || (user.role ? (roleDisplayNames[user.role.toLowerCase()] ?? user.role) : '')}
                         </p>
                       )}
                     </div>

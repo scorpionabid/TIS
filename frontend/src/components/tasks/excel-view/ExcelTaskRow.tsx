@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import { Task } from '@/services/tasks';
+import { Task, AssignableUser } from '@/services/tasks';
 import { InlineEditContext } from './types';
 import { TextCell } from './cells/TextCell';
 import { DropdownCell } from './cells/DropdownCell';
@@ -38,7 +38,7 @@ interface ExcelTaskRowProps {
   onDelete: (task: Task) => void;
   canEdit: boolean;
   canDelete: boolean;
-  availableUsers?: Array<{ id: number; name: string; email?: string }>;
+  availableUsers?: AssignableUser[];
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: (taskId: number) => void;
@@ -218,9 +218,9 @@ export function ExcelTaskRow({
             <span className="text-xs font-medium text-slate-700 truncate max-w-[120px]">
               {formatUserName(task.creator?.name || '-')}
             </span>
-            { (task.creator?.role?.display_name || task.creator?.roles?.[0]?.display_name) && (
+            { (task.creator?.role || task.creator?.roles?.length) && (
               <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                {task.creator.role?.display_name || (task.creator as any).roles?.[0]?.display_name}
+                {task.creator.role?.display_name || task.creator.role?.name || task.creator.roles?.[0]?.display_name || task.creator.roles?.[0]?.name || 'Vəzifə təyin edilməyib'}
               </span>
             )}
           </div>

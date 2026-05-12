@@ -10,6 +10,9 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TaskAssignedMail;
+use App\Mail\TaskCompletedMail;
 
 class TaskAssignmentService extends BaseService
 {
@@ -67,6 +70,18 @@ class TaskAssignmentService extends BaseService
                         'assignment_status' => 'pending',
                         'assigned_at' => now(),
                     ]);
+
+                    // Send email notification
+                    if ($targetUser->email) {
+                        try {
+                            Mail::to($targetUser->email)->send(new TaskAssignedMail($task, $targetUser));
+                        } catch (\Exception $e) {
+                            Log::error('Task assigned email failed', [
+                                'user_id' => $targetUser->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
                 }
             }
 
@@ -294,6 +309,18 @@ class TaskAssignmentService extends BaseService
                 $this->notifyTaskCompletion($assignment, $user);
             }
 
+            // Send thank you email to assignee
+            if ($newStatus === 'completed' && $assignment->assignedUser && $assignment->assignedUser->email) {
+                try {
+                    Mail::to($assignment->assignedUser->email)->send(new TaskCompletedMail($assignment->task, $assignment->assignedUser));
+                } catch (\Exception $e) {
+                    Log::error('Task completed email failed', [
+                        'user_id' => $assignment->assigned_user_id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
             return $assignment->fresh(['task', 'assignedUser', 'institution']);
         });
     }
@@ -473,7 +500,7 @@ class TaskAssignmentService extends BaseService
                 continue;
             }
 
-            $assignments[] = TaskAssignment::create([
+            $assignment = TaskAssignment::create([
                 'task_id' => $task->id,
                 'institution_id' => $institution->id,
                 'assigned_role' => ! empty($selectedUserIds) ? ($roleName ?? $targetRole) : $targetRole,
@@ -488,6 +515,20 @@ class TaskAssignmentService extends BaseService
                 ),
                 'assignment_status' => 'pending',
             ]);
+
+            $assignments[] = $assignment;
+
+            // Send email notification
+            if ($targetUser->email) {
+                try {
+                    Mail::to($targetUser->email)->send(new TaskAssignedMail($task, $targetUser));
+                } catch (\Exception $e) {
+                    Log::error('Hierarchical task assigned email failed', [
+                        'user_id' => $targetUser->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
         }
 
         return $assignments;

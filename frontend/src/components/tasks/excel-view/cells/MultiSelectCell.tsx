@@ -173,9 +173,9 @@ export function MultiSelectCell({
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="text-sm font-semibold text-slate-800">{formatDisplayName(user.name)}</span>
                     <div className="flex items-center gap-2 mt-0.5">
-                      {user.role_display && (
+                      {(user.role_display || user.role) && (
                         <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0 rounded font-medium">
-                          {user.role_display}
+                          {user.role_display || user.role}
                         </span>
                       )}
                       {user.email && (

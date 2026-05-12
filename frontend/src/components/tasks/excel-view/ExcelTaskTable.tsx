@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Task } from '@/services/tasks';
+import { Task, AssignableUser } from '@/services/tasks';
 import { SortDirection, SortField } from '@/hooks/tasks/useTasksData';
 import { excelColumns, getColumnIndex } from './columns';
 import { useInlineEdit } from './hooks/useInlineEdit';
@@ -36,7 +36,7 @@ interface ExcelTaskTableProps {
   showCreateButton: boolean;
   page: number;
   perPage: number;
-  availableUsers?: Array<{ id: number; name: string; email?: string; role?: string; role_display?: string }>;
+  availableUsers?: AssignableUser[];
   onRefresh?: () => Promise<void>;
   onTaskCreated: () => Promise<void>;
   originScope: 'region' | 'sector' | null;
