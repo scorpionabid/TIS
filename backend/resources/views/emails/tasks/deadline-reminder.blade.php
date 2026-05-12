@@ -149,6 +149,12 @@
 
         <h1>Hörmətli {{ $user->name }},</h1>
 
+        @if($daysRemaining === 0)
+            <div style="background-color: #fee2e2; border: 2px solid #dc2626; color: #991b1b; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; font-size: 16px;">
+                ⚠️ DİQQƏT: Bu gün tapşırığın icrasının son günüdür!
+            </div>
+        @endif
+
         <p>Sizə təyin olunmuş tapşırığın son tarixi yaxınlaşır:</p>
 
         <div class="task-card">
