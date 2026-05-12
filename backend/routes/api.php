@@ -135,6 +135,9 @@ Route::middleware([\App\Http\Middleware\ForceCors::class])->group(function () {
 
         // Project Management Routes
         require __DIR__ . '/api/projects.php';
+
+        // User Calendar Events & Notes
+        require __DIR__ . '/api/calendar.php';
     });
 
     // Test route (public)

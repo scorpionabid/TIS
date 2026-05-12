@@ -16,7 +16,7 @@ export const RoleProtectedRoute: React.FC<RoleProtectedRouteProps> = ({
   allowedRoles = [],
   requiredPermissions = [],
   permissionMatch = 'any',
-  redirectTo = '/'
+  redirectTo = '/403'
 }) => {
   const { currentUser, hasRole, hasPermission, loading, isAuthenticated } = useAuth();
   const isDevelopment = process.env.NODE_ENV !== 'production';

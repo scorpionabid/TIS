@@ -13,17 +13,6 @@ import {
   ShieldCheckIcon
 } from "lucide-react";
 import { motion, Variants } from "framer-motion";
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line
-} from "recharts";
 
 import { StatsCard } from "./StatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +29,7 @@ interface DashboardStats {
   institutions: { total: number; active: number };
   surveys: { total: number; active: number; completed: number; total_responses: number };
   tasks: { total: number; pending: number; in_progress: number; completed: number; overdue: number };
+  system?: { uptime?: string | number; avg_response_time?: number };
 }
 
 interface ActivityItem {
@@ -51,26 +41,6 @@ interface ActivityItem {
   time?: string; // For mock data compatibility
 }
 
-// Mock data for charts (until API supports them)
-const healthData = [
-  { time: "09:00", latency: 45, errors: 0 },
-  { time: "10:00", latency: 120, errors: 2 },
-  { time: "11:00", latency: 85, errors: 0 },
-  { time: "12:00", latency: 65, errors: 0 },
-  { time: "13:00", latency: 55, errors: 0 },
-  { time: "14:00", latency: 140, errors: 5 },
-  { time: "15:00", latency: 90, errors: 1 },
-];
-
-const registrationData = [
-  { date: "01 Yan", users: 12, schools: 1 },
-  { date: "05 Yan", users: 45, schools: 2 },
-  { date: "10 Yan", users: 89, schools: 4 },
-  { date: "15 Yan", users: 156, schools: 5 },
-  { date: "20 Yan", users: 230, schools: 8 },
-  { date: "25 Yan", users: 345, schools: 12 },
-  { date: "30 Yan", users: 489, schools: 15 },
-];
 
 export const SuperAdminDashboard = () => {
   const { isMobile } = useLayout();
@@ -148,8 +118,8 @@ export const SuperAdminDashboard = () => {
       variant: "warning" as const
     },
     {
-      title: "Sistem performansı",
-      value: "99.2%",
+      title: "Sistem uptime",
+      value: stats?.system?.uptime != null ? String(stats.system.uptime) : "—",
       icon: ActivityIcon,
       variant: "info" as const
     }
@@ -214,7 +184,7 @@ export const SuperAdminDashboard = () => {
 
       {/* Main Charts Section */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* System Health Chart */}
+        {/* System Health — requires /dashboard/charts/health backend endpoint */}
         <motion.div variants={itemVariants}>
           <Card className="h-full shadow-sm border-muted/60">
             <CardHeader>
@@ -225,51 +195,24 @@ export const SuperAdminDashboard = () => {
               <CardDescription>Server cavab müddəti və xətalar</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={healthData}>
-                    <defs>
-                      <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis 
-                      dataKey="time" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: '#64748B' }}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: '#64748B' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        borderRadius: '8px', 
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="latency" 
-                      stroke="#2563eb" 
-                      fillOpacity={1} 
-                      fill="url(#colorLatency)" 
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="h-[300px] w-full flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <ActivityIcon className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm text-muted-foreground">
+                    Sistem sağlamlığı qrafiki hazırlanır
+                  </p>
+                  {stats?.system?.avg_response_time != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Ortalama cavab müddəti: <span className="font-medium">{stats.system.avg_response_time}ms</span>
+                    </p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Registration Trend Chart */}
+        {/* Registration Trend — requires /dashboard/charts/users backend endpoint */}
         <motion.div variants={itemVariants}>
           <Card className="h-full shadow-sm border-muted/60">
             <CardHeader>
@@ -280,44 +223,18 @@ export const SuperAdminDashboard = () => {
               <CardDescription>Son 30 gün üzrə yeni istifadəçi və məktəblər</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={registrationData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: '#64748B' }}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: '#64748B' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        borderRadius: '8px', 
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="users" 
-                      stroke="#2563eb" 
-                      strokeWidth={2}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="schools" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="h-[300px] w-full flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <TrendingUpIcon className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm text-muted-foreground">
+                    Qeydiyyat dinamikası qrafiki hazırlanır
+                  </p>
+                  {stats?.users?.new_this_month != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Bu ay: <span className="font-medium">+{stats.users.new_this_month} istifadəçi</span>
+                    </p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

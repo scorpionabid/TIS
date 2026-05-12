@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { SidebarContainer } from '@/components/layout/components/Sidebar/SidebarContainer';
 import { SidebarHeader } from '@/components/layout/components/Sidebar/SidebarHeader';
 import { SidebarPanelSwitch } from '@/components/layout/components/Sidebar/SidebarPanelSwitch';
@@ -62,23 +62,6 @@ export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
       currentUser?.institution?.type,
     );
   }, [navigationMenu, currentUser?.institution?.type]);
-
-  // Debug panel-based navigation
-  useEffect(() => {
-    if (currentUser && filteredNavigationMenu.length > 0) {
-      console.log('Current User Role:', currentUser.role);
-      console.log('Active Panel:', sidebarPreferences.activePanel);
-      console.log('Panel Menu Groups:', filteredNavigationMenu.length);
-
-      // Debug each menu group for current panel
-      filteredNavigationMenu.forEach((group, index) => {
-        console.log(`Panel[${sidebarPreferences.activePanel}] Group ${index + 1}:`, group.label, 'Items:', group.items.length);
-        group.items.forEach((item, itemIndex) => {
-          console.log(`  Item ${itemIndex + 1}:`, item.label, 'Path:', item.path, 'Children:', item.children?.length || 0);
-        });
-      });
-    }
-  }, [currentUser, filteredNavigationMenu, sidebarPreferences.activePanel]);
 
   if (!currentUser) return null;
 

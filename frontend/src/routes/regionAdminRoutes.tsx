@@ -47,82 +47,24 @@ export function RegionAdminRoutes() {
           </LazyWrapper>
         }
       />
-      <Route
-        path="regionadmin/users/operators"
-        element={
-          <LazyWrapper>
-            <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.REGIONOPERATOR,
-                USER_ROLES.SEKTORADMIN,
-              ]}
-              requiredPermissions={["users.read"]}
-              permissionMatch="any"
-            >
-              <RegionAdminUsers />
-            </RoleProtectedRoute>
-          </LazyWrapper>
-        }
-      />
-      <Route
-        path="regionadmin/users/sektoradmins"
-        element={
-          <LazyWrapper>
-            <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.REGIONOPERATOR,
-                USER_ROLES.SEKTORADMIN,
-              ]}
-              requiredPermissions={["users.read"]}
-              permissionMatch="any"
-            >
-              <RegionAdminUsers />
-            </RoleProtectedRoute>
-          </LazyWrapper>
-        }
-      />
-      <Route
-        path="regionadmin/users/schooladmins"
-        element={
-          <LazyWrapper>
-            <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.REGIONOPERATOR,
-                USER_ROLES.SEKTORADMIN,
-              ]}
-              requiredPermissions={["users.read"]}
-              permissionMatch="any"
-            >
-              <RegionAdminUsers />
-            </RoleProtectedRoute>
-          </LazyWrapper>
-        }
-      />
-      <Route
-        path="regionadmin/users/teachers"
-        element={
-          <LazyWrapper>
-            <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.REGIONOPERATOR,
-                USER_ROLES.SEKTORADMIN,
-              ]}
-              requiredPermissions={["users.read"]}
-              permissionMatch="any"
-            >
-              <RegionAdminUsers />
-            </RoleProtectedRoute>
-          </LazyWrapper>
-        }
-      />
+      {/* User sub-routes — all guarded by the parent Outlet above */}
+      {(["operators", "sektoradmins", "schooladmins", "teachers"] as const).map((segment) => (
+        <Route
+          key={segment}
+          path={`regionadmin/users/${segment}`}
+          element={
+            <LazyWrapper>
+              <RoleProtectedRoute
+                allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}
+                requiredPermissions={["users.read"]}
+                permissionMatch="any"
+              >
+                <RegionAdminUsers />
+              </RoleProtectedRoute>
+            </LazyWrapper>
+          }
+        />
+      ))}
       <Route
         path="regionadmin/sectors"
         element={
@@ -144,13 +86,8 @@ export function RegionAdminRoutes() {
         element={
           <LazyWrapper>
             <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.REGIONOPERATOR,
-                USER_ROLES.SEKTORADMIN,
-              ]}
-              requiredPermissions={['students.read']}
+              allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}
+              requiredPermissions={["students.read"]}
               permissionMatch="any"
             >
               <RegionStudents />
@@ -163,12 +100,7 @@ export function RegionAdminRoutes() {
         element={
           <LazyWrapper>
             <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.REGIONOPERATOR,
-                USER_ROLES.SEKTORADMIN,
-              ]}
+              allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}
               requiredPermissions={["classes.read"]}
               permissionMatch="any"
             >
@@ -182,13 +114,9 @@ export function RegionAdminRoutes() {
         element={
           <LazyWrapper>
             <RoleProtectedRoute
-              allowedRoles={[
-                USER_ROLES.SUPERADMIN,
-                USER_ROLES.REGIONADMIN,
-                USER_ROLES.SEKTORADMIN,
-                USER_ROLES.REGIONOPERATOR,
-              ]}
+              allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}
               requiredPermissions={["attendance.read"]}
+              permissionMatch="any"
             >
               <RegionAttendanceReports />
             </RoleProtectedRoute>
