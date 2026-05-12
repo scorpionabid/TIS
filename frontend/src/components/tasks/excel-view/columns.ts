@@ -4,7 +4,15 @@
  * Defines the 12 columns for the Excel-like task interface
  */
 
-import { ExcelColumn } from './types';
+export interface ExcelColumn {
+  id: string;
+  label: string;
+  width: string;
+  sortable: boolean;
+  editable: boolean;
+  type: 'text' | 'dropdown' | 'number' | 'readonly' | 'multiselect';
+  hideOnMobile?: boolean;
+}
 
 export const excelColumns: ExcelColumn[] = [
   {
@@ -30,6 +38,7 @@ export const excelColumns: ExcelColumn[] = [
     sortable: true,
     editable: true,
     type: 'dropdown',
+    hideOnMobile: true,
   },
   {
     id: 'priority',
@@ -78,6 +87,7 @@ export const excelColumns: ExcelColumn[] = [
     sortable: true,
     editable: false,
     type: 'readonly',
+    hideOnMobile: true,
   },
   {
     id: 'deadline_progress',

@@ -163,7 +163,7 @@ export function ExcelTaskRow({
       </td>
 
       {/* Source */}
-      <td className="px-2 py-1">
+      <td className="px-2 py-1 hidden md:table-cell">
         <DropdownCell
           value={task.source}
           options={sourceOptionsWithColors}
@@ -269,7 +269,7 @@ export function ExcelTaskRow({
       </td>
 
       {/* Yaranma Tarixi (Created At) */}
-      <td className="px-2 py-1">
+      <td className="px-2 py-1 hidden md:table-cell">
         <div className="flex flex-col items-center">
           <span className="text-[11px] font-medium text-slate-600">
             {task.created_at ? new Date(task.created_at).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}

@@ -241,6 +241,7 @@ export function ExcelTaskTable({
                   className={cn(
                     'px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider',
                     column.width,
+                    column.hideOnMobile && 'hidden md:table-cell',
                     isSortable && 'cursor-pointer hover:bg-muted/70 transition-colors group'
                   )}
                   onClick={() => isSortable && onSort(sortFieldForColumn)}
