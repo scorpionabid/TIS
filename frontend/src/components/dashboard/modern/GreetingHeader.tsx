@@ -139,9 +139,9 @@ export const GreetingHeader = () => {
             </div>
 
             <button onClick={() => setIsTimePanelOpen(true)} className="group text-center lg:text-right transition-all hover:scale-105 active:scale-95">
-              <div className="text-5xl md:text-7xl font-black tracking-widest leading-none mb-2 flex items-baseline justify-center lg:justify-end gap-1">
+              <div className="text-5xl md:text-7xl font-black tracking-widest leading-none mb-2 flex items-baseline justify-center lg:justify-end gap-1 tabular-nums">
                 {format(currentTime, "HH:mm")}
-                <span className="text-base md:text-xl font-bold text-primary animate-pulse tracking-normal">{format(currentTime, "ss")}</span>
+                <span className="text-base md:text-xl font-bold text-primary animate-pulse tracking-normal tabular-nums inline-block w-[2ch] text-left">{format(currentTime, "ss")}</span>
               </div>
               <div className="text-[10px] md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
                 {format(currentTime, "d MMMM yyyy", { locale: az })}
@@ -155,7 +155,7 @@ export const GreetingHeader = () => {
       </div>
 
       <Dialog open={isTimePanelOpen} onOpenChange={setIsTimePanelOpen}>
-        <DialogContent className="sm:max-w-6xl p-0 overflow-hidden border-none glass-card rounded-[32px] md:rounded-[40px] modern-shadow h-[90vh] md:h-[85vh] w-[95vw]">
+        <DialogContent className="sm:max-w-7xl p-0 overflow-hidden border-none glass-card rounded-[32px] md:rounded-[40px] modern-shadow h-[90vh] md:h-[85vh] w-[98vw]">
           <div className="flex flex-col md:flex-row h-full">
             {/* Sidebar / Top Nav on Mobile */}
             <div className="w-full md:w-24 flex md:flex-col items-center justify-center md:py-10 bg-slate-900/5 dark:bg-white/5 border-b md:border-b-0 md:border-r border-primary/5 gap-6 md:gap-10 p-4 md:p-0">
@@ -184,9 +184,9 @@ export const GreetingHeader = () => {
                 <AnimatePresence mode="wait">
                   {activeTab === 'clock' && (
                     <motion.div key="clock" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6 md:space-y-10">
-                      <div className="text-6xl sm:text-8xl md:text-[12rem] font-black font-mono tracking-widest leading-none text-slate-900 dark:text-white flex items-baseline justify-center">
+                      <div className="text-6xl sm:text-8xl md:text-[12rem] font-black font-mono tracking-widest leading-none text-slate-900 dark:text-white flex items-baseline justify-center tabular-nums">
                         {format(currentTime, "HH:mm")}
-                        <span className="text-2xl md:text-5xl ml-2 md:ml-4 text-primary animate-pulse tracking-normal">{format(currentTime, "ss")}</span>
+                        <span className="text-2xl md:text-5xl ml-2 md:ml-4 text-primary animate-pulse tracking-normal tabular-nums inline-block w-[2ch] text-left">{format(currentTime, "ss")}</span>
                       </div>
                       <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-primary/5 border border-primary/10 inline-block px-6 md:px-12">
                         <div className="text-sm md:text-2xl font-bold tracking-tight">{format(currentTime, "d MMMM yyyy, EEEE", { locale: az })}</div>
@@ -194,10 +194,25 @@ export const GreetingHeader = () => {
                     </motion.div>
                   )}
                   {activeTab === 'timer' && (
-                    <motion.div key="timer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl text-center space-y-8 md:space-y-12">
+                    <motion.div key="timer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-3xl text-center space-y-8 md:space-y-12">
                       <div className="text-6xl sm:text-8xl md:text-[10rem] font-black font-mono tracking-widest leading-none">{(Math.floor(timerSeconds/60)).toString().padStart(2,'0')}:{(timerSeconds%60).toString().padStart(2,'0')}</div>
                       
-                      <div className="flex flex-col items-center gap-6 bg-primary/5 p-4 md:p-8 rounded-[24px] md:rounded-[32px] border border-primary/10">
+                      <div className="flex flex-col items-center gap-8">
+                        <div className="flex flex-wrap justify-center gap-3 md:gap-4">
+                          {[5, 10, 15, 25, 45, 60].map((m) => (
+                            <Button 
+                              key={m} 
+                              variant="outline" 
+                              size="lg"
+                              onClick={() => { setTimerSeconds(m * 60); setIsTimerRunning(false); }}
+                              className="rounded-2xl font-black border-2 border-primary/10 hover:border-primary/30 hover:bg-primary/5 min-w-[80px] md:min-w-[100px] h-12 md:h-16"
+                            >
+                              {m} dəq
+                            </Button>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-6 bg-primary/5 p-4 md:p-8 rounded-[24px] md:rounded-[32px] border border-primary/10 w-full max-w-xl">
                         <div className="flex items-center gap-2 md:gap-4">
                           <div className="flex flex-col gap-1">
                             <span className="text-[8px] md:text-[10px] font-black text-primary uppercase text-left">Dəqiqə</span>
@@ -209,7 +224,8 @@ export const GreetingHeader = () => {
                             <Input type="number" value={manualSeconds} onChange={(e) => setManualSeconds(e.target.value)} className="w-16 md:w-24 h-10 md:h-14 text-lg md:text-2xl font-black text-center rounded-lg md:rounded-xl border-primary/20" />
                           </div>
                           <Button onClick={handleSetManualTimer} className="h-10 md:h-14 px-4 md:px-8 rounded-lg md:rounded-xl mt-4 bg-primary font-black gap-2 text-xs md:text-base"><Keyboard size={16} className="hidden sm:block" /> TƏYİN ET</Button>
-                        </div>
+                          </div>
+                      </div>
                       </div>
 
                       <div className="flex gap-4 md:gap-6 justify-center">
