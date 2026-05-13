@@ -80,30 +80,31 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
   };
 
   return (
-    <Card className="glass-card border-none modern-shadow rounded-[32px] overflow-hidden flex flex-col h-[450px]">
-      <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-transparent pt-6 px-6">
+    <Card className="glass-card border-none modern-shadow rounded-[32px] overflow-hidden flex flex-col h-[350px] sm:h-[400px] md:h-[450px]">
+      <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-transparent pt-4 sm:pt-6 px-4 sm:px-6">
         {/* Title row */}
-        <div className="flex items-center justify-between w-full mb-3">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-xl font-black flex items-center gap-2">
-              <StickyNote size={22} className="text-primary" />
+        <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CardTitle className="text-base sm:text-xl font-black flex items-center gap-2">
+              <StickyNote size={18} className="text-primary sm:hidden" />
+              <StickyNote size={22} className="text-primary hidden sm:block" />
               {title}
             </CardTitle>
-            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none px-3 py-1 rounded-full font-black text-[10px] uppercase">
+            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none px-2 sm:px-3 py-1 rounded-full font-black text-[9px] sm:text-[10px] uppercase">
               {allNotes.length} qeyd
             </Badge>
           </div>
           <Button onClick={handleAdd}
-            className="rounded-xl h-9 bg-primary/10 text-primary hover:bg-primary/20 font-black text-[10px] uppercase tracking-wider gap-1.5 px-3">
-            <Plus size={13} /> Əlavə et
+            className="rounded-xl h-8 sm:h-9 bg-primary/10 text-primary hover:bg-primary/20 font-black text-[10px] uppercase tracking-wider gap-1 sm:gap-1.5 px-2 sm:px-3">
+            <Plus size={12} /> <span className="hidden sm:inline">Əlavə et</span><span className="sm:hidden">+</span>
           </Button>
         </div>
 
         {/* Color filter */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterColor('all')}
-            className={cn('text-[9px] font-black px-2.5 py-1 rounded-full transition-colors uppercase tracking-wider',
+            className={cn('text-[8px] sm:text-[9px] font-black px-2 sm:px-2.5 py-1 rounded-full transition-colors uppercase tracking-wider',
               filterColor === 'all' ? 'bg-primary text-white' : 'bg-primary/10 text-primary hover:bg-primary/20')}>
             Hamısı
           </button>
@@ -112,7 +113,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
             return (
               <button key={c} onClick={() => setFilterColor(filterColor === c ? 'all' : c)}
                 title={cfg.label}
-                className={cn('w-5 h-5 rounded-full transition-all hover:scale-110', cfg.dot,
+                className={cn('w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-all hover:scale-110', cfg.dot,
                   filterColor === c ? 'ring-2 ring-offset-1 ring-primary scale-125' : '')}>
               </button>
             );
@@ -120,7 +121,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 overflow-y-auto space-y-3 p-5 pt-2 custom-scrollbar">
+      <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-3 p-3 sm:p-5 pt-2 custom-scrollbar">
 
         {/* Draft card — shown before first API call */}
         <AnimatePresence>
@@ -151,7 +152,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
                   <span className="text-[9px] font-black text-muted-foreground uppercase">Rəng:</span>
                   {COLOR_ORDER.map((c) => (
                     <button key={c} type="button" onClick={() => setDraftColor(c)}
-                      className={cn('w-4 h-4 rounded-full transition-all hover:scale-110', NOTE_COLORS[c].dot,
+                      className={cn('w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-all hover:scale-110', NOTE_COLORS[c].dot,
                         draftColor === c ? 'ring-2 ring-offset-1 ring-foreground scale-125' : '')} />
                   ))}
                 </div>
@@ -206,7 +207,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
                       <span className="text-[9px] font-black text-muted-foreground uppercase">Rəng:</span>
                       {COLOR_ORDER.map((c) => (
                         <button key={c} type="button" onClick={() => setInlineColor(c)}
-                          className={cn('w-4 h-4 rounded-full transition-all hover:scale-110', NOTE_COLORS[c].dot,
+                          className={cn('w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-all hover:scale-110', NOTE_COLORS[c].dot,
                             inlineColor === c ? 'ring-2 ring-offset-1 ring-foreground scale-125' : '')} />
                       ))}
                     </div>

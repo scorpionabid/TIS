@@ -179,7 +179,7 @@ const DroppableDayCell: React.FC<{
       ref={setNodeRef}
       onClick={() => onSelect(date)}
       className={cn(
-        'min-h-[100px] p-2 rounded-xl border transition-all cursor-pointer',
+        'min-h-[60px] sm:min-h-[80px] md:min-h-[100px] p-1 sm:p-2 rounded-xl border transition-all cursor-pointer',
         todayDate ? 'border-primary/40 bg-primary/5' : 'border-transparent',
         weekend ? 'bg-slate-50/80 dark:bg-slate-900/40' : '',
         selected ? 'ring-2 ring-primary/50' : '',
@@ -232,15 +232,15 @@ const WeekView: React.FC<{
           <Button variant="ghost" size="icon" onClick={() => onDateChange(addWeeks(baseDate, 1))} className="h-8 w-8 rounded-lg"><ChevronRight size={16} /></Button>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
         {days.map((d) => (
-          <div key={d.toISOString()} className={cn('text-center text-[10px] font-black uppercase tracking-wider pb-1',
+          <div key={d.toISOString()} className={cn('text-center text-[9px] sm:text-[10px] font-black uppercase tracking-wider pb-1',
             isSaturday(d) || isSunday(d) ? 'text-slate-400' : 'text-primary/50')}>
             {format(d, 'EEE', { locale: az })}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
         {days.map((d) => {
           const key = format(d, 'yyyy-MM-dd');
           const dayEvs = events.filter((e) => e.date === key);
@@ -304,11 +304,11 @@ const CalendarDaysView: React.FC<{
               locale={az}
               className="p-0"
               classNames={{
-                day: cn('h-20 w-20 p-0 font-bold text-2xl rounded-2xl transition-all hover:bg-primary/10 hover:text-primary active:scale-95 flex items-center justify-center mx-auto relative'),
-                cell: 'h-20 w-20 text-center text-2xl p-0 relative focus-within:relative focus-within:z-20',
-                head_cell: 'text-primary/40 rounded-md w-20 font-black text-[14px] uppercase tracking-widest pb-4 text-center',
+                day: cn('h-10 w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 p-0 font-bold text-sm sm:text-lg md:text-2xl rounded-xl sm:rounded-2xl transition-all hover:bg-primary/10 hover:text-primary active:scale-95 flex items-center justify-center mx-auto relative'),
+                cell: 'h-10 w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 text-center text-sm sm:text-lg md:text-2xl p-0 relative focus-within:relative focus-within:z-20',
+                head_cell: 'text-primary/40 rounded-md w-10 sm:w-14 md:w-20 font-black text-[10px] sm:text-[12px] md:text-[14px] uppercase tracking-widest pb-2 md:pb-4 text-center',
                 table: 'w-full border-collapse mx-auto',
-                day_selected: 'bg-primary text-white hover:bg-primary hover:text-white shadow-xl shadow-primary/30 scale-110 z-10',
+                day_selected: 'bg-primary text-white hover:bg-primary hover:text-white shadow-lg shadow-primary/30 scale-110 z-10',
                 caption: 'hidden',
               }}
               modifiers={{
@@ -338,10 +338,10 @@ const CalendarDaysView: React.FC<{
                 <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 -ml-1" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               {months.map((m, i) => (
                 <button key={i} onClick={() => { onMonthChange(m); setSubView('days'); }}
-                  className={cn('h-16 rounded-2xl font-bold text-sm transition-all hover:bg-primary/10 hover:text-primary active:scale-95',
+                  className={cn('h-12 sm:h-16 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all hover:bg-primary/10 hover:text-primary active:scale-95',
                     getYear(m) === getYear(new Date()) && m.getMonth() === new Date().getMonth() ? 'border border-primary/20 bg-primary/5' : '')}>
                   {format(m, 'MMM', { locale: az })}
                 </button>
@@ -358,10 +358,10 @@ const CalendarDaysView: React.FC<{
                 <Button variant="ghost" size="icon" onClick={() => onMonthChange(addYears(activeMonth, 12))} className="h-8 w-8 rounded-lg"><ChevronRight size={16} /></Button>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               {years.map((y) => (
                 <button key={y} onClick={() => { onMonthChange(setYear(activeMonth, y)); setSubView('months'); }}
-                  className={cn('h-16 rounded-2xl font-bold text-sm transition-all hover:bg-primary/10 hover:text-primary active:scale-95',
+                  className={cn('h-12 sm:h-16 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all hover:bg-primary/10 hover:text-primary active:scale-95',
                     y === getYear(new Date()) ? 'border border-primary/20 bg-primary/5' : '')}>
                   {y}
                 </button>
@@ -538,8 +538,8 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
       <Card className="glass-card border-none modern-shadow rounded-[32px] h-full overflow-hidden flex flex-col min-h-[600px]">
         <CardHeader className="border-b border-primary/5 bg-primary/5 flex flex-col md:flex-row md:items-center justify-between gap-4 p-8">
           <div>
-            <CardTitle className="text-3xl font-black flex items-center gap-3">
-              <CalendarIcon className="text-primary" size={32} />
+            <CardTitle className="text-xl sm:text-2xl md:text-3xl font-black flex items-center gap-2 sm:gap-3">
+              <CalendarIcon className="text-primary" size={24} />
               {title}
             </CardTitle>
             {description && <CardDescription className="text-base">{description}</CardDescription>}
@@ -563,7 +563,7 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
         <CardContent className="p-0 flex-1">
           <div className="flex flex-col md:flex-row h-full">
             {/* Calendar area */}
-            <div className="p-6 md:p-10 border-r border-primary/5 flex-1 flex flex-col items-center justify-start bg-white/40 dark:bg-slate-900/40 overflow-auto">
+            <div className="p-3 sm:p-6 md:p-10 border-r border-primary/5 flex-1 flex flex-col items-center justify-start bg-white/40 dark:bg-slate-900/40 overflow-auto">
               <div className="w-full max-w-[900px] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[40px] shadow-2xl border border-white/20 p-6 md:p-8">
                 {calendarView === 'week' ? (
                   <WeekView
@@ -602,7 +602,7 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
             </div>
 
             {/* Day events panel */}
-            <div className="w-full md:w-96 p-8 bg-slate-50/50 dark:bg-slate-900/60 flex flex-col">
+            <div className="w-full md:w-80 lg:w-96 p-4 sm:p-6 md:p-8 bg-slate-50/50 dark:bg-slate-900/60 flex flex-col min-h-[200px] md:min-h-0">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-[0.2em] text-primary">
@@ -650,7 +650,7 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
 
       {/* Event modal */}
       <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if (!open) { setEditingEvent(null); setParticipantQuery(''); } }}>
-        <DialogContent className="sm:max-w-[500px] rounded-[32px] glass-card border-none p-8 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[500px] rounded-2xl sm:rounded-[32px] glass-card border-none p-4 sm:p-8 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black">{editingEvent ? 'Tədbiri Redaktə Et' : 'Yeni Tədbir'}</DialogTitle>
           </DialogHeader>

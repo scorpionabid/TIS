@@ -209,54 +209,54 @@ export const GreetingHeader = () => {
 
       <div className="relative z-10">
         {/* Top row */}
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-5">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 md:gap-6 mb-4 md:mb-5">
           {/* Left: greeting */}
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3 flex-1">
-            <div className="flex items-center gap-3 text-primary/80 font-bold tracking-widest uppercase text-[10px] md:text-xs">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-2 sm:space-y-3 flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 text-primary/80 font-bold tracking-widest uppercase text-[9px] sm:text-[10px] md:text-xs flex-wrap">
               {greeting.icon}
               <span>{greeting.text}</span>
-              <span className="hidden sm:block w-8 h-[1px] bg-primary/30" />
-              <span className="text-muted-foreground flex items-center gap-1.5"><MapPin size={12} /> {userRegion}</span>
+              <span className="hidden sm:block w-6 sm:w-8 h-[1px] bg-primary/30" />
+              <span className="text-muted-foreground flex items-center gap-1"><MapPin size={11} /> <span className="truncate max-w-[120px] sm:max-w-none">{userRegion}</span></span>
             </div>
-            <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight leading-tight">
               Xoş gəldiniz, <span className="text-primary">{userName}</span>!
-              <Sparkles className="inline-block ml-2 text-amber-400 animate-pulse h-5 w-5 md:h-7 md:w-7" />
+              <Sparkles className="inline-block ml-1 sm:ml-2 text-amber-400 animate-pulse h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7" />
             </h1>
-            {/* Daily quote */}
-            <p className="text-xs md:text-sm text-muted-foreground italic max-w-lg border-l-2 border-primary/20 pl-3">
+            {/* Daily quote — hide on very small screens */}
+            <p className="hidden sm:block text-xs md:text-sm text-muted-foreground italic max-w-lg border-l-2 border-primary/20 pl-3">
               "{getDailyQuote()}"
             </p>
           </motion.div>
 
           {/* Right: weather + clock */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-6 md:gap-10 lg:border-l border-primary/10 lg:pl-8 flex-shrink-0">
+            className="flex items-center gap-4 sm:gap-6 md:gap-10 md:border-l border-primary/10 md:pl-8 flex-shrink-0 self-start md:self-auto">
             {/* Weather */}
-            <div className="flex flex-col items-end border-r border-primary/10 pr-6 hidden sm:flex">
-              <div className="flex items-center gap-2 text-amber-500 mb-0.5">
-                <WeatherIcon size={28} className={weather?.label === 'Günəşli' ? 'animate-spin-slow' : ''} />
-                <span className="text-2xl md:text-4xl font-black tracking-tighter tabular-nums">
+            <div className="flex flex-col items-end border-r border-primary/10 pr-4 sm:pr-6 hidden sm:flex">
+              <div className="flex items-center gap-1.5 sm:gap-2 text-amber-500 mb-0.5">
+                <WeatherIcon size={22} className={weather?.label === 'Günəşli' ? 'animate-spin-slow' : ''} />
+                <span className="text-xl sm:text-2xl md:text-4xl font-black tracking-tighter tabular-nums">
                   {weather ? `${weather.temp}°C` : '—°C'}
                 </span>
               </div>
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                {userRegion}, {weather?.label ?? '…'}
+              <div className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate max-w-[120px]">
+                {weather?.label ?? '…'}
               </div>
             </div>
 
             {/* Clock */}
             <button onClick={() => setIsTimePanelOpen(true)}
-              className="group text-center lg:text-right transition-all hover:scale-105 active:scale-95">
-              <div className="text-4xl md:text-6xl font-black tracking-widest leading-none mb-1 tabular-nums flex items-baseline gap-0.5">
+              className="group text-center md:text-right transition-all hover:scale-105 active:scale-95 min-w-0">
+              <div className="text-3xl sm:text-4xl md:text-6xl font-black tracking-widest leading-none mb-1 tabular-nums flex items-baseline gap-0.5">
                 {format(currentTime, 'HH:mm')}
-                <span className="text-sm md:text-lg font-bold text-primary animate-pulse tracking-normal tabular-nums inline-block w-[2ch] text-left">
+                <span className="text-xs sm:text-sm md:text-lg font-bold text-primary animate-pulse tracking-normal tabular-nums inline-block w-[2ch] text-left">
                   {format(currentTime, 'ss')}
                 </span>
               </div>
-              <div className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">
-                {format(currentTime, 'd MMMM yyyy', { locale: az })}
+              <div className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">
+                {format(currentTime, 'd MMM yyyy', { locale: az })}
               </div>
-              <div className="text-[9px] font-black text-primary/40 uppercase tracking-[0.3em] group-hover:text-primary transition-colors">
+              <div className="hidden sm:block text-[9px] font-black text-primary/40 uppercase tracking-[0.3em] group-hover:text-primary transition-colors">
                 Zaman Paneli
               </div>
             </button>
@@ -299,20 +299,20 @@ export const GreetingHeader = () => {
                 <AnimatePresence mode="wait">
                   {activeTab === 'clock' && (
                     <motion.div key="clock" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6">
-                      <div className="text-6xl sm:text-8xl md:text-[10rem] font-black font-mono tracking-widest leading-none flex items-baseline justify-center tabular-nums">
+                      <div className="text-5xl sm:text-7xl md:text-[9rem] font-black font-mono tracking-widest leading-none flex items-baseline justify-center tabular-nums">
                         {format(currentTime, 'HH:mm')}
-                        <span className="text-2xl md:text-4xl ml-2 text-primary animate-pulse tabular-nums inline-block w-[2ch] text-left">{format(currentTime, 'ss')}</span>
+                        <span className="text-xl sm:text-3xl md:text-4xl ml-1 sm:ml-2 text-primary animate-pulse tabular-nums inline-block w-[2ch] text-left">{format(currentTime, 'ss')}</span>
                       </div>
-                      <div className="p-4 md:p-5 rounded-2xl bg-primary/5 border border-primary/10 inline-block px-8">
-                        <div className="text-sm md:text-xl font-bold tracking-tight">{format(currentTime, 'd MMMM yyyy, EEEE', { locale: az })}</div>
+                      <div className="p-3 sm:p-4 md:p-5 rounded-2xl bg-primary/5 border border-primary/10 inline-block px-5 sm:px-8">
+                        <div className="text-xs sm:text-sm md:text-xl font-bold tracking-tight">{format(currentTime, 'd MMMM yyyy, EEEE', { locale: az })}</div>
                       </div>
                     </motion.div>
                   )}
 
                   {activeTab === 'timer' && (
-                    <motion.div key="timer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl text-center space-y-8">
+                    <motion.div key="timer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl text-center space-y-6 sm:space-y-8">
                       <div className="relative">
-                        <div className="text-6xl sm:text-8xl md:text-[9rem] font-black font-mono tracking-widest leading-none tabular-nums">
+                        <div className="text-5xl sm:text-7xl md:text-[8rem] font-black font-mono tracking-widest leading-none tabular-nums">
                           {String(Math.floor(timerSeconds / 60)).padStart(2, '0')}:{String(timerSeconds % 60).padStart(2, '0')}
                         </div>
                         {timerInitial > 0 && (
@@ -353,12 +353,12 @@ export const GreetingHeader = () => {
                   )}
 
                   {activeTab === 'stopwatch' && (
-                    <motion.div key="stopwatch" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-12">
-                      <div className="text-5xl sm:text-7xl md:text-[9rem] font-black font-mono tracking-widest leading-none tabular-nums">
+                    <motion.div key="stopwatch" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8 sm:space-y-12">
+                      <div className="text-4xl sm:text-6xl md:text-[8rem] font-black font-mono tracking-widest leading-none tabular-nums">
                         {formatStopwatch(stopwatchMs)}
                       </div>
-                      <div className="flex gap-6 justify-center">
-                        <Button onClick={() => setIsStopwatchRunning(!isStopwatchRunning)} size="lg" className="rounded-3xl h-16 px-16 font-black shadow-xl shadow-primary/20">
+                      <div className="flex gap-3 sm:gap-6 justify-center">
+                        <Button onClick={() => setIsStopwatchRunning(!isStopwatchRunning)} size="lg" className="rounded-3xl h-12 sm:h-16 px-8 sm:px-16 font-black shadow-xl shadow-primary/20">
                           {isStopwatchRunning ? 'DAYANDIR' : 'BAŞLA'}
                         </Button>
                         <Button variant="outline" onClick={() => { setStopwatchMs(0); setIsStopwatchRunning(false); }} size="lg" className="rounded-3xl h-16 px-10 border-2">
