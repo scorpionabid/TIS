@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -7,6 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Maximize2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReportTableColumn, RowStatusMeta } from '@/types/reportTable';
 import { FileUploadInput } from './FileUploadInput';
@@ -46,14 +54,33 @@ function parseMultiValue(value: string): string[] {
 export const CellInput = React.memo(function CellInput({
   col, value, onChange, onBlur, onKeyDown, onPaste, disabled, error, inputRef,
 }: CellInputProps) {
-  // Auto-resize ref for text-type textarea (hooks must be before any early returns)
+  // Hooks must be declared before any early returns
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  // Auto-resize textarea height as content changes
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [value]);
+
+  // Paste cleanup: normalize line endings, collapse extra whitespace/tabs
+  const handleTextareaPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    const raw = e.clipboardData.getData('text/plain');
+    const cleaned = raw
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n');
+    const el = textareaRef.current;
+    if (!el) { onChange(cleaned); return; }
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    onChange(value.substring(0, start) + cleaned + value.substring(end));
+  }, [value, onChange]);
 
   if (col.type === 'file') {
     return (
@@ -239,9 +266,12 @@ export const CellInput = React.memo(function CellInput({
     );
   }
 
-  // Text type (active): auto-expanding textarea
+  // Text type (active): auto-expanding textarea with toolbar
   if (col.type === 'text') {
-    return (
+    const charCount = value.length;
+    const nearLimit = col.max_length && charCount > col.max_length * 0.85;
+
+    const textareaEl = (
       <textarea
         ref={(el) => {
           (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
@@ -251,11 +281,12 @@ export const CellInput = React.memo(function CellInput({
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLTextAreaElement>}
-        onPaste={onPaste as unknown as React.ClipboardEventHandler<HTMLTextAreaElement>}
+        onPaste={handleTextareaPaste}
         disabled={disabled}
         placeholder={col.hint || col.label}
         maxLength={col.max_length ?? undefined}
         rows={1}
+        spellCheck
         className={cn(
           'w-full rounded-md border bg-background px-3 py-2 text-sm',
           'resize-none overflow-hidden leading-snug',
@@ -264,6 +295,84 @@ export const CellInput = React.memo(function CellInput({
           error ? 'border-red-400 focus-visible:ring-red-300' : 'border-input',
         )}
       />
+    );
+
+    return (
+      <div className="w-full">
+        {textareaEl}
+
+        {/* Toolbar: clear + char counter + expand */}
+        {!disabled && (
+          <div className="flex items-center justify-between mt-0.5 px-0.5">
+            {value ? (
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                className="text-gray-300 hover:text-gray-500 transition-colors"
+                title="Təmizlə"
+                tabIndex={-1}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            ) : <span />}
+
+            <div className="flex items-center gap-1.5">
+              {col.max_length ? (
+                <span className={cn(
+                  'text-[10px] tabular-nums',
+                  nearLimit ? 'text-amber-500 font-medium' : 'text-gray-300',
+                )}>
+                  {charCount}/{col.max_length}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="text-gray-300 hover:text-blue-500 transition-colors"
+                title="Genişlət (tam ekran)"
+                tabIndex={-1}
+              >
+                <Maximize2 className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Expand dialog */}
+        <Dialog open={expanded} onOpenChange={setExpanded}>
+          <DialogContent className="max-w-2xl w-full">
+            <DialogHeader>
+              <DialogTitle className="text-base">{col.label}</DialogTitle>
+            </DialogHeader>
+            <textarea
+              autoFocus
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              spellCheck
+              placeholder={col.hint || col.label}
+              maxLength={col.max_length ?? undefined}
+              className={cn(
+                'w-full min-h-[240px] max-h-[60vh] p-3 text-sm border rounded-lg resize-y',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'border-input bg-background leading-relaxed',
+              )}
+            />
+            <div className="flex items-center justify-between">
+              {col.max_length ? (
+                <span className={cn(
+                  'text-xs tabular-nums',
+                  (value.length > col.max_length * 0.85) ? 'text-amber-500' : 'text-gray-400',
+                )}>
+                  {value.length} / {col.max_length} simvol
+                </span>
+              ) : (
+                <span className="text-xs text-gray-400">{value.length} simvol</span>
+              )}
+              <Button size="sm" onClick={() => setExpanded(false)}>Bağla</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     );
   }
 

@@ -37,6 +37,7 @@ export function useTableKeyboardNavigation({
       // to bypass Radix UI's Sheet/Dialog focus trap.
 
       case 'Enter':
+        if (isTextarea) break; // textarea: Enter creates a new line naturally
         e.preventDefault();
         if (rowIdx + 1 < totalRows) {
           focusCell(rowIdx + 1, colIdx);
