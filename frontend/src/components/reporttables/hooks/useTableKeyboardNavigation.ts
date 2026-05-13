@@ -47,12 +47,9 @@ export function useTableKeyboardNavigation({
         break;
 
       case 'ArrowUp': {
-        if (isTextarea) {
-          // In textarea: only navigate to previous row when cursor is on the first line
-          const el = e.target as HTMLTextAreaElement;
-          const textBefore = el.value.substring(0, el.selectionStart ?? 0);
-          if (textBefore.includes('\n')) break; // cursor not on first line — allow natural movement
-        }
+        // Textarea has multiline visual wrapping — arrow keys must move cursor within text.
+        // Row navigation is done with Tab or clicking. Single-line inputs keep row navigation.
+        if (isTextarea) break;
         e.preventDefault();
         if (rowIdx > 0) {
           focusCell(rowIdx - 1, colIdx);
@@ -61,12 +58,7 @@ export function useTableKeyboardNavigation({
       }
 
       case 'ArrowDown': {
-        if (isTextarea) {
-          // In textarea: only navigate to next row when cursor is on the last line
-          const el = e.target as HTMLTextAreaElement;
-          const textAfter = el.value.substring(el.selectionStart ?? el.value.length);
-          if (textAfter.includes('\n')) break; // cursor not on last line — allow natural movement
-        }
+        if (isTextarea) break;
         e.preventDefault();
         if (rowIdx + 1 < totalRows) {
           focusCell(rowIdx + 1, colIdx);
