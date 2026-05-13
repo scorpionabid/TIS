@@ -20,7 +20,8 @@ export interface User {
   
   // Role and permissions
   role_id?: number | string; // Backend role ID
-  role: string | UserRole; // Flexible to handle both string and UserRole
+  role: string | UserRole; // Mapped frontend role (e.g. "müəllim" for muavin/psixoloq/etc)
+  original_role?: string; // Raw backend role name before frontend mapping
   permissions: string[];
   
   // Contact information

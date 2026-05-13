@@ -270,8 +270,9 @@ class DashboardService {
   }
 
   async getRecentActivity(limit: number = 10): Promise<RecentActivity[]> {
-    const response = await apiClient.get<RecentActivity[]>('/dashboard/recent-activity', { limit });
-    return response.data || [];
+    // /dashboard/activity is available to all roles (role-based filtering applied server-side)
+    const response = await apiClient.get<RecentActivity[]>('/dashboard/activity', { limit });
+    return (response as any)?.data ?? response ?? [];
   }
 
   async getNotifications(unread_only: boolean = false): Promise<SystemNotification[]> {
@@ -345,64 +346,30 @@ class DashboardService {
 
   // New role-specific dashboard methods
   async getSektorAdminStats() {
-    console.log('🔍 DashboardService.getSektorAdminStats called');
-    try {
-      const response = await apiClient.get('/sektoradmin/dashboard');
-      console.log('✅ DashboardService.getSektorAdminStats successful:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ DashboardService.getSektorAdminStats failed:', error);
-      throw error;
-    }
+    return apiClient.get('/sektoradmin/dashboard');
   }
 
   async getSchoolAdminStats() {
-    console.log('🔍 DashboardService.getSchoolAdminStats called');
-    try {
-      const response = await apiClient.get('/schooladmin/dashboard');
-      console.log('✅ DashboardService.getSchoolAdminStats successful:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ DashboardService.getSchoolAdminStats failed:', error);
-      throw error;
-    }
+    return apiClient.get('/schooladmin/dashboard');
   }
 
   async getTeacherStats(): Promise<TeacherDashboardStats> {
-    console.log('🔍 DashboardService.getTeacherStats called');
-    try {
-      const response = await apiClient.get<TeacherDashboardStats>('/teacher/dashboard');
-      console.log('✅ DashboardService.getTeacherStats successful:', response);
-      
-      // Handle both direct data and ApiResponse format
-      let data: TeacherDashboardStats;
-      
-      if (response && typeof response === 'object') {
-        // Check if response is ApiResponse format or direct data
-        if ('data' in response && response.data) {
-          data = response.data as TeacherDashboardStats;
-        } else if ('status' in response || 'errors' in response) {
-          // ApiResponse format but data might be nested differently
-          data = (response as any).data || response as TeacherDashboardStats;
-        } else {
-          // Direct data format
-          data = response as TeacherDashboardStats;
-        }
-      } else {
-        throw new Error('Invalid response format from teacher dashboard API');
-      }
-      
-      // Ensure we always return valid data
-      if (!data || typeof data !== 'object') {
-        throw new Error('No valid data received from teacher dashboard API');
-      }
-      
-      console.log('📊 DashboardService.getTeacherStats parsed data:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ DashboardService.getTeacherStats failed:', error);
-      throw error;
+    const response = await apiClient.get<TeacherDashboardStats>('/teacher/dashboard');
+
+    if (!response || typeof response !== 'object') {
+      throw new Error('Invalid response format from teacher dashboard API');
     }
+
+    // Handle both direct data and ApiResponse format
+    const data: TeacherDashboardStats = ('data' in response && response.data)
+      ? response.data as TeacherDashboardStats
+      : response as TeacherDashboardStats;
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('No valid data received from teacher dashboard API');
+    }
+
+    return data;
   }
 
   // Additional detailed endpoints

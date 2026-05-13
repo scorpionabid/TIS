@@ -80,21 +80,35 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
     );
   }
 
-  const userRole = currentUser.role;
+  // Use original_role (raw backend value) for sub-role distinction;
+  // fall back to mapped role for older cached sessions.
+  const effectiveRole = currentUser.original_role ?? currentUser.role;
 
-  // Map auth role to school roles
-  const getSchoolRole = (authRole: string) => {
-    switch (authRole) {
+  // Map backend role string to SCHOOL_ROLES constant
+  const getSchoolRole = (role: string): string => {
+    switch (role) {
       case 'schooladmin':
+      case 'məktəbadmin':
         return SCHOOL_ROLES.SCHOOL_ADMIN;
+      case 'muavin':
+        return SCHOOL_ROLES.MUAVIN;
+      case 'təşkilatçı':
+      case 'teskilatci':
+        return SCHOOL_ROLES.TESKILATCI;
+      case 'tesarrufat':
+      case 'təsərrüfat':
+        return SCHOOL_ROLES.TESARRUFAT;
+      case 'psixoloq':
+        return SCHOOL_ROLES.PSIXOLOQ;
       case 'müəllim':
-        return SCHOOL_ROLES.MUELLIM;
+      case 'muellim':
+      case 'teacher':
       default:
-        return authRole;
+        return SCHOOL_ROLES.MUELLIM;
     }
   };
 
-  const schoolRole = getSchoolRole(userRole);
+  const schoolRole = getSchoolRole(String(effectiveRole));
 
   // Route to appropriate dashboard based on user role
   const DashboardLoader = () => (

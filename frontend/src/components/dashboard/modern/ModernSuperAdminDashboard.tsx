@@ -1,17 +1,8 @@
 import React, { memo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboard";
-import { 
-  Users, 
-  School, 
-  BarChart3, 
-  TrendingUp,
-  AlertTriangle,
-  Activity,
-  Zap
-} from "lucide-react";
+import { AlertTriangle, Activity, Zap } from "lucide-react";
 import { GreetingHeader } from "./GreetingHeader";
-import { ModernStatsCard } from "./ModernStatsCard";
 import { QuickActionsGrid } from "./QuickActionsGrid";
 import { ModernDashboardWrapper } from "./ModernDashboardWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,55 +43,8 @@ export const ModernSuperAdminDashboard = memo(() => {
     );
   }
 
-  const stats = dashboardData?.stats;
-  const activityStats = stats?.activity || {};
-
   return (
     <ModernDashboardWrapper>
-      {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <ModernStatsCard 
-          title="Ümumi İstifadəçi"
-          value={stats?.users?.total || 0}
-          description={`${stats?.users?.active || 0} aktiv istifadəçi`}
-          icon={Users}
-          variant="primary"
-          trend="up"
-          trendValue="12%"
-          index={0}
-        />
-        <ModernStatsCard 
-          title="Müəssisələr"
-          value={stats?.institutions?.total || 0}
-          description={`${Object.keys(stats?.institutions?.by_type || {}).length} növ`}
-          icon={School}
-          variant="success"
-          trend="stable"
-          trendValue="0%"
-          index={1}
-        />
-        <ModernStatsCard 
-          title="Aktiv Sorğular"
-          value={activityStats?.surveys?.active || 0}
-          description={`${activityStats?.surveys?.total || 0} cəmi sorğu`}
-          icon={BarChart3}
-          variant="warning"
-          trend="up"
-          trendValue="5%"
-          index={2}
-        />
-        <ModernStatsCard 
-          title="Tapşırıqlar"
-          value={activityStats?.tasks?.total || 0}
-          description={`${activityStats?.tasks?.pending || 0} icra gözləyən`}
-          icon={TrendingUp}
-          variant="info"
-          trend="down"
-          trendValue="2%"
-          index={3}
-        />
-      </div>
-
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Charts Section */}

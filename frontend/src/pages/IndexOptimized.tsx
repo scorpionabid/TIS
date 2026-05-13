@@ -4,40 +4,37 @@ import { USER_ROLES } from "@/constants/roles";
 import { Loader2 } from "lucide-react";
 import { DashboardSkeleton } from "@/components/dashboard/skeletons";
 import { useNavigate, useLocation } from "react-router-dom";
-// Performance monitoring imports removed for speed
 
-// Lazy load dashboard components for better performance
-const SuperAdminDashboardOptimized = lazy(() => 
+const SuperAdminDashboardOptimized = lazy(() =>
   import("@/components/dashboard/modern/ModernSuperAdminDashboard").then(module => ({
     default: module.ModernSuperAdminDashboard
   }))
 );
 
-const RegionAdminDashboard = lazy(() => 
+const RegionAdminDashboard = lazy(() =>
   import("@/components/dashboard/modern/ModernRegionAdminDashboard").then(module => ({
     default: module.ModernRegionAdminDashboard
   }))
 );
 
-const RegionOperatorDashboard = lazy(() => 
+const RegionOperatorDashboard = lazy(() =>
   import("@/components/dashboard/modern/ModernRegionOperatorDashboard").then(module => ({
     default: module.ModernRegionOperatorDashboard
   }))
 );
 
-const SektorAdminDashboard = lazy(() => 
+const SektorAdminDashboard = lazy(() =>
   import("@/components/dashboard/modern/ModernSektorAdminDashboard").then(module => ({
     default: module.ModernSektorAdminDashboard
   }))
 );
 
-const RoleBasedDashboard = lazy(() => 
+const RoleBasedDashboard = lazy(() =>
   import("@/components/dashboard/RoleBasedDashboard").then(module => ({
     default: module.RoleBasedDashboard
   }))
 );
 
-// Enhanced loading component
 const DashboardLoader = () => (
   <div className="p-6">
     <div className="flex items-center justify-center min-h-[200px] mb-6">
@@ -50,7 +47,6 @@ const DashboardLoader = () => (
   </div>
 );
 
-// Error fallback component
 const DashboardError = ({ error, retry }: { error: Error; retry: () => void }) => (
   <div className="p-6 text-center">
     <div className="max-w-md mx-auto">
@@ -58,7 +54,7 @@ const DashboardError = ({ error, retry }: { error: Error; retry: () => void }) =
       <p className="text-muted-foreground mb-4">
         {error.message || 'Naməlum xəta baş verdi'}
       </p>
-      <button 
+      <button
         onClick={retry}
         className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
       >
@@ -69,82 +65,39 @@ const DashboardError = ({ error, retry }: { error: Error; retry: () => void }) =
 );
 
 const IndexOptimized = () => {
-  // Performance monitoring removed for speed
-  
-  // Debug logging for context issues
-  console.log('🔍 IndexOptimized Debug: Component mounting');
-  
   const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Debug context state
-  console.log('🔍 IndexOptimized Debug:', {
-    hasCurrentUser: !!currentUser,
-    loading,
-    currentUserRole: currentUser?.role,
-    pathname: location.pathname
-  });
 
-  // Memoize dashboard component selection
   const DashboardComponent = useMemo(() => {
-    console.log('🔍 DashboardComponent Debug: Selecting component', {
-      hasCurrentUser: !!currentUser,
-      currentUserRole: currentUser?.role
-    });
-    
-    if (!currentUser?.role) {
-      console.log('🔍 DashboardComponent Debug: No user role, returning null');
-      return null;
-    }
+    if (!currentUser?.role) return null;
 
     const userRole = typeof currentUser.role === 'string'
       ? currentUser.role.toLowerCase()
       : currentUser.role;
 
-    console.log('🔍 DashboardComponent Debug: User role normalized to:', userRole);
-
     switch (userRole) {
       case USER_ROLES.SUPERADMIN:
-        console.log('🔍 DashboardComponent Debug: Selected SuperAdminDashboardOptimized');
         return SuperAdminDashboardOptimized;
-
       case USER_ROLES.REGIONADMIN:
-        console.log('🔍 DashboardComponent Debug: Selected RegionAdminDashboard');
         return RegionAdminDashboard;
-
       case USER_ROLES.REGIONOPERATOR:
-        console.log('🔍 DashboardComponent Debug: Selected RegionOperatorDashboard');
         return RegionOperatorDashboard;
-
       case USER_ROLES.SEKTORADMIN:
-        console.log('🔍 DashboardComponent Debug: Selected SektorAdminDashboard');
         return SektorAdminDashboard;
-
-      // School-related roles
-      case USER_ROLES.SCHOOLADMIN:
-      case USER_ROLES.MUELLIM:
-        console.log('🔍 DashboardComponent Debug: Selected ModernSchoolAdminDashboard/RoleBasedDashboard');
-        // We use RoleBasedDashboard for teachers and school admins as it handles the sub-roles
-        return RoleBasedDashboard;
-
       default:
-        console.log('🔍 DashboardComponent Debug: Selected RoleBasedDashboard (Default)');
+        // School-level roles (schooladmin, preschooladmin, müəllim and sub-roles)
+        // handled by RoleBasedDashboard using original_role
         return RoleBasedDashboard;
     }
   }, [currentUser?.role]);
 
-  // Handle RegionAdmin redirect - only redirect when on exact index page
   useEffect(() => {
-    if (currentUser?.role === USER_ROLES.REGIONADMIN) {
-      // Only redirect if we're on the exact root path "/"
-      if (location.pathname === '/') {
-        navigate('/regionadmin', { replace: true });
-      }
+    if (currentUser?.role === USER_ROLES.REGIONADMIN && location.pathname === '/') {
+      navigate('/regionadmin', { replace: true });
     }
-  }, [currentUser, location.pathname, navigate]);
+  }, [currentUser?.role, location.pathname, navigate]);
 
-  // Show loading state for auth
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -156,15 +109,7 @@ const IndexOptimized = () => {
     );
   }
 
-  // Show error if no user or component
   if (!currentUser || !DashboardComponent) {
-    console.log('🔍 IndexOptimized Debug: Error condition', {
-      hasCurrentUser: !!currentUser,
-      hasDashboardComponent: !!DashboardComponent,
-      currentUser,
-      DashboardComponent
-    });
-    
     return (
       <div className="p-6 text-center">
         <h2 className="text-xl font-semibold text-destructive">Giriş problemi</h2>
@@ -175,10 +120,7 @@ const IndexOptimized = () => {
     );
   }
 
-  // Don't show dashboard for regionadmin on root path, let the redirect happen
   if (currentUser?.role === USER_ROLES.REGIONADMIN && location.pathname === '/') {
-    console.log('🔍 IndexOptimized Debug: RegionAdmin on root path, showing loading');
-    
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center space-y-4">
@@ -188,12 +130,6 @@ const IndexOptimized = () => {
       </div>
     );
   }
-
-  // Navigation tracking removed for speed
-
-  console.log('🔍 IndexOptimized Debug: Rendering dashboard component', {
-    DashboardComponent: DashboardComponent.name || 'Anonymous'
-  });
 
   return (
     <div className="w-full min-h-full">
@@ -206,7 +142,6 @@ const IndexOptimized = () => {
   );
 };
 
-// Error boundary component
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode; fallback: React.ComponentType<{ error: Error; retry: () => void }> },
   { hasError: boolean; error: Error | null }
@@ -228,13 +163,12 @@ class ErrorBoundary extends React.Component<
     if (this.state.hasError && this.state.error) {
       const Fallback = this.props.fallback;
       return (
-        <Fallback 
-          error={this.state.error} 
-          retry={() => this.setState({ hasError: false, error: null })} 
+        <Fallback
+          error={this.state.error}
+          retry={() => this.setState({ hasError: false, error: null })}
         />
       );
     }
-
     return this.props.children;
   }
 }

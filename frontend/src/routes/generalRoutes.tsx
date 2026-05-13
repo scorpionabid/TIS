@@ -2,7 +2,7 @@ import { lazy } from "react";
 import { Navigate, Route } from "react-router-dom";
 import { RoleProtectedRoute } from "@/components/auth/RoleProtectedRoute";
 import { LazyWrapper } from "@/components/common/LazyWrapper";
-import { USER_ROLES } from "@/constants/roles";
+import { USER_ROLES, ROLE_GROUPS } from "@/constants/roles";
 
 const Index = lazy(() => import("@/pages/Index"));
 const Attendance = lazy(() => import("@/pages/Attendance"));
@@ -18,7 +18,6 @@ const Sectors = lazy(() => import("@/pages/Sectors"));
 const Hierarchy = lazy(() => import("@/pages/Hierarchy"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const Projects = lazy(() => import("@/pages/projects/index"));
-const Links = lazy(() => import("@/pages/Links_OLD"));
 const Documents = lazy(() => import("@/pages/Documents"));
 const Folders = lazy(() => import("@/pages/Folders"));
 const MyResources = lazy(() => import("@/pages/MyResources"));
@@ -57,7 +56,13 @@ export function GeneralRoutes() {
         path="users"
         element={
           <LazyWrapper>
-            <Users />
+            <RoleProtectedRoute
+              allowedRoles={[...ROLE_GROUPS.ADMIN_ROLES]}
+              requiredPermissions={["users.read"]}
+              permissionMatch="any"
+            >
+              <Users />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -65,7 +70,20 @@ export function GeneralRoutes() {
         path="students"
         element={
           <LazyWrapper>
-            <Students />
+            <RoleProtectedRoute
+              allowedRoles={[
+                USER_ROLES.SUPERADMIN,
+                USER_ROLES.REGIONADMIN,
+                USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+                USER_ROLES.SCHOOLADMIN,
+                USER_ROLES.PRESCHOOLADMIN,
+              ]}
+              requiredPermissions={["students.read"]}
+              permissionMatch="any"
+            >
+              <Students />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -73,7 +91,13 @@ export function GeneralRoutes() {
         path="roles"
         element={
           <LazyWrapper>
-            <Roles />
+            <RoleProtectedRoute
+              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+              requiredPermissions={["roles.read"]}
+              permissionMatch="any"
+            >
+              <Roles />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -81,7 +105,13 @@ export function GeneralRoutes() {
         path="permissions"
         element={
           <LazyWrapper>
-            <Permissions />
+            <RoleProtectedRoute
+              allowedRoles={[USER_ROLES.SUPERADMIN]}
+              requiredPermissions={["permissions.read"]}
+              permissionMatch="any"
+            >
+              <Permissions />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -126,7 +156,17 @@ export function GeneralRoutes() {
         path="preschools"
         element={
           <LazyWrapper>
-            <Preschools />
+            <RoleProtectedRoute
+              allowedRoles={[
+                USER_ROLES.SUPERADMIN,
+                USER_ROLES.REGIONADMIN,
+                USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+                USER_ROLES.PRESCHOOLADMIN,
+              ]}
+            >
+              <Preschools />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -134,7 +174,13 @@ export function GeneralRoutes() {
         path="regions"
         element={
           <LazyWrapper>
-            <Regions />
+            <RoleProtectedRoute
+              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+              requiredPermissions={["institutions.read"]}
+              permissionMatch="any"
+            >
+              <Regions />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -161,7 +207,18 @@ export function GeneralRoutes() {
         path="hierarchy"
         element={
           <LazyWrapper>
-            <Hierarchy />
+            <RoleProtectedRoute
+              allowedRoles={[
+                USER_ROLES.SUPERADMIN,
+                USER_ROLES.REGIONADMIN,
+                USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+              ]}
+              requiredPermissions={["institutions.read"]}
+              permissionMatch="any"
+            >
+              <Hierarchy />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -188,7 +245,13 @@ export function GeneralRoutes() {
         path="tasks"
         element={
           <LazyWrapper>
-            <Tasks />
+            <RoleProtectedRoute
+              allowedRoles={[...ROLE_GROUPS.ADMIN_ROLES]}
+              requiredPermissions={["tasks.read", "task.view", "task.viewAny"]}
+              permissionMatch="any"
+            >
+              <Tasks />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -196,7 +259,17 @@ export function GeneralRoutes() {
         path="projects"
         element={
           <LazyWrapper>
-            <Projects />
+            <RoleProtectedRoute
+              allowedRoles={[
+                USER_ROLES.SUPERADMIN,
+                USER_ROLES.REGIONADMIN,
+                USER_ROLES.REGIONOPERATOR,
+                USER_ROLES.SEKTORADMIN,
+                USER_ROLES.SCHOOLADMIN,
+              ]}
+            >
+              <Projects />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -270,7 +343,9 @@ export function GeneralRoutes() {
         path="institution-types-management"
         element={
           <LazyWrapper>
-            <InstitutionTypesManagement />
+            <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN]}>
+              <InstitutionTypesManagement />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -278,7 +353,11 @@ export function GeneralRoutes() {
         path="academic-year-management"
         element={
           <LazyWrapper>
-            <AcademicYearManagement />
+            <RoleProtectedRoute
+              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+            >
+              <AcademicYearManagement />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />
@@ -329,7 +408,13 @@ export function GeneralRoutes() {
         path="audit-logs"
         element={
           <LazyWrapper>
-            <AuditLogs />
+            <RoleProtectedRoute
+              allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+              requiredPermissions={["audit_logs.read"]}
+              permissionMatch="any"
+            >
+              <AuditLogs />
+            </RoleProtectedRoute>
           </LazyWrapper>
         }
       />

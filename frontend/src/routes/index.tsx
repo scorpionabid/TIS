@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
 import NotFound from "@/pages/NotFound";
+import Forbidden from "@/pages/Forbidden";
 import { PublicRoutes } from "./publicRoutes";
 import { GeneralRoutes } from "./generalRoutes";
 import { RegionAdminRoutes } from "./regionAdminRoutes";
@@ -22,6 +23,7 @@ export function AppRoutes() {
   return (
     <Routes>
       {PublicRoutes()}
+      <Route path="/403" element={<Forbidden />} />
       <Route
         path="/"
         element={

@@ -31,6 +31,7 @@ const ROLE_MAPPING: Record<string, UserRole> = {
   sektoradmin: USER_ROLES.SEKTORADMIN,
   schooladmin: USER_ROLES.SCHOOLADMIN,
   'məktəbadmin': USER_ROLES.SCHOOLADMIN,
+  preschooladmin: USER_ROLES.PRESCHOOLADMIN,
   muavin: USER_ROLES.MUELLIM,
   'təşkilatçı': USER_ROLES.MUELLIM,
   tesarrufat: USER_ROLES.MUELLIM,
@@ -263,6 +264,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const mappedUser = {
         ...response.user,
         role: mapBackendRoleToFrontend(response.user.role),
+        original_role: response.user.role,
       };
 
       setToken(response.token || response.access_token);
@@ -358,6 +360,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const mappedUser = {
           ...user,
           role: mapBackendRoleToFrontend(user.role),
+          original_role: user.role,
           cacheTimestamp: Date.now()
         };
 
@@ -487,7 +490,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const mappedUser = {
         ...response.user,
-        role: mapBackendRoleToFrontend(response.user.role)
+        role: mapBackendRoleToFrontend(response.user.role),
+        original_role: response.user.role,
       };
       const rememberSession = response.remember ?? Boolean(credentials.remember);
 
@@ -554,7 +558,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const user = await authService.getCurrentUser();
       const mappedUser = {
         ...user,
-        role: mapBackendRoleToFrontend(user.role)
+        role: mapBackendRoleToFrontend(user.role),
+        original_role: user.role,
       };
 
       applyCurrentUser(mappedUser);

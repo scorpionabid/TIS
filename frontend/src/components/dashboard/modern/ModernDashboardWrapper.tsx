@@ -14,7 +14,7 @@ export const ModernDashboardWrapper = ({
   showQuickActions = true 
 }: ModernDashboardWrapperProps) => {
   return (
-    <div className="w-full flex flex-col gap-8 md:gap-12 pb-24 pt-2 md:pt-4 px-3 sm:px-4 lg:px-6">
+    <div className="w-full flex flex-col gap-4 sm:gap-6 md:gap-8 lg:gap-12 pb-12 sm:pb-16 md:pb-24 pt-1 sm:pt-2 md:pt-4 px-2 sm:px-3 md:px-4 lg:px-6">
       {showGreeting && <GreetingHeader />}
       
       <div className="w-full">
