@@ -30,6 +30,8 @@ export function useTableKeyboardNavigation({
     const totalRows = displayRowsLength;
     const totalCols = columns.length;
 
+    const isTextarea = (e.target as HTMLElement).tagName === 'TEXTAREA';
+
     switch (e.key) {
       // Tab is handled by a native capture-phase listener in EditableTable
       // to bypass Radix UI's Sheet/Dialog focus trap.
@@ -44,14 +46,27 @@ export function useTableKeyboardNavigation({
         }
         break;
 
-      case 'ArrowUp':
+      case 'ArrowUp': {
+        if (isTextarea) {
+          // In textarea: only navigate to previous row when cursor is on the first line
+          const el = e.target as HTMLTextAreaElement;
+          const textBefore = el.value.substring(0, el.selectionStart ?? 0);
+          if (textBefore.includes('\n')) break; // cursor not on first line — allow natural movement
+        }
         e.preventDefault();
         if (rowIdx > 0) {
           focusCell(rowIdx - 1, colIdx);
         }
         break;
+      }
 
-      case 'ArrowDown':
+      case 'ArrowDown': {
+        if (isTextarea) {
+          // In textarea: only navigate to next row when cursor is on the last line
+          const el = e.target as HTMLTextAreaElement;
+          const textAfter = el.value.substring(el.selectionStart ?? el.value.length);
+          if (textAfter.includes('\n')) break; // cursor not on last line — allow natural movement
+        }
         e.preventDefault();
         if (rowIdx + 1 < totalRows) {
           focusCell(rowIdx + 1, colIdx);
@@ -60,6 +75,7 @@ export function useTableKeyboardNavigation({
           setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
         }
         break;
+      }
 
       case 'ArrowLeft':
         if ((e.target as HTMLInputElement).selectionStart === 0) {
@@ -82,6 +98,8 @@ export function useTableKeyboardNavigation({
       }
 
       case 'Home':
+        // In textarea: allow natural Home (go to line start); only intercept Ctrl+Home
+        if (isTextarea && !(e.ctrlKey || e.metaKey)) break;
         e.preventDefault();
         if (e.ctrlKey || e.metaKey) {
           focusCell(0, 0);
@@ -91,6 +109,8 @@ export function useTableKeyboardNavigation({
         break;
 
       case 'End':
+        // In textarea: allow natural End (go to line end); only intercept Ctrl+End
+        if (isTextarea && !(e.ctrlKey || e.metaKey)) break;
         e.preventDefault();
         if (e.ctrlKey || e.metaKey) {
           focusCell(totalRows - 1, totalCols - 1);
