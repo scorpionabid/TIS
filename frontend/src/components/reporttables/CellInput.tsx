@@ -163,18 +163,25 @@ export const CellInput = React.memo(function CellInput({
     );
   }
 
-  const isUrl = disabled && col.type === 'text' && /^https?:\/\/.+/.test(value.trim());
-  if (isUrl) {
+  if (disabled && col.type === 'text') {
+    const trimmed = value.trim();
+    const isUrl = /^https?:\/\/.+/.test(trimmed);
+    if (isUrl) {
+      return (
+        <a
+          href={trimmed}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center min-h-[36px] px-3 py-2 text-sm text-blue-600 underline underline-offset-2 hover:text-blue-800 break-all"
+        >
+          {trimmed}
+        </a>
+      );
+    }
     return (
-      <a
-        href={value.trim()}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center h-9 px-3 text-sm text-blue-600 underline underline-offset-2 hover:text-blue-800 truncate"
-        title={value.trim()}
-      >
-        {value.trim()}
-      </a>
+      <div className="min-h-[36px] px-3 py-2 text-sm text-gray-800 whitespace-pre-wrap break-words leading-snug">
+        {trimmed || <span className="text-gray-300">—</span>}
+      </div>
     );
   }
 

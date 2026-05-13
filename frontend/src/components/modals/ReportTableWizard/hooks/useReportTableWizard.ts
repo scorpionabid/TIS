@@ -91,6 +91,18 @@ export function useReportTableWizard(
       }
     }
 
+    const fixedRowErrors: number[] = [];
+    if (formData.fixed_rows && formData.fixed_rows.length > 0) {
+      formData.fixed_rows.forEach((row, idx) => {
+        if (!row.label.trim() || row.label.length > 2000) {
+          fixedRowErrors.push(idx);
+        }
+      });
+      if (fixedRowErrors.length > 0) {
+        step2Errors.push(`${fixedRowErrors.length} sətirin adında xəta var`);
+      }
+    }
+
     const step3Errors: string[] = [];
 
     return {
@@ -103,6 +115,7 @@ export function useReportTableWizard(
         valid: step2Errors.length === 0 && Object.keys(columnErrors).length === 0,
         errors: step2Errors,
         columnErrors,
+        fixedRowErrors,
       },
       step3: {
         valid: true, // Institutions are optional
