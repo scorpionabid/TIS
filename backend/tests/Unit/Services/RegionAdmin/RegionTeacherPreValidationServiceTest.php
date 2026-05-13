@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Services\RegionAdmin;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\Institution;
 use App\Services\RegionAdmin\RegionTeacherPreValidationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +25,7 @@ class RegionTeacherPreValidationServiceTest extends TestCase
         $this->region = Institution::factory()->create(['level' => 1]);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_internal_file_duplicates()
     {
         // This is a unit test for the checkInternalDuplicates method directly

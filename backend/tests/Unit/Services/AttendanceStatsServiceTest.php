@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Services;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
@@ -33,7 +35,7 @@ class AttendanceStatsServiceTest extends TestCase
         $this->bakuSchool1 = Institution::factory()->school()->create(['parent_id' => $this->bakuSector1->id, 'name' => 'School 1']);
     }
 
-    /** @test */
+    #[Test]
     public function it_converts_number_to_roman_numeral()
     {
         $this->assertEquals('I', $this->service->getRomanNumeral(1));
@@ -44,7 +46,7 @@ class AttendanceStatsServiceTest extends TestCase
         $this->assertEquals('12', $this->service->getRomanNumeral(12));
     }
 
-    /** @test */
+    #[Test]
     public function get_overview_returns_empty_structure_when_no_schools()
     {
         $superAdmin = $this->createUserWithRole('superadmin');
@@ -66,7 +68,7 @@ class AttendanceStatsServiceTest extends TestCase
         $this->assertEquals([], $result['schools']);
     }
 
-    /** @test */
+    #[Test]
     public function get_overview_returns_stats_for_school()
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->bakuSchool1->id]);
@@ -116,7 +118,7 @@ class AttendanceStatsServiceTest extends TestCase
         $this->assertEquals(93.33, $schoolStats['average_attendance_rate']);
     }
 
-    /** @test */
+    #[Test]
     public function get_grade_level_stats_returns_aggregated_data_by_class_level()
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->bakuSchool1->id]);

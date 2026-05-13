@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CurriculumPlan;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\CurriculumPlanApproval;
 use App\Models\Institution;
@@ -97,7 +99,7 @@ class CurriculumPlanEditabilityTest extends TestCase
         ];
     }
 
-    /** @test */
+    #[Test]
     public function locked_true_blocks_all_roles(): void
     {
         $this->region->update(['is_curriculum_locked' => true]);
@@ -116,7 +118,7 @@ class CurriculumPlanEditabilityTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function expired_deadline_blocks_schooladmin_only(): void
     {
         $this->region->update(['curriculum_deadline' => now()->subDay()]);
@@ -134,7 +136,7 @@ class CurriculumPlanEditabilityTest extends TestCase
             ->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function can_sektor_edit_false_blocks_only_sektoradmin(): void
     {
         $this->region->update(['can_sektor_edit' => false]);
@@ -152,7 +154,7 @@ class CurriculumPlanEditabilityTest extends TestCase
             ->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function can_operator_edit_false_blocks_only_regionoperator(): void
     {
         $this->region->update(['can_operator_edit' => false]);
@@ -166,7 +168,7 @@ class CurriculumPlanEditabilityTest extends TestCase
             ->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function approved_status_blocks_schooladmin_but_not_sektoradmin(): void
     {
         CurriculumPlanApproval::factory()

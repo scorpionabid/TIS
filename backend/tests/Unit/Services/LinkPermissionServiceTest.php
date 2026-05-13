@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Services;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\Institution;
 use App\Models\LinkShare;
 use App\Models\User;
@@ -39,7 +41,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->sharedByUser = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->bakuSchool1->id]);
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_can_view_all_links()
     {
         $superAdmin = $this->createUserWithRole('superadmin');
@@ -49,7 +51,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertFalse($this->service->canViewAllLinks($regionAdmin));
     }
 
-    /** @test */
+    #[Test]
     public function regionadmin_can_access_regional_link_in_own_region()
     {
         $regionAdmin = $this->createUserWithRole('regionadmin', [], ['institution_id' => $this->bakuRegion->id]);
@@ -65,7 +67,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canAccessLink($regionAdmin, $linkShare));
     }
 
-    /** @test */
+    #[Test]
     public function regionadmin_cannot_access_regional_link_in_other_region()
     {
         $regionAdmin = $this->createUserWithRole('regionadmin', [], ['institution_id' => $this->ganjaRegion->id]);
@@ -79,7 +81,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertFalse($this->service->canAccessLink($regionAdmin, $linkShare));
     }
 
-    /** @test */
+    #[Test]
     public function schooladmin_can_access_own_institutional_link()
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->bakuSchool1->id]);
@@ -93,7 +95,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canAccessLink($schoolAdmin, $linkShare));
     }
 
-    /** @test */
+    #[Test]
     public function schooladmin_cannot_access_other_institutional_link()
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->bakuSchool1->id]);
@@ -107,7 +109,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertFalse($this->service->canAccessLink($schoolAdmin, $linkShare));
     }
 
-    /** @test */
+    #[Test]
     public function can_access_respects_target_roles()
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->bakuSchool1->id]);
@@ -133,7 +135,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canAccessLink($teacher, $linkShare2));
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_can_modify_any_link()
     {
         $superAdmin = $this->createUserWithRole('superadmin');
@@ -145,7 +147,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canModifyLink($superAdmin, $linkShare));
     }
 
-    /** @test */
+    #[Test]
     public function owner_can_always_modify_link()
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->bakuSchool1->id]);
@@ -157,7 +159,7 @@ class LinkPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canModifyLink($teacher, $linkShare));
     }
 
-    /** @test */
+    #[Test]
     public function get_available_scopes_returns_correct_options()
     {
         $scopesSuperAdmin = $this->service->getAvailableScopesForRole('superadmin');

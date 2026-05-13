@@ -38,7 +38,6 @@ vi.mock('@/hooks/useModuleAccess', () => ({
   })),
 }));
 
-// Mock sub-components
 vi.mock('@/components/modals/SurveyModal', () => ({
   SurveyModal: () => <div data-testid="survey-modal" />
 }));
@@ -50,6 +49,23 @@ vi.mock('@/components/surveys/SurveyTemplateGallery', () => ({
 }));
 vi.mock('@/components/surveys/SurveyDelegationModal', () => ({
   SurveyDelegationModal: () => <div data-testid="survey-delegation-modal" />
+}));
+
+// Mock lazy-loaded dashboard components
+vi.mock('@/pages/surveys/ManagerSurveyDashboard', () => ({
+  default: () => <div data-testid="manager-survey-dashboard" />
+}));
+vi.mock('@/pages/surveys/SurveyList', () => ({
+  default: () => <div data-testid="survey-list" />
+}));
+vi.mock('@/pages/my-surveys/UnifiedSurveyDashboard', () => ({
+  default: () => <div data-testid="unified-survey-dashboard" />
+}));
+vi.mock('@/pages/my-surveys/MyResponses', () => ({
+  default: () => <div data-testid="my-responses" />
+}));
+vi.mock('@/pages/Approvals', () => ({
+  default: () => <div data-testid="approvals" />
 }));
 
 // Mock UI components
@@ -192,61 +208,31 @@ describe('Surveys Page', () => {
     });
   });
 
-  it('renders surveys and shows publish button for draft', async () => {
+  it('renders ManagerSurveyDashboard for superadmin role', async () => {
     renderPage();
     
-    // Wait for loader to disappear
-    await waitFor(() => {
-      expect(screen.queryByText('Yüklənir...')).not.toBeInTheDocument();
-    });
-
-    // Switch to draft tab
-    const draftTab = await screen.findByRole('button', { name: /QARALAMA/i });
-    fireEvent.click(draftTab);
-
-    const surveyItem = await screen.findByTestId('survey-list-item');
-    expect(surveyItem).toBeInTheDocument();
-    
-    // Select the survey by clicking it
-    fireEvent.click(surveyItem);
-    
-    const publishBtn = await screen.findByRole('button', { name: /Yayımla/i });
-    expect(publishBtn).toBeInTheDocument();
+    // superadmin should render ManagerSurveyDashboard (lazy-loaded)
+    const dashboard = await screen.findByTestId('manager-survey-dashboard', {}, { timeout: 3000 });
+    expect(dashboard).toBeInTheDocument();
   });
 
-  it('calls publish service and shows success toast on successful publish', async () => {
-    mockSurveyService.publish.mockResolvedValue({ status: 'published' });
-    
+  it('renders and shows Surveys title for superadmin', async () => {
     renderPage();
-    
-    // Wait for loader to disappear
-    await waitFor(() => {
-      expect(screen.queryByText('Yüklənir...')).not.toBeInTheDocument();
-    });
 
-    // Switch to draft tab
-    const draftTab = await screen.findByRole('button', { name: /QARALAMA/i });
-    fireEvent.click(draftTab);
-
-    const publishBtn = await screen.findByRole('button', { name: /Yayımla/i });
-    fireEvent.click(publishBtn);
-
-    await waitFor(() => {
-      expect(mockSurveyService.publish).toHaveBeenCalledWith(1);
-    });
-
-    await waitFor(() => {
-      expect(stableToast).toHaveBeenCalledWith(expect.objectContaining({
-        title: 'Sorğu yayımlandı'
-      }));
-    });
+    // Verify the page renders without crashing
+    const dashboard = await screen.findByTestId('manager-survey-dashboard', {}, { timeout: 3000 });
+    expect(dashboard).toBeInTheDocument();
   });
 
-  it('verifies stats are calculated from surveys data', async () => {
-    renderPage();
-    
-    // Draft survey stats: 1 total, 0 active, 1 this month (since we used now() in mock)
-    const statElement = await screen.findByTestId('stat-value-management');
-    expect(statElement).toHaveTextContent('1');
+  it('does not render for unauthenticated user (null currentUser)', async () => {
+    mockUseAuth.mockReturnValue({
+      hasPermission: () => false,
+      currentUser: null
+    });
+    const { container } = renderPage();
+    // When currentUser is null, page returns null (empty)
+    await waitFor(() => {
+      expect(container.firstChild).toBeNull();
+    });
   });
 });

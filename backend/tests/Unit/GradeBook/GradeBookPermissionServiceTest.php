@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\GradeBook;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\GradeBookSession;
@@ -67,7 +69,7 @@ class GradeBookPermissionServiceTest extends TestCase
     // canView() testləri
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function superadmin_can_view_any_grade_book(): void
     {
         $superAdmin = $this->createUserWithRole('superadmin', [], ['institution_id' => $this->school->id]);
@@ -77,7 +79,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canView($this->otherGradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_can_view_own_institution_grade_book(): void
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->school->id]);
@@ -87,7 +89,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canView($this->gradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_cannot_view_other_institution_grade_book(): void
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->school->id]);
@@ -97,7 +99,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertFalse($this->service->canView($this->otherGradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function assigned_teacher_can_view_grade_book(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->school->id]);
@@ -114,7 +116,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canView($this->gradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function unassigned_teacher_cannot_view_grade_book(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->school->id]);
@@ -129,7 +131,7 @@ class GradeBookPermissionServiceTest extends TestCase
     // canModify() testləri
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function superadmin_can_modify_any_grade_book(): void
     {
         $superAdmin = $this->createUserWithRole('superadmin', [], ['institution_id' => $this->school->id]);
@@ -139,7 +141,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canModify($this->otherGradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_can_modify_own_institution_grade_book(): void
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->school->id]);
@@ -148,7 +150,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canModify($this->gradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_cannot_modify_other_institution_grade_book(): void
     {
         $schoolAdmin = $this->createUserWithRole('schooladmin', [], ['institution_id' => $this->school->id]);
@@ -157,7 +159,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertFalse($this->service->canModify($this->otherGradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function assigned_teacher_can_modify_grade_book(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->school->id]);
@@ -172,7 +174,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertTrue($this->service->canModify($this->gradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function unassigned_teacher_cannot_modify_grade_book(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->school->id]);
@@ -181,7 +183,7 @@ class GradeBookPermissionServiceTest extends TestCase
         $this->assertFalse($this->service->canModify($this->gradeBook));
     }
 
-    /** @test */
+    #[Test]
     public function cannot_modify_archived_grade_book_even_if_assigned(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], ['institution_id' => $this->school->id]);

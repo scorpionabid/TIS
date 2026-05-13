@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CurriculumPlan;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\Institution;
 use App\Models\Region;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
@@ -81,14 +83,14 @@ class CurriculumPlanSettingsTest extends TestCase
     // GET /settings
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function unauthenticated_get_settings_returns_401(): void
     {
         $this->getJson('/api/curriculum-plans/settings')
             ->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_gets_own_region_settings(): void
     {
         $this->region->update([
@@ -108,7 +110,7 @@ class CurriculumPlanSettingsTest extends TestCase
         $this->assertNotNull($response->json('deadline'));
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_without_institution_gets_default_settings(): void
     {
         $response = $this->actingAs($this->superAdmin, 'sanctum')
@@ -121,7 +123,7 @@ class CurriculumPlanSettingsTest extends TestCase
         $this->assertTrue($response->json('can_operator_edit'));
     }
 
-    /** @test */
+    #[Test]
     public function institution_without_region_returns_default_settings(): void
     {
         // Region-a bağlı olmayan müəssisə — service exception atmır, default qaytarır
@@ -140,7 +142,7 @@ class CurriculumPlanSettingsTest extends TestCase
         $this->assertTrue($response->json('can_operator_edit'));
     }
 
-    /** @test */
+    #[Test]
     public function teacher_gets_own_region_settings(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], [
@@ -158,7 +160,7 @@ class CurriculumPlanSettingsTest extends TestCase
     // POST /settings
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function regionadmin_can_update_settings(): void
     {
         $response = $this->actingAs($this->regionAdmin, 'sanctum')
@@ -177,7 +179,7 @@ class CurriculumPlanSettingsTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_can_update_settings_with_institution_id(): void
     {
         $this->actingAs($this->superAdmin, 'sanctum')
@@ -193,7 +195,7 @@ class CurriculumPlanSettingsTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function schooladmin_cannot_update_settings(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -201,7 +203,7 @@ class CurriculumPlanSettingsTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function sektoradmin_cannot_update_settings(): void
     {
         $this->actingAs($this->sektorAdmin, 'sanctum')
@@ -209,7 +211,7 @@ class CurriculumPlanSettingsTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function missing_is_locked_returns_422(): void
     {
         $this->actingAs($this->regionAdmin, 'sanctum')
@@ -222,7 +224,7 @@ class CurriculumPlanSettingsTest extends TestCase
             ->assertJsonValidationErrors(['is_locked']);
     }
 
-    /** @test */
+    #[Test]
     public function invalid_deadline_format_returns_422(): void
     {
         $this->actingAs($this->regionAdmin, 'sanctum')
@@ -233,7 +235,7 @@ class CurriculumPlanSettingsTest extends TestCase
             ->assertJsonValidationErrors(['deadline']);
     }
 
-    /** @test */
+    #[Test]
     public function null_deadline_is_accepted(): void
     {
         $this->actingAs($this->regionAdmin, 'sanctum')
@@ -243,7 +245,7 @@ class CurriculumPlanSettingsTest extends TestCase
             ->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function can_lock_and_unlock_curriculum(): void
     {
         // Kilid
@@ -267,7 +269,7 @@ class CurriculumPlanSettingsTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function region_not_found_for_institution_returns_422(): void
     {
         // RegionAdmin-in institution-u Region cədvəlindən silinib

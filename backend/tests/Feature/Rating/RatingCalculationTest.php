@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Rating;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
@@ -56,7 +58,7 @@ class RatingCalculationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_calculate_single_user_rating()
     {
         // Create test data
@@ -87,7 +89,7 @@ class RatingCalculationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_calculate_all_ratings_for_role()
     {
         // Create multiple school admins
@@ -115,7 +117,7 @@ class RatingCalculationTest extends TestCase
         $this->assertDatabaseCount('ratings', 2);
     }
 
-    /** @test */
+    #[Test]
     public function it_respects_user_hierarchy_in_calculations()
     {
         // Create another region and school
@@ -149,7 +151,7 @@ class RatingCalculationTest extends TestCase
             ->assertJsonPath('data.summary.success_count', 1);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_task_score_calculation_correctly()
     {
         // Create on-time task
@@ -193,7 +195,7 @@ class RatingCalculationTest extends TestCase
             ->assertJsonPath('data.score_details.tasks_late', 2);
     }
 
-    /** @test */
+    #[Test]
     public function it_preserves_manual_score_during_recalculation()
     {
         // Create initial rating with manual score
@@ -219,7 +221,7 @@ class RatingCalculationTest extends TestCase
             ->assertJsonPath('data.overall_score', '12.00'); // 2 tasks + 10 manual
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_cache_to_avoid_frequent_recalculations()
     {
         $this->createTaskAssignments();
@@ -255,7 +257,7 @@ class RatingCalculationTest extends TestCase
             ->assertJsonPath('data.id', $ratingId); // Same rating but recalculated
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_proper_permissions()
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -267,7 +269,7 @@ class RatingCalculationTest extends TestCase
         $response->assertForbidden();
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_parameters()
     {
         $response = $this->actingAs($this->superAdmin, 'sanctum')

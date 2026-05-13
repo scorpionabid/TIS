@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CurriculumPlan;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\CurriculumPlanApproval;
 use App\Models\Institution;
@@ -100,7 +102,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
     // SUBMIT
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_submit_draft_plan(): void
     {
         $this->createApproval('draft');
@@ -117,7 +119,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function can_submit_returned_plan(): void
     {
         $this->createApproval('returned');
@@ -134,7 +136,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_submit_already_submitted_plan(): void
     {
         $this->createApproval('submitted');
@@ -151,7 +153,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_submit_approved_plan(): void
     {
         $this->createApproval('approved');
@@ -167,14 +169,14 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_submit_returns_401(): void
     {
         $this->postJson('/api/curriculum-plans/submit', $this->payload())
             ->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function missing_academic_year_id_on_submit_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -187,7 +189,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
     // APPROVE
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function sektoradmin_can_approve_submitted_plan(): void
     {
         $this->createApproval('submitted');
@@ -203,7 +205,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function regionadmin_can_approve_submitted_plan(): void
     {
         $this->createApproval('submitted');
@@ -219,7 +221,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function approve_sets_approved_at_timestamp(): void
     {
         $this->createApproval('submitted');
@@ -236,7 +238,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         $this->assertNotNull($approval->approved_at);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_approve_draft_plan(): void
     {
         $this->createApproval('draft');
@@ -247,7 +249,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
             ->assertJsonFragment(['status' => 'error']);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_approve_already_approved_plan(): void
     {
         $this->createApproval('approved');
@@ -257,7 +259,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
             ->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_approve_returned_plan(): void
     {
         $this->createApproval('returned');
@@ -271,7 +273,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
     // RETURN
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function sektoradmin_can_return_submitted_plan_with_comment(): void
     {
         $this->createApproval('submitted');
@@ -293,7 +295,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         $this->assertStringContainsString('Bəzi fənlər', $approval->return_comment);
     }
 
-    /** @test */
+    #[Test]
     public function comment_shorter_than_5_chars_returns_422(): void
     {
         $this->createApproval('submitted');
@@ -306,7 +308,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
             ->assertJsonValidationErrors(['comment']);
     }
 
-    /** @test */
+    #[Test]
     public function return_comment_is_required(): void
     {
         $this->createApproval('submitted');
@@ -317,7 +319,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
             ->assertJsonValidationErrors(['comment']);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_return_draft_plan(): void
     {
         $this->createApproval('draft');
@@ -329,7 +331,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
             ->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_return_approved_plan(): void
     {
         $this->createApproval('approved');
@@ -345,7 +347,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
     // RESET
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function regionadmin_can_reset_approved_plan_to_draft(): void
     {
         $this->createApproval('approved');
@@ -362,7 +364,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_can_reset_submitted_plan(): void
     {
         $this->createApproval('submitted');
@@ -377,7 +379,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function reset_already_draft_plan_stays_draft(): void
     {
         $this->createApproval('draft');
@@ -392,7 +394,7 @@ class CurriculumPlanApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function schooladmin_blocked_by_role_middleware_on_reset(): void
     {
         // Route middleware: role:superadmin|regionadmin|sektoradmin|schooladmin

@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\RBAC;
 
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+
 use Spatie\Permission\Models\Role;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
@@ -16,7 +19,7 @@ class PreschoolPermissionTest extends TestCase
         $this->seedDefaultRolesAndPermissions();
     }
 
-    /** @test */
+    #[Test]
     public function required_preschool_permissions_exist(): void
     {
         $permissions = [
@@ -61,13 +64,15 @@ class PreschoolPermissionTest extends TestCase
         ];
     }
 
-    /**
-     * @test
-     *
-     * @dataProvider rolePermissionProvider
-     */
-    public function roles_have_correct_preschool_permissions(string $roleName, string $permissionName, bool $shouldHave): void
+    #[Test]
+    public function roles_have_correct_preschool_permissions(): void
     {
+        $permissions = self::rolePermissionProvider();
+
+        foreach ($permissions as $data) {
+            $roleName = $data[0];
+            $permissionName = $data[1];
+            $shouldHave = $data[2];
         $role = Role::where('name', $roleName)->where('guard_name', 'sanctum')->first();
 
         $this->assertNotNull($role, "Role {$roleName} does not exist.");
@@ -82,6 +87,7 @@ class PreschoolPermissionTest extends TestCase
                 $role->hasPermissionTo($permissionName),
                 "Role {$roleName} should NOT have {$permissionName} permission but does."
             );
+        }
         }
     }
 }

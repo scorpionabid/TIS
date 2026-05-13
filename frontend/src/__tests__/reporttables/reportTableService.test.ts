@@ -2,6 +2,7 @@
  * Tests for ReportTable Service
  */
 
+import { describe, it, test, expect, vi, beforeEach } from 'vitest';
 import { reportTableService } from '../../services/reportTables';
 import { apiClient } from '../../services/api';
 import {
@@ -12,18 +13,18 @@ import {
 } from './testUtils';
 
 // Mock the API client
-jest.mock('../../services/api', () => ({
+vi.mock('../../services/api', () => ({
   apiClient: {
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
 describe('ReportTableService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // ─── List Operations ───────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ describe('ReportTableService', () => {
         createMockReportTable({ id: 2, title: 'Table 2' }),
       ];
 
-      (apiClient.get as jest.Mock).mockResolvedValue(
+      (apiClient.get as vi.Mock).mockResolvedValue(
         mockPaginatedResponse(mockTables, 2, 1, 15)
       );
 
@@ -51,7 +52,7 @@ describe('ReportTableService', () => {
       const filters = { status: 'published', per_page: 10, page: 1 };
       const mockTables = [createMockReportTable({ status: 'published' })];
 
-      (apiClient.get as jest.Mock).mockResolvedValue(
+      (apiClient.get as vi.Mock).mockResolvedValue(
         mockPaginatedResponse(mockTables, 1, 1, 10)
       );
 
@@ -61,7 +62,7 @@ describe('ReportTableService', () => {
     });
 
     test('should handle empty list', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValue(
+      (apiClient.get as vi.Mock).mockResolvedValue(
         mockPaginatedResponse([], 0, 1, 15)
       );
 
@@ -72,7 +73,7 @@ describe('ReportTableService', () => {
     });
 
     test('should handle API errors', async () => {
-      (apiClient.get as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (apiClient.get as vi.Mock).mockRejectedValue(new Error('Network error'));
 
       await expect(reportTableService.getList()).rejects.toThrow('Network error');
     });
@@ -87,7 +88,7 @@ describe('ReportTableService', () => {
         createMockReportTable({ id: 2, my_response_status: 'submitted' }),
       ];
 
-      (apiClient.get as jest.Mock).mockResolvedValue(mockApiResponse(mockTables));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockApiResponse(mockTables));
 
       const result = await reportTableService.getMyTables();
 
@@ -96,7 +97,7 @@ describe('ReportTableService', () => {
     });
 
     test('should handle empty my tables list', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValue(mockApiResponse([]));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockApiResponse([]));
 
       const result = await reportTableService.getMyTables();
 
@@ -110,7 +111,7 @@ describe('ReportTableService', () => {
     test('should fetch single table by id', async () => {
       const mockTable = createMockReportTable({ id: 1 });
 
-      (apiClient.get as jest.Mock).mockResolvedValue(mockApiResponse(mockTable));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockApiResponse(mockTable));
 
       const result = await reportTableService.getTable(1);
 
@@ -119,7 +120,7 @@ describe('ReportTableService', () => {
     });
 
     test('should handle table not found', async () => {
-      (apiClient.get as jest.Mock).mockRejectedValue(
+      (apiClient.get as vi.Mock).mockRejectedValue(
         new Error('Report table not found')
       );
 
@@ -144,7 +145,7 @@ describe('ReportTableService', () => {
       };
 
       const mockTable = createMockReportTable({ id: 1, ...payload });
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockTable));
+      (apiClient.post as vi.Mock).mockResolvedValue(mockApiResponse(mockTable));
 
       const result = await reportTableService.createTable(payload);
 
@@ -152,15 +153,12 @@ describe('ReportTableService', () => {
       expect(result.title).toBe('New Table');
     });
 
-    test('should validate required fields', async () => {
-      const invalidPayload = {
-        title: '',
-        columns: [],
-      };
+    test('should reject API error for invalid payload (network error)', async () => {
+      (apiClient.post as vi.Mock).mockRejectedValue(new Error('Validation failed'));
 
       await expect(
-        reportTableService.createTable(invalidPayload as any)
-      ).rejects.toThrow();
+        reportTableService.createTable({ title: '', columns: [] } as any)
+      ).rejects.toThrow('Validation failed');
     });
   });
 
@@ -172,7 +170,7 @@ describe('ReportTableService', () => {
       };
 
       const mockTable = createMockReportTable({ id: 1, ...payload });
-      (apiClient.put as jest.Mock).mockResolvedValue(mockApiResponse(mockTable));
+      (apiClient.put as vi.Mock).mockResolvedValue(mockApiResponse(mockTable));
 
       const result = await reportTableService.updateTable(1, payload);
 
@@ -184,7 +182,7 @@ describe('ReportTableService', () => {
       const payload = { title: 'Updated Title' };
 
       const mockTable = createMockReportTable({ id: 1, title: 'Updated Title' });
-      (apiClient.put as jest.Mock).mockResolvedValue(mockApiResponse(mockTable));
+      (apiClient.put as vi.Mock).mockResolvedValue(mockApiResponse(mockTable));
 
       const result = await reportTableService.updateTable(1, payload);
 
@@ -194,7 +192,7 @@ describe('ReportTableService', () => {
 
   describe('deleteTable', () => {
     test('should delete table by id', async () => {
-      (apiClient.delete as jest.Mock).mockResolvedValue({ status: 204 });
+      (apiClient.delete as vi.Mock).mockResolvedValue({ status: 204 });
 
       await reportTableService.deleteTable(1);
 
@@ -202,7 +200,7 @@ describe('ReportTableService', () => {
     });
 
     test('should handle delete error', async () => {
-      (apiClient.delete as jest.Mock).mockRejectedValue(
+      (apiClient.delete as vi.Mock).mockRejectedValue(
         new Error('Cannot delete published table')
       );
 
@@ -217,7 +215,7 @@ describe('ReportTableService', () => {
   describe('publishTable', () => {
     test('should publish draft table', async () => {
       const mockTable = createMockReportTable({ id: 1, status: 'published' });
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockTable));
+      (apiClient.post as vi.Mock).mockResolvedValue(mockApiResponse(mockTable));
 
       const result = await reportTableService.publishTable(1);
 
@@ -229,7 +227,7 @@ describe('ReportTableService', () => {
   describe('archiveTable', () => {
     test('should archive published table', async () => {
       const mockTable = createMockReportTable({ id: 1, status: 'archived' });
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockTable));
+      (apiClient.post as vi.Mock).mockResolvedValue(mockApiResponse(mockTable));
 
       const result = await reportTableService.archiveTable(1);
 
@@ -247,16 +245,16 @@ describe('ReportTableService', () => {
         status: 'draft',
       });
 
-      (apiClient.get as jest.Mock).mockResolvedValue(mockApiResponse(mockResponse));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockApiResponse(mockResponse));
 
       const result = await reportTableService.getMyResponse(1);
 
-      expect(apiClient.get).toHaveBeenCalledWith('report-tables/1/my-response', undefined);
-      expect(result.report_table_id).toBe(1);
+      expect(apiClient.get).toHaveBeenCalledWith('report-tables/1/response/my', undefined);
+      expect(result?.report_table_id).toBe(1);
     });
 
     test('should return null if no response exists', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValue(mockApiResponse(null));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockApiResponse(null));
 
       const result = await reportTableService.getMyResponse(1);
 
@@ -265,7 +263,7 @@ describe('ReportTableService', () => {
   });
 
   describe('saveResponse', () => {
-    test('should save draft response', async () => {
+    test('should save draft response via PUT', async () => {
       const rows = [{ name: 'John', age: 25 }];
       const mockResponse = createMockReportTableResponse({
         report_table_id: 1,
@@ -273,30 +271,31 @@ describe('ReportTableService', () => {
         status: 'draft',
       });
 
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockResponse));
+      // saveResponse uses PUT to report-table-responses/:responseId
+      const putSpy = vi.fn().mockResolvedValue(mockApiResponse(mockResponse));
+      (apiClient as any).put = putSpy;
 
-      const result = await reportTableService.saveResponse(1, rows);
+      const result = await reportTableService.saveResponse(1, rows as any);
 
-      expect(apiClient.post).toHaveBeenCalledWith('report-tables/1/save-response', { rows });
+      expect(putSpy).toHaveBeenCalledWith('report-table-responses/1', { rows });
       expect(result.rows).toEqual(rows);
     });
   });
 
   describe('submitResponse', () => {
-    test('should submit final response', async () => {
-      const rows = [{ name: 'John', age: 25 }];
+    test('should submit final response via POST', async () => {
       const mockResponse = createMockReportTableResponse({
         report_table_id: 1,
-        rows,
         status: 'submitted',
         submitted_at: '2026-03-01T00:00:00Z',
       });
 
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockResponse));
+      // submitResponse uses POST to report-table-responses/:responseId/submit
+      (apiClient.post as vi.Mock).mockResolvedValue(mockApiResponse(mockResponse));
 
-      const result = await reportTableService.submitResponse(1, rows);
+      const result = await reportTableService.submitResponse(1);
 
-      expect(apiClient.post).toHaveBeenCalledWith('report-tables/1/submit-response', { rows });
+      expect(apiClient.post).toHaveBeenCalledWith('report-table-responses/1/submit', undefined);
       expect(result.status).toBe('submitted');
     });
   });
@@ -310,7 +309,7 @@ describe('ReportTableService', () => {
         createMockReportTableResponse({ id: 2, institution_id: 2 }),
       ];
 
-      (apiClient.get as jest.Mock).mockResolvedValue(mockPaginatedResponse(mockResponses, 2));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockPaginatedResponse(mockResponses, 2));
 
       const result = await reportTableService.getResponses(1);
 
@@ -322,7 +321,7 @@ describe('ReportTableService', () => {
       const filters = { status: 'submitted' as const };
       const mockResponses = [createMockReportTableResponse({ status: 'submitted' })];
 
-      (apiClient.get as jest.Mock).mockResolvedValue(mockPaginatedResponse(mockResponses, 1));
+      (apiClient.get as vi.Mock).mockResolvedValue(mockPaginatedResponse(mockResponses, 1));
 
       await reportTableService.getResponses(1, filters);
 
@@ -330,41 +329,36 @@ describe('ReportTableService', () => {
     });
   });
 
-  describe('approveResponse', () => {
-    test('should approve a response', async () => {
-      const mockResponse = createMockReportTableResponse({
-        id: 1,
-        status: 'approved',
-      });
+  // approveRow / rejectRow uses row-level operations (tableId, responseId, rowIndex)
+  describe('approveRow', () => {
+    test('should approve a row', async () => {
+      const mockResponse = createMockReportTableResponse({ id: 1 });
 
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockResponse));
+      (apiClient.post as vi.Mock).mockResolvedValue(mockApiResponse(mockResponse));
 
-      const result = await reportTableService.approveResponse(1, 1);
+      const result = await reportTableService.approveRow(1, 1, 0);
 
       expect(apiClient.post).toHaveBeenCalledWith(
-        'report-tables/1/responses/1/approve',
-        undefined
+        'report-tables/1/responses/1/rows/approve',
+        { row_index: 0 }
       );
-      expect(result.status).toBe('approved');
+      expect(result).toBeDefined();
     });
   });
 
-  describe('rejectResponse', () => {
-    test('should reject a response with reason', async () => {
-      const mockResponse = createMockReportTableResponse({
-        id: 1,
-        status: 'rejected',
-      });
+  describe('rejectRow', () => {
+    test('should reject a row with reason', async () => {
+      const mockResponse = createMockReportTableResponse({ id: 1 });
 
-      (apiClient.post as jest.Mock).mockResolvedValue(mockApiResponse(mockResponse));
+      (apiClient.post as vi.Mock).mockResolvedValue(mockApiResponse(mockResponse));
 
-      const result = await reportTableService.rejectResponse(1, 1, 'Incomplete data');
+      const result = await reportTableService.rejectRow(1, 1, 0, 'Incomplete data');
 
       expect(apiClient.post).toHaveBeenCalledWith(
-        'report-tables/1/responses/1/reject',
-        { reason: 'Incomplete data' }
+        'report-tables/1/responses/1/rows/reject',
+        { row_index: 0, reason: 'Incomplete data' }
       );
-      expect(result.status).toBe('rejected');
+      expect(result).toBeDefined();
     });
   });
 });

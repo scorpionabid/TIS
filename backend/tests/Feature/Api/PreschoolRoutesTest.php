@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Api;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\Institution;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
@@ -38,7 +40,7 @@ class PreschoolRoutesTest extends TestCase
         return $user;
     }
 
-    /** @test */
+    #[Test]
     public function preschool_groups_requires_permission(): void
     {
         $authorizedUser = $this->createUserWithPermission('preschool.groups.manage');
@@ -50,7 +52,7 @@ class PreschoolRoutesTest extends TestCase
         $this->assertNotEquals(403, $response->status());
     }
 
-    /** @test */
+    #[Test]
     public function preschool_attendance_read_requires_permission(): void
     {
         $authorizedUser = $this->createUserWithPermission('preschool.attendance.read');
@@ -62,7 +64,7 @@ class PreschoolRoutesTest extends TestCase
         $this->assertNotEquals(403, $response->status());
     }
 
-    /** @test */
+    #[Test]
     public function preschool_attendance_write_requires_permission(): void
     {
         $authorizedUser = $this->createUserWithPermission('preschool.attendance.write');
@@ -76,7 +78,7 @@ class PreschoolRoutesTest extends TestCase
         $this->assertNotEquals(403, $response->status());
     }
 
-    /** @test */
+    #[Test]
     public function preschool_attendance_reports_requires_permission(): void
     {
         $authorizedUser = $this->createUserWithPermission('preschool.attendance.reports');

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CurriculumPlan;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\CurriculumPlan;
 use App\Models\CurriculumPlanApproval;
@@ -76,14 +78,14 @@ class CurriculumPlanIndexTest extends TestCase
     // Auth & permission
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function unauthenticated_request_returns_401(): void
     {
         $this->getJson('/api/curriculum-plans?' . http_build_query($this->params()))
             ->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function teacher_role_returns_403(): void
     {
         $teacher = $this->createUserWithRole('müəllim', [], [
@@ -99,7 +101,7 @@ class CurriculumPlanIndexTest extends TestCase
     // Validation
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function missing_institution_id_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -108,7 +110,7 @@ class CurriculumPlanIndexTest extends TestCase
             ->assertJsonValidationErrors(['institution_id']);
     }
 
-    /** @test */
+    #[Test]
     public function missing_academic_year_id_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -117,7 +119,7 @@ class CurriculumPlanIndexTest extends TestCase
             ->assertJsonValidationErrors(['academic_year_id']);
     }
 
-    /** @test */
+    #[Test]
     public function nonexistent_institution_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -130,7 +132,7 @@ class CurriculumPlanIndexTest extends TestCase
     // Happy path
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_gets_plan_with_required_fields(): void
     {
         Subject::factory()->create();
@@ -153,7 +155,7 @@ class CurriculumPlanIndexTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function response_includes_approval_status_draft_by_default(): void
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -163,7 +165,7 @@ class CurriculumPlanIndexTest extends TestCase
         $this->assertEquals('draft', $response->json('approval.status'));
     }
 
-    /** @test */
+    #[Test]
     public function response_includes_is_locked_true_when_region_locked(): void
     {
         $this->region->update(['is_curriculum_locked' => true]);
@@ -175,7 +177,7 @@ class CurriculumPlanIndexTest extends TestCase
         $this->assertTrue($response->json('is_locked'));
     }
 
-    /** @test */
+    #[Test]
     public function response_returns_empty_items_when_no_plans_exist(): void
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -185,7 +187,7 @@ class CurriculumPlanIndexTest extends TestCase
         $this->assertCount(0, $response->json('items'));
     }
 
-    /** @test */
+    #[Test]
     public function existing_approval_status_is_returned_correctly(): void
     {
         CurriculumPlanApproval::factory()

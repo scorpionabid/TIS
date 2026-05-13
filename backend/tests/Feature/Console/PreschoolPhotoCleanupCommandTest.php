@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Console;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use Illuminate\Console\Scheduling\Schedule;
 use Tests\TestCase;
 
 class PreschoolPhotoCleanupCommandTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function it_is_scheduled_correctly()
     {
         /** @var Schedule $schedule */

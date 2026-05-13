@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CurriculumPlan;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\CurriculumPlan;
 use App\Models\CurriculumPlanApproval;
@@ -91,7 +93,7 @@ class CurriculumPlanDeleteTest extends TestCase
     // Happy path
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_delete_subject_from_draft_plan(): void
     {
         $this->createPlan();
@@ -108,7 +110,7 @@ class CurriculumPlanDeleteTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function deleting_nonexistent_subject_type_combo_returns_success(): void
     {
         // Heç bir plan yoxdur — yenə də 200 qaytarmalıdır
@@ -118,7 +120,7 @@ class CurriculumPlanDeleteTest extends TestCase
         $response->assertOk()->assertJsonFragment(['status' => 'success']);
     }
 
-    /** @test */
+    #[Test]
     public function delete_recalculates_all_grade_hours(): void
     {
         $this->createPlan();
@@ -147,7 +149,7 @@ class CurriculumPlanDeleteTest extends TestCase
     // isEditable
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function locked_region_prevents_deletion(): void
     {
         $this->createPlan();
@@ -164,7 +166,7 @@ class CurriculumPlanDeleteTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function submitted_plan_prevents_school_admin_deletion(): void
     {
         $this->createPlan();
@@ -184,7 +186,7 @@ class CurriculumPlanDeleteTest extends TestCase
     // Validation
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function missing_subject_id_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -197,7 +199,7 @@ class CurriculumPlanDeleteTest extends TestCase
             ->assertJsonValidationErrors(['subject_id']);
     }
 
-    /** @test */
+    #[Test]
     public function invalid_education_type_in_delete_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')

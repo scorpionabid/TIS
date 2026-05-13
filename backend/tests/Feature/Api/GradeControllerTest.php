@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Api;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\Institution;
@@ -63,7 +65,7 @@ class GradeControllerTest extends TestCase
     // GET /api/grades — Index / data isolation
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function unauthenticated_request_returns_401(): void
     {
         $response = $this->getJson('/api/grades');
@@ -71,7 +73,7 @@ class GradeControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_sees_only_own_school_grades(): void
     {
         // Öz məktəbinin sinifini yarat
@@ -94,7 +96,7 @@ class GradeControllerTest extends TestCase
         $this->assertEquals($this->school->id, $grades[0]['institution_id']);
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_sees_all_grades(): void
     {
         Grade::factory()
@@ -114,7 +116,7 @@ class GradeControllerTest extends TestCase
         $this->assertCount(2, $grades);
     }
 
-    /** @test */
+    #[Test]
     public function class_level_filter_returns_only_matching_grades(): void
     {
         Grade::factory()
@@ -137,7 +139,7 @@ class GradeControllerTest extends TestCase
         $this->assertEquals(5, $grades[0]['class_level']);
     }
 
-    /** @test */
+    #[Test]
     public function is_active_filter_returns_only_inactive_grades(): void
     {
         Grade::factory()
@@ -164,7 +166,7 @@ class GradeControllerTest extends TestCase
     // POST /api/grades — Store
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_create_grade_for_own_school(): void
     {
         $payload = [
@@ -188,7 +190,7 @@ class GradeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function creating_duplicate_grade_returns_422(): void
     {
         Grade::factory()
@@ -212,7 +214,7 @@ class GradeControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function creating_grade_with_invalid_class_level_returns_422(): void
     {
         $payload = [
@@ -229,7 +231,7 @@ class GradeControllerTest extends TestCase
         $response->assertJsonValidationErrors(['class_level']);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_cannot_create_grade_for_other_school(): void
     {
         $payload = [
@@ -250,7 +252,7 @@ class GradeControllerTest extends TestCase
     // PUT /api/grades/{grade} — Update
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_update_own_grade(): void
     {
         $grade = Grade::factory()
@@ -268,7 +270,7 @@ class GradeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_cannot_update_other_schools_grade(): void
     {
         $grade = Grade::factory()
@@ -286,7 +288,7 @@ class GradeControllerTest extends TestCase
     // POST /api/grades/{grade}/deactivate — Soft delete
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_deactivate_active_grade(): void
     {
         $grade = Grade::factory()
@@ -304,7 +306,7 @@ class GradeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function deactivating_grade_with_reason_stores_it(): void
     {
         $grade = Grade::factory()
@@ -329,7 +331,7 @@ class GradeControllerTest extends TestCase
     // DELETE /api/grades/{grade} — Hard delete
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function superadmin_can_permanently_delete_grade(): void
     {
         $grade = Grade::factory()
@@ -344,7 +346,7 @@ class GradeControllerTest extends TestCase
         $this->assertDatabaseMissing('grades', ['id' => $grade->id]);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_cannot_permanently_delete_grade(): void
     {
         $grade = Grade::factory()

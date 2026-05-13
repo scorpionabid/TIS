@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Api;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\AssessmentType;
 use App\Models\Grade;
@@ -113,7 +115,7 @@ class GradeBookControllerTest extends TestCase
     // GET /api/grade-books — index
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function unauthenticated_request_returns_401(): void
     {
         $response = $this->getJson('/api/grade-books');
@@ -121,7 +123,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_sees_only_own_institution_grade_books(): void
     {
         // Öz məktəbinin jurnalı
@@ -151,7 +153,7 @@ class GradeBookControllerTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function superadmin_can_see_any_institution_grade_books(): void
     {
         $this->makeGradeBook();
@@ -165,7 +167,7 @@ class GradeBookControllerTest extends TestCase
         $this->assertNotEmpty($data);
     }
 
-    /** @test */
+    #[Test]
     public function status_filter_active_returns_only_active_grade_books(): void
     {
         $this->makeGradeBook(['status' => 'active']);
@@ -190,7 +192,7 @@ class GradeBookControllerTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function status_filter_archived_returns_only_archived_grade_books(): void
     {
         $this->makeGradeBook(['status' => 'active']);
@@ -216,7 +218,7 @@ class GradeBookControllerTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function grade_id_filter_returns_only_matching_grade_books(): void
     {
         $this->makeGradeBook();
@@ -248,7 +250,7 @@ class GradeBookControllerTest extends TestCase
     // POST /api/grade-books — store
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_create_grade_book(): void
     {
         $payload = [
@@ -272,7 +274,7 @@ class GradeBookControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function teacher_cannot_create_grade_book(): void
     {
         $payload = [
@@ -289,7 +291,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function missing_required_fields_returns_422(): void
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -301,7 +303,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertJsonValidationErrors(['institution_id', 'grade_id', 'subject_id', 'academic_year_id']);
     }
 
-    /** @test */
+    #[Test]
     public function invalid_grade_id_returns_422(): void
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -320,7 +322,7 @@ class GradeBookControllerTest extends TestCase
     // GET /api/grade-books/{id} — show
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_view_own_institution_grade_book(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -333,7 +335,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertJsonPath('data.grade_book.id', $gradeBook->id);
     }
 
-    /** @test */
+    #[Test]
     public function school_admin_cannot_view_other_institution_grade_book(): void
     {
         $otherGrade = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);
@@ -352,7 +354,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function show_returns_students_and_columns_structure(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -369,7 +371,7 @@ class GradeBookControllerTest extends TestCase
         $this->assertArrayHasKey('calculated_columns', $response->json('data'));
     }
 
-    /** @test */
+    #[Test]
     public function unauthenticated_cannot_view_grade_book(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -383,7 +385,7 @@ class GradeBookControllerTest extends TestCase
     // POST /api/grade-books/{id}/columns — storeColumn
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_add_column_to_grade_book(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -409,7 +411,7 @@ class GradeBookControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function column_store_requires_assessment_type_id(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -425,7 +427,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertJsonValidationErrors(['assessment_type_id']);
     }
 
-    /** @test */
+    #[Test]
     public function column_store_requires_valid_semester(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -446,7 +448,7 @@ class GradeBookControllerTest extends TestCase
     // POST /api/grade-books/{id}/teachers — assignTeacher
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_assign_teacher_to_grade_book(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -466,7 +468,7 @@ class GradeBookControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function assign_teacher_requires_valid_teacher_id(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -484,7 +486,7 @@ class GradeBookControllerTest extends TestCase
     // POST /api/grade-books/{id}/recalculate
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_recalculate_grade_book(): void
     {
         $gradeBook = $this->makeGradeBook();
@@ -496,7 +498,7 @@ class GradeBookControllerTest extends TestCase
         $response->assertJson(['success' => true]);
     }
 
-    /** @test */
+    #[Test]
     public function teacher_cannot_recalculate_other_school_grade_book(): void
     {
         $otherGrade = Grade::factory()->forInstitution($this->otherSchool)->create(['academic_year_id' => $this->activeYear->id]);

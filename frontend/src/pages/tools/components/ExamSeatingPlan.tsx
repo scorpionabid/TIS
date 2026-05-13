@@ -223,6 +223,196 @@ export const autoDetectMapping = (headers: string[]): Record<string, number> => 
   return mapping;
 };
 
+// ─── Exported Algorithm Functions ───────────────────────────────────────────
+
+/**
+ * buildPool: Bütün mərkəz şagirdlərini eyni məktəblərin bir-birindən uzaq olduğu formada sıralayır.
+ */
+export const buildPool = (centerStudents: Student[], type: SeatingType): Student[] => {
+  const L = centerStudents.length;
+  if (L === 0) return [];
+  
+  const pool: (Student | null)[] = new Array(L).fill(null);
+
+  // 1. Group by school (UTIS) and sort by count (largest first)
+  const groupsMap = new Map<string, Student[]>();
+  centerStudents.forEach(s => {
+    const list = groupsMap.get(s.utisCode) || [];
+    list.push(s);
+    groupsMap.set(s.utisCode, list);
+  });
+
+  const sortedGroups = Array.from(groupsMap.values())
+    .map(g => [...g].sort(() => Math.random() - 0.5))
+    .sort((a, b) => b.length - a.length);
+
+  // 2. Distribute each group into slots with a calculated step
+  sortedGroups.forEach(group => {
+    const n = group.length;
+    const step = L / n;
+    
+    group.forEach((student, i) => {
+      let targetIdx = Math.floor(i * step);
+      // Find next available slot (linear probing)
+      while (pool[targetIdx % L] !== null) {
+        targetIdx++;
+      }
+      pool[targetIdx % L] = student;
+    });
+  });
+
+  const finalPool = pool.filter((s): s is Student => s !== null);
+
+  if (type !== 'C') return finalPool;
+
+  // Type C: Priority by section (Az then Rus)
+  return [
+    ...finalPool.filter(s => s.section === 'Az'),
+    ...finalPool.filter(s => s.section === 'Rus'),
+    ...finalPool.filter(s => s.section !== 'Az' && s.section !== 'Rus'),
+  ];
+};
+
+/**
+ * placeStudentsInRoom: Greedy Pair alqoritmi ilə şagirdləri otağa yerləşdirir.
+ */
+export const placeStudentsInRoom = (
+  roomStudents: Student[],
+  config: RoomConfig,
+  type: SeatingType,
+  genderBalance: boolean,
+): Seat[] => {
+  const deskCount  = config.totalDesks ?? (config.columns * config.rowsPerColumn);
+  const rowsPerCol = config.rowsPerColumn || Math.ceil(deskCount / config.columns);
+
+  // ── Addım 1: Məktəbə görə qruplaşdır, daxilən qarışdır ──────────────────
+  const schoolMap = new Map<string, Student[]>();
+  for (const s of roomStudents) {
+    const g = schoolMap.get(s.utisCode) ?? [];
+    g.push(s);
+    schoolMap.set(s.utisCode, g);
+  }
+  schoolMap.forEach(g => {
+    for (let i = g.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [g[i], g[j]] = [g[j], g[i]];
+    }
+  });
+  const groups = Array.from(schoolMap.values()).sort((a, b) => b.length - a.length);
+
+  // ── Addım 2: Greedy pair — hər parta üçün Sol+Sağ birlikdə seç ──────────
+  type Pair = [Student | undefined, Student | undefined];
+  const pairs: Pair[] = [];
+
+  for (let d = 0; d < deskCount; d++) {
+    groups.sort((a, b) => b.length - a.length);
+    const nonempty = groups.filter(g => g.length > 0);
+
+    if (nonempty.length === 0) { pairs.push([undefined, undefined]); continue; }
+
+    if (nonempty.length === 1) {
+      const remainingDesks     = deskCount - d;
+      const remainingStudents  = nonempty[0].length;
+
+      if (remainingStudents <= remainingDesks) {
+        pairs.push([nonempty[0].pop(), undefined]);
+      } else {
+        const a = nonempty[0].pop();
+        const b = nonempty[0].length > 0 ? nonempty[0].pop() : undefined;
+        pairs.push([a, b]);
+      }
+      continue;
+    }
+
+    const preferSwap = nonempty[0].length === nonempty[1].length && Math.random() < 0.5;
+    const solGroup = preferSwap ? nonempty[1] : nonempty[0];
+    const sol = solGroup.pop()!;
+    const sagGroup = nonempty.find(g => g !== solGroup && g.length > 0);
+    const sag = sagGroup?.pop();
+    pairs.push([sol, sag]);
+  }
+
+  // ── Addım 3: Sütun interleaving — vertikal eyni məktəbi azalt ────────────
+  const arranged = [...pairs];
+  for (let colStart = 0; colStart < deskCount; colStart += rowsPerCol) {
+    const colEnd = Math.min(colStart + rowsPerCol, deskCount);
+    const col = arranged.slice(colStart, colEnd);
+
+    const byCode = new Map<string, Pair[]>();
+    for (const p of col) {
+      const code = p[0]?.utisCode ?? '__empty';
+      (byCode.get(code) ?? (byCode.set(code, []), byCode.get(code)!)).push(p);
+    }
+    const colGroups = Array.from(byCode.values()).sort((a, b) => b.length - a.length);
+    const maxLen = Math.max(...colGroups.map(g => g.length), 0);
+    const interleaved: Pair[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      for (const g of colGroups) if (i < g.length) interleaved.push(g[i]);
+    }
+    for (let i = 0; i < interleaved.length; i++) arranged[colStart + i] = interleaved[i];
+  }
+
+  // ── Addım 4: Seat array yığ ──────────────────────────────────────────────
+  const seats: Seat[] = [];
+  for (let d = 1; d <= deskCount; d++) {
+    const [sol, sag] = arranged[d - 1] ?? [undefined, undefined];
+    seats.push({ seatNumber: (d-1)*2 + 1, deskNumber: d, position: 'Sol', type: sol ? 'CÜT' : 'BOŞ', student: sol });
+    seats.push({ seatNumber: (d-1)*2 + 2, deskNumber: d, position: 'Sağ', type: sag ? 'CÜT' : 'BOŞ', student: sag });
+  }
+  return seats;
+};
+
+/**
+ * calcStats: Otaq statistikasını və risk xalını hesablayır.
+ */
+export const calcStats = (seats: Seat[], config: RoomConfig): RoomStats => {
+  let totalStudents = 0, usedSeats = 0, emptySeats = 0;
+  let singleCount = 0, doubleCount = 0, utisViolations = 0;
+  const deskGroups: Record<number, Seat[]> = {};
+
+  seats.forEach(s => {
+    (deskGroups[s.deskNumber] ??= []).push(s);
+    if (s.student) { totalStudents++; usedSeats++; } else { emptySeats++; }
+  });
+
+  Object.values(deskGroups).forEach(group => {
+    const occ = group.filter(s => s.student);
+    if (occ.length === 2) {
+      doubleCount += 2;
+      if (occ[0].student?.utisCode === occ[1].student?.utisCode) utisViolations++;
+    } else if (occ.length === 1) singleCount++;
+  });
+
+  const seatMap = new Map<string, Student>();
+  seats.forEach(s => {
+    if (s.student) seatMap.set(`${s.deskNumber}-${s.position}`, s.student);
+  });
+
+  const at = (d: number, p: 'Sol' | 'Sağ') => seatMap.get(`${d}-${p}`);
+
+  let riskWeight = 0;
+  seats.forEach(({ student: st, deskNumber: d, position: pos }) => {
+    if (!st) return;
+    const utis = st.utisCode;
+    const partner = at(d, pos === 'Sol' ? 'Sağ' : 'Sol');
+    if (partner?.utisCode === utis) riskWeight += 1.0;
+    if (at(d - 1, pos)?.utisCode === utis) riskWeight += 0.5;
+    if (at(d + 1, pos)?.utisCode === utis) riskWeight += 0.5;
+    const other = pos === 'Sol' ? 'Sağ' : 'Sol';
+    if (at(d - 1, other)?.utisCode === utis) riskWeight += 0.25;
+    if (at(d + 1, other)?.utisCode === utis) riskWeight += 0.25;
+  });
+
+  const riskScore = totalStudents > 0
+    ? Math.min(Math.round((riskWeight / totalStudents) * 100), 100)
+    : 0;
+  const riskStatus: RoomStats['riskStatus'] =
+    riskScore < 15 ? 'Təhlükəsiz' : riskScore < 40 ? 'Orta Risk' : 'Yüksək Risk';
+
+  void config;
+  return { totalStudents, usedSeats, emptySeats, singleCount, doubleCount, utisViolations, riskScore, riskStatus };
+};
+
 // 14 vizual fərqli rəng — eyni məktəb = həmişə eyni rəng (mərkəz daxilindən)
 const SCHOOL_PALETTE = [
   'bg-blue-100 border-blue-400 text-blue-900',
@@ -723,147 +913,7 @@ const ExamSeatingPlan: React.FC = () => {
   // Sütun interleaving:
   //   Parta cütlərini sütun içərisində məktəbə görə round-robin ilə sıralayır
   //   → vertikal qonşularda eyni məktəb ehtimalı minimuma enir
-  const placeStudentsInRoom = (
-    roomStudents: Student[],
-    config: RoomConfig,
-    type: SeatingType,
-    genderBalance: boolean,
-  ): Seat[] => {
-    const deskCount  = config.totalDesks ?? (config.columns * config.rowsPerColumn);
-    const rowsPerCol = config.rowsPerColumn || Math.ceil(deskCount / config.columns);
 
-    // ── Addım 1: Məktəbə görə qruplaşdır, daxilən qarışdır ──────────────────
-    const schoolMap = new Map<string, Student[]>();
-    for (const s of roomStudents) {
-      const g = schoolMap.get(s.utisCode) ?? [];
-      g.push(s);
-      schoolMap.set(s.utisCode, g);
-    }
-    schoolMap.forEach(g => {
-      for (let i = g.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [g[i], g[j]] = [g[j], g[i]];
-      }
-    });
-    const groups = Array.from(schoolMap.values()).sort((a, b) => b.length - a.length);
-
-    // ── Addım 2: Greedy pair — hər parta üçün Sol+Sağ birlikdə seç ──────────
-    type Pair = [Student | undefined, Student | undefined];
-    const pairs: Pair[] = [];
-
-    for (let d = 0; d < deskCount; d++) {
-      groups.sort((a, b) => b.length - a.length);
-      const nonempty = groups.filter(g => g.length > 0);
-
-      if (nonempty.length === 0) { pairs.push([undefined, undefined]); continue; }
-
-      if (nonempty.length === 1) {
-        const remainingDesks     = deskCount - d;
-        const remainingStudents  = nonempty[0].length;
-
-        if (remainingStudents <= remainingDesks) {
-          // Hər şagird üçün ayrı parta var → Sol=A, Sağ=BOŞ (0 violation)
-          pairs.push([nonempty[0].pop(), undefined]);
-        } else {
-          // Partalar çatmır → məcburi (A,A) violation
-          const a = nonempty[0].pop();
-          const b = nonempty[0].length > 0 ? nonempty[0].pop() : undefined;
-          pairs.push([a, b]);
-        }
-        continue;
-      }
-
-      // Bərabər sayda məktəblər olduqda Sol/Sağ mövqeyini təsadüfi dəyişdir
-      // (uyğun vizual paylanma üçün)
-      const preferSwap =
-        nonempty[0].length === nonempty[1].length && Math.random() < 0.5;
-
-      const solGroup = preferSwap ? nonempty[1] : nonempty[0];
-      const sol = solGroup.pop()!;
-
-      // Sağ: Sol ilə FƏRQLI məktəbdən ən böyük qrup
-      const sagGroup = nonempty.find(g => g !== solGroup && g.length > 0);
-      const sag = sagGroup?.pop();
-      pairs.push([sol, sag]);
-    }
-
-    // ── Addım 3: Sütun interleaving — vertikal eyni məktəbi azalt ────────────
-    const arranged = [...pairs];
-
-    for (let colStart = 0; colStart < deskCount; colStart += rowsPerCol) {
-      const colEnd = Math.min(colStart + rowsPerCol, deskCount);
-      const col = arranged.slice(colStart, colEnd);
-
-      // Sütundakı cütləri Sol məktəbə görə round-robin ilə sırala
-      const byCode = new Map<string, Pair[]>();
-      for (const p of col) {
-        const code = p[0]?.utisCode ?? '__empty';
-        (byCode.get(code) ?? (byCode.set(code, []), byCode.get(code)!)).push(p);
-      }
-      const colGroups = Array.from(byCode.values()).sort((a, b) => b.length - a.length);
-      const maxLen = Math.max(...colGroups.map(g => g.length), 0);
-      const interleaved: Pair[] = [];
-      for (let i = 0; i < maxLen; i++) {
-        for (const g of colGroups) if (i < g.length) interleaved.push(g[i]);
-      }
-      for (let i = 0; i < interleaved.length; i++) arranged[colStart + i] = interleaved[i];
-    }
-
-    // ── Addım 4: Seat array yığ ──────────────────────────────────────────────
-    const seats: Seat[] = [];
-    for (let d = 1; d <= deskCount; d++) {
-      const [sol, sag] = arranged[d - 1] ?? [undefined, undefined];
-      seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sol', type: sol ? 'CÜT' : 'BOŞ', student: sol });
-      seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sağ', type: sag ? 'CÜT' : 'BOŞ', student: sag });
-    }
-    return seats;
-  };
-
-  const buildPool = (centerStudents: Student[], type: SeatingType): Student[] => {
-    const L = centerStudents.length;
-    if (L === 0) return [];
-    
-    const pool: (Student | null)[] = new Array(L).fill(null);
-
-    // 1. Group by school (UTIS) and sort by count (largest first)
-    const groupsMap = new Map<string, Student[]>();
-    centerStudents.forEach(s => {
-      const list = groupsMap.get(s.utisCode) || [];
-      list.push(s);
-      groupsMap.set(s.utisCode, list);
-    });
-
-    const sortedGroups = Array.from(groupsMap.values())
-      .map(g => [...g].sort(() => Math.random() - 0.5))
-      .sort((a, b) => b.length - a.length);
-
-    // 2. Distribute each group into slots with a calculated step
-    // This ensures even density for every school across the entire range [0...L-1]
-    sortedGroups.forEach(group => {
-      const n = group.length;
-      const step = L / n;
-      
-      group.forEach((student, i) => {
-        let targetIdx = Math.floor(i * step);
-        // Find next available slot (linear probing)
-        while (pool[targetIdx % L] !== null) {
-          targetIdx++;
-        }
-        pool[targetIdx % L] = student;
-      });
-    });
-
-    const finalPool = pool.filter((s): s is Student => s !== null);
-
-    if (type !== 'C') return finalPool;
-
-    // Type C: Priority by section (Az then Rus)
-    return [
-      ...finalPool.filter(s => s.section === 'Az'),
-      ...finalPool.filter(s => s.section === 'Rus'),
-      ...finalPool.filter(s => s.section !== 'Az' && s.section !== 'Rus'),
-    ];
-  };
 
   const generatePlan = () => {
     const centerMap: Record<string, Student[]> = {};
@@ -921,54 +971,6 @@ const ExamSeatingPlan: React.FC = () => {
   };
 
   // ── Stats calculation ──────────────────────────────────────────────────────
-  const calcStats = (seats: Seat[], config: RoomConfig): RoomStats => {
-    let totalStudents = 0, usedSeats = 0, emptySeats = 0;
-    let singleCount = 0, doubleCount = 0, utisViolations = 0;
-    const deskGroups: Record<number, Seat[]> = {};
-
-    seats.forEach(s => {
-      (deskGroups[s.deskNumber] ??= []).push(s);
-      if (s.student) { totalStudents++; usedSeats++; } else { emptySeats++; }
-    });
-
-    Object.values(deskGroups).forEach(group => {
-      const occ = group.filter(s => s.student);
-      if (occ.length === 2) {
-        doubleCount += 2;
-        if (occ[0].student?.utisCode === occ[1].student?.utisCode) utisViolations++;
-      } else if (occ.length === 1) singleCount++;
-    });
-
-    // Create a fast lookup map for seat positions
-    const seatMap = new Map<string, Student>();
-    seats.forEach(s => {
-      if (s.student) seatMap.set(`${s.deskNumber}-${s.position}`, s.student);
-    });
-
-    const at = (d: number, p: 'Sol' | 'Sağ') => seatMap.get(`${d}-${p}`);
-
-    let riskWeight = 0;
-    seats.forEach(({ student: st, deskNumber: d, position: pos }) => {
-      if (!st) return;
-      const utis = st.utisCode;
-      const partner = at(d, pos === 'Sol' ? 'Sağ' : 'Sol');
-      if (partner?.utisCode === utis) riskWeight += 1.0;
-      if (at(d - 1, pos)?.utisCode === utis) riskWeight += 0.5;
-      if (at(d + 1, pos)?.utisCode === utis) riskWeight += 0.5;
-      const other = pos === 'Sol' ? 'Sağ' : 'Sol';
-      if (at(d - 1, other)?.utisCode === utis) riskWeight += 0.25;
-      if (at(d + 1, other)?.utisCode === utis) riskWeight += 0.25;
-    });
-
-    const riskScore = totalStudents > 0
-      ? Math.min(Math.round((riskWeight / totalStudents) * 100), 100)
-      : 0;
-    const riskStatus: RoomStats['riskStatus'] =
-      riskScore < 15 ? 'Təhlükəsiz' : riskScore < 40 ? 'Orta Risk' : 'Yüksək Risk';
-
-    void config; // config available for future capacity-based risk calc
-    return { totalStudents, usedSeats, emptySeats, singleCount, doubleCount, utisViolations, riskScore, riskStatus };
-  };
 
   // ── Re-import: eksport edilmiş Excel-i yenidən yüklə ───────────────────────────
   const importExcelResult = (file: File) => {

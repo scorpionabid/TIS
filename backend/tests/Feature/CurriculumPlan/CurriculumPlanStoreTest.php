@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CurriculumPlan;
 
+use PHPUnit\Framework\Attributes\Test;
+
 use App\Models\AcademicYear;
 use App\Models\CurriculumPlan;
 use App\Models\CurriculumPlanApproval;
@@ -125,7 +127,7 @@ class CurriculumPlanStoreTest extends TestCase
     // Happy path
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function school_admin_can_save_plan_items(): void
     {
         $response = $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -143,7 +145,7 @@ class CurriculumPlanStoreTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function updating_existing_plan_item_does_upsert_not_duplicate(): void
     {
         // Əvvəlcə plan yarat
@@ -173,7 +175,7 @@ class CurriculumPlanStoreTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function store_recalculates_grade_curriculum_hours(): void
     {
         Grade::factory()
@@ -200,7 +202,7 @@ class CurriculumPlanStoreTest extends TestCase
     // Validation
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function missing_items_array_returns_422(): void
     {
         $this->actingAs($this->schoolAdmin, 'sanctum')
@@ -212,7 +214,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertJsonValidationErrors(['items']);
     }
 
-    /** @test */
+    #[Test]
     public function invalid_education_type_returns_422(): void
     {
         $payload = $this->validPayload();
@@ -224,7 +226,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertJsonValidationErrors(['items.0.education_type']);
     }
 
-    /** @test */
+    #[Test]
     public function negative_hours_returns_422(): void
     {
         $payload = $this->validPayload();
@@ -236,7 +238,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertJsonValidationErrors(['items.0.hours']);
     }
 
-    /** @test */
+    #[Test]
     public function nonexistent_subject_id_returns_422(): void
     {
         $payload = $this->validPayload();
@@ -248,7 +250,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertJsonValidationErrors(['items.0.subject_id']);
     }
 
-    /** @test */
+    #[Test]
     public function class_level_must_be_integer_returns_422(): void
     {
         $payload = $this->validPayload();
@@ -264,7 +266,7 @@ class CurriculumPlanStoreTest extends TestCase
     // isEditable — is_locked
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function locked_region_prevents_school_admin_from_saving(): void
     {
         $this->setRegion(['is_curriculum_locked' => true]);
@@ -274,7 +276,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function locked_region_prevents_sektoradmin_from_saving(): void
     {
         $this->setRegion(['is_curriculum_locked' => true]);
@@ -284,7 +286,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function locked_region_also_prevents_regionadmin(): void
     {
         // is_locked=true → isEditable ilk şərtdə hamını blok edir (regionadmin daxil)
@@ -295,7 +297,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function locked_region_also_prevents_superadmin(): void
     {
         $this->setRegion(['is_curriculum_locked' => true]);
@@ -309,7 +311,7 @@ class CurriculumPlanStoreTest extends TestCase
     // isEditable — deadline
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function expired_deadline_prevents_school_admin_from_saving(): void
     {
         $this->setRegion(['curriculum_deadline' => now()->subDay()]);
@@ -319,7 +321,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function expired_deadline_does_not_prevent_sektoradmin(): void
     {
         $this->setRegion(['curriculum_deadline' => now()->subDay()]);
@@ -329,7 +331,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function expired_deadline_does_not_prevent_regionadmin(): void
     {
         $this->setRegion(['curriculum_deadline' => now()->subDay()]);
@@ -339,7 +341,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function future_deadline_allows_school_admin(): void
     {
         $this->setRegion(['curriculum_deadline' => now()->addDay()]);
@@ -353,7 +355,7 @@ class CurriculumPlanStoreTest extends TestCase
     // isEditable — can_sektor_edit / can_operator_edit
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function can_sektor_edit_false_prevents_sektoradmin(): void
     {
         $this->setRegion(['can_sektor_edit' => false]);
@@ -363,7 +365,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function can_operator_edit_false_prevents_regionoperator(): void
     {
         $this->setRegion(['can_operator_edit' => false]);
@@ -373,7 +375,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function can_sektor_edit_false_does_not_affect_schooladmin(): void
     {
         $this->setRegion(['can_sektor_edit' => false]);
@@ -387,7 +389,7 @@ class CurriculumPlanStoreTest extends TestCase
     // isEditable — approval status
     // =========================================================================
 
-    /** @test */
+    #[Test]
     public function submitted_plan_prevents_school_admin_from_saving(): void
     {
         $this->createApproval('submitted');
@@ -397,7 +399,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function approved_plan_prevents_school_admin_from_saving(): void
     {
         $this->createApproval('approved');
@@ -407,7 +409,7 @@ class CurriculumPlanStoreTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function returned_plan_allows_school_admin_to_save(): void
     {
         $this->createApproval('returned');
