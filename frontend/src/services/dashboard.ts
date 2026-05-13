@@ -270,8 +270,9 @@ class DashboardService {
   }
 
   async getRecentActivity(limit: number = 10): Promise<RecentActivity[]> {
-    const response = await apiClient.get<RecentActivity[]>('/dashboard/recent-activity', { limit });
-    return response.data || [];
+    // /dashboard/activity is available to all roles (role-based filtering applied server-side)
+    const response = await apiClient.get<RecentActivity[]>('/dashboard/activity', { limit });
+    return (response as any)?.data ?? response ?? [];
   }
 
   async getNotifications(unread_only: boolean = false): Promise<SystemNotification[]> {

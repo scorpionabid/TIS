@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { dashboardService } from '@/services/dashboard';
 import { DashboardSkeleton } from '../skeletons';
@@ -43,6 +44,9 @@ export const ModernSektorAdminDashboard = memo(() => {
         <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
         <h2 className="text-2xl font-black text-destructive">Məlumatlar yüklənmədi</h2>
         <p className="text-muted-foreground mt-2 font-medium">Sistem API ilə əlaqə qura bilmir.</p>
+        <Button onClick={() => window.location.reload()} variant="outline" className="mt-6 rounded-xl gap-2">
+          <RotateCcw size={16} /> Yenidən yoxla
+        </Button>
       </div>
     );
   }

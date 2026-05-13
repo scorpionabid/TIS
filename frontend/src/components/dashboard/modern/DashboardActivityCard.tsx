@@ -13,12 +13,21 @@ export const DashboardActivityCard: React.FC<DashboardActivityCardProps> = ({
   title = 'Son Fəaliyyətlər',
   limit = 5,
 }) => {
-  const { data: activities = [] } = useQuery({
+  const { data: rawData } = useQuery({
     queryKey: ['recent-activity', limit],
     queryFn: () => dashboardService.getRecentActivity(limit),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  // Normalize: endpoint may return array, {data:[]}, {activities:[]}, {items:[]}, etc.
+  const activities: any[] = Array.isArray(rawData)
+    ? rawData
+    : Array.isArray((rawData as any)?.data)
+    ? (rawData as any).data
+    : Array.isArray((rawData as any)?.activities)
+    ? (rawData as any).activities
+    : [];
 
   return (
     <Card className="glass-card border-none modern-shadow rounded-[32px] flex-1 flex flex-col overflow-hidden">

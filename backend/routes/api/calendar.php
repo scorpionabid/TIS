@@ -9,10 +9,14 @@ Route::prefix('calendar')->controller(UserCalendarController::class)->group(func
     Route::post('/events', 'storeEvent');
     Route::put('/events/{event}', 'updateEvent');
     Route::delete('/events/{event}', 'destroyEvent');
+    Route::post('/events/{event}/rsvp', 'rsvpEvent');
 
     // Notes
     Route::get('/notes', 'indexNotes');
     Route::post('/notes', 'storeNote');
     Route::put('/notes/{note}', 'updateNote');
     Route::delete('/notes/{note}', 'destroyNote');
+
+    // User search for participant picker
+    Route::get('/users/search', 'searchUsers');
 });
