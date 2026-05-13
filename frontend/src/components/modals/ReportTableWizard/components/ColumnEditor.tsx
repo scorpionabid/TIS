@@ -548,7 +548,7 @@ export function ColumnEditor({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">Maks simvol</Label>
+                  <Label className="text-xs text-gray-500 mb-1 block">Maks simvol <span className="text-gray-400 font-normal">(boş = limitsiz)</span></Label>
                   <Input
                     type="number"
                     value={column.max_length ?? ''}
@@ -559,7 +559,7 @@ export function ColumnEditor({
                         e.target.value === '' ? undefined : Number(e.target.value)
                       )
                     }
-                    placeholder="500"
+                    placeholder="Limitsiz"
                     className="text-sm h-8"
                   />
                 </div>

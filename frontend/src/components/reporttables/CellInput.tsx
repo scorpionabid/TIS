@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -46,6 +46,15 @@ function parseMultiValue(value: string): string[] {
 export const CellInput = React.memo(function CellInput({
   col, value, onChange, onBlur, onKeyDown, onPaste, disabled, error, inputRef,
 }: CellInputProps) {
+  // Auto-resize ref for text-type textarea (hooks must be before any early returns)
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [value]);
+
   if (col.type === 'file') {
     return (
       <FileUploadInput
@@ -230,10 +239,39 @@ export const CellInput = React.memo(function CellInput({
     );
   }
 
+  // Text type (active): auto-expanding textarea
+  if (col.type === 'text') {
+    return (
+      <textarea
+        ref={(el) => {
+          (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+          if (inputRef) inputRef(el as unknown as HTMLInputElement | null);
+        }}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLTextAreaElement>}
+        onPaste={onPaste as unknown as React.ClipboardEventHandler<HTMLTextAreaElement>}
+        disabled={disabled}
+        placeholder={col.hint || col.label}
+        maxLength={col.max_length ?? undefined}
+        rows={1}
+        className={cn(
+          'w-full rounded-md border bg-background px-3 py-2 text-sm',
+          'resize-none overflow-hidden leading-snug',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          error ? 'border-red-400 focus-visible:ring-red-300' : 'border-input',
+        )}
+      />
+    );
+  }
+
+  // Number / date / other types: single-line Input
   return (
     <Input
       ref={inputRef}
-      type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
+      type={col.type === 'date' ? 'date' : 'number'}
       inputMode={col.type === 'number' ? 'decimal' : undefined}
       value={value}
       onChange={(e) => onChange(e.target.value)}
