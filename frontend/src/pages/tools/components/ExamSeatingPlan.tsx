@@ -127,7 +127,7 @@ const escapeHtml = (str: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
-const autoDetectMapping = (headers: string[]): Record<string, number> => {
+export const autoDetectMapping = (headers: string[]): Record<string, number> => {
   const mapping: Record<string, number> = {
     center: -1, lastName: -1, firstName: -1, patronymic: -1,
     rayon: -1, childId: -1, section: -1, grade: -1,
