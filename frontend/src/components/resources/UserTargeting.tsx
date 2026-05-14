@@ -234,7 +234,7 @@ export function UserTargeting({ form }: UserTargetingProps) {
   };
 
   return (
-    <div className={cn('rounded-xl border border-border/60 overflow-hidden bg-background')}>
+    <div className={cn('flex flex-col flex-1 min-h-0 rounded-xl border border-border/60 overflow-hidden bg-background')}>
 
       {/* ── Selected strip ── */}
       <div className={`flex items-center gap-2 px-3 py-2.5 border-b min-h-[44px] transition-colors ${
@@ -314,7 +314,7 @@ export function UserTargeting({ form }: UserTargetingProps) {
       </div>
 
       {/* ── Hierarchy list ── */}
-      <div className="min-h-[200px] overflow-y-auto" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading && (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />Yüklənir...

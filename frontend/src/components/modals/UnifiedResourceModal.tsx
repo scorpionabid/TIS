@@ -182,7 +182,7 @@ function LinkGeneralSection({ form }: { form: any }) {
 
 function InstitutionsSection({ form, availableInstitutions }: { form: any; availableInstitutions: any[] }) {
   return (
-    <div className="animate-in fade-in slide-in-from-right-3 duration-200">
+    <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-right-3 duration-200">
       <InstitutionTargeting form={form} availableInstitutions={availableInstitutions} />
     </div>
   );
@@ -190,7 +190,7 @@ function InstitutionsSection({ form, availableInstitutions }: { form: any; avail
 
 function UsersSection({ form }: { form: any }) {
   return (
-    <div className="animate-in fade-in slide-in-from-right-3 duration-200">
+    <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-right-3 duration-200">
       <UserTargeting form={form} />
     </div>
   );
@@ -527,15 +527,27 @@ export function UnifiedResourceModal({
 
         {/* ── Right: content + footer ── */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          <div className="flex-1 overflow-y-auto p-6">
+          {/* institutions/users tab: flex-fill so only the list scrolls internally */}
+          <div className={cn(
+            'flex-1 min-h-0 p-6',
+            (activeTab === 'institutions' || activeTab === 'users')
+              ? 'flex flex-col overflow-hidden pb-4'
+              : 'overflow-y-auto'
+          )}>
             {/* Form-level errors */}
             {form.formState.errors.title && (
-              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
+              <div className="shrink-0 mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
                 <X className="h-4 w-4 shrink-0 mt-0.5" />
                 {String(form.formState.errors.title.message)}
               </div>
             )}
-            <form id="unified-resource-form" onSubmit={form.handleSubmit(handleSubmit)}>
+            <form
+              id="unified-resource-form"
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className={cn(
+                (activeTab === 'institutions' || activeTab === 'users') && 'flex-1 flex flex-col min-h-0'
+              )}
+            >
               {activeTab === 'general' && isLink && <LinkGeneralSection form={form} />}
               {activeTab === 'general' && !isLink && (
                 <DocGeneralSection

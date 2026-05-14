@@ -181,7 +181,7 @@ export function InstitutionTargeting({
   const CHIP_LIMIT = 5;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       {/* Selected strip — institutions yüklənməsə də count dərhal görünür */}
       <div className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl min-h-[44px] transition-colors ${
         selectedCount > 0 ? 'bg-blue-50/60 border-blue-200' : 'bg-muted/30 border-border/50'
@@ -298,7 +298,7 @@ export function InstitutionTargeting({
         ))}
       </div>
 
-      <div className="border rounded-lg max-h-[260px] sm:max-h-[340px] overflow-y-auto">
+      <div className="flex-1 min-h-0 border rounded-lg overflow-y-auto">
         {filteredInstitutions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -353,28 +353,6 @@ export function InstitutionTargeting({
         )}
       </div>
 
-      {selectedCount > 0 && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm font-medium text-blue-900 mb-2">
-            Seçilmiş müəssisələr ({selectedCount})
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {normalizedInstitutions
-              .filter((inst) => selectedIds.includes(inst.id))
-              .slice(0, 5)
-              .map((inst) => (
-                <Badge key={inst.id} variant="secondary" className="text-xs">
-                  {inst.name}
-                </Badge>
-              ))}
-            {selectedCount > 5 && (
-              <Badge variant="secondary" className="text-xs">
-                +{selectedCount - 5} daha
-              </Badge>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
