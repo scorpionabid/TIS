@@ -52,6 +52,7 @@ export interface ValidationState {
     valid: boolean;
     errors: string[];
     columnErrors: Record<number, string[]>;
+    fixedRowErrors: number[];
   };
   step3: {
     valid: boolean;

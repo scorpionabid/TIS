@@ -23,6 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import type { ReportTable, ReportTableColumn } from '@/types/reportTable';
 import { reportTableService } from '@/services/reportTables';
 import { useQuery } from '@tanstack/react-query';
@@ -32,8 +33,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import type { StepProps } from '../types';
 import { useColumnManagement } from '../hooks/useColumnManagement';
 import { ColumnEditor } from './ColumnEditor';
@@ -268,7 +269,7 @@ export function Step2Columns({
                 {formData.fixed_rows.map((row, idx) => (
                   <div key={row.id} className="flex items-center gap-2">
                     <span className="text-xs text-gray-400 w-6">{idx + 1}.</span>
-                    <Input
+                    <Textarea
                       value={row.label}
                       onChange={(e) => {
                         const newRows = [...formData.fixed_rows!];
@@ -276,7 +277,12 @@ export function Step2Columns({
                         onChange('fixed_rows', newRows);
                       }}
                       placeholder="Sətir adı (məs: 9-cu sinif)"
-                      className="flex-1 h-8 text-sm"
+                      maxLength={2000}
+                      rows={2}
+                      className={cn(
+                        "flex-1 text-sm resize-none",
+                        validation.step2.fixedRowErrors?.includes(idx) && "border-red-400 focus-visible:ring-red-400"
+                      )}
                       disabled={!canEditColumns}
                       data-testid="fixed-row-input"
                     />

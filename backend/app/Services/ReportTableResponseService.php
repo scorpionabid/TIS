@@ -280,11 +280,13 @@ class ReportTableResponseService
         $columnTypes = [];
         $columnLabels = [];
         $columnOptions = [];
+        $columnMaxLengths = [];
 
         foreach ($columns as $col) {
             $columnTypes[$col['key']] = $col['type'] ?? 'text';
             $columnLabels[$col['key']] = $col['label'] ?? $col['key'];
             $columnOptions[$col['key']] = $col['options'] ?? [];
+            $columnMaxLengths[$col['key']] = isset($col['max_length']) ? (int) $col['max_length'] : null;
         }
 
         foreach ($rows as $rowIndex => $row) {
@@ -308,6 +310,7 @@ class ReportTableResponseService
                 $colType = $columnTypes[$colKey] ?? 'text';
                 $colLabel = $columnLabels[$colKey] ?? $colKey;
                 $colOptions = $columnOptions[$colKey] ?? [];
+                $colMaxLength = $columnMaxLengths[$colKey] ?? null;
 
                 switch ($colType) {
                     case 'number':
@@ -334,6 +337,8 @@ class ReportTableResponseService
                     default:
                         if (! is_string($cellValue) && ! is_numeric($cellValue)) {
                             $errors["rows.{$rowIndex}.{$colKey}"] = ["{$pos}. sətir, \"{$colLabel}\" sütununda mətn gözlənilir."];
+                        } elseif ($colMaxLength && mb_strlen((string) $cellValue) > $colMaxLength) {
+                            $errors["rows.{$rowIndex}.{$colKey}"] = ["{$pos}. sətir, \"{$colLabel}\" sütunu maksimum {$colMaxLength} simvol ola bilər."];
                         }
                         break;
                 }
