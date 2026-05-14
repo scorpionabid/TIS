@@ -7,6 +7,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Institution } from "@/services/institutions";
 
+const INSTITUTION_TYPE_LABELS: Record<string, string> = {
+  ministry: 'Nazirlik',
+  regional_education_department: 'Regional İdarə',
+  sector_education_office: 'Sektor',
+  secondary_school: 'Məktəb',
+  vocational_school: 'Peşə məktəbi',
+  school: 'Məktəb',
+  preschool: 'Məktəbəqədər',
+  kindergarten: 'Uşaq bağçası',
+};
+
 interface InstitutionTargetingProps {
   form: any;
   availableInstitutions: Institution[];
@@ -187,7 +198,7 @@ export function InstitutionTargeting({
               {selectedInstitutions.length > 0
                 ? selectedInstitutions.slice(0, CHIP_LIMIT).map(inst => (
                     <span key={inst.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-blue-700 text-[11px] font-medium border border-blue-200 max-w-[180px] shadow-sm">
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-blue-700 text-[11px] font-medium border border-blue-200 max-w-[120px] sm:max-w-[180px] shadow-sm">
                       <span className="truncate">{inst.name}</span>
                       <button type="button" onClick={() => toggleInstitution(inst.id, false)}
                         className="shrink-0 text-blue-400 hover:text-blue-700">
@@ -287,7 +298,7 @@ export function InstitutionTargeting({
         ))}
       </div>
 
-      <div className="border rounded-lg max-h-60 overflow-y-auto">
+      <div className="border rounded-lg max-h-[260px] sm:max-h-[340px] overflow-y-auto">
         {filteredInstitutions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -331,7 +342,7 @@ export function InstitutionTargeting({
                     </div>
                     {institution.type && (
                       <span className="text-xs text-muted-foreground">
-                        {institution.type}
+                        {INSTITUTION_TYPE_LABELS[institution.type] ?? institution.type}
                       </span>
                     )}
                   </div>

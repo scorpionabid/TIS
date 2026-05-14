@@ -39,16 +39,16 @@ interface UnifiedResourceModalProps {
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
 const LINK_TABS = [
-  { id: 'general',      label: 'Ümumi',        icon: Link2,     color: 'blue'   },
-  { id: 'institutions', label: 'Müəssisələr',  icon: Building2, color: 'green'  },
-  { id: 'users',        label: 'İstifadəçilər', icon: UsersIcon, color: 'violet' },
-  { id: 'features',     label: 'Özəllik',      icon: Sparkles,  color: 'amber'  },
+  { id: 'general',      label: 'Ümumi',       mobileLabel: 'Ümumi',   icon: Link2,     color: 'blue'   },
+  { id: 'institutions', label: 'Müəssisələr', mobileLabel: 'Müəss.',  icon: Building2, color: 'green'  },
+  { id: 'users',        label: 'İstifadəçilər',mobileLabel: 'İstif.',  icon: UsersIcon, color: 'violet' },
+  { id: 'features',     label: 'Özəllik',     mobileLabel: 'Özəllik', icon: Sparkles,  color: 'amber'  },
 ] as const;
 
 const DOC_TABS = [
-  { id: 'general',      label: 'Ümumi',        icon: FileText,  color: 'blue'   },
-  { id: 'institutions', label: 'Müəssisələr',  icon: Building2, color: 'green'  },
-  { id: 'users',        label: 'İstifadəçilər', icon: UsersIcon, color: 'violet' },
+  { id: 'general',      label: 'Ümumi',       mobileLabel: 'Ümumi',  icon: FileText,  color: 'blue'   },
+  { id: 'institutions', label: 'Müəssisələr', mobileLabel: 'Müəss.', icon: Building2, color: 'green'  },
+  { id: 'users',        label: 'İstifadəçilər',mobileLabel: 'İstif.', icon: UsersIcon, color: 'violet' },
 ] as const;
 
 type LinkTabId = typeof LINK_TABS[number]['id'];
@@ -134,9 +134,9 @@ function LinkGeneralSection({ form }: { form: any }) {
           <p className="text-xs text-red-500 mt-1">{form.formState.errors.url.message}</p>
         )}
         {preview && (
-          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-blue-800 truncate">{preview.host}</p>
+          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg overflow-hidden">
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="text-xs font-semibold text-blue-800 truncate break-all">{preview.host}</p>
               <p className="text-[10px] text-blue-600">{preview.proto.toUpperCase()}</p>
             </div>
             <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 shrink-0">
@@ -321,7 +321,7 @@ function DocGeneralSection({ form, selectedFile, setSelectedFile, mode, currentF
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</Label>
           <Select value={form.watch('category')} onValueChange={v => form.setValue('category', v)}>
@@ -431,7 +431,7 @@ export function UnifiedResourceModal({
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent
-        className="w-full sm:max-w-[960px] p-0 flex flex-col sm:flex-row h-[94vh] sm:h-[720px] sm:max-h-[820px] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
+        className="w-full sm:max-w-[960px] p-0 flex flex-col sm:flex-row h-[94vh] sm:h-auto sm:max-h-[90vh] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
       >
 
         {/* ── Mobile: horizontal tabs ── */}
@@ -448,17 +448,17 @@ export function UnifiedResourceModal({
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all',
+                  'flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0',
                   activeTab === tab.id ? `${c.active.split(' ')[0]} ${c.text} shadow-sm` : 'text-gray-500 hover:bg-gray-100'
                 )}>
-                <Icon className="h-3 w-3" />{tab.label}
+                <Icon className="h-3 w-3" />{tab.mobileLabel}
               </button>
             );
           })}
         </div>
 
         {/* ── Desktop: left sidebar ── */}
-        <div className="hidden sm:flex w-[200px] shrink-0 flex-col bg-gray-50 border-r">
+        <div className="hidden sm:flex sm:w-[180px] lg:w-[220px] shrink-0 flex-col bg-gray-50 border-r">
           {/* Header */}
           <div className="p-5 border-b">
             <div className="flex items-center gap-2.5">
