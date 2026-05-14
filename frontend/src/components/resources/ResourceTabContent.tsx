@@ -37,9 +37,15 @@ const SCOPE_LEVELS = [
   { value: 'school' as ScopeFilter, label: 'Məktəblər', icon: GraduationCap },
 ] as const;
 
-// Hədəf scope-a görə tab müəyyən edilir (kim üçün yaradıldı)
-// Linklər: share_scope  |  Sənədlər: access_level ('institution' ≠ 'institutional')
+// Yaradan institutun səviyyəsinə görə tab müəyyən edilir:
+// level 2 = region, level 3 = sector, level 4 = school
 function getResourceTab(r: AssignedResource): ScopeFilter {
+  const level = r.institution?.level ?? r.uploader?.institution?.level;
+  if (level === 2) return 'region';
+  if (level === 3) return 'sector';
+  if (level === 4) return 'school';
+
+  // Fallback: share_scope / access_level (ictimai və ya köhnə resurslar üçün)
   const scope = r.share_scope ?? r.access_level;
   switch (scope) {
     case 'regional':    return 'region';
