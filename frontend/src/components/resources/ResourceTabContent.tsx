@@ -37,10 +37,10 @@ const SCOPE_LEVELS = [
   { value: 'school' as ScopeFilter, label: 'Məktəblər', icon: GraduationCap },
 ] as const;
 
-// Yaradan institutun səviyyəsinə görə tab müəyyən edilir:
+// Hədəf institutların minimum level-inə görə tab müəyyən edilir:
 // level 2 = region, level 3 = sector, level 4 = school
 function getResourceTab(r: AssignedResource): ScopeFilter {
-  const level = r.institution?.level ?? r.uploader?.institution?.level;
+  const level = r.target_institution_level;
   if (level === 2) return 'region';
   if (level === 3) return 'sector';
   if (level === 4) return 'school';

@@ -65,6 +65,9 @@ export interface Resource extends BaseEntity {
   version?: number;
   institution_id?: number;
 
+  // Minimum institution level among target_institutions (2=region,3=sector,4=school)
+  target_institution_level?: number | null;
+
   // Common status
   status?: 'active' | 'inactive' | 'draft' | 'archived';
   published_at?: string;

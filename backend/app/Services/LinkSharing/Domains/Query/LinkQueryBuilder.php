@@ -658,7 +658,20 @@ class LinkQueryBuilder
                 'links_count' => $links->count(),
             ]);
 
+            // Batch-load target institution levels (single query, no N+1)
+            $allLinkTargetIds = $links
+                ->flatMap(fn ($l) => collect($l->target_institutions ?? [])->map(fn ($id) => (int) $id))
+                ->unique()->filter()->values();
+            $linkTargetLevels = $allLinkTargetIds->isNotEmpty()
+                ? \App\Models\Institution::whereIn('id', $allLinkTargetIds)->pluck('level', 'id')
+                : collect();
+
             foreach ($links as $link) {
+                $linkTargetIds = collect($link->target_institutions ?? [])->map(fn ($id) => (int) $id)->filter();
+                $targetMinLevel = $linkTargetIds->isNotEmpty()
+                    ? $linkTargetIds->map(fn ($id) => $linkTargetLevels->get($id))->filter()->min()
+                    : null;
+
                 $assignedResources[] = [
                     'id' => $link->id,
                     'type' => 'link',
@@ -668,6 +681,7 @@ class LinkQueryBuilder
                     'url' => $link->url,
                     'link_type' => $link->link_type,
                     'share_scope' => $link->share_scope,
+                    'target_institution_level' => $targetMinLevel,
                     'is_downloadable' => false,
                     'is_viewable_online' => true,
                     'click_count' => $link->click_count ?? 0,
@@ -753,7 +767,20 @@ class LinkQueryBuilder
                     })->toArray(),
                 ]);
 
+                // Batch-load target institution levels for documents (single query)
+                $allDocTargetIds = $documents
+                    ->flatMap(fn ($d) => collect($d->accessible_institutions ?? [])->map(fn ($id) => (int) $id))
+                    ->unique()->filter()->values();
+                $docTargetLevels = $allDocTargetIds->isNotEmpty()
+                    ? \App\Models\Institution::whereIn('id', $allDocTargetIds)->pluck('level', 'id')
+                    : collect();
+
                 foreach ($documents as $document) {
+                    $docTargetIds = collect($document->accessible_institutions ?? [])->map(fn ($id) => (int) $id)->filter();
+                    $docTargetMinLevel = $docTargetIds->isNotEmpty()
+                        ? $docTargetIds->map(fn ($id) => $docTargetLevels->get($id))->filter()->min()
+                        : ($document->institution?->level ?? null);
+
                     $assignedResources[] = [
                         'id' => $document->id,
                         'type' => 'document',
@@ -763,6 +790,7 @@ class LinkQueryBuilder
                         'url' => null,
                         'link_type' => null,
                         'access_level' => $document->access_level,
+                        'target_institution_level' => $docTargetMinLevel,
                         'is_downloadable' => $document->is_downloadable ?? true,
                         'is_viewable_online' => $document->is_viewable_online ?? false,
                         'click_count' => 0,
