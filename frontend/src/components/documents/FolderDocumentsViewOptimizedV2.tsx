@@ -400,15 +400,23 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h2 className="text-2xl font-semibold text-gray-900">{folder.name}</h2>
-              <p className="text-gray-600 mt-1">{folder.description || 'Qovluq sənədləri'}</p>
+        <div className="p-4 sm:p-6 border-b border-gray-200 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-lg sm:text-2xl font-semibold text-gray-900 truncate">{folder.name}</h2>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 flex-shrink-0 sm:hidden"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              <p className="text-gray-600 mt-0.5 text-sm">{folder.description || 'Qovluq sənədləri'}</p>
 
               {/* Statistics */}
               {meta && (
-                <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-gray-400">Ümumi Sənəd</span>
                     <span className="flex items-center gap-1 text-blue-600 font-bold">
@@ -416,7 +424,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       {meta.total_documents}
                     </span>
                   </div>
-                  <div className="w-px h-8 bg-gray-200" />
+                  <div className="w-px h-8 bg-gray-200 hidden xs:block" />
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-gray-400">İştirakçı Müəssisələr</span>
                     <span className="flex items-center gap-1 text-green-600 font-bold">
@@ -424,7 +432,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       {meta.total_institutions} / {(folder.target_institutions || folder.targetInstitutions || []).length || meta.total_institutions}
                     </span>
                   </div>
-                  <div className="w-px h-8 bg-gray-200" />
+                  <div className="w-px h-8 bg-gray-200 hidden xs:block" />
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-gray-400">Ümumi Həcm</span>
                     <span className="flex items-center gap-1 text-indigo-600 font-bold">
@@ -436,7 +444,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {user && (
                 <div className="flex flex-col items-end">
                   <button
@@ -448,17 +456,17 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       setShowUploadZone(!showUploadZone);
                     }}
                     disabled={!canUpload}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors h-10 ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors h-9 text-sm ${
                       canUpload
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    <Upload size={18} />
-                    <span className="font-medium">{showUploadZone ? 'Gizlət' : 'Yüklə'}</span>
+                    <Upload size={16} />
+                    <span className="font-medium hidden sm:inline">{showUploadZone ? 'Gizlət' : 'Yüklə'}</span>
                   </button>
                   {uploadPermission.maxSizeMb && (
-                    <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">
+                    <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap hidden sm:block">
                       Limit: {uploadPermission.maxSizeMb} MB
                     </span>
                   )}
@@ -466,25 +474,21 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
               )}
 
               {meta && meta.total_documents > 0 && (
-                <div className="flex flex-col items-end">
-                  <button
-                    onClick={handleBulkDownload}
-                    disabled={bulkDownloading}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors h-10"
-                  >
-                    <Archive size={18} />
-                    <span className="font-medium">{bulkDownloading ? 'Hazırlanır...' : 'ZIP Yüklə'}</span>
-                  </button>
-                  {/* Empty space to keep vertical alignment consistent with the upload button's limit text */}
-                  <div className="h-[14px]" />
-                </div>
+                <button
+                  onClick={handleBulkDownload}
+                  disabled={bulkDownloading}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors h-9 text-sm"
+                >
+                  <Archive size={16} />
+                  <span className="font-medium hidden sm:inline">{bulkDownloading ? 'Hazırlanır...' : 'ZIP Yüklə'}</span>
+                </button>
               )}
 
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 -mt-4"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 hidden sm:block"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
             </div>
           </div>
@@ -548,7 +552,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
             {/* Advanced Filters */}
             {showFilters && (
-              <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">
+              <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-lg">
                 <select
                   value={fileTypeFilter}
                   onChange={(e) => setFileTypeFilter(e.target.value)}
