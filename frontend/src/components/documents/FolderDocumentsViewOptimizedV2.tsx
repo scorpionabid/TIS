@@ -8,6 +8,7 @@ import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 import { getFolderUploadPermission, isUserSchoolAdmin } from '@/utils/permissions';
 import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 interface FolderDocumentsViewOptimizedV2Props {
   folder: DocumentCollection;
@@ -114,8 +115,8 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       setListError(null);
 
       const params: any = {
-        page: currentPage,
-        per_page: 50, // Load more for better grouping
+        page: 1, // Always load from first page
+        per_page: 2000, // Load everything to avoid pagination
         sort_by: sortBy,
         sort_direction: sortDirection,
       };
@@ -142,7 +143,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearchQuery, fileTypeFilter, folder.id, sortBy, sortDirection]);
+  }, [debouncedSearchQuery, fileTypeFilter, folder.id, sortBy, sortDirection]);
 
   useEffect(() => {
     loadDocuments();
@@ -171,9 +172,13 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
         };
       }
 
-      acc[sectorKey].institutions.push(inst);
-      acc[sectorKey].total_documents += inst.document_count;
-      acc[sectorKey].total_size += inst.total_size;
+      // Check for duplicate institution in this sector to be safe
+      const exists = acc[sectorKey].institutions.some(i => i.institution_id === inst.institution_id);
+      if (!exists) {
+        acc[sectorKey].institutions.push(inst);
+        acc[sectorKey].total_documents += (Number(inst.document_count) || 0);
+        acc[sectorKey].total_size += (Number(inst.total_size) || 0);
+      }
 
       return acc;
     }, {} as Record<string | number, SectorGroup>);
@@ -327,91 +332,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
   const isSchoolAdmin = isUserSchoolAdmin(user);
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (meta && currentPage < meta.total_pages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const renderPagination = () => {
-    if (!meta || meta.total_pages <= 1) return null;
-
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
-
-    if (meta.total_pages <= maxVisible) {
-      for (let i = 1; i <= meta.total_pages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-
-      if (currentPage > 3) {
-        pages.push('...');
-      }
-
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(meta.total_pages - 1, currentPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      if (currentPage < meta.total_pages - 2) {
-        pages.push('...');
-      }
-
-      pages.push(meta.total_pages);
-    }
-
-    return (
-      <div className="flex items-center gap-2 justify-center mt-4">
-        <button
-          onClick={handlePreviousPage}
-          disabled={currentPage === 1}
-          className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Əvvəlki
-        </button>
-
-        {pages.map((page, index) =>
-          typeof page === 'number' ? (
-            <button
-              key={index}
-              onClick={() => handlePageChange(page)}
-              className={`px-3 py-1 text-sm border rounded ${
-                currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'
-              }`}
-            >
-              {page}
-            </button>
-          ) : (
-            <span key={index} className="px-2 text-gray-400">
-              {page}
-            </span>
-          )
-        )}
-
-        <button
-          onClick={handleNextPage}
-          disabled={currentPage === meta.total_pages}
-          className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Növbəti
-        </button>
-      </div>
-    );
-  };
+  const renderPagination = () => null;
 
   const [activeViewTab, setActiveViewTab] = useState<'documents' | 'monitoring'>('documents');
 
@@ -440,6 +361,40 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       return a.hasUploaded ? 1 : -1; // Show pending first
     });
   }, [activeViewTab, targetInstitutions, institutions]);
+
+  const handleExportToExcel = () => {
+    if (monitoringData.length === 0) return;
+
+    const exportData = monitoringData.map(item => ({
+      'Müəssisə Adı': item.name,
+      'Status': item.hasUploaded ? 'Yüklənib' : 'Gözlənilir',
+      'Sənəd Sayı': item.documentCount,
+      'Ümumi Həcm': formatFileSize(item.total_size || 0),
+      'Son Yükləmə': item.lastUpload ? formatDate(item.lastUpload) : '—'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Monitorinq');
+
+    // Auto-size columns
+    const colWidths = [
+      { wch: 50 }, // Müəssisə Adı
+      { wch: 15 }, // Status
+      { wch: 12 }, // Sənəd Sayı
+      { wch: 15 }, // Ümumi Həcm
+      { wch: 25 }, // Son Yükləmə
+    ];
+    worksheet['!cols'] = colWidths;
+
+    const fileName = `${folder.name}_Monitorinq_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    
+    toast({
+      title: 'Eksport tamamlandı',
+      description: 'Monitorinq siyahısı Excel formatında yükləndi.'
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -845,28 +800,11 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                   <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
                     <h3 className="font-semibold text-gray-700">İştirak Statistikası</h3>
                     <button 
-                      onClick={() => {
-                        const headers = ["Müəssisə", "Status", "Fayl Sayı", "Ümumi Həcm", "Son Yükləmə"];
-                        const rows = monitoringData.map(item => [
-                          item.name,
-                          item.hasUploaded ? "Yüklənib" : "Gözlənilir",
-                          item.documentCount,
-                          formatFileSize(item.total_size || 0),
-                          item.lastUpload ? new Date(item.lastUpload).toLocaleDateString('az-AZ') : "-"
-                        ]);
-                        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-                        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-                        const link = document.createElement("a");
-                        link.href = URL.createObjectURL(blob);
-                        link.setAttribute("download", `monitorinq_${folder.name}.csv`);
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                      onClick={handleExportToExcel}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-bold shadow-sm"
                     >
                       <Download size={14} />
-                      Excel (CSV) Eksport
+                      XLSX Eksport
                     </button>
                   </div>
                   <div className="overflow-x-auto">

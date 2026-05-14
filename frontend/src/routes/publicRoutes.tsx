@@ -5,6 +5,7 @@ import LoginPage from "@/components/auth/LoginPage";
 
 const PasswordReset = lazy(() => import("@/pages/PasswordReset"));
 const DebugConsole = lazy(() => import("@/pages/DebugConsole"));
+const PublicFolderShare = lazy(() => import("@/components/documents/PublicFolderShare"));
 
 export function PublicRoutes() {
   return (
@@ -23,6 +24,14 @@ export function PublicRoutes() {
         element={
           <LazyWrapper>
             <DebugConsole />
+          </LazyWrapper>
+        }
+      />
+      <Route
+        path="/public/folder/share/:token"
+        element={
+          <LazyWrapper>
+            <PublicFolderShare />
           </LazyWrapper>
         }
       />

@@ -41,13 +41,24 @@ const SCOPE_LEVELS = [
 // Linklər: share_scope  |  Sənədlər: access_level ('institution' ≠ 'institutional')
 function getResourceTab(r: AssignedResource): ScopeFilter {
   const scope = r.share_scope ?? r.access_level;
-  switch (scope) {
-    case 'regional':    return 'region';
-    case 'sectoral':    return 'sector';
-    case 'institutional':
-    case 'institution': return 'school';
-    default:            return 'all';
+  
+  // Rule 1: Institutional scope always goes to School tab
+  if (scope === 'institutional' || scope === 'institution') {
+    return 'school';
   }
+  
+  // Rule 2: Sectoral scope goes to Sector tab
+  if (scope === 'sectoral') {
+    return 'sector';
+  }
+  
+  // Rule 3: Regional or Public scope goes to Region tab
+  if (scope === 'regional' || scope === 'public') {
+    return 'region';
+  }
+
+  // Fallback to region for everything else
+  return 'region';
 }
 
 function storageKey(resourceType: 'link' | 'document') {

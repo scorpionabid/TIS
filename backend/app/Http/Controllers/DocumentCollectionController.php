@@ -62,7 +62,7 @@ class DocumentCollectionController extends Controller
             // Validate pagination and filter parameters
             $validator = Validator::make($request->all(), [
                 'page' => 'nullable|integer|min:1',
-                'per_page' => 'nullable|integer|min:5|max:100',
+                'per_page' => 'nullable|integer|min:5|max:2000',
                 'search' => 'nullable|string|max:255',
                 'region_id' => 'nullable|exists:institutions,id',
                 'sector_id' => 'nullable|exists:institutions,id',

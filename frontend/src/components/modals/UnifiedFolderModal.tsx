@@ -500,7 +500,7 @@ export function UnifiedFolderModal(props: UnifiedFolderModalProps) {
           institution_id: selectedInstitution!,
           folder_templates: { [key]: name.trim() },
           target_institutions: targetInstitutions,
-          target_user_ids: targetUsersConfig,
+          target_user_ids: targetUsersConfig.map(u => u.id), // Extract only IDs
         });
       } else {
         await documentCollectionService.update(folder!.id, {
@@ -510,7 +510,7 @@ export function UnifiedFolderModal(props: UnifiedFolderModalProps) {
           is_locked: isLocked,
           reason: reason.trim() || undefined,
           target_institutions: targetInstitutions,
-          target_user_ids: targetUsersConfig,
+          target_user_ids: targetUsersConfig.map(u => u.id), // Extract only IDs
         });
       }
       onSuccess();

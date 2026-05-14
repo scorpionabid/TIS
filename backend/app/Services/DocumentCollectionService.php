@@ -204,7 +204,17 @@ class DocumentCollectionService
                               ->whereColumn('collection_id', 'document_collections.id');
                       })
                       ->whereNull('deleted_at');
-                }, 'participating_institutions_count');
+                }, 'participating_institutions_count')
+                ->selectSub(function ($q) {
+                    $q->selectRaw('COALESCE(SUM(file_size), 0)')
+                      ->from('documents')
+                      ->whereIn('id', function ($sub) {
+                          $sub->select('document_id')
+                              ->from('document_collection_items')
+                              ->whereColumn('collection_id', 'document_collections.id');
+                      })
+                      ->whereNull('deleted_at');
+                }, 'total_size');
 
             // SuperAdmin sees all folders
             if ($user->hasRole('superadmin')) {

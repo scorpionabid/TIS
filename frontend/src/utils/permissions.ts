@@ -131,7 +131,7 @@ export interface FolderUploadPermission {
   maxSizeMb?: number;
 }
 
-const DEFAULT_MAX_UPLOAD_MB = 50;
+const DEFAULT_MAX_UPLOAD_MB = 100;
 
 export const getFolderUploadPermission = (
   user: MaybeUser | null | undefined,
@@ -175,9 +175,9 @@ export const getFolderUploadPermission = (
   // Determine max size based on role
   let maxSizeMb = DEFAULT_MAX_UPLOAD_MB;
   if (hasRole(user, 'schooladmin') || hasRole(user, 'məktəbadmin')) {
-    maxSizeMb = 10;
+    maxSizeMb = 100;
   } else if (hasRole(user, 'sektoradmin')) {
-    maxSizeMb = 20;
+    maxSizeMb = 200;
   }
 
   if (isAdminUploader) {

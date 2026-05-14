@@ -182,6 +182,20 @@ class DocumentCollectionService {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+
+  async createShareLink(folderId: number, data: { days: number; can_upload?: boolean }): Promise<any> {
+    return await api.post(`${this.basePath}/${folderId}/share-links`, data);
+  }
+
+  async getShareLinkInfo(token: string): Promise<any> {
+    return await api.get(`/folder-share/${token}`);
+  }
+
+  async publicUploadToShare(token: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return await api.post(`/folder-share/${token}/upload`, formData);
+  }
 }
 
 export default new DocumentCollectionService();

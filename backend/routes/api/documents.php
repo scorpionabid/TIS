@@ -44,6 +44,8 @@ Route::prefix('document-collections')->group(function () {
         ->middleware('permission:documents.create');
     Route::post('/{folder}/toggle-lock', [DocumentCollectionController::class, 'toggleLock'])
         ->middleware('permission:documents.update');
+    Route::post('/{folder}/share-links', [\App\Http\Controllers\API\FolderShareApiController::class, 'create'])
+        ->middleware('permission:documents.share');
 });
 
 // Document Management Routes

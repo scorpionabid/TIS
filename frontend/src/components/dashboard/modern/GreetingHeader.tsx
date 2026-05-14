@@ -75,30 +75,47 @@ interface WeatherData { temp: number; label: string; Icon: typeof Sun }
 
 const fetchWeather = async (location: string): Promise<WeatherData | null> => {
   try {
-    const locKey = Object.keys(CITY_COORDS).find((k) => location.toLowerCase().includes(k));
+    const locLower = (location || 'Bakı').toLowerCase();
+    const locKey = Object.keys(CITY_COORDS).find((k) => locLower.includes(k));
     let lat: number, lon: number;
 
     if (locKey) {
       ({ lat, lon } = CITY_COORDS[locKey]);
     } else {
       // Geocoding fallback
-      const geoRes = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=az`,
-      );
-      const geoData = await geoRes.json();
-      if (!geoData.results?.[0]) return null;
-      lat = geoData.results[0].latitude;
-      lon = geoData.results[0].longitude;
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locLower)}&count=1&language=az`,
+        );
+        const geoData = await geoRes.json();
+        if (geoData.results?.[0]) {
+          lat = geoData.results[0].latitude;
+          lon = geoData.results[0].longitude;
+        } else {
+          // Fallback to Baku if geocoding fails
+          ({ lat, lon } = CITY_COORDS['bakı']);
+        }
+      } catch (geoErr) {
+        console.error('Weather geocoding error:', geoErr);
+        ({ lat, lon } = CITY_COORDS['bakı']);
+      }
     }
 
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
     );
     const data = await res.json();
+    
+    if (!data.current_weather) {
+      console.warn('No current weather data in API response');
+      return null;
+    }
+
     const cw = data.current_weather;
     const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', Icon: Sun };
     return { temp: Math.round(cw.temperature), label: wmo.label, Icon: wmo.Icon };
-  } catch {
+  } catch (err) {
+    console.error('Error fetching weather:', err);
     return null;
   }
 };
@@ -131,8 +148,27 @@ export const GreetingHeader = () => {
 
   // Weather — fetch once, cache 1 hour
   useEffect(() => {
-    const location = currentUser?.region?.name ?? currentUser?.institution?.name ?? 'Bakı';
-    const cacheKey = `atis_weather_${location}`;
+    const profileLocation = currentUser?.region?.name ?? currentUser?.institution?.name ?? 'Bakı';
+    const cacheKey = `atis_weather_local`; // Use local cache key
+    
+    const fetchWithCoords = async (lat: number, lon: number) => {
+      try {
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
+        );
+        const data = await res.json();
+        if (data.current_weather) {
+          const cw = data.current_weather;
+          const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', Icon: Sun };
+          const weatherData = { temp: Math.round(cw.temperature), label: wmo.label, Icon: wmo.Icon };
+          setWeather(weatherData);
+          localStorage.setItem(cacheKey, JSON.stringify({ data: weatherData, ts: Date.now() }));
+        }
+      } catch (err) {
+        console.error('Error fetching weather with coords:', err);
+      }
+    };
+
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -140,12 +176,31 @@ export const GreetingHeader = () => {
         if (Date.now() - ts < 3_600_000) { setWeather(data); return; }
       } catch { /* ignore */ }
     }
-    fetchWeather(location).then((data) => {
-      if (data) {
-        setWeather(data);
-        localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-      }
-    });
+
+    // Try Browser Geolocation first
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          fetchWithCoords(position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          console.warn('Geolocation denied or failed, falling back to profile location:', error.message);
+          fetchWeather(profileLocation).then((data) => {
+            if (data) {
+              setWeather(data);
+              localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+            }
+          });
+        }
+      );
+    } else {
+      fetchWeather(profileLocation).then((data) => {
+        if (data) {
+          setWeather(data);
+          localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+        }
+      });
+    }
   }, [currentUser]);
 
 
