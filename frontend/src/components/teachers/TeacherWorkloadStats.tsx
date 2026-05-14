@@ -24,7 +24,7 @@ export const TeacherWorkloadStats: React.FC<TeacherWorkloadStatsProps> = ({ teac
   // Calculate stats
   const loads = (workload?.loads || []).filter((l: any) => l.weekly_hours > 0);
   const totalHours = workload?.total_hours || 0;
-  const maxHours = workload?.max_hours || 24;
+  const maxHours = workload?.max_hours || 18;
   const remainingHours = workload?.remaining_hours || 0;
   const utilizationPercentage = maxHours > 0 ? Math.round((totalHours / maxHours) * 100) : 0;
   
@@ -37,7 +37,7 @@ export const TeacherWorkloadStats: React.FC<TeacherWorkloadStatsProps> = ({ teac
   const programLoads = loads.reduce((acc: any, load: any) => {
     const type = load.education_type || 'umumi';
     if (!acc[type]) acc[type] = 0;
-    acc[type] += load.weekly_hours;
+    acc[type] += Number(load.weekly_hours) || 0;
     return acc;
   }, {} as Record<string, number>);
   
@@ -136,7 +136,7 @@ export const TeacherWorkloadStats: React.FC<TeacherWorkloadStatsProps> = ({ teac
                 <span className="text-muted-foreground truncate" title={EDUCATION_TYPE_LABELS[prog as EducationType] || prog}>
                   {EDUCATION_TYPE_LABELS[prog as EducationType] || prog}
                 </span>
-                <span className="font-medium whitespace-nowrap">{hours as number} saat</span>
+                <span className="font-medium whitespace-nowrap">{(hours as number).toFixed(1)} saat</span>
               </div>
             ))}
           </CardContent>

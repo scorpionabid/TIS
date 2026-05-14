@@ -1,0 +1,42 @@
+{
+  // ATİS Project - Recommended VS Code Extensions
+  "recommendations": [
+    // PHP Development
+    "bmewburn.vscode-intelephense-client",
+    "onecentlin.laravel-extension-pack",
+    "onecentlin.laravel-blade",
+
+    // JavaScript/TypeScript
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // React/Frontend
+    "dsznajder.es7-react-js-snippets",
+    "bradlc.vscode-tailwindcss",
+
+    // Docker
+    "ms-azuretools.vscode-docker",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Utilities
+    "editorconfig.editorconfig",
+    "christian-kohler.path-intellisense",
+    "formulahendry.auto-rename-tag",
+    "naumovs.color-highlight",
+
+    // Code Quality
+    "streetsidesoftware.code-spell-checker",
+    "aaron-bond.better-comments",
+
+    // Markdown
+    "yzhang.markdown-all-in-one"
+  ],
+
+  // Extensions to disable for this workspace
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript-tslint-plugin",
+    "hookyqr.beautify"
+  ]
+}

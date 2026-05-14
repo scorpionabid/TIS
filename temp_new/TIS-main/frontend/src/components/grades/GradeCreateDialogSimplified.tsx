@@ -1,0 +1,571 @@
+import React from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { Grade, gradeService, GradeCreateData, GradeUpdateData } from '@/services/grades';
+import { teacherService } from '@/services/teachers';
+import { logger } from '@/utils/logger';
+import {
+  Loader2,
+  AlertCircle,
+  School,
+  Sparkles,
+} from 'lucide-react';
+import { User } from '@/contexts/AuthContext';
+import { USER_ROLES } from '@/constants/roles';
+import { formatGradeName, getEducationStageColor, CLASS_LEVEL_OPTIONS } from '@/constants/gradeNaming';
+import { TagSelector } from './TagSelector';
+import { EducationProgramSelector } from './EducationProgramSelector';
+import { GenderCountInput } from './GenderCountInput';
+import type { EducationProgramType } from '@/types/gradeTag';
+
+const TEACHING_SHIFT_OPTIONS = ['1 növbə', '2 növbə', '3 növbə', 'Fərdi'];
+
+interface GradeCreateDialogSimplifiedProps {
+  open: boolean;
+  onClose: () => void;
+  currentUser: User | null;
+  editingGrade?: Grade | null;
+  availableInstitutions: Array<{ id: number; name: string }>;
+  availableAcademicYears: Array<{ id: number; name: string; is_active: boolean }>;
+  onAfterCreate?: () => void;
+}
+
+export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedProps> = ({
+  open,
+  onClose,
+  currentUser,
+  editingGrade,
+  availableInstitutions,
+  availableAcademicYears,
+  onAfterCreate,
+}) => {
+  const queryClient = useQueryClient();
+
+  // Form state
+  const [formData, setFormData] = React.useState<GradeCreateData>({
+    name: '',
+    class_level: 1,
+    academic_year_id: 0,
+    institution_id: 0,
+    specialty: '',
+    student_count: 0,
+    male_student_count: 0,
+    female_student_count: 0,
+    education_program: 'umumi',
+    class_type: '',
+    class_profile: '',
+    teaching_shift: '',
+    tag_ids: [],
+  });
+
+  const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({});
+
+  // Role helpers
+  const isSchoolAdmin = currentUser?.role === USER_ROLES.SCHOOLADMIN;
+  const isSingleInstitution = isSchoolAdmin || availableInstitutions.length === 1;
+  const userInstitution = currentUser?.institution;
+
+  // Initialize form data when dialog opens
+  React.useEffect(() => {
+    if (editingGrade && open) {
+      setFormData({
+        name: editingGrade.name,
+        class_level: editingGrade.class_level,
+        academic_year_id: editingGrade.academic_year_id,
+        institution_id: editingGrade.institution_id,
+        specialty: editingGrade.specialty || '',
+        student_count: editingGrade.student_count,
+        male_student_count: editingGrade.male_student_count || 0,
+        female_student_count: editingGrade.female_student_count || 0,
+        education_program: editingGrade.education_program || 'umumi',
+        class_type: editingGrade.class_type || '',
+        class_profile: editingGrade.class_profile || '',
+        teaching_shift: editingGrade.teaching_shift || '',
+        tag_ids: editingGrade.tags?.map(t => t.id) || [],
+      });
+    } else if (open && !editingGrade) {
+      const activeYear = availableAcademicYears.find(year => year.is_active);
+      const defaultInstitutionId = isSingleInstitution && userInstitution?.id
+        ? userInstitution.id
+        : availableInstitutions[0]?.id || 0;
+
+      setFormData({
+        name: '',
+        class_level: 1,
+        academic_year_id: activeYear?.id || 0,
+        institution_id: defaultInstitutionId,
+        specialty: '',
+        student_count: 0,
+        male_student_count: 0,
+        female_student_count: 0,
+        education_program: 'umumi',
+        class_type: '',
+        class_profile: '',
+        teaching_shift: '',
+        tag_ids: [],
+      });
+    }
+    setValidationErrors({});
+  }, [editingGrade, open, availableAcademicYears, availableInstitutions, isSingleInstitution, userInstitution]);
+
+  // Fetch naming options from backend
+  const { data: namingOptions } = useQuery({
+    queryKey: ['grade-naming-options', formData.institution_id, formData.class_level, formData.academic_year_id],
+    queryFn: () =>
+      gradeService.getNamingOptions(
+        formData.institution_id,
+        formData.academic_year_id,
+        formData.class_level
+      ),
+    enabled: open && !!formData.institution_id && !!formData.academic_year_id,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const classLevelOptions = namingOptions?.data?.class_levels?.length
+    ? namingOptions.data.class_levels
+    : CLASS_LEVEL_OPTIONS;
+
+  // Fetch available teachers for homeroom teacher selection
+  const { data: availableTeachers } = useQuery({
+    queryKey: ['teachers', formData.institution_id],
+    queryFn: () => teacherService.getTeachers({ institution_id: formData.institution_id, is_active: true, per_page: 100 }),
+    enabled: open && !!formData.institution_id,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (data: GradeCreateData) => gradeService.createGrade(data),
+    onSuccess: () => {
+      logger.info('Grade created successfully');
+      toast.success('Sinif uğurla yaradıldı');
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      onClose();
+      onAfterCreate?.();
+    },
+    onError: (error: unknown) => {
+      logger.error('Failed to create grade', error);
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || 'Sinif yaradılarkən xəta baş verdi';
+      toast.error(message);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: number; updates: GradeUpdateData }) =>
+      gradeService.updateGrade(data.id, data.updates),
+    onSuccess: () => {
+      logger.info('Grade updated successfully');
+      toast.success('Sinif məlumatları uğurla yeniləndi');
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      onClose();
+    },
+    onError: (error: unknown) => {
+      logger.error('Failed to update grade', error);
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || 'Sinif yenilənərkən xəta baş verdi';
+      toast.error(message);
+    },
+  });
+
+  // Form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const errors: Record<string, string> = {};
+    if (formData.class_level === null || formData.class_level === undefined) {
+      errors.class_level = 'Sinif səviyyəsi mütləqdir';
+    }
+    const classIndex = formData.name?.trim() || '';
+    if (!classIndex) {
+      errors.name = 'Sinif index-i mütləqdir';
+    } else if (classIndex.length > 3) {
+      errors.name = 'Sinif index-i maksimum 3 simvol ola bilər';
+    }
+
+    if (!editingGrade) {
+      if (!formData.academic_year_id) errors.academic_year_id = 'Akademik il mütləqdir';
+      if (!formData.institution_id) errors.institution_id = 'Məktəb mütləqdir';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    setValidationErrors({});
+
+    if (editingGrade) {
+      const updateData: GradeUpdateData = {
+        name: classIndex,
+        class_level: formData.class_level,
+        specialty: formData.specialty,
+        student_count: formData.student_count,
+        male_student_count: formData.male_student_count,
+        female_student_count: formData.female_student_count,
+        education_program: formData.education_program,
+        class_type: formData.class_type,
+        class_profile: formData.class_profile,
+        teaching_shift: formData.teaching_shift,
+        tag_ids: formData.tag_ids,
+      };
+      updateMutation.mutate({ id: editingGrade.id, updates: updateData });
+    } else {
+      createMutation.mutate({ ...formData, name: classIndex });
+    }
+  };
+
+  const handleFieldChange = (field: string, value: unknown) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const isLoading = createMutation.isPending || updateMutation.isPending;
+
+  // Live preview of grade name
+  const previewName = formData.class_level && formData.name
+    ? formatGradeName(formData.class_level, formData.name, formData.specialty)
+    : '';
+
+  const shouldShowSpecialty = formData.class_level >= 10 && formData.class_level <= 12;
+
+  // Academic year display helpers
+  const selectedYear = availableAcademicYears.find(y => y.id === formData.academic_year_id);
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        {/* Modern Header */}
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+              <School className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                {editingGrade ? 'Sinif Məlumatlarını Redaktə Et' : 'Yeni Sinif Yarat'}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 mt-0.5">
+                {editingGrade
+                  ? 'Mövcud sinifin məlumatlarını yeniləyin.'
+                  : 'Yeni sinif yaradaraq tədris prosesinə başlayın.'}
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="p-6">
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl mb-6">
+              <TabsTrigger 
+                value="basic" 
+                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700 font-medium transition-all"
+              >
+                Əsas Məlumat
+              </TabsTrigger>
+              <TabsTrigger 
+                value="optional"
+                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700 font-medium transition-all"
+              >
+                Əlavə Məlumat
+              </TabsTrigger>
+            </TabsList>
+
+            {/* TAB 1: BASIC INFO (REQUIRED) */}
+            <TabsContent value="basic" className="space-y-5 mt-0 focus-visible:outline-none">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="class_level" className="text-sm font-semibold text-slate-700">
+                    Sinif səviyyəsi <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.class_level.toString()}
+                    onValueChange={(value) => handleFieldChange('class_level', parseInt(value))}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className={`h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${validationErrors.class_level ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}>
+                      <SelectValue placeholder="Sinif səviyyəsini seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-lg">
+                      {classLevelOptions.map((level: any) => (
+                        <SelectItem key={level.value} value={level.value.toString()} className="rounded-md">
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.class_level && (
+                    <p className="text-sm text-red-600 flex items-center gap-1.5 mt-1.5">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      {validationErrors.class_level}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="class_index" className="text-sm font-semibold text-slate-700">
+                    Sinif index-i <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="class_index"
+                    value={formData.name || ''}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    placeholder="Məs: A, b, r2"
+                    maxLength={3}
+                    disabled={isLoading}
+                    className={`h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${validationErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Ən çox 3 simvol. Hərf, rəqəm və ya kombinasiyalar (məs: A, B, r2).
+                  </p>
+                  {validationErrors.name && (
+                    <p className="text-sm text-red-600 flex items-center gap-1.5 mt-1">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      {validationErrors.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Academic Year display */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700">Akademik İl</Label>
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <span className="font-medium text-slate-700">
+                    {availableAcademicYears.find(y => y.id === formData.academic_year_id)?.name || '2024-2025'}
+                  </span>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">
+                    Aktiv
+                  </Badge>
+                </div>
+                {validationErrors.academic_year_id && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.academic_year_id}
+                  </p>
+                )}
+              </div>
+
+              {/* Live preview */}
+              {previewName && (
+                <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-xl">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  <AlertDescription className="ml-2">
+                    <div className="font-semibold text-blue-900 text-lg">
+                      {previewName}
+                    </div>
+                    <div className="text-sm text-blue-700 mt-1">
+                      <Badge className={`${getEducationStageColor(formData.class_level)} font-medium`} variant="secondary">
+                        {formData.class_level === 0 && 'Məktəbəqədər hazırlıq'}
+                        {formData.class_level >= 1 && formData.class_level <= 4 && 'İbtidai təhsil'}
+                        {formData.class_level >= 5 && formData.class_level <= 9 && 'Ümumi orta təhsil'}
+                        {formData.class_level >= 10 && formData.class_level <= 12 && 'Tam orta təhsil'}
+                      </Badge>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Tags — always visible in basic tab */}
+              <TagSelector
+                selectedTagIds={formData.tag_ids || []}
+                onChange={(ids) => handleFieldChange('tag_ids', ids)}
+                disabled={isLoading}
+              />
+            </TabsContent>
+
+            {/* TAB 2: OPTIONAL INFO */}
+            <TabsContent value="optional" className="space-y-5 mt-0 focus-visible:outline-none">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="class_type" className="text-sm font-semibold text-slate-700">Sinfin tipi</Label>
+                  <Input
+                    id="class_type"
+                    value={formData.class_type || ''}
+                    onChange={(e) => handleFieldChange('class_type', e.target.value)}
+                    placeholder="Məs: Orta məktəb sinfi"
+                    className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="class_profile" className="text-sm font-semibold text-slate-700">Profil</Label>
+                  <Input
+                    id="class_profile"
+                    value={formData.class_profile || ''}
+                    onChange={(e) => handleFieldChange('class_profile', e.target.value)}
+                    placeholder="Məs: Rəqəmsal bacarıqlar"
+                    className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="teaching_shift" className="text-sm font-semibold text-slate-700">Növbə</Label>
+                <Select
+                  value={formData.teaching_shift || 'none'}
+                  onValueChange={(value) =>
+                    handleFieldChange('teaching_shift', value === 'none' ? '' : value)
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                    <SelectValue placeholder="Növbəni seçin" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-lg">
+                    <SelectItem value="none">Seçilməyib</SelectItem>
+                    {TEACHING_SHIFT_OPTIONS.map(option => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <EducationProgramSelector
+                value={(formData.education_program as EducationProgramType) || 'umumi'}
+                onChange={(value) => handleFieldChange('education_program', value)}
+                disabled={isLoading}
+                error={validationErrors.education_program}
+              />
+
+              <GenderCountInput
+                maleCount={formData.male_student_count || 0}
+                femaleCount={formData.female_student_count || 0}
+                onMaleChange={(count) => handleFieldChange('male_student_count', count)}
+                onFemaleChange={(count) => handleFieldChange('female_student_count', count)}
+                onTotalChange={(total) => handleFieldChange('student_count', total)}
+                disabled={isLoading}
+                errors={{
+                  male: validationErrors.male_student_count,
+                  female: validationErrors.female_student_count,
+                  total: validationErrors.student_count,
+                }}
+              />
+
+              {/* Specialty — only for grades 10-12 */}
+              {shouldShowSpecialty && (
+                <div className="space-y-2">
+                  <Label htmlFor="specialty" className="text-sm font-semibold text-slate-700">
+                    İxtisas/İstiqamət
+                  </Label>
+                  <Select
+                    value={formData.specialty || 'none'}
+                    onValueChange={(value) => handleFieldChange('specialty', value === 'none' ? '' : value)}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                      <SelectValue placeholder="İxtisas seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-lg">
+                      {namingOptions?.data?.specialties?.map((specialty: any) => (
+                        <SelectItem key={specialty.value || 'none'} value={specialty.value || 'none'}>
+                          {specialty.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    10-12 siniflər üçün ixtisas təyin edilə bilər
+                  </p>
+                </div>
+              )}
+
+              {/* Homeroom Teacher */}
+              <div className="space-y-2">
+                <Label htmlFor="homeroom_teacher_id" className="text-sm font-semibold text-slate-700">
+                  Sinif Rəhbəri
+                </Label>
+                <Select
+                  value={formData.homeroom_teacher_id?.toString() || 'none'}
+                  onValueChange={(value) =>
+                    handleFieldChange('homeroom_teacher_id', value === 'none' ? undefined : parseInt(value))
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                    <SelectValue placeholder="Müəllim seçin" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-lg max-h-60">
+                    <SelectItem value="none">Sinif rəhbəri təyin edilməyib</SelectItem>
+                    {availableTeachers?.map((teacher) => (
+                      <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                        {`${teacher.first_name} ${teacher.last_name}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">
+                  Mövcud müəllimlərdən sinif rəhbəri təyin edə bilərsiniz
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-semibold text-slate-700">
+                  Qeyd
+                </Label>
+                <Textarea
+                  value={formData.description || ''}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  placeholder="Sinif haqqında əlavə məlumat..."
+                  rows={3}
+                  disabled={isLoading}
+                  className="rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="gap-3 pt-6 mt-6 border-t border-slate-100">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
+              disabled={isLoading}
+              className="h-11 px-6 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+            >
+              Ləğv et
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="h-11 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-200 transition-all"
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingGrade ? 'Yenilə' : 'Yarat'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

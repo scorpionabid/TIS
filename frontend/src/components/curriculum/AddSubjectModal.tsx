@@ -26,6 +26,8 @@ interface AddSubjectModalProps {
   currentSubjects?: any[];
 }
 
+import { useQueryClient } from '@tanstack/react-query';
+
 const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
   gradeId,
   gradeName,
@@ -35,6 +37,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
   categoryLimits,
   currentSubjects = [],
 }) => {
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState<GradeSubjectFormData>({
     ...defaultGradeSubjectFormData,
     education_type: initialEducationType || 'umumi'
@@ -154,6 +157,12 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
     try {
       setSubmitting(true);
       await curriculumService.addSubjectToCurriculum(gradeId, dto);
+      
+      // Invalidate queries to ensure other components (like Workload tab) see the updates
+      queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['gradeSubjects', gradeId] });
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      
       await loadAvailableSubjects();
       setFormData(defaultGradeSubjectFormData);
       setError(null);
@@ -360,21 +369,10 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
                       <span className="text-xs font-bold">Qruplara bölünür</span>
                     </label>
                     {formData.is_split_groups && (
-                      <div className="mt-3 flex gap-1.5 animate-in slide-in-from-top-1">
-                        {[2, 3, 4].map(count => (
-                          <button
-                            key={count}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, group_count: count })}
-                            className={`flex-1 h-7 rounded-lg text-[10px] font-black tracking-tight transition-all ${
-                              formData.group_count === count 
-                                ? 'bg-white text-indigo-700 shadow-sm' 
-                                : 'bg-indigo-500/30 text-white/70 hover:bg-indigo-500/50'
-                            }`}
-                          >
-                            {count} QRUP
-                          </button>
-                        ))}
+                      <div className="mt-3 flex animate-in slide-in-from-top-1">
+                        <div className="flex-1 h-7 rounded-lg text-[10px] font-black tracking-tight bg-white text-indigo-700 shadow-sm flex items-center justify-center uppercase">
+                          2 QRUP
+                        </div>
                       </div>
                     )}
                   </div>

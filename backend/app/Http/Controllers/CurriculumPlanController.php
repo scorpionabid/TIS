@@ -31,6 +31,7 @@ class CurriculumPlanController extends Controller
             'status' => 'success',
             'items' => $data['items'],
             'assigned_hours' => $data['assigned_hours'],
+            'planned_hours' => $data['planned_hours'],
             'approval' => $data['approval'],
             'deadline' => $data['deadline'] ?? null,
             'is_locked' => $data['is_locked'] ?? false,

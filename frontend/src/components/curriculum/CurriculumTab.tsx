@@ -39,7 +39,10 @@ const EDUCATION_TABS: { type: EducationTabType; label: string }[] = [
   { type: 'xususi', label: 'Xüsusi' },
 ];
 
+import { useQueryClient } from '@tanstack/react-query';
+
 const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpdate, categoryLimits, isLocked = false }) => {
+  const queryClient = useQueryClient();
   const [subjects, setSubjects] = useState<GradeSubject[]>([]);
   const [meta, setMeta] = useState<CurriculumMeta | null>(null);
   const [statistics, setStatistics] = useState<ICurriculumStatistics | null>(null);
@@ -116,6 +119,12 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
     try {
       setDeletingId(gradeSubjectId);
       await curriculumService.removeSubjectFromCurriculum(gradeId, gradeSubjectId);
+      
+      // Refresh cross-tab data
+      queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['gradeSubjects', gradeId] });
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      
       loadCurriculum();
       loadStatistics();
       onUpdate?.();
@@ -135,6 +144,12 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
     try {
       setIsBulkDeleting(true);
       await curriculumService.bulkRemoveSubjectsFromCurriculum(gradeId, selectedIds);
+      
+      // Refresh cross-tab data
+      queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['gradeSubjects', gradeId] });
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      
       toast.success(`${selectedIds.length} fənn silindi`);
       setSelectedIds([]);
       loadCurriculum();

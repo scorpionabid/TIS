@@ -1,0 +1,289 @@
+// Generic Manager Types and Interfaces
+
+import { ReactNode, ComponentType } from 'react';
+import { LucideIcon } from 'lucide-react';
+import { PaginationParams } from '@/services/BaseService';
+import { PaginationMeta } from '@/types/api';
+
+// Base filters interface for all entity managers
+export interface BaseFilters extends PaginationParams {
+  [key: string]: any;
+}
+
+// Base entity interface
+export interface BaseEntity {
+  id: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Column configuration for table
+export interface PaginatedItems<T> {
+  items: T[];
+  pagination?: PaginationMeta | null;
+  raw?: any;
+}
+
+export interface ColumnConfig<T = any> {
+  key: keyof T | string;
+  label: string;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+  sortable?: boolean;
+  render?: (item: T, value: any) => ReactNode;
+  isVisible?: (item: T, userRole?: string) => boolean;
+  showTotal?: boolean;
+}
+
+// Action button configuration
+export interface ActionConfig<T = any> {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive';
+  size?: 'sm' | 'md' | 'lg';
+  isPrimary?: boolean;
+  onClick: (item: T) => void;
+  isVisible?: (item: T) => boolean;
+  isDisabled?: (item: T) => boolean;
+}
+
+// Tab configuration
+export interface TabConfig {
+  key: string;
+  label: string;
+  count?: number;
+  filter?: (items: any[]) => any[];
+  serverFilters?: Record<string, any>;
+  isStatsTab?: boolean; // When true, shows statistics cards instead of table
+  icon?: LucideIcon; // Icon for the tab
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'purple' | 'orange' | 'indigo' | 'rose' | 'amber'; // Color variant for modern tabs
+  renderContent?: () => ReactNode; // When set, renders custom content instead of the default table
+}
+
+// Stats card configuration
+export interface StatsConfig {
+  key: string;
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  color?: 'default' | 'green' | 'red' | 'blue' | 'yellow' | 'purple' | 'orange' | 'amber' | 'indigo' | 'rose' | 'sky' | 'emerald' | 'violet';
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+}
+
+// Header stats chip configuration
+export interface HeaderStatConfig {
+  key: string;
+  label: string;
+  value: number;
+  icon?: LucideIcon;
+  color?: 'default' | 'green' | 'red' | 'blue' | 'amber' | 'orange' | 'rose' | 'indigo' | 'sky' | 'emerald';
+  tooltip?: string;
+}
+
+// Header action configuration
+export interface HeaderActionConfig {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  variant?: 'default' | 'outline' | 'ghost' | 'secondary';
+  onClick: () => void;
+  isVisible?: boolean;
+  isLoading?: boolean;
+}
+
+// Header configuration for modern header
+export interface HeaderConfig {
+  // Visibility
+  showStats?: boolean;
+  showSearch?: boolean;
+  showRefresh?: boolean;
+  showImport?: boolean;
+  showExport?: boolean;
+  showTemplate?: boolean;
+  showCreate?: boolean;
+  
+  // Labels
+  title?: string;
+  description?: string;
+  searchPlaceholder?: string;
+  createLabel?: string;
+  
+  // Stats to show in header chips
+  stats?: HeaderStatConfig[];
+  
+  // Custom actions
+  actions?: HeaderActionConfig[];
+
+  // Layout
+  hideTitleSection?: boolean;
+}
+
+// Filter field configuration
+export interface FilterFieldConfig {
+  key: string;
+  label: string;
+  type: 'text' | 'select' | 'date' | 'daterange' | 'multiselect';
+  options?: Array<{ value: string | number; label: string; }>;
+  placeholder?: string;
+  multiple?: boolean;
+}
+
+// Custom logic injection points
+export interface ManagerCustomLogic<T extends BaseEntity> {
+  // Custom permission checks
+  permissionCheck?: (action: string, item?: T) => boolean;
+  
+  // Custom filter rendering
+  renderCustomFilters?: (manager: any) => ReactNode;
+  
+  // Custom stats calculation
+  calculateCustomStats?: (items: T[]) => StatsConfig[];
+  
+  // Custom row rendering
+  renderCustomRow?: (item: T, defaultRender: ReactNode) => ReactNode;
+  
+  // Custom modal/form rendering
+  renderCustomModal?: (props: any) => ReactNode;
+  
+  // Custom bulk actions
+  bulkActions?: Array<{
+    key: string;
+    label: string;
+    icon: LucideIcon;
+    onClick: (selectedItems: T[]) => void;
+    variant?: 'default' | 'outline' | 'destructive';
+  }>;
+  
+  // Custom header actions
+  headerActions?: Array<{
+    key: string;
+    label: string;
+    icon: LucideIcon;
+    onClick: () => void;
+    variant?: 'default' | 'outline';
+  }>;
+  
+  // Custom create click handler
+  onCreateClick?: () => void;
+  
+  // Custom import/export handlers
+  onImportClick?: () => void;
+  onExportClick?: () => void;
+  onTemplateClick?: () => void;
+}
+
+// Entity configuration
+export interface EntityConfig<T extends BaseEntity, TFilters extends BaseFilters, TCreateData> {
+  // Basic info
+  entityType: string;
+  entityName: string;
+  entityNamePlural: string;
+  
+  // API service
+  service: {
+    get: (filters: TFilters) => Promise<T[] | PaginatedItems<T> | { data?: any }>;
+    create: (data: Partial<TCreateData>) => Promise<any>;
+    update: (id: number, data: Partial<TCreateData>) => Promise<any>;
+    delete: (id: number) => Promise<any>;
+  };
+  
+  // Query configuration  
+  queryKey: string[];
+  defaultFilters: TFilters;
+  defaultCreateData: TCreateData;
+  
+  // UI Configuration
+  columns: ColumnConfig<T>[];
+  actions: ActionConfig<T>[];
+  tabs: TabConfig[];
+  defaultTab?: string;
+  onTabChange?: (tab: string) => void;
+  filterFields: FilterFieldConfig[];
+  serverSide?: {
+    pagination?: boolean;
+    filtering?: boolean;
+    sorting?: boolean;
+  };
+  
+  // Feature flags
+  features?: {
+    search?: boolean;
+    filters?: boolean;
+    stats?: boolean;
+    tabs?: boolean;
+    bulk?: boolean;
+    export?: boolean;
+    import?: boolean;
+    create?: boolean;
+    edit?: boolean;
+    delete?: boolean;
+    showTotals?: boolean;
+  };
+  
+  // Header configuration
+  headerConfig?: HeaderConfig;
+  
+  // Data transformer function to modify items before display
+  dataTransformer?: (items: T[]) => T[];
+}
+
+// Generic Manager Props
+export interface GenericManagerProps<T extends BaseEntity, TFilters extends BaseFilters, TCreateData> {
+  config: EntityConfig<T, TFilters, TCreateData>;
+  customLogic?: ManagerCustomLogic<T>;
+  className?: string;
+  statsVariant?: 'default' | 'compact';
+  filterVariant?: 'default' | 'inline';
+  readOnly?: boolean;
+  searchRowExtra?: ReactNode;
+}
+
+// Hook return type extension
+export interface EnhancedEntityManager<T extends BaseEntity> {
+  // Original useEntityManager fields
+  entities: T[];
+  isLoading: boolean;
+  error: any;
+  searchTerm: string;
+  filters: any;
+  selectedTab: string;
+  selectedEntity: T | null;
+  createModalOpen: boolean;
+  editingEntity: T | null;
+  
+  // Enhanced fields
+  filteredEntities: T[];
+  selectedItems: T[];
+  stats: StatsConfig[];
+  pagination?: PaginationMeta | null;
+  dataMode: 'client' | 'server';
+  
+  // Original actions
+  setSearchTerm: (term: string) => void;
+  setFilters: (filters: any) => void;
+  setSelectedTab: (tab: string) => void;
+  setSelectedEntity: (entity: T | null) => void;
+  setCreateModalOpen: (open: boolean) => void;
+  setEditingEntity: (entity: T | null) => void;
+  handleCreate: (data: any) => void;
+  handleUpdate: (id: number, data: any) => void;
+  refetch: () => void;
+  
+  // Enhanced actions
+  setSelectedItems: (items: T[]) => void;
+  toggleItemSelection: (item: T) => void;
+  selectAllItems: () => void;
+  clearSelection: () => void;
+  setPage: (page: number) => void;
+  setPerPage: (perPage: number) => void;
+  
+  // Loading states
+  isCreating: boolean;
+  isUpdating: boolean;
+  isDeleting: boolean;
+}

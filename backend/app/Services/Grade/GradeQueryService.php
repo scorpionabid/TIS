@@ -148,75 +148,133 @@ class GradeQueryService
      * Apply subject-specific filters.
      *
      * Logic:
-     *  1. Show grades whose class_level has a curriculum_plans entry (Step 1) for this subject —
-     *     grade_subjects (Step 2) being done or not does not block the list.
-     *  2. Exclude grades where teaching_loads hours already fully cover the planned hours.
-     *     "Planned hours" = grade_subjects.weekly_hours (if Step 2 done) OR curriculum_plans.hours (fallback).
+     *  1. Show only grades whose class_level has a curriculum_plans entry for this subject.
+     *  2. Exclude grades where:
+     *     a) The subject is NOT split-groups AND at least 1 teacher is already assigned → hide completely.
+     *     b) The subject IS split-groups (or individual type) AND total assigned hours >= planned hours → hide.
      */
     protected function applySubjectFilters(Builder $query, int $subjectId, ?string $eduType, $institutionId, Request $request): void
     {
         $eduTypeVal = $eduType ?? 'umumi';
+        $isIndividualType = in_array($eduTypeVal, ['ferdi', 'evde', 'xususi']);
 
-        // 1. Only show grades that have a curriculum_plans entry for this subject+type+class_level
+        // 1. Only show grades where this subject is actually assigned and NOT fully filled with teachers
         $query->whereRaw(
             'EXISTS (
-                SELECT 1 FROM curriculum_plans cp
-                WHERE cp.class_level     = grades.class_level
-                  AND cp.institution_id  = grades.institution_id
-                  AND cp.academic_year_id = grades.academic_year_id
-                  AND cp.subject_id      = ?
-                  AND cp.hours           > 0
-                  AND (cp.education_type = ? OR (? = \'umumi\' AND cp.education_type IS NULL))
-            )',
-            [$subjectId, $eduTypeVal, $eduTypeVal]
-        );
-
-        // 2. Exclude grades where teaching hours already cover the plan
-        //    - Use grade_subjects.weekly_hours if Step 2 was done (more specific, supports split groups)
-        //    - Fall back to curriculum_plans.hours if grade_subjects doesn't exist yet
-        $query->whereRaw(
-            'NOT EXISTS (
-                SELECT 1
-                FROM classes c2
-                WHERE c2.institution_id   = grades.institution_id
-                  AND c2.academic_year_id = grades.academic_year_id
-                  AND c2.grade_level      = grades.class_level
-                  AND c2.section          = grades.name
+                SELECT 1 FROM grade_subjects gs
+                WHERE gs.grade_id   = grades.id
+                  AND gs.subject_id = ?
+                  AND gs.weekly_hours > 0
                   AND (
-                      SELECT COALESCE(SUM(tl.weekly_hours), 0)
-                      FROM teaching_loads tl
-                      WHERE tl.class_id   = c2.id
-                        AND tl.subject_id = ?
-                        AND tl.deleted_at IS NULL
-                        AND (tl.education_type = ? OR (? = \'umumi\' AND tl.education_type IS NULL))
-                  ) >= COALESCE(
-                      (
-                          SELECT gs2.weekly_hours
-                               * CASE WHEN gs2.is_split_groups THEN COALESCE(gs2.group_count, 1) ELSE 1 END
-                          FROM grade_subjects gs2
-                          WHERE gs2.grade_id   = grades.id
-                            AND gs2.subject_id = ?
-                            AND (gs2.education_type = ? OR (? = \'umumi\' AND gs2.education_type IS NULL))
-                          LIMIT 1
-                      ),
-                      (
-                          SELECT cp2.hours
-                          FROM curriculum_plans cp2
-                          WHERE cp2.class_level     = grades.class_level
-                            AND cp2.institution_id  = grades.institution_id
-                            AND cp2.academic_year_id = grades.academic_year_id
-                            AND cp2.subject_id      = ?
-                            AND (cp2.education_type = ? OR (? = \'umumi\' AND cp2.education_type IS NULL))
-                          LIMIT 1
-                      )
+                    CASE 
+                      WHEN LOWER(gs.education_type) LIKE \'%ümumi%\' OR LOWER(gs.education_type) LIKE \'%umumi%\' OR gs.education_type IS NULL THEN \'umumi\'
+                      WHEN LOWER(gs.education_type) LIKE \'%fərdi%\' OR LOWER(gs.education_type) LIKE \'%ferdi%\' THEN \'ferdi\'
+                      WHEN LOWER(gs.education_type) LIKE \'%evdə%\' OR LOWER(gs.education_type) LIKE \'%evde%\' THEN \'evde\'
+                      WHEN LOWER(gs.education_type) LIKE \'%xüsusi%\' OR LOWER(gs.education_type) LIKE \'%xususi%\' THEN \'xususi\'
+                      ELSE LOWER(gs.education_type)
+                    END = ?
                   )
             )',
-            [
-                $subjectId, $eduTypeVal, $eduTypeVal,  // teaching_loads
-                $subjectId, $eduTypeVal, $eduTypeVal,  // grade_subjects hours
-                $subjectId, $eduTypeVal, $eduTypeVal,  // curriculum_plans hours fallback
-            ]
+            [$subjectId, $eduTypeVal]
         );
+
+        if ($isIndividualType) {
+            // Individual education types: allow multiple teachers; only hide if hours are exhausted.
+            $query->whereRaw(
+                'NOT EXISTS (
+                    SELECT 1
+                    FROM classes c2
+                    WHERE c2.institution_id   = grades.institution_id
+                      AND c2.academic_year_id = grades.academic_year_id
+                      AND c2.grade_level      = grades.class_level
+                      AND c2.section          = grades.name
+                      AND (
+                          SELECT COALESCE(SUM(tl.weekly_hours), 0)
+                          FROM teaching_loads tl
+                          WHERE tl.class_id     = c2.id
+                            AND tl.subject_id   = ?
+                            AND tl.deleted_at   IS NULL
+                            AND tl.education_type = ?
+                      ) >= COALESCE(
+                          (
+                              SELECT gs2.weekly_hours
+                                   * CASE WHEN gs2.is_split_groups THEN COALESCE(gs2.group_count, 1) ELSE 1 END
+                              FROM grade_subjects gs2
+                              WHERE gs2.grade_id   = grades.id
+                                AND gs2.subject_id = ?
+                                AND gs2.education_type = ?
+                              LIMIT 1
+                          ),
+                          (
+                              SELECT cp2.hours
+                              FROM curriculum_plans cp2
+                              WHERE cp2.class_level      = grades.class_level
+                                AND cp2.institution_id   = grades.institution_id
+                                AND cp2.academic_year_id = grades.academic_year_id
+                                AND cp2.subject_id       = ?
+                                AND cp2.education_type   = ?
+                              LIMIT 1
+                          )
+                      )
+                )',
+                [$subjectId, $eduTypeVal, $subjectId, $eduTypeVal, $subjectId, $eduTypeVal]
+            );
+        } else {
+            // Ümumi (and similar): a subject can have 1 teacher unless grade_subjects.is_split_groups = true.
+            // For non-split: hide grade if ANY teacher is already assigned for this subject.
+            // For split:     hide grade if teacher count >= group_count OR hours fully covered.
+            $query->whereRaw(
+                'NOT EXISTS (
+                    SELECT 1
+                    FROM classes c2
+                    WHERE c2.institution_id   = grades.institution_id
+                      AND c2.academic_year_id = grades.academic_year_id
+                      AND c2.grade_level      = grades.class_level
+                      AND c2.section          = grades.name
+                      AND (
+                          (
+                              NOT EXISTS (
+                                  SELECT 1 FROM grade_subjects gs_chk
+                                  WHERE gs_chk.grade_id    = grades.id
+                                    AND gs_chk.subject_id  = ?
+                                    AND (gs_chk.education_type = ? OR (? = \'umumi\' AND gs_chk.education_type IS NULL))
+                                    AND gs_chk.is_split_groups = true
+                              )
+                              AND EXISTS (
+                                  SELECT 1 FROM teaching_loads tl_chk
+                                  WHERE tl_chk.class_id    = c2.id
+                                    AND tl_chk.subject_id  = ?
+                                    AND tl_chk.deleted_at  IS NULL
+                                    AND (tl_chk.education_type = ? OR (? = \'umumi\' AND tl_chk.education_type IS NULL))
+                              )
+                          )
+                          OR
+                          (
+                              EXISTS (
+                                  SELECT 1 FROM grade_subjects gs_split
+                                  WHERE gs_split.grade_id   = grades.id
+                                    AND gs_split.subject_id = ?
+                                    AND (gs_split.education_type = ? OR (? = \'umumi\' AND gs_split.education_type IS NULL))
+                                    AND gs_split.is_split_groups = true
+                                    AND (
+                                        SELECT COUNT(*) FROM teaching_loads tl_cnt
+                                        WHERE tl_cnt.class_id   = c2.id
+                                          AND tl_cnt.subject_id = ?
+                                          AND tl_cnt.deleted_at IS NULL
+                                          AND (tl_cnt.education_type = ? OR (? = \'umumi\' AND tl_cnt.education_type IS NULL))
+                                    ) >= COALESCE(gs_split.group_count, 1)
+                              )
+                          )
+                      )
+                )',
+                [
+                    $subjectId, $eduTypeVal, $eduTypeVal,
+                    $subjectId, $eduTypeVal, $eduTypeVal,
+                    $subjectId, $eduTypeVal, $eduTypeVal,
+                    $subjectId, $eduTypeVal, $eduTypeVal,
+                ]
+            );
+        }
     }
 
     /**

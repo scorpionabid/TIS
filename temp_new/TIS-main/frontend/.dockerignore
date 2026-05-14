@@ -1,0 +1,76 @@
+# Documentation and logs
+*.md
+*.log
+backend.log
+frontend.log
+simple_backend.log
+backend_*.log
+frontend_*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Node modules (will be installed in container)
+frontend/node_modules/
+node_modules/
+
+# Composer vendor (will be installed in container)
+backend/vendor/
+
+# Build artifacts
+frontend/dist/
+frontend/build/
+
+# Cache and temporary files
+backend/bootstrap/cache/*.php
+backend/storage/logs/*
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+
+# Database files (will be mounted as volumes)
+backend/database/database.sqlite
+backend/database/*.sqlite
+backend/database/*.sqlite-*
+
+# Docker files in root (avoid recursion)
+docker-compose*.yml
+Dockerfile
+docker/
+
+# Test files
+*.test.*
+test_*
+
+# Environment files (will be created in container)
+.env
+.env.*
+
+# Performance and monitoring
+performance_*.md
+*.performance.js
+
+# Backup files
+*.backup
+*.bak
+
+# Temporary scripts
+start.sh
+stop.sh

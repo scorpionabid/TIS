@@ -1,0 +1,321 @@
+/* Mobile Optimization Improvements for Survey System */
+
+/* Touch-friendly button spacing */
+@media (max-width: 768px) {
+  .btn-group {
+    @apply flex-col gap-2;
+  }
+  
+  .btn-group > * {
+    @apply w-full min-h-[44px];
+  }
+
+  /* Survey card improvements */
+  .survey-card {
+    @apply p-4 rounded-lg border;
+  }
+  
+  .survey-card .survey-actions {
+    @apply flex-col gap-2 mt-4;
+  }
+  
+  .survey-card .survey-actions .btn {
+    @apply w-full justify-start;
+  }
+
+  /* Modal optimizations */
+  .modal-content {
+    @apply m-2 max-h-[90vh] overflow-y-auto;
+  }
+  
+  .modal-header {
+    @apply px-4 py-3 sticky top-0 bg-background z-10 border-b;
+  }
+  
+  .modal-footer {
+    @apply px-4 py-3 sticky bottom-0 bg-background border-t;
+  }
+
+  /* Form improvements */
+  .form-grid {
+    @apply grid-cols-1 gap-4;
+  }
+  
+  .form-control {
+    @apply min-h-[48px];
+  }
+  
+  .form-control input, 
+  .form-control textarea, 
+  .form-control select {
+    @apply text-base; /* Prevent zoom on iOS */
+  }
+
+  /* Table responsive improvements */
+  .table-responsive {
+    @apply overflow-x-auto;
+  }
+  
+  .table-mobile {
+    @apply block;
+  }
+  
+  .table-mobile thead {
+    @apply hidden;
+  }
+  
+  .table-mobile tbody {
+    @apply block;
+  }
+  
+  .table-mobile tr {
+    @apply block border border-border rounded-lg mb-4 p-4;
+  }
+  
+  .table-mobile td {
+    @apply block text-right pl-0 pr-0 py-2 border-0;
+  }
+  
+  .table-mobile td:before {
+    @apply inline-block w-1/2 text-left font-medium pr-2;
+    content: attr(data-label);
+  }
+
+  /* Analytics dashboard mobile improvements */
+  .analytics-grid {
+    @apply grid-cols-1 gap-4;
+  }
+  
+  .metrics-card {
+    @apply p-4;
+  }
+  
+  .chart-container {
+    @apply h-64 overflow-x-auto;
+  }
+
+  /* Survey template gallery mobile */
+  .template-gallery {
+    @apply grid-cols-1 gap-3;
+  }
+  
+  .template-card {
+    @apply p-4;
+  }
+
+  /* Navigation improvements */
+  .sidebar-mobile {
+    @apply fixed inset-0 z-50 transform transition-transform;
+  }
+  
+  .sidebar-mobile.closed {
+    @apply -translate-x-full;
+  }
+  
+  .sidebar-overlay {
+    @apply fixed inset-0 bg-black/50 z-40;
+  }
+
+  /* Survey delegation modal mobile */
+  .delegation-modal .user-search {
+    @apply sticky top-0 bg-background p-4 z-10;
+  }
+  
+  .delegation-modal .user-list {
+    @apply max-h-64 overflow-y-auto;
+  }
+
+  /* Export modal improvements */
+  .export-options {
+    @apply space-y-4;
+  }
+  
+  .export-options .checkbox-group {
+    @apply grid-cols-1 gap-3;
+  }
+  
+  .export-progress {
+    @apply sticky bottom-0 bg-background p-4 border-t;
+  }
+
+  /* Date picker mobile improvements */
+  .date-picker-mobile {
+    @apply w-full;
+  }
+  
+  .date-picker-mobile .calendar {
+    @apply w-full;
+  }
+
+  /* Survey response form mobile */
+  .survey-response-form {
+    @apply space-y-6 p-4;
+  }
+  
+  .question-card {
+    @apply p-4 rounded-lg border;
+  }
+  
+  .question-options {
+    @apply space-y-3;
+  }
+  
+  .question-options .radio-group {
+    @apply space-y-2;
+  }
+  
+  .question-options label {
+    @apply flex items-start gap-3 p-3 rounded border hover:bg-muted/50 cursor-pointer;
+  }
+
+  /* Progress indicators */
+  .progress-mobile {
+    @apply sticky top-0 bg-background p-4 z-10 border-b;
+  }
+  
+  .step-indicator {
+    @apply flex justify-between items-center mb-4;
+  }
+  
+  .step-indicator .step {
+    @apply flex-1 text-center;
+  }
+  
+  .step-indicator .step.active {
+    @apply text-primary font-medium;
+  }
+  
+  .step-indicator .step.completed {
+    @apply text-green-600;
+  }
+
+  /* Toast/notification improvements */
+  .toast-mobile {
+    @apply bottom-4 left-4 right-4 max-w-none;
+  }
+
+  /* Survey statistics mobile */
+  .stats-grid {
+    @apply grid-cols-2 gap-3;
+  }
+  
+  .stats-card {
+    @apply p-3;
+  }
+  
+  .stats-card .stat-value {
+    @apply text-lg;
+  }
+  
+  .stats-card .stat-label {
+    @apply text-xs;
+  }
+
+  /* Filter panel mobile */
+  .filter-panel-mobile {
+    @apply fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-40 transform transition-transform;
+  }
+  
+  .filter-panel-mobile.closed {
+    @apply translate-y-full;
+  }
+  
+  .filter-trigger-mobile {
+    @apply fixed bottom-4 right-4 z-50 rounded-full shadow-lg;
+  }
+
+  /* Search improvements */
+  .search-mobile {
+    @apply sticky top-0 bg-background p-4 z-10 border-b;
+  }
+  
+  .search-results {
+    @apply max-h-96 overflow-y-auto;
+  }
+
+  /* Action sheets for mobile */
+  .action-sheet {
+    @apply fixed bottom-0 left-0 right-0 bg-background rounded-t-lg border-t p-4 z-50;
+  }
+  
+  .action-sheet .action-item {
+    @apply flex items-center gap-3 p-3 rounded hover:bg-muted/50 cursor-pointer;
+  }
+
+  /* Loading states mobile */
+  .skeleton-mobile {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  .loading-overlay-mobile {
+    @apply fixed inset-0 bg-background/80 flex items-center justify-center z-50;
+  }
+
+  /* Typography adjustments */
+  .heading-mobile {
+    @apply text-xl font-semibold;
+  }
+  
+  .subheading-mobile {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Spacing utilities */
+  .space-mobile {
+    @apply space-y-4;
+  }
+  
+  .section-mobile {
+    @apply py-4;
+  }
+  
+  .container-mobile {
+    @apply px-4 py-4;
+  }
+}
+
+/* Tablet specific optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .tablet-grid {
+    @apply grid-cols-2;
+  }
+  
+  .tablet-modal {
+    @apply max-w-2xl mx-auto;
+  }
+  
+  .tablet-sidebar {
+    @apply w-64;
+  }
+}
+
+/* High DPI screen optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .icon-sharp {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Landscape mobile optimizations */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-mobile-landscape {
+    @apply max-h-screen overflow-y-auto;
+  }
+  
+  .header-mobile-landscape {
+    @apply h-12;
+  }
+}
+
+/* Accessibility improvements for mobile */
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe {
+    @apply transform-none !important;
+  }
+  
+  .motion-safe * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
