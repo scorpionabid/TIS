@@ -41,24 +41,27 @@ const getDailyQuote = () => {
 
 // ─── Weather ─────────────────────────────────────────────────────────────────
 
-// Open-Meteo WMO weather code → Azerbaijani label + icon
-const WMO_MAP: Record<number, { label: string; Icon: typeof Sun }> = {
-  0: { label: 'Günəşli', Icon: Sun },
-  1: { label: 'Açıq', Icon: Sun },
-  2: { label: 'Az buludlu', Icon: Cloud },
-  3: { label: 'Buludlu', Icon: Cloud },
-  45: { label: 'Dumanlı', Icon: Cloud },
-  48: { label: 'Dumanlı', Icon: Cloud },
-  51: { label: 'Çiskin', Icon: CloudRain },
-  53: { label: 'Çiskin', Icon: CloudRain },
-  55: { label: 'Çiskin', Icon: CloudRain },
-  61: { label: 'Yağışlı', Icon: CloudRain },
-  63: { label: 'Yağışlı', Icon: CloudRain },
-  65: { label: 'Güclü yağış', Icon: CloudRain },
-  80: { label: 'Yağış', Icon: CloudRain },
-  81: { label: 'Yağış', Icon: CloudRain },
-  82: { label: 'Güclü yağış', Icon: CloudRain },
-  95: { label: 'Tufan', Icon: CloudRain },
+type WeatherIconName = 'sun' | 'cloud' | 'rain';
+const WEATHER_ICONS: Record<WeatherIconName, typeof Sun> = { sun: Sun, cloud: Cloud, rain: CloudRain };
+
+// Open-Meteo WMO weather code → Azerbaijani label + iconName
+const WMO_MAP: Record<number, { label: string; iconName: WeatherIconName }> = {
+  0: { label: 'Günəşli', iconName: 'sun' },
+  1: { label: 'Açıq', iconName: 'sun' },
+  2: { label: 'Az buludlu', iconName: 'cloud' },
+  3: { label: 'Buludlu', iconName: 'cloud' },
+  45: { label: 'Dumanlı', iconName: 'cloud' },
+  48: { label: 'Dumanlı', iconName: 'cloud' },
+  51: { label: 'Çiskin', iconName: 'rain' },
+  53: { label: 'Çiskin', iconName: 'rain' },
+  55: { label: 'Çiskin', iconName: 'rain' },
+  61: { label: 'Yağışlı', iconName: 'rain' },
+  63: { label: 'Yağışlı', iconName: 'rain' },
+  65: { label: 'Güclü yağış', iconName: 'rain' },
+  80: { label: 'Yağış', iconName: 'rain' },
+  81: { label: 'Yağış', iconName: 'rain' },
+  82: { label: 'Güclü yağış', iconName: 'rain' },
+  95: { label: 'Tufan', iconName: 'rain' },
 };
 
 const CITY_COORDS: Record<string, { lat: number; lon: number }> = {
@@ -71,7 +74,7 @@ const CITY_COORDS: Record<string, { lat: number; lon: number }> = {
   şirvan:      { lat: 39.93, lon: 48.92 },
 };
 
-interface WeatherData { temp: number; label: string; Icon: typeof Sun }
+interface WeatherData { temp: number; label: string; iconName: WeatherIconName }
 
 const fetchWeather = async (location: string): Promise<WeatherData | null> => {
   try {
@@ -82,7 +85,6 @@ const fetchWeather = async (location: string): Promise<WeatherData | null> => {
     if (locKey) {
       ({ lat, lon } = CITY_COORDS[locKey]);
     } else {
-      // Geocoding fallback
       try {
         const geoRes = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locLower)}&count=1&language=az`,
@@ -92,7 +94,6 @@ const fetchWeather = async (location: string): Promise<WeatherData | null> => {
           lat = geoData.results[0].latitude;
           lon = geoData.results[0].longitude;
         } else {
-          // Fallback to Baku if geocoding fails
           ({ lat, lon } = CITY_COORDS['bakı']);
         }
       } catch (geoErr) {
@@ -105,15 +106,11 @@ const fetchWeather = async (location: string): Promise<WeatherData | null> => {
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
     );
     const data = await res.json();
-    
-    if (!data.current_weather) {
-      console.warn('No current weather data in API response');
-      return null;
-    }
+    if (!data.current_weather) return null;
 
     const cw = data.current_weather;
-    const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', Icon: Sun };
-    return { temp: Math.round(cw.temperature), label: wmo.label, Icon: wmo.Icon };
+    const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', iconName: 'sun' as WeatherIconName };
+    return { temp: Math.round(cw.temperature), label: wmo.label, iconName: wmo.iconName };
   } catch (err) {
     console.error('Error fetching weather:', err);
     return null;
@@ -159,8 +156,8 @@ export const GreetingHeader = () => {
         const data = await res.json();
         if (data.current_weather) {
           const cw = data.current_weather;
-          const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', Icon: Sun };
-          const weatherData = { temp: Math.round(cw.temperature), label: wmo.label, Icon: wmo.Icon };
+          const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', iconName: 'sun' as WeatherIconName };
+          const weatherData: WeatherData = { temp: Math.round(cw.temperature), label: wmo.label, iconName: wmo.iconName };
           setWeather(weatherData);
           localStorage.setItem(cacheKey, JSON.stringify({ data: weatherData, ts: Date.now() }));
         }
@@ -256,7 +253,7 @@ export const GreetingHeader = () => {
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
   };
 
-  const WeatherIcon = weather?.Icon ?? Sun;
+  const WeatherIcon = WEATHER_ICONS[weather?.iconName ?? 'sun'];
 
   return (
     <div className="relative p-6 md:p-8 rounded-3xl overflow-hidden mb-4 bg-gradient-to-br border border-white/10 shadow-2xl from-slate-500/10 via-slate-500/5 to-transparent">
