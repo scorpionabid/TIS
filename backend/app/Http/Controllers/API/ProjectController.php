@@ -99,7 +99,7 @@ class ProjectController extends Controller
         $user = Auth::user();
         $project = \App\Models\Project::with(['employees', 'creator'])->findOrFail($id);
         
-        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
         $hasAssignedActivity = $project->activities()->where(function($q) use ($user) {
@@ -148,7 +148,7 @@ class ProjectController extends Controller
         $user = Auth::user();
 
         // Authorization (same as show)
-        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
 

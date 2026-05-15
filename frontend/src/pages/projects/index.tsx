@@ -131,16 +131,17 @@ export default function Projects() {
   const canManageProjects = hasRole([
     USER_ROLES.SUPERADMIN,
     USER_ROLES.REGIONADMIN,
+    USER_ROLES.REGIONOPERATOR,
     USER_ROLES.SEKTORADMIN,
     USER_ROLES.SCHOOLADMIN
   ]);
 
   const isAdmin = canManageProjects; // Preserve legacy usage where appropriate
-  
+
   const { users: availableUsers } = useAssignableUsers({
     perPage: 200,
-    originScope: hasRole(USER_ROLES.SUPERADMIN) ? null : 
-                 hasRole(USER_ROLES.REGIONADMIN) ? 'region' : 'sector',
+    originScope: hasRole(USER_ROLES.SUPERADMIN) ? null :
+                 hasRole([USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]) ? 'region' : 'sector',
     enabled: !!selectedProject,
   });
 

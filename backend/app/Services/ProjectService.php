@@ -96,8 +96,8 @@ class ProjectService extends BaseService
             return true;
         }
 
-        // RegionAdmin and SektorAdmin can edit projects created within their hierarchy
-        if ($user->hasAnyRole(['regionadmin', 'sektoradmin'])) {
+        // RegionAdmin, RegionOperator and SektorAdmin can edit projects created within their hierarchy
+        if ($user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin'])) {
             $institution = $user->institution;
             if ($institution) {
                 $creator = User::find($project->created_by);
@@ -604,7 +604,7 @@ class ProjectService extends BaseService
     public function filterActivitiesForUser(Project $project, User $user): Collection
     {
         // Check if user is linked to the project in any way
-        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
         $hasAssignedActivity = $project->activities()->where(function ($q) use ($user) {
