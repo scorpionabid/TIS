@@ -722,6 +722,15 @@ class Task extends Model
             }
         });
 
+        static::updated(function ($task) {
+            if ($task->wasChanged('status') && $task->status === 'completed') {
+                Notification::where('related_type', 'App\\Models\\Task')
+                    ->where('related_id', $task->id)
+                    ->where('is_read', false)
+                    ->update(['is_read' => true, 'read_at' => now()]);
+            }
+        });
+
         static::deleted(function ($task) {
             Notification::where('related_type', 'App\\Models\\Task')
                 ->where('related_id', $task->id)

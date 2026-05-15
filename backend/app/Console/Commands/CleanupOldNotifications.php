@@ -14,7 +14,8 @@ class CleanupOldNotifications extends Command
      */
     protected $signature = 'notifications:cleanup
                            {--older-than=30 : Delete notifications older than X days}
-                           {--dry-run : Show what would be deleted without actually deleting}';
+                           {--dry-run : Show what would be deleted without actually deleting}
+                           {--force : Skip confirmation prompt (used by scheduler)}';
 
     /**
      * The console command description.
@@ -52,19 +53,19 @@ class CleanupOldNotifications extends Command
 
         $this->line("Found {$count} old read notifications");
 
-        // Show some examples
-        $examples = $query->take(5)->get(['id', 'type', 'created_at', 'user_id']);
+        // Show some examples (clone query to avoid limit affecting the delete)
+        $examples = (clone $query)->take(5)->get(['id', 'type', 'created_at', 'user_id']);
         $this->table(
             ['ID', 'Type', 'Created', 'User'],
             $examples->map(fn ($n) => [$n->id, $n->type, $n->created_at->format('Y-m-d H:i'), $n->user_id])
         );
 
         if (! $dryRun) {
-            if ($this->confirm("Delete {$count} old notifications?", false)) {
+            $force = $this->option('force') || ! $this->input->isInteractive();
+            if ($force || $this->confirm("Delete {$count} old notifications?", false)) {
                 $deleted = $query->delete();
                 $this->info("✅ Deleted {$deleted} old notifications");
 
-                // Log the cleanup
                 \Log::info('Notification cleanup completed', [
                     'deleted_count' => $deleted,
                     'older_than_days' => $days,

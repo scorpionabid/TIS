@@ -11,6 +11,18 @@ class Survey extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::deleted(function (self $survey) {
+            Notification::where('related_type', 'App\\Models\\Survey')
+                ->where('related_id', $survey->id)
+                ->delete();
+            Notification::where('related_type', 'Survey')
+                ->where('related_id', $survey->id)
+                ->delete();
+        });
+    }
+
     /**
      * The attributes that are appended to the model's array form.
      *

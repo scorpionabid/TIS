@@ -10,7 +10,7 @@ Artisan::command('inspire', function () {
 
 // ATİS Notification Cleanup Scheduling
 // Daily cleanup for read notifications older than 7 days
-Schedule::command('notifications:cleanup --older-than=7')
+Schedule::command('notifications:cleanup --older-than=7 --force')
     ->daily()
     ->at('02:00')
     ->description('Clean up read notifications older than 7 days')
@@ -22,7 +22,7 @@ Schedule::command('notifications:cleanup --older-than=7')
     });
 
 // Weekly cleanup for older notifications
-Schedule::command('notifications:cleanup --older-than=30')
+Schedule::command('notifications:cleanup --older-than=30 --force')
     ->weekly()
     ->sundays()
     ->at('03:00')
@@ -87,14 +87,6 @@ Schedule::command('sanctum:prune-expired --hours=168')
     ->description('Prune expired Sanctum tokens older than 7 days')
     ->onSuccess(function () {
         \Log::info('Sanctum token pruning completed');
-    });
-
-// Session GC: expired session-ları təmizlə
-Schedule::command('session:gc')
-    ->hourly()
-    ->description('Garbage collect expired sessions')
-    ->onSuccess(function () {
-        \Log::info('Session garbage collection completed');
     });
 
 // Activity/Security logs təmizləmə: həftəlik

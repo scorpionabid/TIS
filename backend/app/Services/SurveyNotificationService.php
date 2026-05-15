@@ -39,7 +39,10 @@ class SurveyNotificationService
 
         // Real notification table-dan survey notification-ları əldə et
         $notificationsQuery = \App\Models\Notification::where('user_id', $user->id)
-            ->where('type', 'LIKE', 'survey%')
+            ->where(function ($q) {
+                $q->where('type', 'LIKE', 'survey%')
+                    ->orWhereIn('type', ['revision_required', 'approval_completed']);
+            })
             ->orderBy('created_at', 'desc')
             ->limit($limit);
 
@@ -100,7 +103,10 @@ class SurveyNotificationService
     public function getUserUnreadSurveyCount(User $user): int
     {
         return \App\Models\Notification::where('user_id', $user->id)
-            ->where('type', 'LIKE', 'survey%')
+            ->where(function ($q) {
+                $q->where('type', 'LIKE', 'survey%')
+                    ->orWhereIn('type', ['revision_required', 'approval_completed']);
+            })
             ->where('is_read', false)
             ->count();
     }
