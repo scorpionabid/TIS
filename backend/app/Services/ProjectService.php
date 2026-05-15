@@ -32,8 +32,8 @@ class ProjectService extends BaseService
     {
         $query = Project::query();
 
-        // SuperAdmin and Admin (Ministry level) see all projects
-        if ($user->hasAnyRole(['superadmin', 'admin'])) {
+        // SuperAdmin, Admin and RegionAdmin see all projects across all regions
+        if ($user->hasAnyRole(['superadmin', 'admin', 'regionadmin'])) {
             return $query;
         }
 

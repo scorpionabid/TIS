@@ -755,8 +755,10 @@ class TaskPermissionService extends BaseService
             return collect();
         }
 
-        // Broaden scope for project management context to allow cross-regional collaboration
-        $institutionScope = $isProjectContext ? [] : $this->getUserInstitutionScope($user, $originScope);
+        // Project context: superadmin and regionadmin see all regions.
+        // Others (regionoperator, sektoradmin, schooladmin…) are still bound to their own region.
+        $isCrossRegionAllowed = $isProjectContext && $user->hasAnyRole(['superadmin', 'admin', 'regionadmin']);
+        $institutionScope = $isCrossRegionAllowed ? [] : $this->getUserInstitutionScope($user, $originScope);
         $institutionFilter = $filters['institution_id'] ?? null;
 
         // region_id: fetch all users across the region's full institution hierarchy
@@ -769,16 +771,16 @@ class TaskPermissionService extends BaseService
                     [(int) $regionId],
                     $regionInstitution->getAllChildrenIds()
                 ));
-                
-                // Restrict to user's allowed scope ONLY if not in project context
+
+                // Restrict to user's allowed scope unless cross-region access is granted
                 if (!empty($institutionScope)) {
                     $regionInstitutionIds = array_values(array_intersect($regionInstitutionIds, $institutionScope));
                 }
             }
         }
 
-        // Validate institution filter against scope (only if not project context)
-        if (!$isProjectContext && $institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
+        // Validate institution filter against scope (skip if cross-region allowed)
+        if (!$isCrossRegionAllowed && $institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
             return collect();
         }
 
