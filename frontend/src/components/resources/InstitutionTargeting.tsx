@@ -28,8 +28,6 @@ export function InstitutionTargeting({
   }, [watchedInstitutionIds]);
   const selectedCount = selectedIds.length;
 
-  const watchedDepartments = form.watch('target_departments') || [];
-  const departmentsSelected = Array.isArray(watchedDepartments) && watchedDepartments.length > 0;
 
   const normalizedInstitutions = useMemo(() => {
     const mapped = (availableInstitutions || []).map((inst: any) => ({
@@ -87,20 +85,18 @@ export function InstitutionTargeting({
   }, [form]);
 
   const handleSelectAll = useCallback(() => {
-    if (departmentsSelected) return;
     console.log('[InstitutionTargeting] handleSelectAll triggered', {
       filteredCount: filteredInstitutions.length,
       timestamp: new Date().toISOString(),
     });
     updateSelection(filteredInstitutions.map((inst) => inst.id));
-  }, [departmentsSelected, filteredInstitutions, updateSelection]);
+  }, [filteredInstitutions, updateSelection]);
 
   const handleClear = useCallback(() => {
     updateSelection([]);
   }, [updateSelection]);
 
   const handleSelectByLevel = useCallback((level: number) => {
-    if (departmentsSelected) return;
     console.log('[InstitutionTargeting] handleSelectByLevel', {
       level,
       timestamp: new Date().toISOString(),
@@ -109,10 +105,9 @@ export function InstitutionTargeting({
       .filter((inst) => inst.level === level)
       .map((inst) => inst.id);
     updateSelection(ids);
-  }, [departmentsSelected, normalizedInstitutions, updateSelection]);
+  }, [normalizedInstitutions, updateSelection]);
 
   const handleSelectByPredicate = useCallback((predicate: (inst: Institution) => boolean) => {
-    if (departmentsSelected) return;
     console.log('[InstitutionTargeting] handleSelectByPredicate triggered', {
       timestamp: new Date().toISOString(),
     });
@@ -120,10 +115,9 @@ export function InstitutionTargeting({
       .filter(predicate)
       .map((inst) => inst.id);
     updateSelection(ids);
-  }, [departmentsSelected, normalizedInstitutions, updateSelection]);
+  }, [normalizedInstitutions, updateSelection]);
 
   const toggleInstitution = useCallback((institutionId: number, nextSelected?: boolean) => {
-    if (departmentsSelected) return;
     console.log('[InstitutionTargeting] toggleInstitution', {
       institutionId,
       wasSelected: selectedIds.includes(institutionId),
@@ -150,17 +144,7 @@ export function InstitutionTargeting({
     }
 
     updateSelection(Array.from(current));
-  }, [departmentsSelected, selectedIds, updateSelection]);
-
-  useEffect(() => {
-    if (departmentsSelected && selectedIds.length > 0) {
-      console.log('[InstitutionTargeting] departments selected, clearing institutions', {
-        selectedLength: selectedIds.length,
-        timestamp: new Date().toISOString(),
-      });
-      updateSelection([]);
-    }
-  }, [departmentsSelected, selectedIds.length, updateSelection]);
+  }, [selectedIds, updateSelection]);
 
   const selectedInstitutions = useMemo(() =>
     normalizedInstitutions.filter(inst => selectedIds.includes(inst.id)),
@@ -221,7 +205,6 @@ export function InstitutionTargeting({
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
-          disabled={departmentsSelected}
         />
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-4 w-4 text-gray-400" />
@@ -238,18 +221,12 @@ export function InstitutionTargeting({
         )}
       </div>
 
-      {departmentsSelected && (
-        <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          ⚠️ Departament seçildiyi üçün müəssisə seçimi müvəqqəti deaktiv edilib.
-        </div>
-      )}
-
       {/* Action + quick-select — 1 sətir */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <button
           type="button"
           onClick={handleSelectAll}
-          disabled={departmentsSelected || filteredInstitutions.length === 0}
+          disabled={filteredInstitutions.length === 0}
           className="h-7 inline-flex items-center gap-1 px-2.5 rounded-full text-[11px] font-semibold border bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           <Users className="h-3 w-3" />
@@ -278,7 +255,7 @@ export function InstitutionTargeting({
             key={label}
             type="button"
             onClick={onClick}
-            disabled={departmentsSelected || disabled}
+            disabled={disabled}
             className="h-7 inline-flex items-center gap-1 px-2.5 rounded-full text-[11px] font-semibold border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             <Icon className="h-3 w-3" />
@@ -315,7 +292,6 @@ export function InstitutionTargeting({
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={(next) => toggleInstitution(institution.id, next === true)}
-                      disabled={departmentsSelected}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
