@@ -54,10 +54,11 @@ export function ResponsibleUserSelector({
   const activeRoles = useMemo(() => {
     const roles = allowedRoles?.length ? allowedRoles : ASSIGNABLE_ROLES;
     return Array.from(new Set(roles.map(r => r.toLowerCase()))).filter(role => {
-      if (bypassHierarchyFilter) return true;
+      // Project context: show all roles — backend controls what's returned
+      if (bypassHierarchyFilter || context === 'project') return true;
       return (ROLE_HIERARCHY[role as UserRole] || 99) >= currentUserLevel;
     });
-  }, [allowedRoles, currentUserLevel, bypassHierarchyFilter]);
+  }, [allowedRoles, currentUserLevel, bypassHierarchyFilter, context]);
 
   const { users, total, hasMore, fetchNextPage, isFetching, isFetchingNextPage, refetch, error } =
     useAssignableUsers({
@@ -322,11 +323,16 @@ export function ResponsibleUserSelector({
                       className="shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-                      {(user.role_display || user.role) && (
-                        <p className="text-[11px] text-muted-foreground">
-                          {user.role_display || (user.role ? (roleDisplayNames[user.role.toLowerCase()] ?? user.role) : '')}
-                        </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
+                        {(user.role_display || user.role) && (
+                          <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
+                            {user.role_display || (user.role ? (roleDisplayNames[user.role.toLowerCase()] ?? user.role) : '')}
+                          </span>
+                        )}
+                      </div>
+                      {user.email && (
+                        <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                       )}
                     </div>
                     {checked && <span className="shrink-0 text-[10px] text-primary font-semibold">✓</span>}
