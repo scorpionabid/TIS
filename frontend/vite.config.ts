@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import history from "connect-history-api-fallback";
 import { splitVendorChunkPlugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -24,10 +23,15 @@ export default defineConfig(({ mode }) => ({
     // Proxy disabled - using production API URL directly (Nginx handles routing)
     proxy: undefined,
     fs: {
-      allow: [
-        path.resolve(__dirname, '..'),
-        path.resolve(__dirname, '../shared'),
-      ]
+      // Only allow the frontend source directory.
+      // Allowing '..' would resolve to '/' inside Docker (parent of /app),
+      // causing Vite to watch the entire container filesystem and attempt to
+      // load non-JS files (e.g. Dockerfile) as modules → ENOENT errors.
+      allow: [__dirname],
+    },
+    watch: {
+      // Ignore non-source files to prevent spurious HMR errors
+      ignored: ['**/Dockerfile', '**/.dockerignore', '**/node_modules/**', '**/.git/**'],
     },
     middlewareMode: false,
     configureServer: (server) => {
@@ -82,8 +86,6 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
@@ -172,7 +174,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "../shared"),
     },
   },
 }));
