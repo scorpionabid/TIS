@@ -10,10 +10,10 @@ Artisan::command('inspire', function () {
 
 // ATİS Notification Cleanup Scheduling
 // Daily cleanup for read notifications older than 7 days
-Schedule::command('notifications:cleanup --older-than=7 --force')
+Schedule::command('notifications:cleanup --older-than=7 --unread-older-than=90 --force')
     ->daily()
     ->at('02:00')
-    ->description('Clean up read notifications older than 7 days')
+    ->description('Clean up: read >7d and unread >90d notifications')
     ->onSuccess(function () {
         \Log::info('Daily notification cleanup completed successfully');
     })
@@ -22,11 +22,11 @@ Schedule::command('notifications:cleanup --older-than=7 --force')
     });
 
 // Weekly cleanup for older notifications
-Schedule::command('notifications:cleanup --older-than=30 --force')
+Schedule::command('notifications:cleanup --older-than=30 --unread-older-than=90 --force')
     ->weekly()
     ->sundays()
     ->at('03:00')
-    ->description('Weekly cleanup: remove notifications older than 30 days')
+    ->description('Weekly cleanup: read >30d and unread >90d notifications')
     ->onSuccess(function () {
         \Log::info('Weekly notification cleanup completed successfully');
     });

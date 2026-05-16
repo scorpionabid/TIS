@@ -2,14 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { schoolAdminService } from '@/services/schoolAdmin';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { logger } from '@/utils/logger';
-import { USER_ROLES } from '@/constants/roles';
 import {
   UnifiedNotification,
-  NotificationUpdate,
   UseRealTimeNotificationsOptions,
   UseRealTimeNotificationsReturn,
   normalizeNotification
@@ -47,16 +44,11 @@ export const useRealTimeNotifications = (
 
   // Use unified normalize function from types/notifications
   
-  // Check if user role supports notifications
-  const supportsNotifications = currentUser?.roles?.some(role =>
-    [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.TEACHER].includes(role.name)
-  );
-
-  // For SuperAdmin and others without school association, disable schooladmin notifications
-  const canUseSchoolAdminNotifications = !!(
-    currentUser?.roles?.some(role => role.name === USER_ROLES.SCHOOLADMIN) &&
-    currentUser?.institution_id
-  );
+  // Check if user role supports notifications.
+  // currentUser.role is the single mapped role string (e.g. "schooladmin", "müəllim").
+  // currentUser.roles may be a string[] from the API — role.name would be undefined for strings.
+  // Use currentUser.role (already normalized by AuthContext) for the check.
+  const supportsNotifications = !!currentUser?.role;
 
   // Fetch initial notifications
   const extractNotifications = (response: unknown): Record<string, unknown>[] => {
@@ -74,7 +66,7 @@ export const useRealTimeNotifications = (
     isLoading,
     refetch: refreshNotifications
   } = useQuery({
-    queryKey: ['notifications', 'unified', currentUser?.id, canUseSchoolAdminNotifications],
+    queryKey: ['notifications', 'unified', currentUser?.id],
     queryFn: async () => {
       if (!currentUser || !supportsNotifications) return [];
 
@@ -261,13 +253,7 @@ export const useRealTimeNotifications = (
     if (!currentUser || !supportsNotifications) return;
 
     try {
-      // Try school admin service first if applicable
-      if (canUseSchoolAdminNotifications) {
-        await schoolAdminService.markNotificationAsRead(notificationId);
-      } else {
-        // Use general notification service
-        await notificationService.markAsRead(notificationId);
-      }
+      await notificationService.markAsRead(notificationId);
 
       const readTimestamp = new Date().toISOString();
 
@@ -285,9 +271,8 @@ export const useRealTimeNotifications = (
         )
       );
 
-      // Invalidate unified notifications query
       queryClient.invalidateQueries({
-        queryKey: ['notifications', 'unified', currentUser.id, canUseSchoolAdminNotifications]
+        queryKey: ['notifications', 'unified', currentUser.id]
       });
 
       logger.debug(`Marked notification ${notificationId} as read`, {
@@ -297,25 +282,14 @@ export const useRealTimeNotifications = (
       logger.error(`Failed to mark notification ${notificationId} as read`, error);
       throw error;
     }
-  }, [queryClient, canUseSchoolAdminNotifications, currentUser, supportsNotifications]);
+  }, [queryClient, currentUser, supportsNotifications]);
 
   const markAllAsRead = useCallback(async () => {
     if (!currentUser || !supportsNotifications) return;
 
     try {
       const unreadNotifications = notifications.filter(n => !n.is_read);
-
-      if (canUseSchoolAdminNotifications) {
-        // For school admin, mark each notification individually
-        await Promise.all(
-          unreadNotifications.map(notification =>
-            schoolAdminService.markNotificationAsRead(notification.id)
-          )
-        );
-      } else {
-        // Use general notification service bulk mark
-        await notificationService.markAllAsRead();
-      }
+      await notificationService.markAllAsRead();
 
       const readTimestamp = new Date().toISOString();
 
@@ -329,9 +303,8 @@ export const useRealTimeNotifications = (
         }))
       );
 
-      // Invalidate unified notifications query
       queryClient.invalidateQueries({
-        queryKey: ['notifications', 'unified', currentUser.id, canUseSchoolAdminNotifications]
+        queryKey: ['notifications', 'unified', currentUser.id]
       });
 
       logger.info(`Marked ${unreadNotifications.length} notifications as read`);
@@ -339,7 +312,7 @@ export const useRealTimeNotifications = (
       logger.error('Failed to mark all notifications as read', error);
       throw error;
     }
-  }, [notifications, queryClient, canUseSchoolAdminNotifications, currentUser, supportsNotifications]);
+  }, [notifications, queryClient, currentUser, supportsNotifications]);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);

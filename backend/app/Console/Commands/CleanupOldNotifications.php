@@ -13,7 +13,8 @@ class CleanupOldNotifications extends Command
      * @var string
      */
     protected $signature = 'notifications:cleanup
-                           {--older-than=30 : Delete notifications older than X days}
+                           {--older-than=30 : Delete READ notifications older than X days}
+                           {--unread-older-than=90 : Delete UNREAD notifications older than X days}
                            {--dry-run : Show what would be deleted without actually deleting}
                            {--force : Skip confirmation prompt (used by scheduler)}';
 
@@ -29,54 +30,80 @@ class CleanupOldNotifications extends Command
      */
     public function handle()
     {
-        $days = (int) $this->option('older-than');
-        $dryRun = $this->option('dry-run');
+        $readDays   = (int) $this->option('older-than');
+        $unreadDays = (int) $this->option('unread-older-than');
+        $dryRun     = $this->option('dry-run');
+        $force      = $this->option('force') || ! $this->input->isInteractive();
 
         $this->info('🧹 ATİS Notification Cleanup');
-        $this->info("Cleaning up read notifications older than {$days} days...");
-
         if ($dryRun) {
             $this->warn('🔍 DRY RUN MODE - No notifications will be deleted');
         }
 
-        // Get notifications to clean up
-        $query = Notification::where('is_read', true)
-            ->where('created_at', '<', now()->subDays($days));
+        $totalDeleted = 0;
 
-        $count = $query->count();
+        // --- 1. Read notifications older than --older-than days ---
+        $readQuery = Notification::where('is_read', true)
+            ->where('created_at', '<', now()->subDays($readDays));
+        $readCount = $readQuery->count();
 
-        if ($count === 0) {
-            $this->info('✅ No old notifications found to clean up.');
+        if ($readCount > 0) {
+            $this->line("Found {$readCount} READ notifications older than {$readDays} days");
+            $examples = (clone $readQuery)->take(5)->get(['id', 'type', 'created_at', 'user_id']);
+            $this->table(
+                ['ID', 'Type', 'Created', 'User'],
+                $examples->map(fn ($n) => [$n->id, $n->type, $n->created_at->format('Y-m-d H:i'), $n->user_id])
+            );
 
-            return 0;
-        }
-
-        $this->line("Found {$count} old read notifications");
-
-        // Show some examples (clone query to avoid limit affecting the delete)
-        $examples = (clone $query)->take(5)->get(['id', 'type', 'created_at', 'user_id']);
-        $this->table(
-            ['ID', 'Type', 'Created', 'User'],
-            $examples->map(fn ($n) => [$n->id, $n->type, $n->created_at->format('Y-m-d H:i'), $n->user_id])
-        );
-
-        if (! $dryRun) {
-            $force = $this->option('force') || ! $this->input->isInteractive();
-            if ($force || $this->confirm("Delete {$count} old notifications?", false)) {
-                $deleted = $query->delete();
-                $this->info("✅ Deleted {$deleted} old notifications");
-
-                \Log::info('Notification cleanup completed', [
-                    'deleted_count' => $deleted,
-                    'older_than_days' => $days,
-                    'command_user' => 'system',
-                ]);
+            if (! $dryRun) {
+                if ($force || $this->confirm("Delete {$readCount} read notifications?", false)) {
+                    $deleted = $readQuery->delete();
+                    $totalDeleted += $deleted;
+                    $this->info("✅ Deleted {$deleted} read notifications");
+                }
             } else {
-                $this->info('❌ Cleanup cancelled');
+                $this->info("🔍 DRY RUN: Would delete {$readCount} read notifications");
             }
         } else {
-            $this->info("🔍 DRY RUN: Would delete {$count} notifications");
+            $this->info("✅ No read notifications older than {$readDays} days");
         }
+
+        // --- 2. Unread notifications older than --unread-older-than days ---
+        $unreadQuery = Notification::where('is_read', false)
+            ->where('created_at', '<', now()->subDays($unreadDays));
+        $unreadCount = $unreadQuery->count();
+
+        if ($unreadCount > 0) {
+            $this->line("Found {$unreadCount} UNREAD notifications older than {$unreadDays} days");
+            $examples = (clone $unreadQuery)->take(5)->get(['id', 'type', 'created_at', 'user_id']);
+            $this->table(
+                ['ID', 'Type', 'Created', 'User'],
+                $examples->map(fn ($n) => [$n->id, $n->type, $n->created_at->format('Y-m-d H:i'), $n->user_id])
+            );
+
+            if (! $dryRun) {
+                if ($force || $this->confirm("Delete {$unreadCount} old unread notifications?", false)) {
+                    $deleted = $unreadQuery->delete();
+                    $totalDeleted += $deleted;
+                    $this->info("✅ Deleted {$deleted} old unread notifications");
+                }
+            } else {
+                $this->info("🔍 DRY RUN: Would delete {$unreadCount} old unread notifications");
+            }
+        } else {
+            $this->info("✅ No unread notifications older than {$unreadDays} days");
+        }
+
+        if ($totalDeleted > 0) {
+            \Log::info('Notification cleanup completed', [
+                'deleted_count'  => $totalDeleted,
+                'read_days'      => $readDays,
+                'unread_days'    => $unreadDays,
+                'command_user'   => 'system',
+            ]);
+        }
+
+        $this->info("🏁 Cleanup done. Total deleted: {$totalDeleted}");
 
         return 0;
     }
