@@ -70,6 +70,17 @@ export function formatCellValue(
     }
   }
 
+  if (col.type === 'file' && value && typeof value === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && 'name' in parsed && typeof (parsed as Record<string, unknown>).name === 'string') {
+        return sanitizeCellValue((parsed as Record<string, unknown>).name);
+      }
+    } catch {
+      // Not JSON, fall through
+    }
+  }
+
   // Default: convert to string with XSS sanitization
   return sanitizeCellValue(value);
 }
