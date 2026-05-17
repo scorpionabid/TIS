@@ -1,14 +1,16 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { Loader2, Search, X, CheckSquare, ChevronDown, ChevronRight, Users } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { Loader2, Search, X, CheckSquare, ChevronDown, ChevronRight, Users, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useQuery } from '@tanstack/react-query';
 import { ASSIGNABLE_ROLES, roleDisplayNames } from '@/components/tasks/config/taskFormFields';
 import { useAssignableUsers } from '@/hooks/tasks/useAssignableUsers';
 import { AssignableUser, taskService } from '@/services/tasks';
+
+type RegionItem = { id: number; name: string };
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES, ROLE_HIERARCHY, UserRole } from '@/constants/roles';
 
@@ -24,7 +26,6 @@ export interface ResponsibleUserSelectorProps {
 
 type CachedUsers = Record<string, AssignableUser>;
 
-// Institution group with collapsed users
 interface InstGroup {
   instId: number | null;
   instName: string;
@@ -44,33 +45,62 @@ export function ResponsibleUserSelector({
   const currentUserRole  = (currentUser?.role as UserRole) || USER_ROLES.MUELLIM;
   const currentUserLevel = ROLE_HIERARCHY[currentUserRole] || 99;
 
-  const [search, setSearch]             = useState('');
-  const debouncedSearch                 = useDebounce(search.trim(), 400);
-  const [roleFilter, setRoleFilter]     = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['__all__']));
-  const [selectedCache, setSelectedCache]   = useState<CachedUsers>({});
-  const [isSelectingAll, setIsSelectingAll] = useState(false);
+  const [search, setSearch]                     = useState('');
+  const debouncedSearch                         = useDebounce(search.trim(), 400);
+  const [roleFilter, setRoleFilter]             = useState<string | null>(null);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  const [regionOpen, setRegionOpen]             = useState(false);
+  const regionDropdownRef                       = useRef<HTMLDivElement>(null);
+  const [expandedGroups, setExpandedGroups]     = useState<Set<string>>(new Set(['__all__']));
+  const [selectedCache, setSelectedCache]       = useState<CachedUsers>({});
+  const [isSelectingAll, setIsSelectingAll]     = useState(false);
+
+  // Region seçicisi — project context-də bütün rollar üçün
+  const showRegionSelector = context === 'project';
+  // Superadmin/regionadmin üçün "seçilməyib" = hamısı; digərləri üçün = öz regionu
+  const noFilterLabel = originScope === null ? 'Bütün regionlar' : 'Öz regionum';
+
+  // Regions fetch — scope izolyasiyasız, bütün regionlar qaytarılır
+  const { data: regions = [] } = useQuery<RegionItem[]>({
+    queryKey: ['tasks', 'regions-selector'],
+    queryFn:  () => taskService.getRegionsForSelector(),
+    enabled:  showRegionSelector,
+    staleTime: 1000 * 60 * 15,
+  });
+  const selectedRegion = regions.find(r => r.id === selectedRegionId) ?? null;
+
+  // Close region dropdown on outside click
+  useEffect(() => {
+    if (!regionOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (regionDropdownRef.current && !regionDropdownRef.current.contains(e.target as Node)) {
+        setRegionOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [regionOpen]);
 
   const activeRoles = useMemo(() => {
     const roles = allowedRoles?.length ? allowedRoles : ASSIGNABLE_ROLES;
     return Array.from(new Set(roles.map(r => r.toLowerCase()))).filter(role => {
-      if (bypassHierarchyFilter) return true;
+      if (bypassHierarchyFilter || context === 'project') return true;
       return (ROLE_HIERARCHY[role as UserRole] || 99) >= currentUserLevel;
     });
-  }, [allowedRoles, currentUserLevel, bypassHierarchyFilter]);
+  }, [allowedRoles, currentUserLevel, bypassHierarchyFilter, context]);
 
   const { users, total, hasMore, fetchNextPage, isFetching, isFetchingNextPage, refetch, error } =
     useAssignableUsers({
       originScope,
       role: roleFilter,
       search: debouncedSearch,
-      regionId: null,
       context,
+      crossRegion: selectedRegionId !== null,
+      regionId:    selectedRegionId,
       perPage: roleFilter ? 2000 : 100,
       enabled: !disabled,
     });
 
-  // Cache fetched users for display of selected items
   React.useEffect(() => {
     if (!users.length) return;
     setSelectedCache(prev => {
@@ -80,7 +110,6 @@ export function ResponsibleUserSelector({
     });
   }, [users]);
 
-  // Group users by institution
   const groups = useMemo<InstGroup[]>(() => {
     const map = new Map<string, InstGroup>();
     users.forEach(user => {
@@ -136,10 +165,12 @@ export function ResponsibleUserSelector({
   const CHIP_LIMIT = 4;
 
   return (
-    <div className={cn('rounded-xl border border-border/60 overflow-hidden bg-background', disabled && 'opacity-60')}>
+    // overflow-hidden çıxarıldı — region dropdown kəsilməsin
+    // rounded-t-xl / rounded-b-xl birinci/sonuncu uşağa verildi
+    <div className={cn('rounded-xl border border-border/60 bg-background', disabled && 'opacity-60')}>
 
       {/* ── Selected strip ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30 border-b border-border/50 min-h-[44px]">
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30 border-b border-border/50 min-h-[44px] rounded-t-xl">
         <div className="flex items-center gap-1.5 shrink-0">
           <Users className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold text-muted-foreground">
@@ -174,8 +205,9 @@ export function ResponsibleUserSelector({
         )}
       </div>
 
-      {/* ── Search + role chips ─────────────────────────────────────── */}
+      {/* ── Search + region selector + role chips ──────────────────── */}
       <div className="px-3 pt-3 pb-2 space-y-2 border-b border-border/40">
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -192,6 +224,71 @@ export function ResponsibleUserSelector({
             </button>
           )}
         </div>
+
+        {/* Region selector — project context-də bütün rollar üçün */}
+        {showRegionSelector && (
+          <div ref={regionDropdownRef} className="relative self-start">
+            <button
+              type="button"
+              onClick={() => setRegionOpen(prev => !prev)}
+              className={cn(
+                'flex items-center gap-1.5 h-6 px-3 rounded-full text-[11px] font-semibold border transition-all',
+                selectedRegionId !== null
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary'
+              )}>
+              <MapPin className="h-3 w-3" />
+              {selectedRegionId !== null && selectedRegion ? selectedRegion.name : 'Region seç'}
+              {selectedRegionId !== null
+                ? (
+                  <X
+                    className="h-3 w-3 ml-0.5"
+                    onClick={e => { e.stopPropagation(); setSelectedRegionId(null); }}
+                  />
+                )
+                : <ChevronDown className="h-3 w-3 ml-0.5" />
+              }
+            </button>
+
+            {regionOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 min-w-[220px] max-w-[300px] bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                <div className="max-h-[240px] overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedRegionId(null); setRegionOpen(false); }}
+                    className={cn(
+                      'w-full text-left px-3 py-2 text-xs font-medium hover:bg-muted/60 transition-colors border-b border-border/40',
+                      selectedRegionId === null
+                        ? 'text-primary font-semibold bg-primary/5'
+                        : 'text-muted-foreground'
+                    )}>
+                    {noFilterLabel}
+                  </button>
+                  {regions.length === 0 && (
+                    <div className="flex items-center justify-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Yüklənir...
+                    </div>
+                  )}
+                  {regions.map(region => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => { setSelectedRegionId(region.id); setRegionOpen(false); }}
+                      className={cn(
+                        'w-full text-left px-3 py-2 text-xs hover:bg-muted/60 transition-colors',
+                        selectedRegionId === region.id
+                          ? 'text-primary font-semibold bg-primary/5'
+                          : 'text-foreground'
+                      )}>
+                      {region.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Role chips */}
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -236,7 +333,7 @@ export function ResponsibleUserSelector({
       </div>
 
       {/* ── User list grouped by institution ───────────────────────── */}
-      <div className="max-h-[280px] overflow-y-auto">
+      <div className="max-h-[280px] overflow-y-auto rounded-b-xl">
         {isFetching && !isFetchingNextPage && (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -258,10 +355,10 @@ export function ResponsibleUserSelector({
         )}
 
         {!error && groups.map(group => {
-          const groupKey  = group.instId?.toString() ?? '__none__';
-          const expanded  = expandedGroups.has(groupKey);
+          const groupKey          = group.instId?.toString() ?? '__none__';
+          const expanded          = expandedGroups.has(groupKey);
           const allInGroupSelected = group.users.every(u => value.includes(u.id.toString()));
-          const someSelected = group.users.some(u => value.includes(u.id.toString()));
+          const someSelected      = group.users.some(u => value.includes(u.id.toString()));
 
           return (
             <div key={groupKey} className="border-b border-border/30 last:border-0">
@@ -286,7 +383,6 @@ export function ResponsibleUserSelector({
                   </div>
                 </button>
 
-                {/* Group select button */}
                 {!allInGroupSelected ? (
                   <button
                     type="button"
@@ -304,8 +400,8 @@ export function ResponsibleUserSelector({
 
               {/* Users in group */}
               {expanded && group.users.map(user => {
-                const uid      = user.id.toString();
-                const checked  = value.includes(uid);
+                const uid     = user.id.toString();
+                const checked = value.includes(uid);
                 return (
                   <label
                     key={uid}
@@ -322,11 +418,16 @@ export function ResponsibleUserSelector({
                       className="shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-                      {(user.role_display || user.role) && (
-                        <p className="text-[11px] text-muted-foreground">
-                          {user.role_display || (user.role ? (roleDisplayNames[user.role.toLowerCase()] ?? user.role) : '')}
-                        </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
+                        {(user.role_display || user.role) && (
+                          <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
+                            {user.role_display || (user.role ? (roleDisplayNames[user.role.toLowerCase()] ?? user.role) : '')}
+                          </span>
+                        )}
+                      </div>
+                      {user.email && (
+                        <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                       )}
                     </div>
                     {checked && <span className="shrink-0 text-[10px] text-primary font-semibold">✓</span>}

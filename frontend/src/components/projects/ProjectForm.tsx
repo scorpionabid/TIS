@@ -37,8 +37,10 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { ResponsibleUserSelector } from '@/components/tasks/ResponsibleUserSelector';
+import { ProjectCollaboratorSelector } from '@/components/projects/ProjectCollaboratorSelector';
 import { Project } from '@/services/projects';
+import { useAuth } from '@/contexts/AuthContext';
+import { USER_ROLES } from '@/constants/roles';
 import {
   Select,
   SelectContent,
@@ -73,6 +75,12 @@ interface ProjectFormProps {
 }
 
 export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCancel, isLoading }) => {
+  const { hasRole } = useAuth();
+
+  const originScope: 'region' | 'sector' | null = hasRole(USER_ROLES.SUPERADMIN) ? null
+    : hasRole([USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]) ? 'region'
+    : 'sector';
+
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -346,13 +354,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit,
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <div className="bg-muted/5 rounded-xl border-border/50">
-                        <ResponsibleUserSelector 
-                          value={field.value} 
-                          onChange={field.onChange}
-                          context="project"
-                        />
-                      </div>
+                      <ProjectCollaboratorSelector
+                        value={field.value}
+                        onChange={field.onChange}
+                        originScope={originScope}
+                      />
                     </FormControl>
                     <FormDescription className="text-[10px] mt-2 flex items-center gap-2 text-primary/70">
                       <AlertCircle className="w-3 h-3" /> Seçilmiş şəxslər layihə daxilində fəaliyyət bəndləri yarada biləcəklər.

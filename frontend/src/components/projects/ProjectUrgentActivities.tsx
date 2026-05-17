@@ -59,6 +59,49 @@ const getDaysInfo = (endDate: string) => {
   return differenceInDays(end, now);
 };
 
+// ── Mətn render köməkçiləri ───────────────────────────────────────────────
+
+/** HTML və ya markdown-u göstərmə üçün universal render (backward-compat) */
+function renderContent(text: string | null | undefined): string {
+  if (!text) return '';
+  // HTML saxlanılmış məzmun — birbaşa istifadə et
+  if (/<[a-zA-Z]/.test(text)) return text;
+  // Köhnə markdown məlumatı — HTML-ə çevir
+  return legacyMarkdownToHtml(text);
+}
+
+function legacyMarkdownToHtml(text: string): string {
+  if (!text) return '';
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = safe.split('\n');
+  const out: string[] = [];
+  let listTag: 'ul' | 'ol' | null = null;
+  const closeList = () => { if (listTag) { out.push(`</${listTag}>`); listTag = null; } };
+  for (const line of lines) {
+    const bm = line.match(/^- (.*)$/);
+    const nm = line.match(/^\d+\. (.*)$/);
+    if (bm) {
+      if (listTag === 'ol') closeList();
+      if (!listTag) { out.push('<ul style="list-style-type:disc;padding-left:1.1rem;margin:2px 0">'); listTag = 'ul'; }
+      out.push(`<li>${bm[1]}</li>`);
+    } else if (nm) {
+      if (listTag === 'ul') closeList();
+      if (!listTag) { out.push('<ol style="list-style-type:decimal;padding-left:1.1rem;margin:2px 0">'); listTag = 'ol'; }
+      out.push(`<li>${nm[1]}</li>`);
+    } else {
+      closeList();
+      out.push(line.length ? `${line}<br>` : '<br>');
+    }
+  }
+  closeList();
+  return out.join('')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n<>]+?)\*/g, '<em>$1</em>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/<br>$/, '');
+}
+
 function ActivityRow({ 
   activity, 
   type,
@@ -95,17 +138,19 @@ function ActivityRow({
        <TableCell className="py-3 pl-4">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
-            <span className={cn(
-              "font-semibold text-sm group-hover:text-primary transition-colors",
-              isOverdue && "text-red-700/90 dark:text-red-400"
-            )}>
-              {activity.name}
-            </span>
+            <span
+              className={cn(
+                "font-semibold text-sm group-hover:text-primary transition-colors",
+                isOverdue && "text-red-700/90 dark:text-red-400"
+              )}
+              dangerouslySetInnerHTML={{ __html: renderContent(activity.name) || activity.name }}
+            />
           </div>
           {activity.description && (
-            <span className="text-[11px] text-muted-foreground line-clamp-1 opacity-70">
-              {activity.description}
-            </span>
+            <span
+              className="text-[11px] text-muted-foreground line-clamp-1 opacity-70"
+              dangerouslySetInnerHTML={{ __html: renderContent(activity.description) || activity.description }}
+            />
           )}
         </div>
       </TableCell>

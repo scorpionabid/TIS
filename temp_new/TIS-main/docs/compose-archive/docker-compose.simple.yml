@@ -1,0 +1,88 @@
+services:
+  # Laravel Backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: atis_backend
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:8dQ8Gu3WqV8Vn9K7Mj2Nz5P6Q7R8S9T0U1V2W3X4Y5Z=
+      - DB_CONNECTION=pgsql
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5433
+      - DB_DATABASE=atis_dev
+      - DB_USERNAME=atis_dev_user
+      - DB_PASSWORD=atis_dev_pass_123
+      - DB_SQLITE_DATABASE=/var/www/html/database/database.sqlite
+      - CACHE_STORE=redis
+      - REDIS_CLIENT=phpredis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/.env:/var/www/html/.env
+      - ./backend/.env.testing:/var/www/html/.env.testing
+      - ./backend/phpunit.xml:/var/www/html/phpunit.xml
+      - ./backend/database:/var/www/html/database
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/app:/var/www/html/app
+      - ./backend/routes:/var/www/html/routes
+      - ./backend/config:/var/www/html/config
+      - ./backend/tests:/var/www/html/tests
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atis_network
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: atis_frontend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api
+      - VITE_APP_URL=http://localhost:3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./shared:/app/../shared
+      # node_modules managed inside container to avoid architecture conflicts
+    depends_on:
+      - backend
+    networks:
+      - atis_network
+
+  # Redis Cache Server (Phase 2A optimization)
+  redis:
+    image: redis:7-alpine
+    container_name: atis_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - atis_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  atis_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local

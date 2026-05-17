@@ -108,78 +108,81 @@ export function useAddWorkload({
     const plannedHoursList = masterPlanResponse?.plannedHours || [];
     
     // 1. Get subjects metadata from master plan items
-    const subjectsMeta = new Map<string, { id: number; name: string; type: string }>();
+    const subjectsMeta = new Map<string, { id: number; name: string; type: string; masterHours: number }>();
+    
+    // Helper for normalizing education types (e.g. 'Ümumi təhsil' -> 'umumi')
+    const normalize = (type: string | null) => {
+      const t = (type || 'umumi').toLowerCase();
+      if (t.includes('ümumi') || t.includes('umumi')) return 'umumi';
+      if (t.includes('fərdi') || t.includes('ferdi')) return 'ferdi';
+      if (t.includes('evdə') || t.includes('evde')) return 'evde';
+      if (t.includes('xüsusi') || t.includes('xususi')) return 'xususi';
+      return t;
+    };
     
     items.forEach((item: any) => {
       if (!item.subject_id) return;
-      const key = `${item.subject_id}_${item.education_type || 'umumi'}`;
+      const key = `${item.subject_id}_${normalize(item.education_type)}`;
       
-      if (!subjectsMeta.has(key)) {
+      const current = subjectsMeta.get(key);
+      const itemHours = Number(item.hours || 0);
+      
+      if (!current) {
         subjectsMeta.set(key, {
           id: item.subject_id,
           name: item.subject?.name || 'Fənn',
-          type: item.education_type || 'umumi'
+          type: normalize(item.education_type),
+          masterHours: itemHours
         });
+      } else {
+        current.masterHours += itemHours;
       }
     });
 
-    // 2. Map planned hours and ensure metadata exists even if not in master plan items
+    // 2. Map planned hours
     const plannedMap = new Map<string, number>();
     const subjectGradesMap = new Map<string, number[]>();
     plannedHoursList.forEach((ph: any) => {
-      const key = `${ph.subject_id}_${ph.education_type || 'umumi'}`;
+      const key = `${ph.subject_id}_${normalize(ph.education_type)}`;
       plannedMap.set(key, Number(ph.total_planned || 0));
       
       const gIds = ph.grade_ids ? String(ph.grade_ids).split(',').map(Number) : [];
       subjectGradesMap.set(key, gIds);
-
-      // If not already in meta from master plan, add it from planned hours info
+      
       if (!subjectsMeta.has(key)) {
         subjectsMeta.set(key, {
           id: ph.subject_id,
           name: ph.subject_name || 'Fənn',
-          type: ph.education_type || 'umumi'
+          type: normalize(ph.education_type),
+          masterHours: 0
         });
       }
     });
 
-    // 3. Map assigned hours for easy lookup
+    // 3. Map assigned hours
     const assignedMap = new Map<string, number>();
     assignedHoursList.forEach((ah: any) => {
-      const key = `${ah.subject_id}_${ah.education_type || 'umumi'}`;
+      const key = `${ah.subject_id}_${normalize(ah.education_type)}`;
       assignedMap.set(key, Number(ah.total_assigned || 0));
     });
 
-    // 4. Build final list, excluding those with no remaining hours
+    // 4. Final list
     const result: any[] = [];
     subjectsMeta.forEach((meta, key) => {
       const planned = plannedMap.get(key) || 0;
       const assigned = assignedMap.get(key) || 0;
-      const remaining = planned - assigned;
-
-      // Check if THIS teacher has any unassigned grades for this subject.
-      // existingLoads returns grade_id (grades table) alongside class_id — use grade_id for correct mapping.
-      const plannedGrades = subjectGradesMap.get(key) || [];
-      const assignedGradeIdsForThisTeacher = existingLoads
-        .filter((l: any) => `${l.subject_id}_${l.education_type || 'umumi'}` === key)
-        .map((l: any) => l.grade_id);
-
-      const hasUnassignedGrade = plannedGrades.some(gid => !assignedGradeIdsForThisTeacher.includes(gid));
-
-      // 1. If planned > 0, we hide it only if all hours are already assigned (Request 2)
-      //    OR if this specific teacher has already been assigned to all available grades for this subject
-      // 2. If planned is 0, it might be a precision error or not yet added to any grade, 
-      //    but we show it so the user can see it's available in the Master Plan.
-      const isExhausted = (planned > 0 && remaining <= 0.1) || (planned > 0 && !hasUnassignedGrade);
-      const existsInMaster = items.some((it: any) => it.subject_id === meta.id && (it.education_type || 'umumi') === meta.type);
-
-      if (!isExhausted && (planned > 0 || existsInMaster)) {
+      const remaining = (planned > 0 ? planned : meta.masterHours) - assigned;
+      
+      // Only hide if it's truly exhausted (remaining near 0)
+      if (remaining > 0.1) {
         result.push({
           subject_id: meta.id,
           subject_name: meta.name,
           education_type: meta.type,
-          weekly_hours: planned, 
-          remaining_hours: remaining
+          planned_hours: planned > 0 ? planned : meta.masterHours,
+          assigned_hours: assigned,
+          remaining_hours: remaining,
+          key
         });
       }
     });
@@ -291,13 +294,15 @@ export function useAddWorkload({
       });
 
       toast({ title: 'Uğurla Əlavə Edildi', description: `${teacherName} üçün dərs yükü əlavə edildi` });
+      queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['teachingLoads'] });
+      queryClient.invalidateQueries({ queryKey: ['teacherWorkload', teacherId] });
       queryClient.invalidateQueries({ queryKey: ['teaching-loads'] });
       queryClient.invalidateQueries({ queryKey: ['teaching-loads-detail'] });
       queryClient.invalidateQueries({ queryKey: ['detailed-workload'] });
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['class-teaching-loads', selectedClass] });
       queryClient.invalidateQueries({ queryKey: ['workload-statistics'] });
-      queryClient.invalidateQueries({ queryKey: ['masterPlan'] });
 
       onSuccess();
       onClose();

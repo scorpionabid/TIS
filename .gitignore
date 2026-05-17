@@ -291,3 +291,4 @@ docs/vault/
 test_status.json
 frontend_test_*.txt
 backend/verify_fix.php
+*.dump

@@ -88,9 +88,21 @@ export function useColumnSettings(projectId: number) {
   }, [columns, storageKey]);
 
   const toggleColumn = (columnId: ProjectColumn) => {
-    setColumns(prev => prev.map(col => 
+    setColumns(prev => prev.map(col =>
       col.id === columnId ? { ...col, visible: !col.visible } : col
     ));
+  };
+
+  const moveColumn = (columnId: ProjectColumn, direction: 'left' | 'right') => {
+    setColumns(prev => {
+      const idx = prev.findIndex(c => c.id === columnId);
+      if (idx < 0) return prev;
+      const target = direction === 'left' ? idx - 1 : idx + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
   };
 
   const isVisible = (columnId: ProjectColumn) => {
@@ -100,7 +112,8 @@ export function useColumnSettings(projectId: number) {
   return {
     columns,
     toggleColumn,
+    moveColumn,
     isVisible,
-    resetToDefault: () => setColumns(DEFAULT_COLUMNS)
+    resetToDefault: () => setColumns(DEFAULT_COLUMNS),
   };
 }

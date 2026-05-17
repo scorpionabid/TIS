@@ -1,0 +1,627 @@
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class TeachingLoadApiController extends Controller
+{
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $institutionId = $user->institution_id;
+
+        $query = DB::table('teaching_loads')
+            ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
+            ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
+            ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
+            ->select([
+                'teaching_loads.*',
+                'users.username as teacher_name',
+                'subjects.name as subject_name',
+                'grade_map.id as grade_id',
+                DB::raw("COALESCE(CONCAT(grade_map.name, ' ', grade_map.section), CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
+            ])
+            ->whereNull('teaching_loads.deleted_at')
+            ->orderBy('users.username');
+
+        // Use institution_id from request if provided, otherwise fallback to user's assigned institution
+        $targetInstitutionId = $request->get('institution_id') ?: $institutionId;
+
+        // Apply institutional filter ONLY if we have a target institution and use DataIsolationHelper for access check
+        if ($targetInstitutionId !== null) {
+            // Robust access check using DataIsolationHelper
+            if (! \App\Helpers\DataIsolationHelper::canAccessInstitution($user, (int) $targetInstitutionId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu müəssisəyə giriş icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $query->where('classes.institution_id', $targetInstitutionId);
+        }
+
+        // Filter by class_id if provided
+        if ($request->has('class_id')) {
+            $query->where('teaching_loads.class_id', $request->get('class_id'));
+        }
+
+        // Filter by subject_id if provided
+        if ($request->has('subject_id')) {
+            $query->where('teaching_loads.subject_id', $request->get('subject_id'));
+        }
+
+        $teachingLoads = $query->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $teachingLoads,
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        \Log::info('Workload creation request received', ['data' => $request->all(), 'user_id' => $request->user()?->id]);
+
+        try {
+            $validated = $request->validate([
+                'teacher_id' => 'required|exists:users,id',
+                'subject_id' => 'required|exists:subjects,id',
+                'education_type' => 'required|string|in:umumi,ferdi,evde,xususi',
+                'class_id' => 'required|exists:grades,id',
+                'weekly_hours' => 'required|numeric|min:0.5|max:40',
+                'academic_year_id' => 'required|exists:academic_years,id',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::warning('Workload validation failed', ['errors' => $e->errors(), 'request' => $request->all()]);
+            throw $e;
+        }
+
+        // Map grade id to real classes table id (teaching_loads.class_id FK)
+        $grade = DB::table('grades')->where('id', $validated['class_id'])->first();
+        if (! $grade) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected class not found',
+            ], 422);
+        }
+
+        $existingClass = DB::table('classes')
+            ->where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('grade_level', $grade->class_level)
+            ->where('section', $grade->name)
+            ->first();
+
+        $classId = $existingClass?->id;
+        if (! $classId) {
+            $classId = DB::table('classes')->insertGetId([
+                'institution_id' => $grade->institution_id,
+                'academic_year_id' => $grade->academic_year_id,
+                'name' => (string) ($grade->class_level . $grade->name),
+                'grade_level' => $grade->class_level,
+                'section' => $grade->name,
+                'max_capacity' => 30,
+                'current_enrollment' => 0,
+                'status' => 'active',
+                'class_teacher_id' => null,
+                'classroom_location' => null,
+                'schedule_preferences' => json_encode([]),
+                'metadata' => json_encode([
+                    'source' => 'teaching-loads',
+                    'grade_id' => $grade->id,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return DB::transaction(function () use ($validated, $classId, $grade, $request) {
+            // 1. Check if the exact same teacher + subject + class exists (Duplicate assignment for same teacher)
+            $existingOwnLoad = DB::table('teaching_loads')
+                ->where('teacher_id', $validated['teacher_id'])
+                ->where('subject_id', $validated['subject_id'])
+                ->where('education_type', $validated['education_type'])
+                ->where('class_id', $classId)
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->whereNull('deleted_at')
+                ->first();
+
+            if ($existingOwnLoad) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu fənn artıq bu müəllimə bu sinif və təhsil növü üçün təyin edilib.',
+                ], 422);
+            }
+
+            // 2. Check if the subject is configured as split_groups.
+            $gradeSubject = DB::table('grade_subjects')
+                ->where('grade_id', $grade->id)
+                ->where('subject_id', $validated['subject_id'])
+                ->where(function ($q) use ($validated) {
+                    $q->where('education_type', $validated['education_type']);
+                    if ($validated['education_type'] === 'umumi') {
+                        $q->orWhereNull('education_type');
+                    }
+                })
+                ->first();
+
+            $isSplit = $gradeSubject ? (bool) $gradeSubject->is_split_groups : false;
+            $isIndividualType = in_array($validated['education_type'], ['ferdi', 'evde', 'xususi']);
+            // Individual education types allow multiple teacher assignments (one per student).
+            // For umumi: 1 teacher unless subject is split into groups.
+            $maxTeachers = $isIndividualType ? PHP_INT_MAX : ($isSplit ? ($gradeSubject->group_count ?? 2) : 1);
+
+            // Check total teachers already assigned
+            $assignedTeacherCount = DB::table('teaching_loads')
+                ->where('subject_id', $validated['subject_id'])
+                ->where('education_type', $validated['education_type'])
+                ->where('class_id', $classId)
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->whereNull('deleted_at')
+                ->count();
+
+            if ($assignedTeacherCount >= $maxTeachers) {
+                $msg = $isSplit
+                    ? "Qruplara bölünən fənnə maksimum {$maxTeachers} müəllim təyin edilə bilər."
+                    : 'Bu fənn qruplara bölünməyən fənndir və artıq başqa müəllimə təyin edilib.';
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $msg,
+                ], 422);
+            }
+
+            // Ensure institution_id is passed for multi-tenancy constraints
+            $institutionId = $request->user()?->institution_id ?: $grade->institution_id;
+
+            $data = [
+                'teacher_id' => $validated['teacher_id'],
+                'subject_id' => $validated['subject_id'],
+                'education_type' => $validated['education_type'],
+                'class_id' => $classId,
+                'weekly_hours' => $validated['weekly_hours'],
+                'total_hours' => $validated['weekly_hours'],
+                'academic_year_id' => $validated['academic_year_id'],
+                'institution_id' => $institutionId,
+                'status' => 'active',
+                'start_date' => now()->startOfYear(),
+                'end_date' => now()->endOfYear(),
+                'schedule_slots' => json_encode([]),
+                'metadata' => json_encode(['source' => 'teaching-loads-api', 'grade_id' => $grade->id]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            try {
+                $teachingLoadId = DB::table('teaching_loads')->insertGetId($data);
+                \Log::info('Workload created successfully', ['id' => $teachingLoadId]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Teaching load created successfully',
+                    'data' => ['id' => $teachingLoadId],
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Workload creation failed during insert: ' . $e->getMessage(), ['data' => $data]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dərs yükünü bazaya yazmaq mümkün olmadı: ' . $e->getMessage(),
+                ], 500);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teaching load created successfully',
+            'data' => ['id' => $teachingLoadId],
+        ]);
+    }
+
+    public function getTeacherWorkload(Request $request, string $teacherId): JsonResponse
+    {
+        // Get active academic year
+        $activeYear = DB::table('academic_years')
+            ->where('is_active', true)
+            ->first();
+
+        $query = DB::table('teaching_loads')
+            ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
+            ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
+            ->leftJoin('grade_subjects', function ($join) {
+                $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
+                    ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id')
+                    ->on(function ($query) {
+                        $query->on('grade_subjects.education_type', '=', 'teaching_loads.education_type')
+                            ->orWhere(function ($q) {
+                                $q->whereNull('grade_subjects.education_type')
+                                    ->whereNull('teaching_loads.education_type');
+                            });
+                    });
+            })
+            ->where('teaching_loads.teacher_id', $teacherId)
+            ->whereNull('teaching_loads.deleted_at');
+
+        // Filter by the authenticated user's institution (data isolation)
+        // Administrative roles can view workloads across schools
+        $institutionId = $request->user()?->institution_id;
+        if ($institutionId !== null && ! $request->user()->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'regionoperator'])) {
+            $query->where('classes.institution_id', $institutionId);
+        }
+
+        // Filter by active academic year if exists
+        if ($activeYear) {
+            $query->where('teaching_loads.academic_year_id', $activeYear->id);
+        }
+
+        $workload = $query->select([
+            'teaching_loads.*',
+            'subjects.name as subject_name',
+            'grade_map.id as grade_id',
+            'grade_map.education_program',
+            'grade_map.class_profile',
+            'grade_subjects.is_teaching_activity',
+            'grade_subjects.is_extracurricular',
+            'grade_subjects.is_club',
+            DB::raw("CONCAT(classes.grade_level, '-', classes.section) as class_name"),
+        ])->get();
+
+        $totalHours = $workload->sum('weekly_hours');
+        $maxHours = 24;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'loads' => $workload,
+                'total_hours' => $totalHours,
+                'max_hours' => $maxHours,
+                'remaining_hours' => max(0, $maxHours - $totalHours),
+                'is_overloaded' => $totalHours > $maxHours,
+            ],
+        ]);
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'weekly_hours' => 'required|numeric|min:0.5|max:40',
+        ]);
+
+        $updated = DB::table('teaching_loads')
+            ->where('id', $id)
+            ->update(array_merge($validated, [
+                'updated_at' => now(),
+            ]));
+
+        if (! $updated) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Teaching load not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teaching load updated successfully',
+        ]);
+    }
+
+    public function destroy(string $id): JsonResponse
+    {
+        // Use soft delete to preserve audit trail and stay consistent
+        // with whereNull('teaching_loads.deleted_at') filters throughout the controller.
+        $deleted = DB::table('teaching_loads')
+            ->where('id', $id)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => now()]);
+
+        if (! $deleted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Teaching load not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teaching load deleted successfully',
+        ]);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $teachingLoad = DB::table('teaching_loads')
+            ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
+            ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
+            ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
+            ->leftJoin('grade_subjects', function ($join) {
+                $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
+                    ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id')
+                    ->on(function ($query) {
+                        $query->on('grade_subjects.education_type', '=', 'teaching_loads.education_type')
+                            ->orWhere(function ($q) {
+                                $q->whereNull('grade_subjects.education_type')
+                                    ->whereNull('teaching_loads.education_type');
+                            });
+                    });
+            })
+            ->where('teaching_loads.id', $id)
+            ->select([
+                'teaching_loads.*',
+                'users.username as teacher_name',
+                'subjects.name as subject_name',
+                'grade_map.id as grade_id',
+                'grade_map.education_program',
+                'grade_map.class_profile',
+                'grade_subjects.is_teaching_activity',
+                'grade_subjects.is_extracurricular',
+                'grade_subjects.is_club',
+                DB::raw("COALESCE(CONCAT(grade_map.name, ' ', grade_map.section), CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
+            ])
+            ->first();
+
+        if (! $teachingLoad) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Teaching load not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $teachingLoad,
+        ]);
+    }
+
+    public function getByTeacher(string $teacherId): JsonResponse
+    {
+        return $this->getTeacherWorkload(request(), $teacherId);
+    }
+
+    public function getByInstitution(string $institutionId): JsonResponse
+    {
+        $user = request()->user();
+
+        // Data isolation: Verify user has access to this institution
+        if (! \App\Helpers\DataIsolationHelper::canAccessInstitution($user, (int) $institutionId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu müəssisəyə giriş icazəniz yoxdur.',
+            ], 403);
+        }
+
+        $academicYearId = request()->query('academic_year_id');
+
+        $teachingLoads = DB::table('teaching_loads')
+            ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
+            ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
+            ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
+            ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'teaching_loads.teacher_id')
+            ->leftJoin('teacher_profiles', 'teacher_profiles.user_id', '=', 'teaching_loads.teacher_id')
+            ->leftJoin('teacher_workplaces', function ($join) use ($institutionId) {
+                $join->on('teacher_workplaces.user_id', '=', 'teaching_loads.teacher_id')
+                    ->where('teacher_workplaces.institution_id', $institutionId);
+            })
+            ->leftJoin('grade_subjects', function ($join) {
+                $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
+                    ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id')
+                    ->on(function ($query) {
+                        $query->on('grade_subjects.education_type', '=', 'teaching_loads.education_type')
+                            ->orWhere(function ($q) {
+                                $q->whereNull('grade_subjects.education_type')
+                                    ->whereNull('teaching_loads.education_type');
+                            });
+                    });
+            })
+            ->where('classes.institution_id', $institutionId)
+            ->whereNull('teaching_loads.deleted_at')
+            ->when($academicYearId, fn ($q) => $q->where('classes.academic_year_id', $academicYearId))
+            ->select([
+                'teaching_loads.id',
+                'teaching_loads.weekly_hours',
+                // Teacher identity — name fields live in user_profiles; users table has no patronymic column
+                DB::raw("COALESCE(NULLIF(users.username, ''), NULLIF(users.utis_code, ''), NULLIF(user_profiles.utis_code, ''), user_profiles.national_id) as employee_id"),
+                DB::raw('COALESCE(user_profiles.first_name, users.first_name) as first_name'),
+                DB::raw('COALESCE(user_profiles.last_name, users.last_name) as last_name'),
+                'user_profiles.patronymic',
+                // Consolidate position and specialty from multiple sources
+                DB::raw('COALESCE(teacher_workplaces.position_type, user_profiles.position_type) as position_type'),
+                DB::raw('COALESCE(user_profiles.specialty, teacher_profiles.specialization) as specialty'),
+                'user_profiles.assessment_type',
+                'user_profiles.assessment_score',
+                // Class info
+                'classes.grade_level',
+                'classes.section',
+                // Subject
+                'subjects.name as subject_name',
+                // Grade map id
+                'grade_map.id as grade_id',
+                // Education type breakdown based on teaching load education_type
+                DB::raw("CASE WHEN teaching_loads.education_type = 'umumi' OR teaching_loads.education_type IS NULL THEN teaching_loads.weekly_hours ELSE 0 END as umumi_hours"),
+                DB::raw("CASE WHEN teaching_loads.education_type = 'ferdi' THEN teaching_loads.weekly_hours ELSE 0 END as individual_school_hours"),
+                DB::raw("CASE WHEN teaching_loads.education_type = 'evde' THEN teaching_loads.weekly_hours ELSE 0 END as home_education_hours"),
+                DB::raw("CASE WHEN teaching_loads.education_type = 'xususi' THEN teaching_loads.weekly_hours ELSE 0 END as special_education_hours"),
+                // Activity type breakdown
+                DB::raw('CASE WHEN grade_subjects.is_extracurricular = true THEN teaching_loads.weekly_hours ELSE 0 END as extracurricular_hours'),
+                DB::raw('CASE WHEN grade_subjects.is_club = true THEN teaching_loads.weekly_hours ELSE 0 END as club_hours'),
+                DB::raw('teaching_loads.weekly_hours as total_hours'),
+            ])
+            ->orderBy('user_profiles.last_name')
+            ->orderBy('user_profiles.first_name')
+            ->orderBy('classes.grade_level')
+            ->orderBy('classes.section')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $teachingLoads,
+        ]);
+    }
+
+    public function bulkAssign(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'assignments' => 'required|array',
+            'assignments.*.teacher_id' => 'required|exists:users,id',
+            'assignments.*.subject_id' => 'required|exists:subjects,id',
+            // Frontend sends Grade/Class (grades table) id
+            'assignments.*.class_id' => 'required|exists:grades,id',
+            'assignments.*.weekly_hours' => 'required|numeric|min:0.5|max:40',
+            'assignments.*.academic_year_id' => 'required|exists:academic_years,id',
+        ]);
+
+        $gradeIds = collect($validated['assignments'])->pluck('class_id')->unique()->all();
+        $grades = DB::table('grades')->whereIn('id', $gradeIds)->get()->keyBy('id');
+
+        // Fetch all potentially matching classes in one query
+        $existingClasses = DB::table('classes')
+            ->where(function ($q) use ($grades) {
+                foreach ($grades as $grade) {
+                    $q->orWhere(function ($sub) use ($grade) {
+                        $sub->where('institution_id', $grade->institution_id)
+                            ->where('academic_year_id', $grade->academic_year_id)
+                            ->where('grade_level', $grade->class_level)
+                            ->where('section', $grade->name);
+                    });
+                }
+            })
+            ->get()
+            ->keyBy(fn ($c) => "{$c->institution_id}_{$c->academic_year_id}_{$c->grade_level}_{$c->section}");
+
+        $insertData = [];
+        foreach ($validated['assignments'] as $assignment) {
+            $grade = $grades->get($assignment['class_id']);
+            if (! $grade) {
+                continue;
+            }
+
+            $cacheKey = "{$grade->institution_id}_{$grade->academic_year_id}_{$grade->class_level}_{$grade->name}";
+            $existingClass = $existingClasses->get($cacheKey);
+
+            $classId = $existingClass?->id;
+            if (! $classId) {
+                $classId = DB::table('classes')->insertGetId([
+                    'institution_id' => $grade->institution_id,
+                    'academic_year_id' => $grade->academic_year_id,
+                    'name' => (string) ($grade->class_level . $grade->name),
+                    'grade_level' => $grade->class_level,
+                    'section' => $grade->name,
+                    'max_capacity' => 30,
+                    'current_enrollment' => 0,
+                    'status' => 'active',
+                    'class_teacher_id' => null,
+                    'classroom_location' => null,
+                    'schedule_preferences' => json_encode([]),
+                    'metadata' => json_encode([
+                        'source' => 'teaching-loads',
+                        'grade_id' => $grade->id,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $insertData[] = array_merge($assignment, [
+                'class_id' => $classId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('teaching_loads')->insert($insertData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teaching loads assigned successfully',
+            'data' => ['count' => count($insertData)],
+        ]);
+    }
+
+    public function getAnalytics(): JsonResponse
+    {
+        $totalTeachers = DB::table('users')
+            ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->where('roles.name', 'müəllim')
+            ->where('model_has_roles.model_type', 'App\\Models\\User')
+            ->count();
+
+        $totalHoursAssigned = DB::table('teaching_loads')
+            ->whereNull('deleted_at')
+            ->sum('weekly_hours');
+
+        $overloadedTeachers = DB::table('teaching_loads')
+            ->whereNull('deleted_at')
+            ->select('teacher_id', DB::raw('SUM(weekly_hours) as total_hours'))
+            ->groupBy('teacher_id')
+            ->having('total_hours', '>', 24)
+            ->count();
+
+        $averageLoadPerTeacher = $totalTeachers > 0 ? $totalHoursAssigned / $totalTeachers : 0;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_teachers' => $totalTeachers,
+                'overloaded_teachers' => $overloadedTeachers,
+                'total_hours_assigned' => $totalHoursAssigned,
+                'average_load_per_teacher' => round($averageLoadPerTeacher, 2),
+            ],
+        ]);
+    }
+
+    /**
+     * Get teacher's assigned subjects with details
+     */
+    public function getTeacherSubjects(string $teacherId): JsonResponse
+    {
+        $teacherSubjects = DB::table('teacher_subjects')
+            ->join('subjects', 'teacher_subjects.subject_id', '=', 'subjects.id')
+            ->where('teacher_subjects.teacher_id', $teacherId)
+            ->where('teacher_subjects.is_active', true)
+            ->select([
+                'teacher_subjects.id',
+                'teacher_subjects.subject_id',
+                'subjects.name as subject_name',
+                'subjects.code as subject_code',
+                'teacher_subjects.grade_levels',
+                'teacher_subjects.specialization_level',
+                'teacher_subjects.is_primary_subject',
+                'teacher_subjects.max_hours_per_week',
+            ])
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $teacherSubjects,
+        ]);
+    }
+}

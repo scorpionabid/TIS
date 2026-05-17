@@ -2,17 +2,26 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection } from '../../types/documentCollection';
-import { Folder, FolderArchive, Plus, Edit, Trash2, Download, History, FileText, Search, Clock, Users, LayoutGrid, Building2, MapPin, GraduationCap, Lock, Unlock, User as UserIcon } from 'lucide-react';
+import { Folder, FolderArchive, Plus, Edit, Trash2, Download, History, FileText, Search, Clock, Users, LayoutGrid, Building2, MapPin, GraduationCap, Lock, Unlock, User as UserIcon, Link as LinkIcon, HardDrive, Star } from 'lucide-react';
 import { UnifiedFolderModal } from '@/components/modals/UnifiedFolderModal';
 import { Badge } from '@/components/ui/badge';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import FolderDocumentsViewOptimizedV2 from './FolderDocumentsViewOptimizedV2';
 import AuditLogViewer from './AuditLogViewer';
+import { ShareSettings } from './ShareSettings';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { canUserCreateRegionalFolder, canUserManageFolder } from '@/utils/permissions';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLongPress } from '@/hooks/useLongPress';
+
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 const FOLDER_SCOPE_KEY = 'atis-my-resources-folder-scope';
 
@@ -25,38 +34,20 @@ function readFolderDefault(): string {
 }
 
 const getFolderTabLevel = (
-  folder: DocumentCollection, 
-  userInstitutionId: number | null
+  folder: DocumentCollection
 ): number => {
-  const fOwnerId = folder.owner_institution_id || folder.institution_id;
-  const uInstId = userInstitutionId;
+  const targets = folder.target_institutions || folder.targetInstitutions || [];
+  const targetLevels = targets.map((t: any) => Number(t.level));
   
-  // Strict ownership check using Number() to avoid type mismatch
-  const isOwner = uInstId && Number(fOwnerId) === Number(uInstId);
-  const fOwnerLevel = Number(folder.owner_institution_level) || 2;
+  // Rule 1: If targets include school level (4), show in School tab
+  if (targetLevels.includes(4)) return 4;
   
-  if (isOwner) {
-    // Creator view: categorize by target level
-    const targets = folder.target_institutions || folder.targetInstitutions || [];
-    
-    // If no specific targets, stay in own level's tab
-    if (targets.length === 0) return fOwnerLevel;
-    
-    const targetLevels = targets.map((t: any) => Number(t.level));
-    
-    // Logic: If I create for schools, show in Schools tab. 
-    // If I create for sectors, show in Sectors tab.
-    // If I create for region/super, show in Region tab.
-    if (targetLevels.includes(4)) return 4;
-    if (targetLevels.includes(3)) return 3;
-    if (targetLevels.includes(1) || targetLevels.includes(2)) return 2;
-    
-    return fOwnerLevel;
-  } else {
-    // Recipient view: ALWAYS categorize by the source (owner) level
-    // This ensures Region's folders stay in "Region" tab for Sektor/School admins
-    return fOwnerLevel;
-  }
+  // Rule 2: If targets include sector level (3), show in Sector tab
+  // (Note: we check Rule 1 first, so if it has both 3 and 4, it goes to School tab)
+  if (targetLevels.includes(3)) return 3;
+  
+  // Rule 3: Otherwise (only region level (2) or no specific targets), show in Region tab
+  return 2; 
 };
 
 
@@ -110,6 +101,7 @@ const RegionalFolderManager: React.FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDocumentsView, setShowDocumentsView] = useState(false);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [showShareSettings, setShowShareSettings] = useState(false);
 
   const [folderSearch, setFolderSearch] = useState('');
 
@@ -145,11 +137,11 @@ const RegionalFolderManager: React.FC = () => {
     return {
       all: folders.length,
       region: folders.filter(f => {
-        const tabLevel = getFolderTabLevel(f, userInstitutionId);
+        const tabLevel = getFolderTabLevel(f);
         return tabLevel === 1 || tabLevel === 2;
       }).length,
-      sector: folders.filter(f => getFolderTabLevel(f, userInstitutionId) === 3).length,
-      school: folders.filter(f => getFolderTabLevel(f, userInstitutionId) === 4).length,
+      sector: folders.filter(f => getFolderTabLevel(f) === 3).length,
+      school: folders.filter(f => getFolderTabLevel(f) === 4).length,
     };
   }, [folders, userInstitutionId]);
 
@@ -161,26 +153,34 @@ const RegionalFolderManager: React.FC = () => {
       baseFolders = folders;
     } else if (activeTab === 'region') {
       baseFolders = folders.filter(f => {
-        const tabLevel = getFolderTabLevel(f, userInstitutionId);
+        const tabLevel = getFolderTabLevel(f);
         return tabLevel === 1 || tabLevel === 2;
       });
     } else if (activeTab === 'sector') {
-      baseFolders = folders.filter(f => getFolderTabLevel(f, userInstitutionId) === 3);
+      baseFolders = folders.filter(f => getFolderTabLevel(f) === 3);
     } else if (activeTab === 'school') {
-      baseFolders = folders.filter(f => getFolderTabLevel(f, userInstitutionId) === 4);
+      baseFolders = folders.filter(f => getFolderTabLevel(f) === 4);
     }
 
     // 2. Search-based filtering
-    if (!folderSearch.trim()) {
-      return baseFolders;
+    let searchResult = baseFolders;
+    if (folderSearch.trim()) {
+      const term = folderSearch.toLowerCase();
+      searchResult = baseFolders.filter((folder) => {
+        const nameMatch = folder.name?.toLowerCase().includes(term);
+        const ownerMatch = folder.ownerInstitution?.name?.toLowerCase().includes(term);
+        return Boolean(nameMatch || ownerMatch);
+      });
     }
 
-    const term = folderSearch.toLowerCase();
-
-    return baseFolders.filter((folder) => {
-      const nameMatch = folder.name?.toLowerCase().includes(term);
-      const ownerMatch = folder.ownerInstitution?.name?.toLowerCase().includes(term);
-      return Boolean(nameMatch || ownerMatch);
+    // 3. Sort: featured (starred) folders first, then by newest
+    return [...searchResult].sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured; // Featured first
+      }
+      return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
     });
   }, [folders, folderSearch, activeTab]);
 
@@ -250,6 +250,33 @@ const RegionalFolderManager: React.FC = () => {
     }
   };
 
+  const handleToggleFeatured = async (folder: DocumentCollection) => {
+    const previousFolders = queryClient.getQueryData<DocumentCollection[]>(['document-collections', { filtered: false }]);
+
+    if (previousFolders) {
+      queryClient.setQueryData(['document-collections', { filtered: false }], previousFolders.map(f => 
+        f.id === folder.id ? { ...f, is_featured: !f.is_featured } : f
+      ));
+    }
+
+    try {
+      await documentCollectionService.toggleFeatured(folder.id);
+      toast({
+        title: folder.is_featured ? 'Vurğu silindi' : 'Qovluq vurğulandı',
+      });
+      queryClient.invalidateQueries({ queryKey: ['document-collections'] });
+    } catch (err: any) {
+      if (previousFolders) {
+        queryClient.setQueryData(['document-collections', { filtered: false }], previousFolders);
+      }
+      toast({
+        title: 'Xəta baş verdi',
+        description: err.response?.data?.message || 'Əməliyyat yerinə yetirilə bilmədi',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleToggleLock = async (folder: DocumentCollection) => {
     // Snapshot current state for rollback
     const previousFolders = queryClient.getQueryData<DocumentCollection[]>(['document-collections']);
@@ -300,6 +327,11 @@ const RegionalFolderManager: React.FC = () => {
   const openAuditLogs = (folder: DocumentCollection) => {
     setSelectedFolder(folder);
     setShowAuditLogs(true);
+  };
+
+  const openShareSettings = (folder: DocumentCollection) => {
+    setSelectedFolder(folder);
+    setShowShareSettings(true);
   };
 
   const currentInstitutionFoldersCount = useMemo(() => {
@@ -497,8 +529,15 @@ const RegionalFolderManager: React.FC = () => {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <h3 className={`font-semibold text-gray-900 truncate ${viewMode === 'comfortable' ? 'text-base' : 'text-sm'}`}>
+                          <h3 className={`font-semibold text-gray-900 truncate flex items-center gap-2 ${viewMode === 'comfortable' ? 'text-base' : 'text-sm'}`}>
                             {folder.name}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleToggleFeatured(folder); }}
+                              className={`focus:outline-none transition-colors ${folder.is_featured ? 'text-amber-400 hover:text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+                              title={folder.is_featured ? 'Vurğunu sil' : 'Vurğula'}
+                            >
+                              <Star size={16} fill={folder.is_featured ? "currentColor" : "none"} />
+                            </button>
                           </h3>
                           {viewMode === 'comfortable' && folder.description && (
                             <p className="text-sm text-gray-500 line-clamp-1">{folder.description}</p>
@@ -551,25 +590,30 @@ const RegionalFolderManager: React.FC = () => {
                               >
                                 {folder.participating_institutions_count || 0} / {targetCount} Müəssisə (Monitorinq)
                               </button>
-                              <span>{documentCount} Sənəd</span>
+                              <span>{documentCount} Sənəd ({formatFileSize(folder.total_size || 0)})</span>
                             </div>
                           </div>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <FileText size={10} /> {documentCount} fayl
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 font-medium">
+                            <span className="flex items-center gap-1 text-blue-600">
+                              <Building2 size={11} /> 
+                              {folder.participating_institutions_count || 0}/{targetCount} müəs.
                             </span>
                             <span className="flex items-center gap-1">
-                              <Users size={10} /> {targetCount} hədəf
+                              <FileText size={11} /> {documentCount} fayl
+                            </span>
+                            <span className="flex items-center gap-1 bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-bold">
+                              <HardDrive size={11} /> 
+                              {formatFileSize(folder.total_size || 0)}
                             </span>
                           </div>
                           {/* Mini progress for compact */}
                           <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-blue-400" 
-                              style={{ width: `${Math.min(100, (documentCount / (targetCount || 1)) * 100)}%` }}
+                              className="h-full bg-blue-500 transition-all duration-300" 
+                              style={{ width: `${Math.min(100, ((folder.participating_institutions_count || 0) / (targetCount || 1)) * 100)}%` }}
                             />
                           </div>
                         </div>
@@ -615,6 +659,17 @@ const RegionalFolderManager: React.FC = () => {
 
                       {canUserManageFolder(user, folder) && (
                         <>
+                          <button
+                            onClick={() => openShareSettings(folder)}
+                            className={`flex items-center gap-1 rounded transition-colors ${
+                              viewMode === 'comfortable' ? 'px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700' : 'p-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600'
+                            }`}
+                            title="Linklə paylaş"
+                          >
+                            <LinkIcon size={viewMode === 'comfortable' ? 16 : 14} />
+                            {viewMode === 'comfortable' && 'Paylaş'}
+                          </button>
+
                           <button
                             onClick={() => handleToggleLock(folder)}
                             className={`rounded-lg border transition-colors ${
@@ -721,6 +776,16 @@ const RegionalFolderManager: React.FC = () => {
           folder={selectedFolder}
           onClose={() => {
             setShowAuditLogs(false);
+            setSelectedFolder(null);
+          }}
+        />
+      )}
+
+      {showShareSettings && selectedFolder && (
+        <ShareSettings
+          folder={selectedFolder}
+          onClose={() => {
+            setShowShareSettings(false);
             setSelectedFolder(null);
           }}
         />

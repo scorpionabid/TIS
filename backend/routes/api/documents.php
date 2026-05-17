@@ -44,6 +44,10 @@ Route::prefix('document-collections')->group(function () {
         ->middleware('permission:documents.create');
     Route::post('/{folder}/toggle-lock', [DocumentCollectionController::class, 'toggleLock'])
         ->middleware('permission:documents.update');
+    Route::post('/{folder}/toggle-featured', [DocumentCollectionController::class, 'toggleFeatured'])
+        ->middleware('permission:documents.update');
+    Route::post('/{folder}/share-links', [\App\Http\Controllers\API\FolderShareApiController::class, 'create'])
+        ->middleware('permission:documents.share');
 });
 
 // Document Management Routes
@@ -59,6 +63,7 @@ Route::prefix('documents')->group(function () {
     Route::post('/', [DocumentController::class, 'store'])->middleware('permission:documents.create');
     Route::get('/{document}', [DocumentController::class, 'show'])->middleware('permission:documents.read');
     Route::put('/{document}', [DocumentController::class, 'update'])->middleware('permission:documents.update');
+    Route::post('/{documentId}/toggle-featured', [DocumentController::class, 'toggleFeatured'])->middleware('permission:documents.update');
     Route::delete('/{document}', [DocumentController::class, 'destroy'])->middleware('permission:documents.delete');
     Route::get('/{document}/download', [DocumentController::class, 'download']);
     Route::get('/{document}/preview', [DocumentController::class, 'preview'])->middleware('permission:documents.read');

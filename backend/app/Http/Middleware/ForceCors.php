@@ -8,6 +8,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ForceCors
 {
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
         // Handle preflight OPTIONS request
@@ -17,42 +22,46 @@ class ForceCors
             $response = $next($request);
         }
 
-        // Add CORS headers
+        // Get the Origin header
         $origin = $request->headers->get('Origin');
+        
+        // List of allowed origins from config
         $allowedOrigins = config('cors.allowed_origins', [
             'http://localhost:3000',
             'http://127.0.0.1:3000',
         ]);
 
+        // Basic check
         $isAllowedOrigin = $origin && in_array($origin, $allowedOrigins, true);
 
-        // DEBUG: Log the result
-        if ($origin) {
-            \Illuminate\Support\Facades\Log::info("CORS Debug: Origin={$origin}, isAllowed=" . ($isAllowedOrigin ? 'true' : 'false') . ', Allowed=' . json_encode($allowedOrigins));
+        // Fallback for local development
+        if (!$isAllowedOrigin && $origin) {
+            // Check if it's localhost or 127.0.0.1 with any port (for dev)
+            if (preg_match('#^http://(localhost|127\.0\.0\.1)(:\d+)?$#', $origin)) {
+                $isAllowedOrigin = true;
+            }
+            // Check if it matches allowed patterns or wildcard
+            if (!$isAllowedOrigin && in_array('*', $allowedOrigins, true)) {
+                $isAllowedOrigin = true;
+            }
         }
 
-        // If not found in simple list, check with regex or wildcard (if * exists in config)
-        if (! $isAllowedOrigin && $origin && in_array('*', $allowedOrigins, true)) {
-            $isAllowedOrigin = true;
+        // DEBUG: Log the result (optional, can be disabled in production)
+        if ($origin && config('app.debug')) {
+            try {
+                \Illuminate\Support\Facades\Log::debug("CORS Check: Origin={$origin}, isAllowed=" . ($isAllowedOrigin ? 'true' : 'false'));
+            } catch (\Throwable $e) {
+                // Silently ignore log failures - don't let a logging error break CORS
+            }
         }
 
-        // Regex fallback for local IP ranges if needed
-        if (! $isAllowedOrigin && $origin) {
-            $isAllowedOrigin = (bool) preg_match('#^http://(?:10\.|127\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)\d{1,3}\.\d{1,3}:3000$#', $origin);
-        }
-
-        // CORS header-ları yalnız icazəli origin üçün set edilir
+        // If origin is allowed, add CORS headers
         if ($isAllowedOrigin && $origin) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
-            $response->headers->set('Vary', 'Origin');
             $response->headers->set('Access-Control-Allow-Credentials', 'true');
-            // Sabit metodlar — reflection yox
             $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            // Sabit headerlar — attacker-ın göndərdiyi dəyər echo edilmir
-            $response->headers->set(
-                'Access-Control-Allow-Headers',
-                'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN'
-            );
+            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN, Accept, Origin');
+            $response->headers->set('Vary', 'Origin');
         }
 
         return $response;

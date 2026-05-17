@@ -72,7 +72,7 @@ export function UserTargeting({ form }: UserTargetingProps) {
 
   const { data: assignableUsers = [], isLoading } = useQuery({
     queryKey: ['resource-target-users', currentUser?.role, singleRoleFilter ?? 'all'],
-    queryFn: () => resourceService.getTargetUsers({ role: singleRoleFilter, per_page: 200 }),
+    queryFn: () => resourceService.getTargetUsers({ role: singleRoleFilter, per_page: 1000 }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -160,23 +160,52 @@ export function UserTargeting({ form }: UserTargetingProps) {
     });
   }, []);
 
+  // Seçilmiş istifadəçilərin rollarından target_roles avtomatik hesabla
+  // Bu, tab filter-in (Region/Sektor/Məktəb) düzgün işləməsi üçün lazımdır
+  const syncTargetRoles = useCallback((newUserIds: number[]) => {
+    const roles = [
+      ...new Set(
+        newUserIds
+          .map(id => userCache[id])
+          .filter(Boolean)
+          .map(u => normalizeRole(u.role))
+          .filter(r => !!r),
+      ),
+    ];
+    form.setValue('target_roles', roles);
+  }, [form, userCache]);
+
   const handleToggle = useCallback((userId: number, checked: boolean) => {
-    form.setValue('target_users',
-      checked ? [...new Set([...selectedUserIds, userId])]
-              : selectedUserIds.filter((id: number) => id !== userId)
-    );
-  }, [form, selectedUserIds]);
+    const newIds = checked
+      ? [...new Set([...selectedUserIds, userId])]
+      : selectedUserIds.filter((id: number) => id !== userId);
+    form.setValue('target_users', newIds);
+    syncTargetRoles(newIds);
+  }, [form, selectedUserIds, syncTargetRoles]);
 
   const handleRemoveSelected = useCallback((userId: number) => {
-    form.setValue('target_users', selectedUserIds.filter((id: number) => id !== userId));
-  }, [form, selectedUserIds]);
+    const newIds = selectedUserIds.filter((id: number) => id !== userId);
+    form.setValue('target_users', newIds);
+    syncTargetRoles(newIds);
+  }, [form, selectedUserIds, syncTargetRoles]);
 
-  const handleClearAll = useCallback(() => form.setValue('target_users', []), [form]);
+  const handleClearAll = useCallback(() => {
+    form.setValue('target_users', []);
+    form.setValue('target_roles', []);
+  }, [form]);
 
   const selectGroup = useCallback((users: AssignableUser[]) => {
-    const ids = users.map(u => u.id);
-    form.setValue('target_users', [...new Set([...selectedUserIds, ...ids])]);
-  }, [form, selectedUserIds]);
+    const newIds = [...new Set([...selectedUserIds, ...users.map(u => u.id)])];
+    form.setValue('target_users', newIds);
+    syncTargetRoles(newIds);
+  }, [form, selectedUserIds, syncTargetRoles]);
+
+  const deselectGroup = useCallback((users: AssignableUser[]) => {
+    const idsToRemove = new Set(users.map(u => u.id));
+    const newIds = selectedUserIds.filter((id: number) => !idsToRemove.has(id));
+    form.setValue('target_users', newIds);
+    syncTargetRoles(newIds);
+  }, [form, selectedUserIds, syncTargetRoles]);
 
   const toggleRole = (key: RoleFilterKey) => {
     setRoleFilters(prev => {
@@ -207,7 +236,10 @@ export function UserTargeting({ form }: UserTargetingProps) {
 
   const GroupHeader = ({ label, count, groupKey, allUsers }: { label: string; count: number; groupKey: string; allUsers: AssignableUser[] }) => {
     const expanded = expandedGroups.has(groupKey);
-    const allSelected = allUsers.length > 0 && allUsers.every(u => selectedUserIds.includes(u.id));
+    const selectedInGroup = allUsers.filter(u => selectedUserIds.includes(u.id));
+    const allSelected = allUsers.length > 0 && selectedInGroup.length === allUsers.length;
+    const someSelected = selectedInGroup.length > 0 && !allSelected;
+
     return (
       <div className="flex items-center gap-2 px-3 py-2 bg-muted/20 hover:bg-muted/40 transition-colors">
         <button type="button" className="flex-1 flex items-center gap-2 text-left min-w-0"
@@ -221,14 +253,21 @@ export function UserTargeting({ form }: UserTargetingProps) {
             <span className="text-[10px] text-muted-foreground">{count} istifadəçi</span>
           </div>
         </button>
-        {!allSelected ? (
-          <button type="button" onClick={() => selectGroup(allUsers)}
-            className="shrink-0 text-[10px] font-semibold text-primary hover:text-primary/80 px-2 py-1 rounded hover:bg-primary/10 transition-all whitespace-nowrap">
-            Hamısını seç
-          </button>
-        ) : (
-          <span className="shrink-0 text-[10px] font-semibold text-emerald-600 px-2">✓ Hamısı</span>
-        )}
+        <div className="flex items-center gap-2">
+          {!allSelected && (
+            <button type="button" onClick={() => selectGroup(allUsers)}
+              className="shrink-0 text-[10px] font-semibold text-primary hover:text-primary/80 px-2 py-1 rounded hover:bg-primary/10 transition-all whitespace-nowrap">
+              Hamısını seç
+            </button>
+          )}
+          {(allSelected || someSelected) && (
+            <button type="button" onClick={() => deselectGroup(allUsers)}
+              className="shrink-0 text-[10px] font-semibold text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-all whitespace-nowrap">
+              Seçimi ləğv et
+            </button>
+          )}
+          {allSelected && <span className="shrink-0 text-[10px] font-semibold text-emerald-600 px-1">✓</span>}
+        </div>
       </div>
     );
   };
@@ -349,8 +388,12 @@ export function UserTargeting({ form }: UserTargetingProps) {
                         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                           Region Adminlər ({rg.regionAdmins.length})
                         </span>
-                        <button type="button" onClick={() => selectGroup(rg.regionAdmins)}
-                          className="text-[10px] text-primary hover:underline">Hamısını seç</button>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => selectGroup(rg.regionAdmins)}
+                            className="text-[10px] text-primary hover:underline">Hamısını seç</button>
+                          <button type="button" onClick={() => deselectGroup(rg.regionAdmins)}
+                            className="text-[10px] text-red-600 hover:underline">Hamısını sil</button>
+                        </div>
                       </div>
                       {rg.regionAdmins.map(u => <UserRow key={u.id} user={u} />)}
                     </div>
@@ -363,8 +406,12 @@ export function UserTargeting({ form }: UserTargetingProps) {
                         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                           Region Operatorlar ({rg.regionOperators.length})
                         </span>
-                        <button type="button" onClick={() => selectGroup(rg.regionOperators)}
-                          className="text-[10px] text-primary hover:underline">Hamısını seç</button>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => selectGroup(rg.regionOperators)}
+                            className="text-[10px] text-primary hover:underline">Hamısını seç</button>
+                          <button type="button" onClick={() => deselectGroup(rg.regionOperators)}
+                            className="text-[10px] text-red-600 hover:underline">Hamısını sil</button>
+                        </div>
                       </div>
                       {rg.regionOperators.map(u => <UserRow key={u.id} user={u} />)}
                     </div>
@@ -383,20 +430,32 @@ export function UserTargeting({ form }: UserTargetingProps) {
                           <div>
                             {sg.sectorAdmins.length > 0 && (
                               <div>
-                                <div className="px-4 py-1 bg-muted/10">
+                                <div className="px-4 py-1 bg-muted/10 flex items-center justify-between">
                                   <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                                     Sektor Adminlər
                                   </span>
+                                  <div className="flex items-center gap-2">
+                                    <button type="button" onClick={() => selectGroup(sg.sectorAdmins)}
+                                      className="text-[10px] text-primary hover:underline">Hamısını seç</button>
+                                    <button type="button" onClick={() => deselectGroup(sg.sectorAdmins)}
+                                      className="text-[10px] text-red-600 hover:underline">Hamısını sil</button>
+                                  </div>
                                 </div>
                                 {sg.sectorAdmins.map(u => <UserRow key={u.id} user={u} />)}
                               </div>
                             )}
                             {sg.schoolAdmins.length > 0 && (
                               <div>
-                                <div className="px-4 py-1 bg-muted/10">
+                                <div className="px-4 py-1 bg-muted/10 flex items-center justify-between">
                                   <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                                     Məktəb Adminlər
                                   </span>
+                                  <div className="flex items-center gap-2">
+                                    <button type="button" onClick={() => selectGroup(sg.schoolAdmins)}
+                                      className="text-[10px] text-primary hover:underline">Hamısını seç</button>
+                                    <button type="button" onClick={() => deselectGroup(sg.schoolAdmins)}
+                                      className="text-[10px] text-red-600 hover:underline">Hamısını sil</button>
+                                  </div>
                                 </div>
                                 {sg.schoolAdmins.map(u => <UserRow key={u.id} user={u} />)}
                               </div>

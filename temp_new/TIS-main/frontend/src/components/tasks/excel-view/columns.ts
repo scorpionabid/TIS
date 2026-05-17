@@ -1,0 +1,137 @@
+/**
+ * Excel Table Column Configuration
+ *
+ * Defines the 12 columns for the Excel-like task interface
+ */
+
+export interface ExcelColumn {
+  id: string;
+  label: string;
+  width: string;
+  sortable: boolean;
+  editable: boolean;
+  type: 'text' | 'dropdown' | 'number' | 'readonly' | 'multiselect';
+  hideOnMobile?: boolean;
+}
+
+export const excelColumns: ExcelColumn[] = [
+  {
+    id: 'row_number',
+    label: '№',
+    width: 'w-[60px]',
+    sortable: false,
+    editable: false,
+    type: 'readonly',
+  },
+  {
+    id: 'title',
+    label: 'Tapşırıq Adı',
+    width: 'w-[250px]',
+    sortable: true,
+    editable: true,
+    type: 'text',
+  },
+  {
+    id: 'source',
+    label: 'Daxil olduğu yer',
+    width: 'w-[140px]',
+    sortable: true,
+    editable: true,
+    type: 'dropdown',
+    hideOnMobile: true,
+  },
+  {
+    id: 'priority',
+    label: 'Prioritet',
+    width: 'w-[120px]',
+    sortable: true,
+    editable: true,
+    type: 'dropdown',
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    width: 'w-[130px]',
+    sortable: true,
+    editable: false,
+    type: 'readonly',
+  },
+  {
+    id: 'created_by_user',
+    label: 'Təyin edən',
+    width: 'w-[140px]',
+    sortable: true,
+    editable: false,
+    type: 'readonly',
+  },
+  {
+    id: 'assignees',
+    label: 'Məsul Şəxs',
+    width: 'w-[200px]',
+    sortable: false,
+    editable: true,
+    type: 'multiselect',
+  },
+  {
+    id: 'delegated_to',
+    label: 'Yönləndirilib',
+    width: 'w-[160px]',
+    sortable: false,
+    editable: false,
+    type: 'readonly',
+  },
+  {
+    id: 'created_at',
+    label: 'Yaranma Tarixi',
+    width: 'w-[140px]',
+    sortable: true,
+    editable: false,
+    type: 'readonly',
+    hideOnMobile: true,
+  },
+  {
+    id: 'deadline_progress',
+    label: 'Son Tarix / Vaxt',
+    width: 'w-[150px]',
+    sortable: false,
+    editable: false,
+    type: 'readonly',
+  },
+  {
+    id: 'progress',
+    label: 'İrəliləyiş (%)',
+    width: 'w-[140px]',
+    sortable: true,
+    editable: true,
+    type: 'number',
+  },
+  {
+    id: 'actions',
+    label: 'Əməliyyat',
+    width: 'w-[170px]',
+    sortable: false,
+    editable: false,
+    type: 'readonly',
+  },
+];
+
+/**
+ * Get column by ID
+ */
+export function getColumnById(id: string): ExcelColumn | undefined {
+  return excelColumns.find((col) => col.id === id);
+}
+
+/**
+ * Get editable columns
+ */
+export function getEditableColumns(): ExcelColumn[] {
+  return excelColumns.filter((col) => col.editable);
+}
+
+/**
+ * Get column index by ID
+ */
+export function getColumnIndex(id: string): number {
+  return excelColumns.findIndex((col) => col.id === id);
+}

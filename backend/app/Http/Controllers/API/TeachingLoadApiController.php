@@ -283,7 +283,7 @@ class TeachingLoadApiController extends Controller
         ])->get();
 
         $totalHours = $workload->sum('weekly_hours');
-        $maxHours = 24;
+        $maxHours = 18;
 
         return response()->json([
             'success' => true,

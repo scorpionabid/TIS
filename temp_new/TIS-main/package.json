@@ -1,0 +1,18 @@
+{
+  "name": "atis",
+  "version": "2.0.0",
+  "private": true,
+  "description": "ATİS - Azərbaycan Təhsil İdarəetmə Sistemi",
+  "scripts": {
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && composer lint",
+    "lint:fix": "npm run lint:fix:frontend && npm run lint:fix:backend",
+    "lint:fix:frontend": "cd frontend && npm run lint:fix",
+    "lint:fix:backend": "cd backend && composer lint",
+    "typecheck": "cd frontend && npm run typecheck",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && composer test"
+  }
+}

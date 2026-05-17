@@ -22,6 +22,7 @@ import { dashboardService } from "@/services/dashboard";
 import { SurveyDashboardWidget } from "./SurveyDashboardWidget";
 import { useLayout } from "@/contexts/LayoutContext";
 import { cn } from "@/lib/utils";
+import { translateActivityDescription } from "@/lib/activityTranslator";
 
 // Types
 interface DashboardStats {
@@ -279,7 +280,7 @@ export const SuperAdminDashboard = () => {
                       <p className="text-sm font-medium text-foreground">{activity.title}</p>
                       <span className="text-xs text-muted-foreground">{activity.time ? activity.time : new Date(activity.created_at).toLocaleTimeString('az-AZ', {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{translateActivityDescription(activity.description)}</p>
                   </div>
                 ))}
               </div>

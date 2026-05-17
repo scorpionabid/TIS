@@ -25,9 +25,13 @@ import {
   Edit,
   Trash2,
   MoreVertical,
+  Star,
 } from 'lucide-react';
 import { AssignedResource } from '@/types/resources';
 import { resourceService } from '@/services/resources';
+import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { documentService } from '@/services/documents';
 
 interface AssignedResourceGridProps {
   resources: AssignedResource[];
@@ -151,6 +155,40 @@ export function AssignedResourceGrid({
   currentUserRole,
   viewMode = 'comfortable',
 }: AssignedResourceGridProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleToggleFeatured = async (e: React.MouseEvent, resource: AssignedResource) => {
+    e.stopPropagation();
+    try {
+      if (resource.type === 'document') {
+        await documentService.toggleFeatured(resource.id);
+      } else {
+        await resourceService.update(resource.id, 'link', {
+          title: resource.title,
+          url: resource.url!,
+          link_type: resource.link_type!,
+          share_scope: resource.share_scope,
+          is_featured: !resource.is_featured,
+          target_institutions: (resource.target_institutions || []).map(Number),
+          target_users: (resource.target_users || []).map(Number),
+          target_roles: resource.target_roles || [],
+          target_departments: (resource.target_departments || []).map(Number),
+        });
+      }
+      toast({
+        title: resource.is_featured ? 'Vurğu silindi' : (resource.type === 'document' ? 'Sənəd vurğulandı' : 'Link vurğulandı'),
+      });
+      queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
+    } catch (err: any) {
+      toast({
+        title: 'Xəta baş verdi',
+        description: err.response?.data?.message || 'Əməliyyat yerinə yetirilə bilmədi',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (resources.length === 0) {
     return (
       <div className="text-center py-10">
@@ -192,10 +230,27 @@ export function AssignedResourceGrid({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className="text-sm font-medium leading-tight truncate"
+                      className="text-sm font-medium leading-tight truncate flex items-center gap-1"
                       title={resource.title}
                     >
                       {resource.title}
+                      {isManager ? (
+                        <button
+                          onClick={(e) => handleToggleFeatured(e, resource)}
+                          className={`focus:outline-none transition-colors ${
+                            resource.is_featured
+                              ? 'text-amber-400 hover:text-amber-500'
+                              : 'text-gray-300 hover:text-amber-400'
+                          }`}
+                          title={resource.is_featured ? 'Vurğunu sil' : 'Vurğula'}
+                        >
+                          <Star className="h-3 w-3" fill={resource.is_featured ? "currentColor" : "none"} />
+                        </button>
+                      ) : (
+                        resource.is_featured && (
+                          <Star className="h-3 w-3 text-amber-400 fill-amber-400 flex-shrink-0" />
+                        )
+                      )}
                     </p>
                     <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                       {resource.type === 'link' && resource.url

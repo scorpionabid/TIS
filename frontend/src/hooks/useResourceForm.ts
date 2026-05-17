@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { institutionService } from "@/services/institutions";
+import type { Institution } from "@/services/institutions";
 import { resourceService } from "@/services/resources";
 import { Resource, CreateResourceData } from "@/types/resources";
 
@@ -31,14 +32,16 @@ const linkSchema = z.object({
 const documentBaseSchema = {
   type: z.literal('document'),
   title: z.string().min(1, 'Başlıq tələb olunur'),
-  description: z.string().optional(),
-  category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other']).optional(),
+  description: z.string().nullable().optional(),
+  category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other', '']).nullable().optional(),
   target_institutions: z.array(z.number()).optional(),
   target_departments: z.array(z.number()).optional(),
   target_roles: z.array(z.string()).optional(),
+  target_users: z.array(z.number()).optional(),
+  is_featured: z.boolean().optional(),
   is_downloadable: z.boolean().optional(),
   is_viewable_online: z.boolean().optional(),
-  expires_at: z.string().optional(),
+  expires_at: z.string().nullable().optional(),
 };
 
 const documentCreateSchema = z.object({
@@ -48,7 +51,7 @@ const documentCreateSchema = z.object({
 
 const documentEditSchema = z.object({
   ...documentBaseSchema,
-  file: z.instanceof(File).optional(),
+  file: z.instanceof(File).nullable().optional(),
 });
 
 const getResourceSchema = (mode: 'create' | 'edit') => {
@@ -61,16 +64,70 @@ type ResourceFormData = z.infer<ReturnType<typeof getResourceSchema>>;
 
 interface UseResourceFormProps {
   isOpen: boolean;
-  activeTab: 'links' | 'documents';
+  resourceType: 'link' | 'document';
   resource?: Resource | null;
   mode: 'create' | 'edit';
   onResourceSaved?: (resource: Resource) => void;
   onClose: () => void;
 }
 
+function buildDefaultValues(
+  resourceType: 'link' | 'document',
+  resource: Resource | null | undefined,
+  mode: 'create' | 'edit',
+) {
+  const base = {
+    type: resourceType === 'link' ? ('link' as const) : ('document' as const),
+    title: '',
+    description: '',
+    target_institutions: [] as number[],
+    target_roles: [] as string[],
+    target_departments: [] as number[],
+    target_users: [] as number[],
+    url: '',
+    link_type: 'external' as const,
+    share_scope: 'institutional' as const,
+    is_featured: false,
+    expires_at: '',
+    category: null as string | null,
+    is_downloadable: true,
+    is_viewable_online: true,
+  };
+
+  if (resource && mode === 'edit') {
+    return {
+      ...base,
+      type: resource.type as 'link' | 'document',
+      title: resource.title ?? '',
+      description: resource.description ?? '',
+      target_institutions: (resource.target_institutions || [])
+        .map(Number).filter((n: number) => !isNaN(n)),
+      target_roles: resource.target_roles || [],
+      target_departments: (resource.target_departments || [])
+        .map(Number).filter((n: number) => !isNaN(n)),
+      target_users: (resource.target_users || [])
+        .map(Number).filter((n: number) => !isNaN(n)),
+      is_featured: resource.is_featured ?? false,
+      expires_at: resource.expires_at ?? '',
+      ...(resource.type === 'link' && {
+        url: resource.url ?? '',
+        link_type: (resource.link_type ?? 'external') as 'external' | 'video' | 'form' | 'document',
+        share_scope: (resource.share_scope ?? 'institutional') as
+          'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users',
+      }),
+      ...(resource.type === 'document' && {
+        category: resource.category ?? null,
+        is_downloadable: resource.is_downloadable ?? true,
+        is_viewable_online: resource.is_viewable_online ?? true,
+      }),
+    };
+  }
+  return base;
+}
+
 export function useResourceForm({
   isOpen,
-  activeTab,
+  resourceType,
   resource,
   mode,
   onResourceSaved,
@@ -80,44 +137,18 @@ export function useResourceForm({
   const { currentUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const resolver = useMemo(() => zodResolver(getResourceSchema(mode)), [mode]);
+
+  const form = useForm<ResourceFormData>({
+    resolver,
+    defaultValues: buildDefaultValues(resourceType, resource, mode),
+  });
+
   // Determine if user should see superior institutions (for targeting)
-  // SchoolAdmin → sector + region, SektorAdmin → region, RegionAdmin → none (top level)
   const shouldUseSuperiorInstitutions = currentUser &&
     ['schooladmin', 'sektoradmin', 'regionadmin', 'regionoperator'].includes(currentUser.role);
 
-  // Form setup with dynamic schema based on active tab and mode
-  const form = useForm<ResourceFormData>({
-    resolver: zodResolver(getResourceSchema(mode)),
-    defaultValues: {
-      type: activeTab === 'links' ? 'link' : 'document',
-      title: '',
-      description: '',
-      target_institutions: [],
-      target_roles: [],
-      target_departments: [],
-      target_users: [],
-      // Link defaults
-      url: '',
-      link_type: 'external',
-      share_scope: 'institutional',
-      is_featured: false,
-      expires_at: '',
-      // Document defaults
-      category: 'educational',
-      is_downloadable: true,
-      is_viewable_online: true,
-    },
-  });
-
-  // Update resolver when mode changes
-  useEffect(() => {
-    form.resolver = zodResolver(getResourceSchema(mode));
-  }, [mode, form]);
-
   // Load institutions for targeting with optimized pagination
-  // SchoolAdmin & SektorAdmin see only superior institutions
-  // Others see all accessible institutions
-  // Reduced per_page from 1000 to 100 for better performance (600+ schools)
   const [shouldLoadInstitutions, setShouldLoadInstitutions] = useState(false);
 
   useEffect(() => {
@@ -126,17 +157,14 @@ export function useResourceForm({
     }
   }, [isOpen]);
 
-  const { data: institutions, isLoading: isLoadingInstitutions, error: institutionsError } = useQuery({
+  const { data: institutions } = useQuery({
     queryKey: ['target-institutions', currentUser?.role, currentUser?.institution_id],
     queryFn: async () => {
-      // Region/Sektor admins should see institutions in their scope (downward targeting)
-      // School admins might want to share upward or within their school
       if (currentUser?.role === 'regionadmin' || currentUser?.role === 'sektoradmin') {
-        const response = await institutionService.getAll({ per_page: 500 }); // Get all accessible
+        const response = await institutionService.getAll({ per_page: 500 });
         return response.data;
       }
       
-      // Default to superior institutions for other roles (upward sharing)
       if (shouldUseSuperiorInstitutions) {
         try {
           return await resourceService.getSuperiorInstitutions();
@@ -157,129 +185,61 @@ export function useResourceForm({
     return institutions || [];
   }, [institutions]);
 
-  // Update form when active tab changes
+  // Update form when resource type changes
   useEffect(() => {
-    const newType = activeTab === 'links' ? 'link' : 'document';
+    const newType = resourceType;
     if (newType !== form.getValues('type')) {
       form.setValue('type', newType as any);
     }
-  }, [activeTab, form]);
+  }, [resourceType, form]);
 
-  // Populate form when editing
-  useEffect(() => {
-    if (resource && mode === 'edit' && isOpen) {
-      form.reset({
-        type: resource.type,
-        title: resource.title,
-        description: resource.description || '',
-        target_institutions: (resource.target_institutions || []).map(Number).filter(n => !isNaN(n)),
-        target_roles: resource.target_roles || [],
-        target_departments: (resource.target_departments || []).map(Number).filter(n => !isNaN(n)),
-        target_users: (resource.target_users || []).map(Number).filter(n => !isNaN(n)),
-        // Link fields
-        ...(resource.type === 'link' && {
-          url: resource.url || '',
-          link_type: resource.link_type || 'external',
-          share_scope: resource.share_scope || 'institutional',
-          is_featured: resource.is_featured || false,
-          expires_at: resource.expires_at || '',
-        }),
-        // Document fields
-        ...(resource.type === 'document' && {
-          category: resource.category || '',
-          is_downloadable: resource.is_downloadable ?? true,
-          is_viewable_online: resource.is_viewable_online ?? true,
-        }),
-      });
-    }
-  }, [resource, mode, isOpen, form]);
-
-  // Set default target institutions for schooladmin/sektoradmin when creating new resource
-  const hasDefaultedInstitutionsRef = React.useRef(false);
-
-  const maybeDefaultInstitutions = useCallback((force = false) => {
-    if (
-      (!force && hasDefaultedInstitutionsRef.current) ||
-      !shouldUseSuperiorInstitutions ||
-      !availableInstitutions.length
-    ) {
-      console.log('[useResourceForm] skipping default institutions', {
-        force,
-        hasDefaulted: hasDefaultedInstitutionsRef.current,
-        shouldUseSuperiorInstitutions,
-        availableCount: availableInstitutions.length,
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-    const superiorIds = availableInstitutions.map((inst: any) => inst.id);
-    form.setValue('target_institutions', superiorIds, { shouldDirty: true });
-    hasDefaultedInstitutionsRef.current = true;
-    console.log('🎯 Default target institutions set lazily:', superiorIds.length);
-  }, [shouldUseSuperiorInstitutions, availableInstitutions, form]);
-
-  useEffect(() => {
-    // Auto-selection deaktiv edilib — istifadəçi özü seçir
-  }, [isOpen]);
-
-  // Reset form when modal closes
+  // Modal bağlananda file-ı sıfırla (form key ilə reset olur)
   useEffect(() => {
     if (!isOpen) {
-      console.log('[useResourceForm] modal closing, resetting form state');
-      form.reset();
       setSelectedFile(null);
-      hasDefaultedInstitutionsRef.current = false;
     }
-  }, [isOpen, form]);
+  }, [isOpen]);
 
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === 'target_institutions') {
-        console.log('[useResourceForm] target_institutions changed', {
-          value: value?.target_institutions,
-          length: value?.target_institutions?.length || 0,
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
-    return () => subscription.unsubscribe?.();
-  }, [form]);
 
   const handleSubmit = async (data: ResourceFormData) => {
     try {
-      // Auto-select superior institutions if SchoolAdmin/SektorAdmin and none selected
-      if (
-        shouldUseSuperiorInstitutions &&
-        data.share_scope !== 'specific_users' &&
-        (!data.target_institutions || data.target_institutions.length === 0) &&
-        availableInstitutions.length > 0
-      ) {
-        const superiorIds = availableInstitutions.map((inst: any) => inst.id);
-        data.target_institutions = superiorIds;
-        console.log('🎯 Auto-selected superior institutions on submit:', superiorIds);
+      const hasUsers = (data.target_users && data.target_users.length > 0);
+      const hasInstitutions = (data.target_institutions && data.target_institutions.length > 0);
+
+      if (hasUsers && !hasInstitutions) {
+        data.share_scope = 'specific_users';
+      } else if (hasInstitutions) {
+        // Seçilmiş müəssisələrin minimum səviyyəsindən share_scope hesabla:
+        //   Level 2 (region)  → 'regional'
+        //   Level 3 (sektor)  → 'sectoral'
+        //   Level 4 (məktəb)  → 'institutional'
+        const selectedIds = (data.target_institutions as number[]).map(Number);
+        const selectedInsts = availableInstitutions.filter((inst: Institution) => selectedIds.includes(Number(inst.id)));
+        const levels = selectedInsts
+          .map((inst: Institution) => Number(inst.level))
+          .filter((lvl: number) => !isNaN(lvl) && lvl > 0);
+
+        if (levels.length > 0) {
+          const minLevel = Math.min(...levels);
+          if (minLevel <= 2) data.share_scope = 'regional';
+          else if (minLevel === 3) data.share_scope = 'sectoral';
+          else data.share_scope = 'institutional';
+        }
       }
 
       if (data.share_scope === 'specific_users') {
         data.target_institutions = [];
-        console.log('🚫 Cleared target_institutions because share_scope is specific_users');
       }
 
-      console.log('🔥 handleSubmit called with data:', data);
-      console.log('📁 selectedFile:', selectedFile);
-      console.log('📋 activeTab:', activeTab);
-      console.log('🔧 mode:', mode);
-      console.log('📄 editing resource:', resource);
+      // Boş category backend-ə göndərilməsin (nullable field)
+      if ('category' in data && !data.category) {
+        delete (data as Record<string, unknown>).category;
+      }
 
-      // Ensure file is included for document uploads (create mode) or when new file selected (edit mode)
       const resourceData: CreateResourceData = {
         ...data,
-        ...(activeTab === 'documents' && (mode === 'create' || selectedFile) ? { file: selectedFile } : {}),
+        ...(resourceType === 'document' && (mode === 'create' || selectedFile) ? { file: selectedFile } : {}),
       };
-
-      console.log('🎯 Final resourceData:', {
-        ...resourceData,
-        file: resourceData.file ? `File(${resourceData.file.name}, ${resourceData.file.size} bytes)` : 'No file'
-      });
 
       let savedResource: Resource;
 
@@ -287,13 +247,13 @@ export function useResourceForm({
         savedResource = await resourceService.create(resourceData);
         toast({
           title: 'Uğurla yaradıldı',
-          description: `${activeTab === 'links' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə yaradıldı`,
+          description: `${resourceType === 'link' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə yaradıldı`,
         });
       } else if (resource) {
         savedResource = await resourceService.update(resource.id, resource.type, resourceData);
         toast({
           title: 'Uğurla yeniləndi',
-          description: `${activeTab === 'links' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə yeniləndi`,
+          description: `${resourceType === 'link' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə yeniləndi`,
         });
       } else {
         throw new Error('Resource not found for editing');
@@ -306,7 +266,7 @@ export function useResourceForm({
       console.error('Resource save error:', error);
       toast({
         title: 'Xəta baş verdi',
-        description: error.message || `${activeTab === 'links' ? 'Link' : 'Sənəd'} saxlanılarkən xəta`,
+        description: error.message || `${resourceType === 'link' ? 'Link' : 'Sənəd'} saxlanılarkən xəta`,
         variant: 'destructive',
       });
     }
@@ -314,7 +274,6 @@ export function useResourceForm({
 
   return {
     form,
-    maybeDefaultInstitutions,
     selectedFile,
     setSelectedFile,
     availableInstitutions,

@@ -484,6 +484,8 @@ class TaskPermissionService extends BaseService
 
         if ($user->hasRole('sektoradmin')) {
             return [
+                'regionadmin',
+                'regionoperator',
                 'sektoradmin',
                 'sektoroperator',
                 'schooladmin',
@@ -753,8 +755,14 @@ class TaskPermissionService extends BaseService
             return collect();
         }
 
-        // Broaden scope for project management context to allow cross-regional collaboration
-        $institutionScope = $isProjectContext ? [] : $this->getUserInstitutionScope($user, $originScope);
+        // Project context: only superadmin/admin see all regions by default.
+        // RegionAdmin/RegionOperator must explicitly request cross_region=true (collaboration tab).
+        $crossRegionRequested = filter_var($filters['cross_region'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $isCrossRegionAllowed = $isProjectContext && (
+            $crossRegionRequested ||
+            $user->hasAnyRole(['superadmin', 'admin'])
+        );
+        $institutionScope = $isCrossRegionAllowed ? [] : $this->getUserInstitutionScope($user, $originScope);
         $institutionFilter = $filters['institution_id'] ?? null;
 
         // region_id: fetch all users across the region's full institution hierarchy
@@ -767,16 +775,16 @@ class TaskPermissionService extends BaseService
                     [(int) $regionId],
                     $regionInstitution->getAllChildrenIds()
                 ));
-                
-                // Restrict to user's allowed scope ONLY if not in project context
+
+                // Restrict to user's allowed scope unless cross-region access is granted
                 if (!empty($institutionScope)) {
                     $regionInstitutionIds = array_values(array_intersect($regionInstitutionIds, $institutionScope));
                 }
             }
         }
 
-        // Validate institution filter against scope (only if not project context)
-        if (!$isProjectContext && $institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
+        // Validate institution filter against scope (skip if cross-region allowed)
+        if (!$isCrossRegionAllowed && $institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
             return collect();
         }
 

@@ -145,8 +145,15 @@ export default function MyResources() {
 
   const resourcesData = useMemo(() => {
     let data = [...rawResources];
-    // Default sort: ən yeni əvvəl
-    data.sort((a, b) => new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime());
+    // Default sort: featured first, then by date (newest first)
+    data.sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured; // Featured first
+      }
+      return new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime();
+    });
     if (categoryFilter !== 'all') {
       data = data.filter(r => r.type === 'document' ? r.category === categoryFilter : r.link_type === categoryFilter);
     }
@@ -213,9 +220,14 @@ export default function MyResources() {
     }
   }, [queryClient, toast]);
 
-  const handleEditResource = useCallback((resource: AssignedResource) => {
-    setEditingResource(resource);
+  const handleEditResource = useCallback(async (resource: AssignedResource) => {
     setResourceModalType(resource.type);
+    try {
+      const fresh = await resourceService.getById(resource.id, resource.type);
+      setEditingResource(fresh as AssignedResource);
+    } catch {
+      setEditingResource(resource);
+    }
     setIsResourceModalOpen(true);
   }, []);
 
@@ -319,7 +331,7 @@ export default function MyResources() {
         <CardContent className="pt-4 px-4 pb-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)} className="w-full">
 
-            <TabsList className="flex w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-8">
+            <TabsList className="flex w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-4 sm:gap-8 overflow-x-auto scrollbar-none flex-nowrap whitespace-nowrap">
               <TabsTrigger value="links" className={TAB_TRIGGER_CLASS}>
                 <div className="flex items-center gap-2">
                   <Link className="h-3.5 w-3.5" />
@@ -452,6 +464,7 @@ export default function MyResources() {
       />
 
       <UnifiedResourceModal
+        key={editingResource?.id ?? 'create'}
         isOpen={isResourceModalOpen}
         type={resourceModalType}
         resource={editingResource}

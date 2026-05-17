@@ -99,7 +99,7 @@ class ProjectController extends Controller
         $user = Auth::user();
         $project = \App\Models\Project::with(['employees', 'creator'])->findOrFail($id);
         
-        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
         $hasAssignedActivity = $project->activities()->where(function($q) use ($user) {
@@ -126,11 +126,16 @@ class ProjectController extends Controller
         ]);
 
         // is_editable: project creator, project members, OR specifically assigned employees
-        $activities->each(function ($activity) use ($canEditAll, $user) {
-            $isAssigned = $activity->user_id === $user->id || 
+        // Sub-activities da daxil olmaqla rekursiv set et
+        $setEditable = function ($activity) use (&$setEditable, $canEditAll, $user) {
+            $isAssigned = $activity->user_id === $user->id ||
                           $activity->assignedEmployees->contains('id', $user->id);
             $activity->is_editable = $canEditAll || $isAssigned;
-        });
+            foreach ($activity->subActivities as $sub) {
+                $setEditable($sub);
+            }
+        };
+        $activities->each($setEditable);
 
         // Manually set the activities relation on the project model
         $project->setRelation('activities', $activities);
@@ -148,7 +153,7 @@ class ProjectController extends Controller
         $user = Auth::user();
 
         // Authorization (same as show)
-        $isAdmin = $user->hasAnyRole(['regionadmin', 'admin', 'superadmin']);
+        $isAdmin = $user->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin', 'admin', 'superadmin']);
         $isCreator = $project->created_by === $user->id;
         $isProjectMember = $project->assignments()->where('user_id', $user->id)->exists();
 
@@ -329,6 +334,24 @@ class ProjectController extends Controller
         ]);
 
         return response()->json($attachment, 201);
+    }
+
+    /**
+     * Delete an attachment.
+     */
+    public function deleteAttachment($attachmentId)
+    {
+        $attachment = \App\Models\Upload::findOrFail($attachmentId);
+
+        // Yalnız yükləyən və ya admin silə bilər
+        if ($attachment->user_id !== Auth::id() && !Auth::user()->hasAnyRole(['superadmin', 'admin'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+        $attachment->delete();
+
+        return response()->json(['success' => true]);
     }
 
     /**

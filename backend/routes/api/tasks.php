@@ -42,6 +42,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/tasks/creation-context', [TaskPermissionController::class, 'getTaskCreationContext']);
     Route::get('/tasks/assignable-users', [TaskPermissionController::class, 'getAssignableUsers']);
     Route::get('/tasks/mentionable-users', [TaskPermissionController::class, 'getMentionableUsers']);
+    // All regional institutions without scope isolation — for project member region selector
+    Route::get('/tasks/regions', function () {
+        $regions = \App\Models\Institution::where('type', 'regional_education_department')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        return response()->json(['data' => $regions]);
+    });
 
     /*
     |--------------------------------------------------------------------------

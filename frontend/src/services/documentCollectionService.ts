@@ -125,6 +125,13 @@ class DocumentCollectionService {
     return (response as { success: boolean; data: DocumentCollection }).data;
   }
 
+  async toggleFeatured(folderId: number): Promise<DocumentCollection> {
+    const response = await api.post<{ success: boolean; data: DocumentCollection }>(
+      `${this.basePath}/${folderId}/toggle-featured`
+    );
+    return (response as { success: boolean; data: DocumentCollection }).data;
+  }
+
   async bulkDownload(folderId: number): Promise<Blob> {
     const response = await api.get<Blob>(
       `${this.basePath}/${folderId}/download`,
@@ -181,6 +188,20 @@ class DocumentCollectionService {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  }
+
+  async createShareLink(folderId: number, data: { days: number; can_upload?: boolean }): Promise<any> {
+    return await api.post(`${this.basePath}/${folderId}/share-links`, data);
+  }
+
+  async getShareLinkInfo(token: string): Promise<any> {
+    return await api.get(`/folder-share/${token}`);
+  }
+
+  async publicUploadToShare(token: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return await api.post(`/folder-share/${token}/upload`, formData);
   }
 }
 

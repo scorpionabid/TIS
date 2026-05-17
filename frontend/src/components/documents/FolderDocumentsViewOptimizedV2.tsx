@@ -8,6 +8,7 @@ import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 import { getFolderUploadPermission, isUserSchoolAdmin } from '@/utils/permissions';
 import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 interface FolderDocumentsViewOptimizedV2Props {
   folder: DocumentCollection;
@@ -114,8 +115,8 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       setListError(null);
 
       const params: any = {
-        page: currentPage,
-        per_page: 50, // Load more for better grouping
+        page: 1, // Always load from first page
+        per_page: 2000, // Load everything to avoid pagination
         sort_by: sortBy,
         sort_direction: sortDirection,
       };
@@ -142,7 +143,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearchQuery, fileTypeFilter, folder.id, sortBy, sortDirection]);
+  }, [debouncedSearchQuery, fileTypeFilter, folder.id, sortBy, sortDirection]);
 
   useEffect(() => {
     loadDocuments();
@@ -171,9 +172,13 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
         };
       }
 
-      acc[sectorKey].institutions.push(inst);
-      acc[sectorKey].total_documents += inst.document_count;
-      acc[sectorKey].total_size += inst.total_size;
+      // Check for duplicate institution in this sector to be safe
+      const exists = acc[sectorKey].institutions.some(i => i.institution_id === inst.institution_id);
+      if (!exists) {
+        acc[sectorKey].institutions.push(inst);
+        acc[sectorKey].total_documents += (Number(inst.document_count) || 0);
+        acc[sectorKey].total_size += (Number(inst.total_size) || 0);
+      }
 
       return acc;
     }, {} as Record<string | number, SectorGroup>);
@@ -327,91 +332,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
   const isSchoolAdmin = isUserSchoolAdmin(user);
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (meta && currentPage < meta.total_pages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const renderPagination = () => {
-    if (!meta || meta.total_pages <= 1) return null;
-
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
-
-    if (meta.total_pages <= maxVisible) {
-      for (let i = 1; i <= meta.total_pages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-
-      if (currentPage > 3) {
-        pages.push('...');
-      }
-
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(meta.total_pages - 1, currentPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      if (currentPage < meta.total_pages - 2) {
-        pages.push('...');
-      }
-
-      pages.push(meta.total_pages);
-    }
-
-    return (
-      <div className="flex items-center gap-2 justify-center mt-4">
-        <button
-          onClick={handlePreviousPage}
-          disabled={currentPage === 1}
-          className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Əvvəlki
-        </button>
-
-        {pages.map((page, index) =>
-          typeof page === 'number' ? (
-            <button
-              key={index}
-              onClick={() => handlePageChange(page)}
-              className={`px-3 py-1 text-sm border rounded ${
-                currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'
-              }`}
-            >
-              {page}
-            </button>
-          ) : (
-            <span key={index} className="px-2 text-gray-400">
-              {page}
-            </span>
-          )
-        )}
-
-        <button
-          onClick={handleNextPage}
-          disabled={currentPage === meta.total_pages}
-          className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Növbəti
-        </button>
-      </div>
-    );
-  };
+  const renderPagination = () => null;
 
   const [activeViewTab, setActiveViewTab] = useState<'documents' | 'monitoring'>('documents');
 
@@ -441,19 +362,61 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     });
   }, [activeViewTab, targetInstitutions, institutions]);
 
+  const handleExportToExcel = () => {
+    if (monitoringData.length === 0) return;
+
+    const exportData = monitoringData.map(item => ({
+      'Müəssisə Adı': item.name,
+      'Status': item.hasUploaded ? 'Yüklənib' : 'Gözlənilir',
+      'Sənəd Sayı': item.documentCount,
+      'Ümumi Həcm': formatFileSize(item.total_size || 0),
+      'Son Yükləmə': item.lastUpload ? formatDate(item.lastUpload) : '—'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Monitorinq');
+
+    // Auto-size columns
+    const colWidths = [
+      { wch: 50 }, // Müəssisə Adı
+      { wch: 15 }, // Status
+      { wch: 12 }, // Sənəd Sayı
+      { wch: 15 }, // Ümumi Həcm
+      { wch: 25 }, // Son Yükləmə
+    ];
+    worksheet['!cols'] = colWidths;
+
+    const fileName = `${folder.name}_Monitorinq_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    
+    toast({
+      title: 'Eksport tamamlandı',
+      description: 'Monitorinq siyahısı Excel formatında yükləndi.'
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h2 className="text-2xl font-semibold text-gray-900">{folder.name}</h2>
-              <p className="text-gray-600 mt-1">{folder.description || 'Qovluq sənədləri'}</p>
+        <div className="p-4 sm:p-6 border-b border-gray-200 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-lg sm:text-2xl font-semibold text-gray-900 truncate">{folder.name}</h2>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 flex-shrink-0 sm:hidden"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              <p className="text-gray-600 mt-0.5 text-sm">{folder.description || 'Qovluq sənədləri'}</p>
 
               {/* Statistics */}
               {meta && (
-                <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-gray-400">Ümumi Sənəd</span>
                     <span className="flex items-center gap-1 text-blue-600 font-bold">
@@ -461,7 +424,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       {meta.total_documents}
                     </span>
                   </div>
-                  <div className="w-px h-8 bg-gray-200" />
+                  <div className="w-px h-8 bg-gray-200 hidden xs:block" />
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-gray-400">İştirakçı Müəssisələr</span>
                     <span className="flex items-center gap-1 text-green-600 font-bold">
@@ -469,7 +432,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       {meta.total_institutions} / {(folder.target_institutions || folder.targetInstitutions || []).length || meta.total_institutions}
                     </span>
                   </div>
-                  <div className="w-px h-8 bg-gray-200" />
+                  <div className="w-px h-8 bg-gray-200 hidden xs:block" />
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-gray-400">Ümumi Həcm</span>
                     <span className="flex items-center gap-1 text-indigo-600 font-bold">
@@ -481,7 +444,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {user && (
                 <div className="flex flex-col items-end">
                   <button
@@ -493,17 +456,17 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                       setShowUploadZone(!showUploadZone);
                     }}
                     disabled={!canUpload}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors h-10 ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors h-9 text-sm ${
                       canUpload
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    <Upload size={18} />
-                    <span className="font-medium">{showUploadZone ? 'Gizlət' : 'Yüklə'}</span>
+                    <Upload size={16} />
+                    <span className="font-medium hidden sm:inline">{showUploadZone ? 'Gizlət' : 'Yüklə'}</span>
                   </button>
                   {uploadPermission.maxSizeMb && (
-                    <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">
+                    <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap hidden sm:block">
                       Limit: {uploadPermission.maxSizeMb} MB
                     </span>
                   )}
@@ -511,25 +474,21 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
               )}
 
               {meta && meta.total_documents > 0 && (
-                <div className="flex flex-col items-end">
-                  <button
-                    onClick={handleBulkDownload}
-                    disabled={bulkDownloading}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors h-10"
-                  >
-                    <Archive size={18} />
-                    <span className="font-medium">{bulkDownloading ? 'Hazırlanır...' : 'ZIP Yüklə'}</span>
-                  </button>
-                  {/* Empty space to keep vertical alignment consistent with the upload button's limit text */}
-                  <div className="h-[14px]" />
-                </div>
+                <button
+                  onClick={handleBulkDownload}
+                  disabled={bulkDownloading}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors h-9 text-sm"
+                >
+                  <Archive size={16} />
+                  <span className="font-medium hidden sm:inline">{bulkDownloading ? 'Hazırlanır...' : 'ZIP Yüklə'}</span>
+                </button>
               )}
 
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 -mt-4"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 hidden sm:block"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
             </div>
           </div>
@@ -593,7 +552,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
             {/* Advanced Filters */}
             {showFilters && (
-              <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">
+              <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-lg">
                 <select
                   value={fileTypeFilter}
                   onChange={(e) => setFileTypeFilter(e.target.value)}
@@ -845,28 +804,11 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                   <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
                     <h3 className="font-semibold text-gray-700">İştirak Statistikası</h3>
                     <button 
-                      onClick={() => {
-                        const headers = ["Müəssisə", "Status", "Fayl Sayı", "Ümumi Həcm", "Son Yükləmə"];
-                        const rows = monitoringData.map(item => [
-                          item.name,
-                          item.hasUploaded ? "Yüklənib" : "Gözlənilir",
-                          item.documentCount,
-                          formatFileSize(item.total_size || 0),
-                          item.lastUpload ? new Date(item.lastUpload).toLocaleDateString('az-AZ') : "-"
-                        ]);
-                        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-                        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-                        const link = document.createElement("a");
-                        link.href = URL.createObjectURL(blob);
-                        link.setAttribute("download", `monitorinq_${folder.name}.csv`);
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                      onClick={handleExportToExcel}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-bold shadow-sm"
                     >
                       <Download size={14} />
-                      Excel (CSV) Eksport
+                      XLSX Eksport
                     </button>
                   </div>
                   <div className="overflow-x-auto">

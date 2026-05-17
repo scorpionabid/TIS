@@ -38,5 +38,8 @@ Route::middleware([\App\Http\Middleware\ForceCors::class])->group(function () {
 
     // Application configuration endpoint (public — yalnız UI config, həssas məlumat yox)
     Route::get('config/app', [ConfigController::class, 'getAppConfig']);
-    // config/constants və test/websocket/info → auth arxasına köçürüldü (auth.php)
+    // Folder share public routes
+    Route::get('folder-share/{token}', [\App\Http\Controllers\API\FolderShareApiController::class, 'info']);
+    Route::get('folder-share/{token}/download/{document}', [\App\Http\Controllers\API\FolderShareApiController::class, 'downloadDocument']);
+    Route::get('folder-share/{token}/download-all', [\App\Http\Controllers\API\FolderShareApiController::class, 'downloadAll']);
 });

@@ -18,6 +18,7 @@ import {
   Star, Calendar, Upload, X, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useWatch } from 'react-hook-form';
 import { useResourceForm } from '@/hooks/useResourceForm';
 import { InstitutionTargeting } from '@/components/resources/InstitutionTargeting';
 import { UserTargeting } from '@/components/resources/UserTargeting';
@@ -39,16 +40,17 @@ interface UnifiedResourceModalProps {
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
 const LINK_TABS = [
-  { id: 'general',      label: 'Ümumi',       mobileLabel: 'Ümumi',   icon: Link2,     color: 'blue'   },
-  { id: 'institutions', label: 'Müəssisələr', mobileLabel: 'Müəss.',  icon: Building2, color: 'green'  },
-  { id: 'users',        label: 'İstifadəçilər',mobileLabel: 'İstif.',  icon: UsersIcon, color: 'violet' },
-  { id: 'features',     label: 'Özəllik',     mobileLabel: 'Özəllik', icon: Sparkles,  color: 'amber'  },
+  { id: 'general',      label: 'Ümumi',        icon: Link2,     color: 'blue'   },
+  { id: 'institutions', label: 'Müəssisələr',  icon: Building2, color: 'green'  },
+  { id: 'users',        label: 'İstifadəçilər', icon: UsersIcon, color: 'violet' },
+  { id: 'features',     label: 'Özəllik',      icon: Sparkles,  color: 'amber'  },
 ] as const;
 
 const DOC_TABS = [
-  { id: 'general',      label: 'Ümumi',       mobileLabel: 'Ümumi',  icon: FileText,  color: 'blue'   },
-  { id: 'institutions', label: 'Müəssisələr', mobileLabel: 'Müəss.', icon: Building2, color: 'green'  },
-  { id: 'users',        label: 'İstifadəçilər',mobileLabel: 'İstif.', icon: UsersIcon, color: 'violet' },
+  { id: 'general',      label: 'Ümumi',        icon: FileText,  color: 'blue'   },
+  { id: 'institutions', label: 'Müəssisələr',  icon: Building2, color: 'green'  },
+  { id: 'users',        label: 'İstifadəçilər', icon: UsersIcon, color: 'violet' },
+  { id: 'features',     label: 'Özəllik',      icon: Sparkles,  color: 'amber'  },
 ] as const;
 
 type LinkTabId = typeof LINK_TABS[number]['id'];
@@ -102,6 +104,7 @@ function LinkGeneralSection({ form }: { form: any }) {
 
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-right-3 duration-200">
+      {/* Title */}
       <div>
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Başlıq *</Label>
         <Input
@@ -114,6 +117,7 @@ function LinkGeneralSection({ form }: { form: any }) {
         )}
       </div>
 
+      {/* URL */}
       <div>
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">URL *</Label>
         <div className="relative mt-1.5">
@@ -134,9 +138,9 @@ function LinkGeneralSection({ form }: { form: any }) {
           <p className="text-xs text-red-500 mt-1">{form.formState.errors.url.message}</p>
         )}
         {preview && (
-          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg overflow-hidden">
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="text-xs font-semibold text-blue-800 truncate break-all">{preview.host}</p>
+          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-blue-800 truncate">{preview.host}</p>
               <p className="text-[10px] text-blue-600">{preview.proto.toUpperCase()}</p>
             </div>
             <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 shrink-0">
@@ -149,6 +153,7 @@ function LinkGeneralSection({ form }: { form: any }) {
         )}
       </div>
 
+      {/* Link Type */}
       <div>
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Link Növü *</Label>
         <Select
@@ -167,6 +172,7 @@ function LinkGeneralSection({ form }: { form: any }) {
         </Select>
       </div>
 
+      {/* Description */}
       <div>
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Açıqlama</Label>
         <Textarea
@@ -182,7 +188,7 @@ function LinkGeneralSection({ form }: { form: any }) {
 
 function InstitutionsSection({ form, availableInstitutions }: { form: any; availableInstitutions: any[] }) {
   return (
-    <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-right-3 duration-200">
+    <div className="animate-in fade-in slide-in-from-right-3 duration-200">
       <InstitutionTargeting form={form} availableInstitutions={availableInstitutions} />
     </div>
   );
@@ -190,26 +196,36 @@ function InstitutionsSection({ form, availableInstitutions }: { form: any; avail
 
 function UsersSection({ form }: { form: any }) {
   return (
-    <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-right-3 duration-200">
+    <div className="animate-in fade-in slide-in-from-right-3 duration-200">
       <UserTargeting form={form} />
     </div>
   );
 }
 
 function LinkFeaturesSection({ form }: { form: any }) {
-  const featured = form.watch('is_featured');
+  const featured = useWatch({
+    control: form.control,
+    name: 'is_featured',
+    defaultValue: false
+  });
+  const type = form.watch('type');
+  const isLink = type === 'link';
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-3 duration-200">
       {/* Featured toggle */}
       <button
         type="button"
-        onClick={() => form.setValue('is_featured', !featured)}
+        onClick={() => {
+          const newVal = !featured;
+          console.log('[LinkFeaturesSection] Toggling is_featured to:', newVal);
+          form.setValue('is_featured', newVal, { shouldDirty: true, shouldTouch: true });
+        }}
         className={cn(
-          'w-full p-5 border-2 border-dashed rounded-xl text-left transition-all',
+          'w-full p-5 border-2 border-dashed rounded-xl text-left transition-all duration-300 transform active:scale-[0.98]',
           featured
-            ? 'border-amber-400 bg-amber-50 shadow-sm'
-            : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/40'
+            ? 'border-amber-400 bg-amber-50 shadow-md scale-[1.01]'
+            : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/40 shadow-sm'
         )}
       >
         <div className="flex items-center gap-4">
@@ -221,10 +237,12 @@ function LinkFeaturesSection({ form }: { form: any }) {
           </div>
           <div className="flex-1">
             <p className={cn('font-bold text-sm', featured ? 'text-amber-800' : 'text-gray-700')}>
-              Vurğulanmış Link
+              {isLink ? 'Vurğulanmış Link' : 'Vurğulanmış Sənəd'}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              {featured ? 'Bu link yuxarıda vurğulanmış bölmədə göstəriləcək.' : 'Aktivləşdirmək üçün basın.'}
+              {featured
+                ? (isLink ? 'Bu link yuxarıda vurğulanmış bölmədə göstəriləcək.' : 'Bu sənəd yuxarıda vurğulanmış bölmədə göstəriləcək.')
+                : 'Aktivləşdirmək üçün basın.'}
             </p>
           </div>
           <div className={cn(
@@ -321,7 +339,7 @@ function DocGeneralSection({ form, selectedFile, setSelectedFile, mode, currentF
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</Label>
           <Select value={form.watch('category')} onValueChange={v => form.setValue('category', v)}>
@@ -392,31 +410,19 @@ export function UnifiedResourceModal({
 
   const [activeTab, setActiveTab] = useState(tabs[0].id);
 
-  // Reset tab on open
+  // Reset tab on open — həmişə general tab-dan başla
   useEffect(() => {
     if (!isOpen) return;
-    // Edit rejimində seçilmiş data-ya görə tab açılır
-    if (mode === 'edit' && resource) {
-      if ((resource.target_institutions?.length ?? 0) > 0) {
-        setActiveTab('institutions');
-      } else if ((resource.target_users?.length ?? 0) > 0) {
-        setActiveTab('users');
-      } else {
-        setActiveTab(tabs[0].id);
-      }
-    } else {
-      setActiveTab(tabs[0].id);
-    }
-  }, [isOpen, type, mode, resource]);
+    setActiveTab(tabs[0].id);
+  }, [isOpen, type]);
 
   const {
     form,
-    maybeDefaultInstitutions,
     selectedFile,
     setSelectedFile,
     availableInstitutions,
     handleSubmit,
-  } = useResourceForm({ isOpen, activeTab: isLink ? 'links' : 'documents', resource, mode, onResourceSaved, onClose });
+  } = useResourceForm({ isOpen, resourceType: isLink ? 'link' : 'document', resource, mode, onResourceSaved, onClose });
 
   const currentIdx  = tabs.findIndex(t => t.id === activeTab);
   const isFirst     = currentIdx === 0;
@@ -431,7 +437,7 @@ export function UnifiedResourceModal({
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent
-        className="w-full sm:max-w-[960px] p-0 flex flex-col sm:flex-row h-[94vh] sm:h-auto sm:max-h-[90vh] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
+        className="w-full sm:max-w-[960px] p-0 flex flex-col sm:flex-row h-[94vh] sm:h-[720px] sm:max-h-[820px] rounded-2xl overflow-hidden border-0 shadow-2xl gap-0 [&>[data-dialog-close]]:hidden"
       >
 
         {/* ── Mobile: horizontal tabs ── */}
@@ -446,19 +452,24 @@ export function UnifiedResourceModal({
             const Icon = tab.icon;
             const c = COLOR_MAP[tab.color];
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              <button key={tab.id} type="button" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveTab(tab.id);
+                }}
                 className={cn(
-                  'flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all',
                   activeTab === tab.id ? `${c.active.split(' ')[0]} ${c.text} shadow-sm` : 'text-gray-500 hover:bg-gray-100'
                 )}>
-                <Icon className="h-3 w-3" />{tab.mobileLabel}
+                <Icon className="h-3 w-3" />{tab.label}
               </button>
             );
           })}
         </div>
 
         {/* ── Desktop: left sidebar ── */}
-        <div className="hidden sm:flex sm:w-[180px] lg:w-[220px] shrink-0 flex-col bg-gray-50 border-r">
+        <div className="hidden sm:flex w-[200px] shrink-0 flex-col bg-gray-50 border-r">
           {/* Header */}
           <div className="p-5 border-b">
             <div className="flex items-center gap-2.5">
@@ -490,7 +501,13 @@ export function UnifiedResourceModal({
                 0;
 
               return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                <button key={tab.id} type="button" 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    console.log('💻 Desktop tab click:', tab.id);
+                    setActiveTab(tab.id); 
+                  }}
                   className={cn(
                     'w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all mb-1',
                     active ? `${c.active} ${c.text}` : 'text-gray-500 hover:bg-white hover:text-gray-800'
@@ -527,27 +544,33 @@ export function UnifiedResourceModal({
 
         {/* ── Right: content + footer ── */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          {/* institutions/users tab: flex-fill so only the list scrolls internally */}
-          <div className={cn(
-            'flex-1 min-h-0 p-6',
-            (activeTab === 'institutions' || activeTab === 'users')
-              ? 'flex flex-col overflow-hidden pb-4'
-              : 'overflow-y-auto'
-          )}>
+          <div className="flex-1 overflow-y-auto p-6">
             {/* Form-level errors */}
-            {form.formState.errors.title && (
-              <div className="shrink-0 mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
-                <X className="h-4 w-4 shrink-0 mt-0.5" />
-                {String(form.formState.errors.title.message)}
+            {Object.keys(form.formState.errors).length > 0 && (
+              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 space-y-1.5 animate-in fade-in duration-200">
+                {Object.entries(form.formState.errors).map(([field, error]: [string, any]) => {
+                  const errorMsg = error.message || (error.type?.message) || JSON.stringify(error);
+                  const fieldLabels: Record<string, string> = {
+                    title: 'Başlıq',
+                    url: 'URL',
+                    link_type: 'Link Növü',
+                    file: 'Fayl',
+                    category: 'Kateqoriya',
+                    share_scope: 'Paylaşım dairəsi',
+                  };
+                  const label = fieldLabels[field] || field;
+                  return (
+                    <div key={field} className="flex items-start gap-2">
+                      <X className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+                      <span className="leading-tight">
+                        <strong>{label}:</strong> {String(errorMsg)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
-            <form
-              id="unified-resource-form"
-              onSubmit={form.handleSubmit(handleSubmit)}
-              className={cn(
-                (activeTab === 'institutions' || activeTab === 'users') && 'flex-1 flex flex-col min-h-0'
-              )}
-            >
+            <form onSubmit={form.handleSubmit(handleSubmit)}>
               {activeTab === 'general' && isLink && <LinkGeneralSection form={form} />}
               {activeTab === 'general' && !isLink && (
                 <DocGeneralSection
@@ -577,8 +600,8 @@ export function UnifiedResourceModal({
             <div className="flex items-center gap-2">
               {isLast ? (
                 <Button
-                  type="submit"
-                  form="unified-resource-form"
+                  type="button"
+                  onClick={form.handleSubmit(handleSubmit)}
                   disabled={form.formState.isSubmitting}
                   className={cn('gap-1.5 px-6', isLink ? 'bg-blue-600 hover:bg-blue-700' : 'bg-violet-600 hover:bg-violet-700')}
                 >

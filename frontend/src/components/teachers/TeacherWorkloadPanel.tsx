@@ -35,12 +35,12 @@ interface WorkloadItem {
 }
 
 const MAX_HOURS_BY_TYPE: Record<string, number> = {
-  full_time: 24,
+  full_time: 18,
   part_time: 12,
-  contract: 20,
+  contract: 18,
   substitute: 18,
   mentor: 15,
-  practitioner: 25,
+  practitioner: 18,
 };
 
 export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({ 
@@ -64,7 +64,7 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
   const workload = workloadData?.data;
   const loads: WorkloadItem[] = workload?.loads || [];
 
-  const maxHours = MAX_HOURS_BY_TYPE[employmentType] || 24;
+  const maxHours = MAX_HOURS_BY_TYPE[employmentType] || 18;
   const currentTotal = workload?.total_hours || 0;
   const isNearLimit = (currentTotal / maxHours) >= 0.9;
 

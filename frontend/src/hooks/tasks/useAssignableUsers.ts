@@ -15,6 +15,7 @@ export interface UseAssignableUsersOptions {
   regionId?: number | null;
   search?: string;
   context?: 'project';
+  crossRegion?: boolean;
   perPage?: number;
   enabled?: boolean;
 }
@@ -28,6 +29,7 @@ export function useAssignableUsers({
   regionId = null,
   search = '',
   context,
+  crossRegion = false,
   perPage = DEFAULT_PER_PAGE,
   enabled = true,
 }: UseAssignableUsersOptions) {
@@ -40,6 +42,7 @@ export function useAssignableUsers({
       regionId,
       search,
       context,
+      crossRegion,
       perPage,
     },
   ] as const;
@@ -68,6 +71,7 @@ export function useAssignableUsers({
         region_id: regionId ?? undefined,
         search: search?.trim() || undefined,
         context: context ?? undefined,
+        cross_region: crossRegion || undefined,
         per_page: perPage,
         page: Number(pageParam ?? 1),
       }),

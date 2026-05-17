@@ -18,7 +18,7 @@ type TargetingMode = 'institutions' | 'users';
 interface LinkFormTabProps {
   form: any;
   availableInstitutions: Institution[];
-  maybeDefaultInstitutions?: () => void;
+  maybeDefaultInstitutions?: (forceSet?: boolean) => void;
   isOpen?: boolean;
   mode?: 'create' | 'edit';
   resource?: Resource | null;
@@ -67,14 +67,21 @@ export function LinkFormTab({
   const [linkTypeLockedByUser, setLinkTypeLockedByUser] = useState(false);
   const urlValue = form.watch('url');
   const currentLinkType = form.watch('link_type');
+  const watchedShareScope = form.watch('share_scope');
+
+  // Edit mode-da form.reset() async baş verir — share_scope dəyişəndə targetingMode sinxronlaşdır
+  useEffect(() => {
+    if (mode !== 'edit') return;
+    const newMode: TargetingMode = watchedShareScope === 'specific_users' ? 'users' : 'institutions';
+    setTargetingMode(newMode);
+  }, [watchedShareScope, mode]);
 
   // Clear the other targeting option when switching modes
   const handleTargetingModeChange = (mode: TargetingMode) => {
-    console.log('[LinkFormTab] targeting mode change:', mode);
     setTargetingMode(mode);
     if (mode === 'institutions') {
       form.setValue('target_users', []);
-      form.setValue('share_scope', 'institutional');
+      // share_scope is calculated automatically in handleSubmit based on institution levels
       // If we don't have institutions selected, try to default them
       if (form.getValues('target_institutions')?.length === 0) {
         maybeDefaultInstitutions?.(true);
@@ -118,9 +125,9 @@ export function LinkFormTab({
     }
   }, [isOpen, mode, resource, form]);
 
-  // Persist targeting selection whenever relevant fields change
+  // Persist targeting selection — yalnız create mode-da, edit modal localStorage-i korruptə etməsin
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || mode === 'edit') return;
     const subscription = form.watch((value: any, info: { name?: string }) => {
       if (!info?.name) return;
       if (['target_institutions', 'target_users', 'share_scope'].includes(info.name)) {
@@ -134,7 +141,7 @@ export function LinkFormTab({
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, targetingMode]);
+  }, [form, targetingMode, mode]);
 
   // Build URL preview info + auto-detect link type
   useEffect(() => {

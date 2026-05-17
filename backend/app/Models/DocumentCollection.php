@@ -45,9 +45,11 @@ class DocumentCollection extends Model
         'owner_institution_level',
         'allow_school_upload',
         'is_locked',
+        'is_featured',
     ];
 
     protected $casts = [
+        'is_featured' => 'boolean',
         'is_public' => 'boolean',
         'allowed_roles' => 'array',
         'sort_order' => 'integer',

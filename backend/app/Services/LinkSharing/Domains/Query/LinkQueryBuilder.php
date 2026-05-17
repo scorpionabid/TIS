@@ -588,19 +588,13 @@ class LinkQueryBuilder
                         });
                 });
 
-            // Exclude bulk links for managers to prevent duplication with the Personal Links tab
+            // Exclude bulk links for managers to prevent duplication with the Personal Links tab.
+            // Only use is_bulk_upload metadata flag — the previous heuristic (target_institutions.length==1
+            // + institutional/sectoral scope) incorrectly excluded legitimate regional links.
             if ($user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'regionoperator'])) {
-                $linksQuery->where(function ($q) {
-                    $q->where(function ($sq) {
-                        $sq->whereNull('metadata')
-                           ->orWhereJsonDoesntContain('metadata->is_bulk_upload', true);
-                    })
-                    ->where(function ($sub) {
-                        // Heuristic negation: exclude if target_institutions length is 1 AND scope is institutional/sectoral
-                        // So keep if length != 1 OR scope not in [institutional, sectoral]
-                        $sub->whereJsonLength('target_institutions', '!=', 1)
-                            ->orWhereNotIn('share_scope', ['institutional', 'sectoral']);
-                    });
+                $linksQuery->where(function ($sq) {
+                    $sq->whereNull('metadata')
+                       ->orWhereJsonDoesntContain('metadata->is_bulk_upload', true);
                 });
             }
 
@@ -624,10 +618,9 @@ class LinkQueryBuilder
 
             $links = $linksQuery->orderBy('created_at', 'desc')->get();
 
-            // Deduplicate: for each unique title, keep only the most specific link.
-            // A link targeting fewer institutions is more specific (e.g. [205] beats [2,3,...,361]).
-            // This prevents "bulk/all-schools" links from appearing alongside school-specific
-            // links with the same title on the my-resources page.
+            // Deduplicate: eyni başlıqlı linklər üçün ən spesifik versiyasını saxla.
+            // Ən az hədəf müəssisəsi = ən spesifik (məktəb > sektor > region).
+            // Beləliklə məktəb-targeted link Məktəb tabında, region-targeted link Region tabında görünər.
             $userInstitutionId = $user->institution_id;
             $links = $links
                 ->groupBy('title')
@@ -636,7 +629,7 @@ class LinkQueryBuilder
                         return $group->first();
                     }
 
-                    // Prefer the link whose target_institutions is exactly [userInstitutionId]
+                    // Birinci seçim: istifadəçinin öz müəssisəsinə məxsus 1-hədəfli link
                     $exact = $group->first(function ($link) use ($userInstitutionId) {
                         $targets = $link->target_institutions ?? [];
 
@@ -647,7 +640,7 @@ class LinkQueryBuilder
                         return $exact;
                     }
 
-                    // Otherwise return the link with the fewest target institutions (most specific)
+                    // Fallback: ən az hədəf müəssisəsi (məktəb > sektor > region)
                     return $group->sortBy(function ($link) {
                         return count($link->target_institutions ?? []);
                     })->first();
@@ -658,20 +651,7 @@ class LinkQueryBuilder
                 'links_count' => $links->count(),
             ]);
 
-            // Batch-load target institution levels (single query, no N+1)
-            $allLinkTargetIds = $links
-                ->flatMap(fn ($l) => collect($l->target_institutions ?? [])->map(fn ($id) => (int) $id))
-                ->unique()->filter()->values();
-            $linkTargetLevels = $allLinkTargetIds->isNotEmpty()
-                ? \App\Models\Institution::whereIn('id', $allLinkTargetIds)->pluck('level', 'id')
-                : collect();
-
             foreach ($links as $link) {
-                $linkTargetIds = collect($link->target_institutions ?? [])->map(fn ($id) => (int) $id)->filter();
-                $targetMinLevel = $linkTargetIds->isNotEmpty()
-                    ? $linkTargetIds->map(fn ($id) => $linkTargetLevels->get($id))->filter()->min()
-                    : null;
-
                 $assignedResources[] = [
                     'id' => $link->id,
                     'type' => 'link',
@@ -681,7 +661,6 @@ class LinkQueryBuilder
                     'url' => $link->url,
                     'link_type' => $link->link_type,
                     'share_scope' => $link->share_scope,
-                    'target_institution_level' => $targetMinLevel,
                     'is_downloadable' => false,
                     'is_viewable_online' => true,
                     'click_count' => $link->click_count ?? 0,
@@ -753,6 +732,18 @@ class LinkQueryBuilder
 
                 $documents = $documentsQuery->orderBy('created_at', 'desc')->get();
 
+                // Sənədlərin share_scope-unu accessible_institutions-ın minimum level-ından hesabla
+                $allInstIds = [];
+                foreach ($documents as $doc) {
+                    foreach ($doc->accessible_institutions ?? [] as $id) {
+                        $allInstIds[] = (int) $id;
+                    }
+                }
+                $instLevels = empty($allInstIds) ? [] :
+                    \App\Models\Institution::whereIn('id', array_unique($allInstIds))
+                        ->pluck('level', 'id')
+                        ->toArray();
+
                 \Log::info('🔍 LinkSharingService: Documents fetched', [
                     'documents_count' => $documents->count(),
                     'documents_data' => $documents->map(function ($doc) {
@@ -767,19 +758,31 @@ class LinkQueryBuilder
                     })->toArray(),
                 ]);
 
-                // Batch-load target institution levels for documents (single query)
-                $allDocTargetIds = $documents
-                    ->flatMap(fn ($d) => collect($d->accessible_institutions ?? [])->map(fn ($id) => (int) $id))
-                    ->unique()->filter()->values();
-                $docTargetLevels = $allDocTargetIds->isNotEmpty()
-                    ? \App\Models\Institution::whereIn('id', $allDocTargetIds)->pluck('level', 'id')
-                    : collect();
-
                 foreach ($documents as $document) {
-                    $docTargetIds = collect($document->accessible_institutions ?? [])->map(fn ($id) => (int) $id)->filter();
-                    $docTargetMinLevel = $docTargetIds->isNotEmpty()
-                        ? $docTargetIds->map(fn ($id) => $docTargetLevels->get($id))->filter()->min()
-                        : ($document->institution?->level ?? null);
+                    // accessible_institutions-ın min level-ından share_scope hesabla
+                    $docInstIds = array_map('intval', $document->accessible_institutions ?? []);
+                    $docLevels  = array_filter(array_map(fn ($id) => $instLevels[$id] ?? null, $docInstIds));
+                    if (! empty($docLevels)) {
+                        // Məktəb (4) varsa → institutional; sektor (3) varsa → sectoral; yoxsa → regional
+                        if (in_array(4, $docLevels)) {
+                            $shareScope = 'institutional';
+                        } elseif (in_array(3, $docLevels)) {
+                            $shareScope = 'sectoral';
+                        } else {
+                            $shareScope = 'regional';
+                        }
+                    } else {
+                        // accessible_institutions boşdur — yaradıcının müəssisə level-indən tab müəyyən et
+                        $instLevel = $document->institution?->level ?? null;
+                        if ($instLevel == 4) {
+                            $shareScope = 'institutional';
+                        } elseif ($instLevel == 3) {
+                            $shareScope = 'sectoral';
+                        } else {
+                            // Level 1 (ministry), 2 (region) və ya məlumat yoxdur → Region tab
+                            $shareScope = 'regional';
+                        }
+                    }
 
                     $assignedResources[] = [
                         'id' => $document->id,
@@ -789,8 +792,8 @@ class LinkQueryBuilder
                         'created_by' => $document->uploaded_by,
                         'url' => null,
                         'link_type' => null,
+                        'share_scope' => $shareScope,
                         'access_level' => $document->access_level,
-                        'target_institution_level' => $docTargetMinLevel,
                         'is_downloadable' => $document->is_downloadable ?? true,
                         'is_viewable_online' => $document->is_viewable_online ?? false,
                         'click_count' => 0,
@@ -810,6 +813,7 @@ class LinkQueryBuilder
                             'level' => $document->institution->level,
                             'type'  => $document->institution->type ?? '',
                         ] : null,
+                        'is_featured' => $document->is_featured ?? false,
                         'is_new' => $document->created_at?->isAfter(now()->subDays(7)) ?? false,
                         'viewed_at' => $userViews->get('document_' . $document->id)?->last_viewed_at?->toISOString(),
                     ];

@@ -49,13 +49,13 @@ class CurriculumPlanService
                 'grade_subjects.subject_id', 
                 'subjects.name',
                 'subjects.code',
-                DB::raw("COALESCE(NULLIF(grade_subjects.education_type, ''), 'umumi')")
+                DB::raw("COALESCE(NULLIF(LOWER(grade_subjects.education_type), 'ümumi'), 'umumi')")
             )
             ->select(
                 'grade_subjects.subject_id',
                 'subjects.name as subject_name',
                 'subjects.code as subject_code',
-                DB::raw("COALESCE(NULLIF(grade_subjects.education_type, ''), 'umumi') as education_type"),
+                DB::raw("COALESCE(NULLIF(LOWER(grade_subjects.education_type), 'ümumi'), 'umumi') as education_type"),
                 DB::raw('SUM(grade_subjects.weekly_hours * (CASE WHEN grade_subjects.is_split_groups THEN COALESCE(grade_subjects.group_count, 1) ELSE 1 END)) as total_planned'),
                 DB::raw('STRING_AGG(DISTINCT grade_subjects.grade_id::text, \',\') as grade_ids')
             )

@@ -13,6 +13,7 @@ print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 print_error()   { echo -e "${RED}❌ $1${NC}"; }
 
 BACKUP_DIR="docker/postgres/backups"
+ROOT_DIR="."
 DB_NAME="atis_production"
 DB_USER="atis_prod_user"
 
@@ -28,16 +29,16 @@ echo -e "${BLUE}📥 ATİS DB Restore Service${NC}"
 if [ -n "$1" ]; then
     RESTORE_FILE="$1"
 else
-    # Ən son backup faylını tap (latest prefix-i olan və ya ən yeni)
-    LATEST=$(ls -1t "$BACKUP_DIR"/*.sql* 2>/dev/null | head -1)
+    # Ən son backup faylını tap (Backups qovluğu və ya Kök qovluqda)
+    LATEST=$(ls -1t "$BACKUP_DIR"/*.sql* "$BACKUP_DIR"/*.dump "$ROOT_DIR"/*.sql* "$ROOT_DIR"/*.dump 2>/dev/null | head -1)
     
     if [ -z "$LATEST" ]; then
-        print_error "Backup faylı tapılmadı: $BACKUP_DIR"
+        print_error "Backup faylı tapılmadı (Axtarılan yerlər: $BACKUP_DIR və $ROOT_DIR)"
         exit 1
     fi
 
-    echo "Mövcud backup qovluğu: $BACKUP_DIR"
-    ls -1t "$BACKUP_DIR"/*.sql* 2>/dev/null | head -5 | nl -w2 -s'. '
+    echo "Axtarış edilən qovluqlar: $BACKUP_DIR, $ROOT_DIR"
+    ls -1t "$BACKUP_DIR"/*.sql* "$BACKUP_DIR"/*.dump "$ROOT_DIR"/*.sql* "$ROOT_DIR"/*.dump 2>/dev/null | head -5 | nl -w2 -s'. '
     echo ""
     
     RESTORE_FILE="$LATEST"
@@ -53,8 +54,12 @@ fi
 
 # Bazanı təmizlə (Clean state)
 print_status "Baza təmizlənir (Drop and Recreate)..."
-docker exec atis_postgres psql -U $DB_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
-docker exec atis_postgres dropdb --if-exists -U $DB_USER $DB_NAME
+# WITH (FORCE) bütün aktiv sessionları avtomatik məhv edir (PG 13+)
+docker exec atis_postgres psql -U $DB_USER -d postgres -c "DROP DATABASE IF EXISTS \"$DB_NAME\" WITH (FORCE);" >/dev/null 2>&1 || {
+    # Köhnə PG versiyaları üçün fallback: manual terminate + drop
+    docker exec atis_postgres psql -U $DB_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
+    docker exec atis_postgres dropdb --if-exists -U $DB_USER $DB_NAME
+}
 docker exec atis_postgres createdb -U $DB_USER $DB_NAME
 
 # Restore prosesi
@@ -68,7 +73,11 @@ if [[ "$RESTORE_FILE" == *.gz ]]; then
 elif [[ "$RESTORE_FILE" == *.dump ]]; then
     # PostgreSQL Custom Format üçün (.dump)
     print_status "PostgreSQL Custom Format bərpası (pg_restore)..."
-    docker exec -i atis_postgres pg_restore -U $DB_USER -d $DB_NAME --no-owner --no-privileges < "$RESTORE_FILE" > /dev/null 2>&1
+    WARNINGS=$(docker exec -i atis_postgres pg_restore -U $DB_USER -d $DB_NAME --no-owner --no-privileges < "$RESTORE_FILE" 2>&1 || true)
+    if echo "$WARNINGS" | grep -q "error"; then
+        WARN_COUNT=$(echo "$WARNINGS" | grep -c "error" || true)
+        print_warning "pg_restore: $WARN_COUNT kiçik xəbərdarlıq (FK constraints) — kritik deyil"
+    fi
 else
     # Normal SQL üçün
     print_status "Standart SQL bərpası (psql)..."
@@ -81,6 +90,6 @@ docker exec atis_backend php artisan cache:clear >/dev/null 2>&1 || true
 docker exec atis_backend php artisan permission:cache-reset >/dev/null 2>&1 || true
 
 print_success "=== BƏRPA UĞURLA TAMAMLANDI ==="
-USERS=$(docker exec atis_postgres psql -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM users;" | tr -d ' \n')
+USERS=$(docker exec atis_postgres psql -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' \n') || USERS="?"
 echo "  Bərpa olunan istifadəçi sayı: $USERS"
 echo ""

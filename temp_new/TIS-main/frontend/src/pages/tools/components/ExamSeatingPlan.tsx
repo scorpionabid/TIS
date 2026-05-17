@@ -1,0 +1,2870 @@
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Upload, Download, Users, Trash2, CheckCircle2,
+  Calendar, Building2, FileSpreadsheet, Settings2,
+  ArrowRight, ArrowLeft, LayoutGrid, List, Printer, Edit3,
+  X, Plus, RefreshCw, Search, Shuffle,
+  Undo2, ChevronUp, ChevronDown, Filter, RotateCcw,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+// raw: false seçəndə XLSX həmişə string qaytarır; boş cell undefined ola bilər
+type CellValue = string | undefined;
+type SeatingType = 'A' | 'B' | 'C';
+type SortField = 'firstName' | 'lastName' | 'grade' | 'schoolName' | 'center' | 'patronymic' | 'rayon';
+type Step = 'upload' | 'mapping' | 'review' | 'config' | 'results';
+
+interface Student {
+  id: string;
+  center: string;
+  utisCode: string;
+  firstName: string;
+  lastName: string;
+  patronymic?: string;  // atasının adı
+  rayon?: string;       // rayon
+  childId?: string;     // uşaq İD
+  grade: string;
+  schoolName: string;
+  section: string;
+  gender: 'K' | 'Q';
+  note?: string;
+}
+
+interface Seat {
+  seatNumber: number;
+  deskNumber: number;
+  position: 'Sol' | 'Sağ';
+  type: 'CÜT' | 'TƏK' | 'BOŞ';
+  student?: Student;
+}
+
+interface RoomConfig {
+  id: string;
+  name: string;
+  columns: number;
+  rowsPerColumn: number;
+  totalDesks?: number;
+  proctors?: string;
+}
+
+interface RoomStats {
+  totalStudents: number;
+  usedSeats: number;
+  emptySeats: number;
+  singleCount: number;
+  doubleCount: number;
+  utisViolations: number;
+  riskScore: number;
+  riskStatus: 'Təhlükəsiz' | 'Orta Risk' | 'Yüksək Risk';
+}
+
+interface RoomResult {
+  config: RoomConfig;
+  seats: Seat[];
+  stats: RoomStats;
+}
+
+interface CenterResult {
+  centerName: string;
+  rooms: RoomResult[];
+}
+
+interface HistoryEntry {
+  id: number;
+  name: string;
+  date: string;
+  studentCount: number;
+  centerCount: number;
+  students: Student[];
+  centerConfigs: Record<string, RoomConfig[]>;
+  results: CenterResult[];
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STEP_ORDER: Step[] = ['upload', 'mapping', 'review', 'config', 'results'];
+
+const SEATING_TYPES: { type: SeatingType; label: string; desc: string }[] = [
+  { type: 'A', label: 'UTİS Maks. Ayrılması', desc: 'Eyni məktəb şagirdlərini ən uzaq yerlərə' },
+  { type: 'B', label: 'Sinif Balansı',        desc: 'Eyni sinif şagirdlərini daha güclü qarışdırır' },
+  { type: 'C', label: 'Bölmə Ayırması',       desc: 'Az bölməsi əvvəl doldurulur, Rus sonra' },
+];
+
+// ─── Pure helpers ─────────────────────────────────────────────────────────────
+
+const escapeHtml = (str: string): string =>
+  str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+export const autoDetectMapping = (headers: string[]): Record<string, number> => {
+  const mapping: Record<string, number> = {
+    center: -1, lastName: -1, firstName: -1, patronymic: -1,
+    rayon: -1, childId: -1, section: -1, grade: -1,
+    schoolName: -1, utisCode: -1, gender: -1, note: -1,
+  };
+
+  // Patterns with weights or specificity
+  const criteria: Record<string, { exact: RegExp; partial: RegExp }> = {
+    center: {
+      exact: /^(mərkəz|center|imtahan mərkəzi|imtahan mərkəzinin adı)$/i,
+      partial: /mərkəz|center|imtahan/i,
+    },
+    lastName: {
+      exact: /^(soyad|soyadı|surname|last.?name)$/i,
+      partial: /soyad|surname|last.?name/i,
+    },
+    firstName: {
+      exact: /^(ad|adı|first.?name)$/i,
+      partial: /şagirdin\s*ad|first.?name|adı/i,
+    },
+    patronymic: {
+      exact: /^(ata.?ad|atasının.?adı|patronymic)$/i,
+      partial: /ata.?ad|atasın|patrony/i,
+    },
+    rayon: {
+      exact: /^(rayon|region|rayonu)$/i,
+      partial: /rayon|район|district/i,
+    },
+    childId: {
+      exact: /^(uşaq.?id|şagird.?id|child.?id)$/i,
+      partial: /uşaq.?id|şagird.?id|child.?id/i,
+    },
+    section: {
+      exact: /^(bölmə|tədris.?dili|section)$/i,
+      partial: /bölmə|tədris.?dil|section|dil/i,
+    },
+    grade: {
+      exact: /^(sinif|tədris.?sinfi|grade|class)$/i,
+      partial: /sinif|grade|class|qrup/i,
+    },
+    schoolName: {
+      exact: /^(məktəb|təhsil.?müəssisəsi|school|school.?name)$/i,
+      partial: /məktəb|təhsil.?müəssisə|school|oxuduğu/i,
+    },
+    utisCode: {
+      exact: /^(utis|utis.?kodu|utis.?code)$/i,
+      partial: /utis|kod|code/i,
+    },
+    gender: {
+      exact: /^(cins|cinsiyyət|gender|sex)$/i,
+      partial: /cins|gender|sex/i,
+    },
+    note: {
+      exact: /^(qeyd|note|remark)$/i,
+      partial: /qeyd|note|remark/i,
+    },
+  };
+
+  const scores: Record<string, { idx: number; score: number }> = {};
+  Object.keys(mapping).forEach(key => { scores[key] = { idx: -1, score: 0 }; });
+
+  headers.forEach((h, idx) => {
+    const header = (h || '').trim().toLowerCase();
+    if (!header) return;
+
+    for (const [key, patterns] of Object.entries(criteria)) {
+      let currentScore = 0;
+      if (patterns.exact.test(header)) {
+        currentScore = 100;
+      } else if (patterns.partial.test(header)) {
+        // Partial match score is inverse to length to prefer shorter headers
+        currentScore = Math.max(10, 50 - header.length);
+      }
+
+      if (currentScore > scores[key].score) {
+        scores[key] = { idx, score: currentScore };
+      }
+    }
+  });
+
+  // Assign best matches
+  Object.keys(scores).forEach(key => {
+    mapping[key] = scores[key].idx;
+  });
+
+  // Final fallback for required fields that failed auto-detection
+  Object.keys(mapping).forEach((key, idx) => {
+    if (mapping[key] === -1) {
+      mapping[key] = Math.min(idx, headers.length - 1);
+    }
+  });
+
+  return mapping;
+};
+
+// 14 vizual fərqli rəng — eyni məktəb = həmişə eyni rəng (mərkəz daxilindən)
+const SCHOOL_PALETTE = [
+  'bg-blue-100 border-blue-400 text-blue-900',
+  'bg-emerald-100 border-emerald-400 text-emerald-900',
+  'bg-violet-100 border-violet-400 text-violet-900',
+  'bg-orange-100 border-orange-400 text-orange-900',
+  'bg-rose-100 border-rose-400 text-rose-900',
+  'bg-cyan-100 border-cyan-400 text-cyan-900',
+  'bg-amber-100 border-amber-400 text-amber-900',
+  'bg-lime-100 border-lime-400 text-lime-900',
+  'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-900',
+  'bg-teal-100 border-teal-400 text-teal-900',
+  'bg-red-100 border-red-400 text-red-900',
+  'bg-sky-100 border-sky-400 text-sky-900',
+  'bg-indigo-100 border-indigo-400 text-indigo-900',
+  'bg-pink-100 border-pink-400 text-pink-900',
+];
+
+const getSchoolColor = (utisCode: string, palette: Map<string, number>): string =>
+  SCHOOL_PALETTE[(palette.get(utisCode) ?? 0) % SCHOOL_PALETTE.length];
+
+const PRINT_CARD_CSS = `
+  @page { size: A4 portrait; margin: 10mm; }
+  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
+
+  /* 2 kart / sətir, A4 üzərindən 3 sətir = 6 kart/səhifə */
+  .card {
+    width: 47%;
+    min-height: 88mm;
+    border: 1.5px solid #1e3a8a;
+    margin: 1.5mm 1%;
+    display: inline-block;
+    padding: 4mm 5mm 14mm 5mm;
+    position: relative;
+    border-radius: 6px;
+    page-break-inside: avoid;
+    vertical-align: top;
+    background: #fff;
+    box-sizing: border-box;
+  }
+  /* Hər 6 kartdan sonra yeni səhifə */
+  .card:nth-child(6n) { page-break-after: always; }
+
+  .header {
+    font-weight: 900; font-size: 10px; letter-spacing: 0.8px;
+    border-bottom: 1.5px solid #1e40af; padding-bottom: 3mm; margin-bottom: 3mm;
+    color: #1e40af; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .seat-num {
+    background: #1e40af; color: #fff; font-size: 16px; font-weight: 900;
+    border-radius: 50%; width: 9mm; height: 9mm;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 4mm; margin-top: 2mm; }
+  .row { margin: 1mm 0; font-size: 11px; }
+  .row-full { margin: 1mm 0; font-size: 11px; grid-column: 1 / -1; }
+  .label { font-size: 7.5px; color: #888; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 0.5mm; }
+  .val  { font-weight: 700; font-size: 11px; word-break: break-word; }
+  .val-lg { font-weight: 900; font-size: 13px; }
+  .badges {
+    position: absolute; bottom: 3mm; left: 5mm; right: 5mm;
+    display: flex; gap: 2mm; justify-content: flex-end; flex-wrap: wrap;
+  }
+  .badge {
+    border: 1.5px solid #1e3a8a; padding: 1mm 3mm;
+    font-family: monospace; font-size: 9px; font-weight: bold;
+    border-radius: 4px; background: #f0f4ff; color: #1e3a8a;
+  }
+  .badge-child { border-color: #6b21a8; background: #faf5ff; color: #6b21a8; }
+`;
+
+// Köhnə planlar: BOŞ seat-lər array-də yox idi → swap işləmirdi. Migration əlavə edir.
+const migrateResults = (raw: CenterResult[]): CenterResult[] =>
+  raw.map(center => ({
+    ...center,
+    rooms: center.rooms.map(room => {
+      const deskCount = room.config.totalDesks ?? (room.config.columns * room.config.rowsPerColumn);
+      const fullSeats: Seat[] = [];
+      for (let d = 1; d <= deskCount; d++) {
+        (['Sol', 'Sağ'] as const).forEach(pos => {
+          const existing = room.seats.find(s => s.deskNumber === d && s.position === pos);
+          fullSeats.push(existing ?? {
+            seatNumber: fullSeats.length + 1,
+            deskNumber: d,
+            position: pos,
+            type: 'BOŞ',
+          });
+        });
+      }
+      return { ...room, seats: fullSeats };
+    }),
+  }));
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const ExamSeatingPlan: React.FC = () => {
+  const { toast } = useToast();
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const importFileRef  = useRef<HTMLInputElement>(null);
+  const historyLoaded  = useRef(false);
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [currentStep, setCurrentStep] = useState<Step>('upload');
+  const [rawRows, setRawRows] = useState<string[][]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, number>>({
+    center: 0, lastName: 1, firstName: 2, patronymic: 3,
+    rayon: 4, childId: 5, section: 6, grade: 7,
+    schoolName: 8, utisCode: 9, gender: 10, note: 11,
+  });
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [seatingType, setSeatingType] = useState<SeatingType>('A');
+  const [useGenderBalance, setUseGenderBalance] = useState(false);
+
+  const [centerConfigs, setCenterConfigs] = useState<Record<string, RoomConfig[]>>({});
+  const [activeCenter, setActiveCenter] = useState<string>('');
+
+  const [results, setResults] = useState<CenterResult[]>([]);
+  const [swapStack, setSwapStack] = useState<CenterResult[][]>([]);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [centerSearch, setCenterSearch] = useState('');
+  const [centerFilter, setCenterFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [selectedSeat, setSelectedSeat] = useState<{ centerIdx: number; roomIdx: number; seatIdx: number } | null>(null);
+  const [roomEditModal, setRoomEditModal] = useState<{ centerName: string; roomId: string } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Dialog states
+  const [showResetDialog,  setShowResetDialog]  = useState(false);
+  const [showSaveDialog,   setShowSaveDialog]   = useState(false);
+  const [showReplanDialog, setShowReplanDialog] = useState(false);
+  const [saveName, setSaveName] = useState('');
+
+  // ── Persistence ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('exam_seating_state');
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.students)      setStudents(p.students);
+        if (p.centerConfigs) setCenterConfigs(p.centerConfigs);
+        if (p.results)       setResults(migrateResults(p.results));
+        if (p.currentStep)   setCurrentStep(p.currentStep);
+      }
+    } catch (e) { console.warn('Load state failed', e); }
+
+    try {
+      const savedHistory = localStorage.getItem('exam_seating_history');
+      if (savedHistory) {
+        const parsed: HistoryEntry[] = JSON.parse(savedHistory);
+        setHistory(parsed.map(h => ({
+          ...h,
+          studentCount: h.studentCount ?? h.students?.length ?? 0,
+          centerCount:  h.centerCount  ?? Object.keys(h.centerConfigs ?? {}).length,
+        })));
+      }
+    } catch (e) { console.warn('Load history failed', e); }
+
+    // Yüklənmə tamamlandı — artıq save effekti işləyə bilər
+    historyLoaded.current = true;
+  }, []);
+
+  // Safe save state - avoid localStorage for massive datasets (> 2000 students)
+  useEffect(() => {
+    if (students.length > 2000) return; 
+    try {
+      const data = JSON.stringify({ students, centerConfigs, results, currentStep });
+      localStorage.setItem('exam_seating_state', data);
+    } catch (e) {
+      if (e instanceof Error && e.name === 'QuotaExceededError') {
+        console.warn('LocalStorage quota exceeded. State not saved.');
+      }
+    }
+  }, [students, centerConfigs, results, currentStep]);
+
+  // Safe save history — yalnız ilk yüklənmədən SONRA yazır
+  useEffect(() => {
+    if (!historyLoaded.current) return; // İlk render: hələ yüklənməyib, yazma
+    try {
+      const data = JSON.stringify(history);
+      localStorage.setItem('exam_seating_history', data);
+    } catch (e) {
+      console.warn('History save failed', e);
+    }
+  }, [history]);
+
+  // ── History ────────────────────────────────────────────────────────────────
+  const commitSaveToHistory = () => {
+    const name = saveName.trim() || `Plan ${new Date().toLocaleDateString()}`;
+    setHistory(prev => [{
+      id: Date.now(),
+      name,
+      date: new Date().toISOString(),
+      studentCount: students.length,
+      centerCount: Object.keys(centerConfigs).length,
+      students,
+      centerConfigs,
+      results,
+    }, ...prev]);
+    setShowSaveDialog(false);
+    setSaveName('');
+    toast({ title: 'Yadda saxlanıldı', description: 'Plan tarixçəyə əlavə edildi.' });
+  };
+
+  const loadFromHistory = (entry: HistoryEntry) => {
+    setStudents(entry.students);
+    setCenterConfigs(entry.centerConfigs);
+    setResults(entry.results);
+    setSwapStack([]);
+    setCurrentStep('results');
+    toast({ title: 'Yükləndi', description: entry.name });
+  };
+
+  const deleteFromHistory = (id: number) => {
+    setHistory(prev => prev.filter(h => h.id !== id));
+  };
+
+  // ── Seat swap ─────────────────────────────────────────────────────────────
+  const handleSeatClick = (centerIdx: number, roomIdx: number, seatIdx: number) => {
+    if (!selectedSeat) {
+      // First click — only select if there's a student (no point selecting a BOŞ seat first)
+      const seat = results[centerIdx]?.rooms[roomIdx]?.seats[seatIdx];
+      if (!seat?.student) return;
+      setSelectedSeat({ centerIdx, roomIdx, seatIdx });
+      return;
+    }
+
+    // Second click — perform swap
+    const s1seat = results[selectedSeat.centerIdx]?.rooms[selectedSeat.roomIdx]?.seats[selectedSeat.seatIdx];
+    const s2seat = results[centerIdx]?.rooms[roomIdx]?.seats[seatIdx];
+
+    // Clicking the same seat or both BOŞ → cancel selection
+    if (
+      (selectedSeat.centerIdx === centerIdx && selectedSeat.roomIdx === roomIdx && selectedSeat.seatIdx === seatIdx) ||
+      (!s1seat?.student && !s2seat?.student)
+    ) {
+      setSelectedSeat(null);
+      return;
+    }
+
+    const newResults: CenterResult[] = JSON.parse(JSON.stringify(results));
+    const s1 = newResults[selectedSeat.centerIdx].rooms[selectedSeat.roomIdx].seats[selectedSeat.seatIdx];
+    const s2 = newResults[centerIdx].rooms[roomIdx].seats[seatIdx];
+
+    const tmp = s1.student;
+    s1.student = s2.student;
+    s2.student = tmp;
+    // Keep type in sync
+    s1.type = s1.student ? 'CÜT' : 'BOŞ';
+    s2.type = s2.student ? 'CÜT' : 'BOŞ';
+
+    newResults[selectedSeat.centerIdx].rooms[selectedSeat.roomIdx].stats = calcStats(
+      newResults[selectedSeat.centerIdx].rooms[selectedSeat.roomIdx].seats,
+      newResults[selectedSeat.centerIdx].rooms[selectedSeat.roomIdx].config,
+    );
+    if (selectedSeat.centerIdx !== centerIdx || selectedSeat.roomIdx !== roomIdx) {
+      newResults[centerIdx].rooms[roomIdx].stats = calcStats(
+        newResults[centerIdx].rooms[roomIdx].seats,
+        newResults[centerIdx].rooms[roomIdx].config,
+      );
+    }
+
+    setSwapStack(prev => [...prev.slice(-9), results]);
+    setResults(newResults);
+    setSelectedSeat(null);
+    toast({ title: 'Yer dəyişdirildi' });
+  };
+
+  const undoSwap = () => {
+    if (!swapStack.length) return;
+    setResults(swapStack[swapStack.length - 1]);
+    setSwapStack(prev => prev.slice(0, -1));
+    setSelectedSeat(null);
+    toast({ title: 'Geri alındı' });
+  };
+
+  // ── Reset ──────────────────────────────────────────────────────────────────
+  const resetAll = () => {
+    localStorage.removeItem('exam_seating_state');
+    setStudents([]);
+    setCenterConfigs({});
+    setResults([]);
+    setSwapStack([]);
+    setRawRows([]);
+    setCurrentStep('upload');
+    setShowResetDialog(false);
+  };
+
+  // ── File handling ──────────────────────────────────────────────────────────
+  const processFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const wb   = XLSX.read(data, { type: 'array' });
+      
+      let bestSheetName = wb.SheetNames[0];
+      let bestHeaderIdx = 0;
+      let highestOverallScore = -1;
+      let bestJson: string[][] = [];
+
+      const headerScores: { key: string; weight: number; pattern: RegExp }[] = [
+        { key: 'soy',    weight: 10, pattern: /soyad|surname/i },
+        { key: 'ad',     weight: 10, pattern: /^(ad|adı|şagirdin\s*ad)$|first.?name/i },
+        { key: 'sinif',  weight: 8,  pattern: /sinif|grade|class/i },
+        { key: 'məktəb', weight: 8,  pattern: /məktəb|müəssisə|school/i },
+        { key: 'utis',   weight: 8,  pattern: /utis|kod|code/i },
+        { key: 'rayon',  weight: 5,  pattern: /rayon|district/i },
+        { key: 'uşaq',   weight: 5,  pattern: /uşaq|fin|child/i },
+        { key: 'center', weight: 5,  pattern: /mərkəz|center/i },
+      ];
+
+      // Scan all sheets to find the one that looks most like a student list
+      for (const sName of wb.SheetNames) {
+        const ws = wb.Sheets[sName];
+        const json = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as string[][];
+        if (json.length < 2) continue;
+
+        let sheetBestScore = -1;
+        let sheetBestIdx = 0;
+
+        for (let i = 0; i < Math.min(json.length, 50); i++) {
+          const row = json[i];
+          let rowScore = 0;
+          const matchedKeys = new Set<string>();
+
+          row.forEach(cell => {
+            const val = String(cell || '').trim();
+            if (!val) return;
+            headerScores.forEach(s => {
+              if (s.pattern.test(val) && !matchedKeys.has(s.key)) {
+                rowScore += s.weight;
+                matchedKeys.add(s.key);
+              }
+            });
+          });
+
+          if (rowScore > sheetBestScore) {
+            sheetBestScore = rowScore;
+            sheetBestIdx = i;
+          }
+        }
+
+        if (sheetBestScore > highestOverallScore) {
+          highestOverallScore = sheetBestScore;
+          bestSheetName = sName;
+          bestHeaderIdx = sheetBestIdx;
+          bestJson = json;
+        }
+        
+        // If we found a very strong match (>30 pts), we can stop
+        if (sheetBestScore > 35) break;
+      }
+
+      if (bestJson.length < 2 || highestOverallScore < 10) {
+        toast({ title: 'Xəta', description: 'Şagird siyahısı tapılmadı. Zəhmət olmasa sütun başlıqlarını yoxlayın.', variant: 'destructive' });
+        return;
+      }
+
+      const headers = bestJson[bestHeaderIdx].map(h => String(h || '').trim());
+      const rows    = bestJson.slice(bestHeaderIdx); 
+
+      setRawRows(rows);
+      setColumnMapping(autoDetectMapping(headers));
+      setCurrentStep('mapping');
+      toast({ 
+        title: 'Fayl oxundu', 
+        description: `Vərəq: ${bestSheetName}, Sətir: ${bestJson.length}, Başlıq sətiri: ${bestHeaderIdx + 1} (Xal: ${highestOverallScore})` 
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  };
+
+  // ── Column mapping → students ──────────────────────────────────────────────
+  const applyMapping = () => {
+    const cell = (row: string[], col: number) => row[col] ?? '';
+    const parsed: Student[] = rawRows.slice(1).map((row, idx) => {
+      const genderRaw = cell(row, columnMapping.gender).toUpperCase();
+      return {
+        id:         `s-${idx}`,
+        center:     cell(row, columnMapping.center)     || 'Naməlum',
+        utisCode:   cell(row, columnMapping.utisCode)   || 'Naməlum',
+        firstName:  cell(row, columnMapping.firstName),
+        lastName:   cell(row, columnMapping.lastName),
+        patronymic: cell(row, columnMapping.patronymic) || undefined,
+        rayon:      cell(row, columnMapping.rayon)      || undefined,
+        childId:    cell(row, columnMapping.childId)    || undefined,
+        grade:      cell(row, columnMapping.grade),
+        schoolName: cell(row, columnMapping.schoolName),
+        section:    cell(row, columnMapping.section),
+        gender:     (genderRaw.startsWith('Q') || genderRaw.startsWith('F')) ? 'Q' : 'K',
+        note:       cell(row, columnMapping.note),
+      };
+    }).filter(s => s.firstName || s.lastName);
+
+    setStudents(parsed);
+
+    const centers = Array.from(new Set(parsed.map(s => s.center)));
+    const initConfigs: Record<string, RoomConfig[]> = {};
+    centers.forEach(c => {
+      initConfigs[c] = [{ id: `${Date.now()}-${Math.random()}`, name: 'Otaq 1', columns: 3, rowsPerColumn: 4 }];
+    });
+    setCenterConfigs(initConfigs);
+    if (centers.length) setActiveCenter(centers[0]);
+
+    setCurrentStep('review');
+    toast({ title: 'Mapping tətbiq edildi', description: `${parsed.length} şagird · ${centers.length} mərkəz.` });
+  };
+
+  // ── Student management ─────────────────────────────────────────────────────
+  const shuffleStudents = () => {
+    setStudents(prev => {
+      const arr = [...prev];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    });
+    toast({ title: 'Siyahı qarışdırıldı' });
+  };
+
+  const updateStudent = (id: string, field: keyof Student, value: string) =>
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+
+  const deleteStudent = (id: string) =>
+    setStudents(prev => prev.filter(s => s.id !== id));
+
+  // ── Room config ────────────────────────────────────────────────────────────
+  const addRoomConfig = (cName: string) =>
+    setCenterConfigs(prev => ({
+      ...prev,
+      [cName]: [...(prev[cName] ?? []), {
+        id: `${Date.now()}-${Math.random()}`,
+        name: `Otaq ${(prev[cName]?.length ?? 0) + 1}`,
+        columns: 3, rowsPerColumn: 4, totalDesks: 12, proctors: '',
+      }],
+    }));
+
+  const updateRoomConfig = (
+    cName: string, roomId: string,
+    field: keyof RoomConfig, value: string | number,
+  ) =>
+    setCenterConfigs(prev => ({
+      ...prev,
+      [cName]: prev[cName].map(r => r.id === roomId ? { ...r, [field]: value } : r),
+    }));
+
+  const removeRoomConfig = (cName: string, roomId: string) =>
+    setCenterConfigs(prev => ({
+      ...prev,
+      [cName]: prev[cName].length > 1 ? prev[cName].filter(r => r.id !== roomId) : prev[cName],
+    }));
+
+  const autoGenerateRoomsForAll = () => {
+    const newConfigs: Record<string, RoomConfig[]> = {};
+    Array.from(new Set(students.map(s => s.center))).forEach(cName => {
+      const count   = students.filter(s => s.center === cName).length;
+      const needed  = Math.ceil(count / (3 * 4 * 2));
+      newConfigs[cName] = Array.from({ length: needed }, (_, i) => ({
+        id: `auto-${Date.now()}-${cName}-${i}`,
+        name: `Otaq ${i + 1}`, columns: 3, rowsPerColumn: 4, totalDesks: 12,
+      }));
+    });
+    setCenterConfigs(newConfigs);
+    toast({ title: 'Avto-Yarat tamamlandı' });
+  };
+
+  // ── Plan generation ────────────────────────────────────────────────────────
+
+  // ─── Yerləşdirmə alqoritmi — Greedy Pair ──────────────────────────────────
+  //
+  // Əsas məntiq:
+  //   Hər parta üçün Sol + Sağ BİRLİKDƏ seçilir.
+  //   Sol = ən böyük məktəb qrupundan
+  //   Sağ = Sol ilə FƏRQLI məktəbdən ən böyük qrup
+  //   → Sol-Sağ (horizontal) eyni məktəb pozuntuları sıfıra enir (məcburi hal xaric)
+  //
+  // 2-mərhələli yanaşmanın problemi:
+  //   Mərhələ 1 pool-dan öz seçimini edir → mərhələ 2 üçün fərqli məktəb qalmır
+  //   Bu yanaşmada isə Sol-Sağ BIRLIKDƏ seçildiyi üçün bu problem yoxdur.
+  //
+  // Sütun interleaving:
+  //   Parta cütlərini sütun içərisində məktəbə görə round-robin ilə sıralayır
+  //   → vertikal qonşularda eyni məktəb ehtimalı minimuma enir
+  const placeStudentsInRoom = (
+    roomStudents: Student[],
+    config: RoomConfig,
+    type: SeatingType,
+    genderBalance: boolean,
+  ): Seat[] => {
+    const deskCount  = config.totalDesks ?? (config.columns * config.rowsPerColumn);
+    const rowsPerCol = config.rowsPerColumn || Math.ceil(deskCount / config.columns);
+
+    // ── Addım 1: Məktəbə görə qruplaşdır, daxilən qarışdır ──────────────────
+    const schoolMap = new Map<string, Student[]>();
+    for (const s of roomStudents) {
+      const g = schoolMap.get(s.utisCode) ?? [];
+      g.push(s);
+      schoolMap.set(s.utisCode, g);
+    }
+    schoolMap.forEach(g => {
+      for (let i = g.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [g[i], g[j]] = [g[j], g[i]];
+      }
+    });
+    const groups = Array.from(schoolMap.values()).sort((a, b) => b.length - a.length);
+
+    // ── Addım 2: Greedy pair — hər parta üçün Sol+Sağ birlikdə seç ──────────
+    type Pair = [Student | undefined, Student | undefined];
+    const pairs: Pair[] = [];
+
+    for (let d = 0; d < deskCount; d++) {
+      groups.sort((a, b) => b.length - a.length);
+      const nonempty = groups.filter(g => g.length > 0);
+
+      if (nonempty.length === 0) { pairs.push([undefined, undefined]); continue; }
+
+      if (nonempty.length === 1) {
+        const remainingDesks     = deskCount - d;
+        const remainingStudents  = nonempty[0].length;
+
+        if (remainingStudents <= remainingDesks) {
+          // Hər şagird üçün ayrı parta var → Sol=A, Sağ=BOŞ (0 violation)
+          pairs.push([nonempty[0].pop(), undefined]);
+        } else {
+          // Partalar çatmır → məcburi (A,A) violation
+          const a = nonempty[0].pop();
+          const b = nonempty[0].length > 0 ? nonempty[0].pop() : undefined;
+          pairs.push([a, b]);
+        }
+        continue;
+      }
+
+      // Bərabər sayda məktəblər olduqda Sol/Sağ mövqeyini təsadüfi dəyişdir
+      // (uyğun vizual paylanma üçün)
+      const preferSwap =
+        nonempty[0].length === nonempty[1].length && Math.random() < 0.5;
+
+      const solGroup = preferSwap ? nonempty[1] : nonempty[0];
+      const sol = solGroup.pop()!;
+
+      // Sağ: Sol ilə FƏRQLI məktəbdən ən böyük qrup
+      const sagGroup = nonempty.find(g => g !== solGroup && g.length > 0);
+      const sag = sagGroup?.pop();
+      pairs.push([sol, sag]);
+    }
+
+    // ── Addım 3: Sütun interleaving — vertikal eyni məktəbi azalt ────────────
+    const arranged = [...pairs];
+
+    for (let colStart = 0; colStart < deskCount; colStart += rowsPerCol) {
+      const colEnd = Math.min(colStart + rowsPerCol, deskCount);
+      const col = arranged.slice(colStart, colEnd);
+
+      // Sütundakı cütləri Sol məktəbə görə round-robin ilə sırala
+      const byCode = new Map<string, Pair[]>();
+      for (const p of col) {
+        const code = p[0]?.utisCode ?? '__empty';
+        (byCode.get(code) ?? (byCode.set(code, []), byCode.get(code)!)).push(p);
+      }
+      const colGroups = Array.from(byCode.values()).sort((a, b) => b.length - a.length);
+      const maxLen = Math.max(...colGroups.map(g => g.length), 0);
+      const interleaved: Pair[] = [];
+      for (let i = 0; i < maxLen; i++) {
+        for (const g of colGroups) if (i < g.length) interleaved.push(g[i]);
+      }
+      for (let i = 0; i < interleaved.length; i++) arranged[colStart + i] = interleaved[i];
+    }
+
+    // ── Addım 4: Seat array yığ ──────────────────────────────────────────────
+    const seats: Seat[] = [];
+    for (let d = 1; d <= deskCount; d++) {
+      const [sol, sag] = arranged[d - 1] ?? [undefined, undefined];
+      seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sol', type: sol ? 'CÜT' : 'BOŞ', student: sol });
+      seats.push({ seatNumber: seats.length + 1, deskNumber: d, position: 'Sağ', type: sag ? 'CÜT' : 'BOŞ', student: sag });
+    }
+    return seats;
+  };
+
+  const buildPool = (centerStudents: Student[], type: SeatingType): Student[] => {
+    const L = centerStudents.length;
+    if (L === 0) return [];
+    
+    const pool: (Student | null)[] = new Array(L).fill(null);
+
+    // 1. Group by school (UTIS) and sort by count (largest first)
+    const groupsMap = new Map<string, Student[]>();
+    centerStudents.forEach(s => {
+      const list = groupsMap.get(s.utisCode) || [];
+      list.push(s);
+      groupsMap.set(s.utisCode, list);
+    });
+
+    const sortedGroups = Array.from(groupsMap.values())
+      .map(g => [...g].sort(() => Math.random() - 0.5))
+      .sort((a, b) => b.length - a.length);
+
+    // 2. Distribute each group into slots with a calculated step
+    // This ensures even density for every school across the entire range [0...L-1]
+    sortedGroups.forEach(group => {
+      const n = group.length;
+      const step = L / n;
+      
+      group.forEach((student, i) => {
+        let targetIdx = Math.floor(i * step);
+        // Find next available slot (linear probing)
+        while (pool[targetIdx % L] !== null) {
+          targetIdx++;
+        }
+        pool[targetIdx % L] = student;
+      });
+    });
+
+    const finalPool = pool.filter((s): s is Student => s !== null);
+
+    if (type !== 'C') return finalPool;
+
+    // Type C: Priority by section (Az then Rus)
+    return [
+      ...finalPool.filter(s => s.section === 'Az'),
+      ...finalPool.filter(s => s.section === 'Rus'),
+      ...finalPool.filter(s => s.section !== 'Az' && s.section !== 'Rus'),
+    ];
+  };
+
+  const generatePlan = () => {
+    const centerMap: Record<string, Student[]> = {};
+    students.forEach(s => {
+      if (!centerMap[s.center]) centerMap[s.center] = [];
+      centerMap[s.center].push(s);
+    });
+
+    const finalResults: CenterResult[] = Object.entries(centerMap).map(([centerName, centerStudents]) => {
+      const rooms = centerConfigs[centerName] ?? [];
+      // buildPool: bütün mərkəz şagirdlərini eyni məktəblərin bir-birindən uzaq olduğu formada sırala
+      const masterPool = buildPool(centerStudents, seatingType);
+      const roomResults: RoomResult[] = [];
+
+      for (const config of rooms) {
+        if (!masterPool.length) break;
+        const deskCount = config.totalDesks ?? (config.columns * config.rowsPerColumn);
+        // Həmin otağa düşən şagirdləri pool-dan kəs (artıq bərabər paylanmış sıradan)
+        const roomStudents = masterPool.splice(0, deskCount * 2);
+        const seats = placeStudentsInRoom(roomStudents, config, seatingType, useGenderBalance);
+        roomResults.push({ config, seats, stats: calcStats(seats, config) });
+      }
+
+      if (masterPool.length > 0) {
+        toast({
+          title: 'Diqqət',
+          description: `${centerName}: ${masterPool.length} şagird yerləşdirilə bilmədi!`,
+          variant: 'destructive',
+        });
+      }
+      return { centerName, rooms: roomResults };
+    });
+
+    setResults(finalResults);
+    setSwapStack([]);
+    setCurrentStep('results');
+    toast({ title: 'Plan hazırlandı' });
+  };
+
+  const regenerateRoom = (centerIdx: number, roomIdx: number) => {
+    const newResults: CenterResult[] = JSON.parse(JSON.stringify(results));
+    const room = newResults[centerIdx].rooms[roomIdx];
+    // Hazırki otağın şagirdlərini götür, yenidən paylaşdır
+    const roomStudents = room.seats
+      .filter(s => s.student)
+      .map(s => s.student as Student);
+
+    const seats = placeStudentsInRoom(roomStudents, room.config, seatingType, useGenderBalance);
+    newResults[centerIdx].rooms[roomIdx].seats = seats;
+    newResults[centerIdx].rooms[roomIdx].stats = calcStats(seats, room.config);
+
+    setSwapStack(prev => [...prev.slice(-9), results]);
+    setResults(newResults);
+    toast({ title: `${room.config.name} yeniləndi` });
+  };
+
+  // ── Stats calculation ──────────────────────────────────────────────────────
+  const calcStats = (seats: Seat[], config: RoomConfig): RoomStats => {
+    let totalStudents = 0, usedSeats = 0, emptySeats = 0;
+    let singleCount = 0, doubleCount = 0, utisViolations = 0;
+    const deskGroups: Record<number, Seat[]> = {};
+
+    seats.forEach(s => {
+      (deskGroups[s.deskNumber] ??= []).push(s);
+      if (s.student) { totalStudents++; usedSeats++; } else { emptySeats++; }
+    });
+
+    Object.values(deskGroups).forEach(group => {
+      const occ = group.filter(s => s.student);
+      if (occ.length === 2) {
+        doubleCount += 2;
+        if (occ[0].student?.utisCode === occ[1].student?.utisCode) utisViolations++;
+      } else if (occ.length === 1) singleCount++;
+    });
+
+    // Create a fast lookup map for seat positions
+    const seatMap = new Map<string, Student>();
+    seats.forEach(s => {
+      if (s.student) seatMap.set(`${s.deskNumber}-${s.position}`, s.student);
+    });
+
+    const at = (d: number, p: 'Sol' | 'Sağ') => seatMap.get(`${d}-${p}`);
+
+    let riskWeight = 0;
+    seats.forEach(({ student: st, deskNumber: d, position: pos }) => {
+      if (!st) return;
+      const utis = st.utisCode;
+      const partner = at(d, pos === 'Sol' ? 'Sağ' : 'Sol');
+      if (partner?.utisCode === utis) riskWeight += 1.0;
+      if (at(d - 1, pos)?.utisCode === utis) riskWeight += 0.5;
+      if (at(d + 1, pos)?.utisCode === utis) riskWeight += 0.5;
+      const other = pos === 'Sol' ? 'Sağ' : 'Sol';
+      if (at(d - 1, other)?.utisCode === utis) riskWeight += 0.25;
+      if (at(d + 1, other)?.utisCode === utis) riskWeight += 0.25;
+    });
+
+    const riskScore = totalStudents > 0
+      ? Math.min(Math.round((riskWeight / totalStudents) * 100), 100)
+      : 0;
+    const riskStatus: RoomStats['riskStatus'] =
+      riskScore < 15 ? 'Təhlükəsiz' : riskScore < 40 ? 'Orta Risk' : 'Yüksək Risk';
+
+    void config; // config available for future capacity-based risk calc
+    return { totalStudents, usedSeats, emptySeats, singleCount, doubleCount, utisViolations, riskScore, riskStatus };
+  };
+
+  // ── Re-import: eksport edilmiş Excel-i yenidən yüklə ───────────────────────────
+  const importExcelResult = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const wb   = XLSX.read(data, { type: 'array' });
+
+        // Sütun indeksləri (eksport formatına uyğun)
+        const COL = {
+          lastName: 1, firstName: 2, patronymic: 3, rayon: 4,
+          section: 6, grade: 7, schoolName: 8, utisCode: 9,
+          childId: 10, seatNumber: 11, roomName: 12, centerName: 13,
+        };
+
+        // Bütün sheetləri oxu (XÜLASƏ atlanır)
+        type Entry = {
+          student: Student;
+          seatNumber: number;
+          roomName: string;
+          centerName: string;
+        };
+        const allEntries: Entry[] = [];
+
+        for (const sName of wb.SheetNames) {
+          if (sName === 'XÜLASƏ') continue;
+          const ws   = wb.Sheets[sName];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as string[][];
+          const dataRows = rows.slice(1).filter(r => r[COL.firstName] || r[COL.lastName]);
+
+          dataRows.forEach((row, idx) => {
+            const gRaw = '';
+            allEntries.push({
+              student: {
+                id:         `reimport-${sName}-${idx}`,
+                center:     row[COL.centerName]  || 'Naməlum',
+                utisCode:   row[COL.utisCode]    || 'Naməlum',
+                firstName:  row[COL.firstName]   || '',
+                lastName:   row[COL.lastName]    || '',
+                patronymic: row[COL.patronymic]  || undefined,
+                rayon:      row[COL.rayon]        || undefined,
+                childId:    row[COL.childId]      || undefined,
+                grade:      row[COL.grade]        || '',
+                schoolName: row[COL.schoolName]   || '',
+                section:    row[COL.section]      || '',
+                gender:     'K',
+                note:       '',
+              },
+              seatNumber: parseInt(row[COL.seatNumber]) || 0,
+              roomName:   row[COL.roomName]   || 'Otaq 1',
+              centerName: row[COL.centerName] || 'Naməlum',
+            });
+          });
+        }
+
+        if (!allEntries.length) {
+          toast({ title: 'Xəta', description: 'Fayl boşdur və ya format tanınmadı.', variant: 'destructive' });
+          return;
+        }
+
+        // Mərkəz → Otaq → Oturacaqlar map et
+        const centerMap = new Map<string, Map<string, Entry[]>>();
+        allEntries.forEach(e => {
+          if (!centerMap.has(e.centerName)) centerMap.set(e.centerName, new Map());
+          const rm = centerMap.get(e.centerName)!;
+          if (!rm.has(e.roomName)) rm.set(e.roomName, []);
+          rm.get(e.roomName)!.push(e);
+        });
+
+        const newResults: CenterResult[] = [];
+        const newConfigs: Record<string, RoomConfig[]> = {};
+        const newStudents: Student[] = allEntries.map(e => e.student);
+
+        centerMap.forEach((rooms, centerName) => {
+          newConfigs[centerName] = [];
+          const roomResults: RoomResult[] = [];
+
+          rooms.forEach((entries, roomName) => {
+            const maxSeat   = Math.max(...entries.map(e => e.seatNumber), 0);
+            const totalDesks = Math.max(Math.ceil(maxSeat / 2), 1);
+
+            const config: RoomConfig = {
+              id:           `reimport-${centerName}-${roomName}`,
+              name:         roomName,
+              columns:      3,
+              rowsPerColumn: Math.ceil(totalDesks / 3),
+              totalDesks,
+            };
+            newConfigs[centerName].push(config);
+
+            // Bütün oturacaqları boş başlat
+            const seats: Seat[] = [];
+            for (let d = 1; d <= totalDesks; d++) {
+              seats.push({ seatNumber: (d - 1) * 2 + 1, deskNumber: d, position: 'Sol', type: 'BOŞ' });
+              seats.push({ seatNumber: (d - 1) * 2 + 2, deskNumber: d, position: 'Sağ', type: 'BOŞ' });
+            }
+
+            // Şagirdləri oturacaqlara yerləşdir
+            entries.forEach(entry => {
+              const sn = entry.seatNumber;
+              if (sn < 1) return;
+              const deskNum = Math.ceil(sn / 2);
+              const pos: 'Sol' | 'Sağ' = sn % 2 === 1 ? 'Sol' : 'Sağ';
+              const seatIdx = seats.findIndex(s => s.deskNumber === deskNum && s.position === pos);
+              if (seatIdx >= 0) {
+                seats[seatIdx] = { ...seats[seatIdx], type: 'CÜT', student: entry.student };
+              }
+            });
+
+            roomResults.push({ config, seats, stats: calcStats(seats, config) });
+          });
+
+          newResults.push({ centerName, rooms: roomResults });
+        });
+
+        setStudents(newStudents);
+        setCenterConfigs(newConfigs);
+        setResults(newResults);
+        setSwapStack([]);
+        setCurrentStep('results');
+        toast({
+          title: 'Excel yükləndi',
+          description: `${newStudents.length} şagird · ${newResults.length} mərkəz bərpa edildi.`,
+        });
+      } catch (err) {
+        console.error('Re-import error', err);
+        toast({ title: 'Xəta', description: 'Fayl oxuna bilmədi.', variant: 'destructive' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // ── Template download ──────────────────────────────────────────────────────
+  const downloadTemplate = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Şablon');
+
+    // Sütun genişlikləri
+    ws.columns = [
+      { key: 'center',     width: 20 },
+      { key: 'lastName',   width: 16 },
+      { key: 'firstName',  width: 16 },
+      { key: 'patronymic', width: 16 },
+      { key: 'rayon',      width: 14 },
+      { key: 'childId',    width: 14 },
+      { key: 'section',    width: 14 },
+      { key: 'grade',      width: 14 },
+      { key: 'schoolName', width: 28 },
+      { key: 'utisCode',   width: 18 },
+      { key: 'gender',     width: 14 },
+      { key: 'note',       width: 14 },
+    ];
+
+    // Başlıq sətri — sarı fon, qalın, mərkəzli
+    const headers = [
+      'İmtahan Mərkəzi', 'Soyadı', 'Adı', 'Atasının adı', 'Rayon',
+      'Uşaq İD', 'Tədris dili (Az/Rus)', 'Tədris sinfi', 'Təhsil müəssisəsi',
+      'Müəssisəsinin İD (UTİS)', 'Cinsiyyət (K/Q)', 'Qeyd',
+    ];
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.font      = { bold: true, color: { argb: 'FF000000' } };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border    = {
+        top:    { style: 'medium' }, bottom: { style: 'medium' },
+        left:   { style: 'medium' }, right:  { style: 'medium' },
+      };
+    });
+    headerRow.height = 36;
+
+    // Nümunə sətrlər
+    const samples = [
+      ['Mərkəz 1', 'Məmmədov', 'Vüsal',  'Ramiz',  'Binəqədi', '78901', 'Az',  '11A', 'Məktəb №1', '123456', 'K', ''],
+      ['Mərkəz 1', 'Həsənova', 'Günay',  'Əli',    'Sabunçu',  '78902', 'Rus', '11B', 'Məktəb №2', '789012', 'Q', ''],
+      ['Mərkəz 2', 'Əliyev',   'Murad',  'Tural',  'Nizami',   '78903', 'Az',  '11A', 'Məktəb №3', '345678', 'K', ''],
+    ];
+    samples.forEach(row => {
+      const dataRow = ws.addRow(row);
+      dataRow.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border    = {
+          top:    { style: 'thin' }, bottom: { style: 'thin' },
+          left:   { style: 'thin' }, right:  { style: 'thin' },
+        };
+      });
+      dataRow.height = 20;
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), 'Imtahan_Sablon.xlsx');
+    toast({ title: 'Şablon yükləndi' });
+  };
+
+  // ── Print helpers (XSS-safe) ───────────────────────────────────────────────
+  const buildCard = (s: Seat, centerName: string, roomName: string) => {
+    const st = s.student!;
+    const fullName = `${escapeHtml(st.lastName)} ${escapeHtml(st.firstName)}${st.patronymic ? ' ' + escapeHtml(st.patronymic) : ''}`;
+    return `
+    <div class="card">
+      <div class="header">
+        <span>BURAXILIŞ VƏRƏQƏSİ</span>
+        <div class="seat-num">${s.seatNumber}</div>
+      </div>
+
+      <div class="row-full row"><span class="label">Şagirdin tam adı</span><span class="val-lg">${fullName}</span></div>
+
+      <div class="grid2">
+        <div class="row"><span class="label">Mərkəz</span><span class="val">${escapeHtml(centerName)}</span></div>
+        <div class="row"><span class="label">Otaq</span><span class="val">${escapeHtml(roomName)}</span></div>
+
+        <div class="row"><span class="label">Sinif</span><span class="val">${escapeHtml(st.grade)}</span></div>
+        <div class="row"><span class="label">Tədris dili</span><span class="val">${escapeHtml(st.section)}</span></div>
+
+        <div class="row"><span class="label">Rayon</span><span class="val">${escapeHtml(st.rayon ?? '—')}</span></div>
+        <div class="row"><span class="label">Cinsiyyət</span><span class="val">${st.gender === 'K' ? 'Kişi' : 'Qadın'}</span></div>
+
+        <div class="row-full row"><span class="label">Məktəb</span><span class="val">${escapeHtml(st.schoolName)}</span></div>
+      </div>
+
+      <div class="badges">
+        ${st.childId ? `<span class="badge badge-child">Uşaq İD: ${escapeHtml(st.childId)}</span>` : ''}
+        <span class="badge">UTİS: ${escapeHtml(st.utisCode)}</span>
+      </div>
+    </div>
+  `;
+  };
+
+  const openPrintWindow = (body: string, head = '') => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head>${head}</head><body>${body}</body></html>`);
+    win.document.close();
+    // Stillər tam yüklənəndən sonra çap başlasın (onload bəzən erkən işləyir)
+    setTimeout(() => win.print(), 500);
+  };
+
+  const handlePrintCards = (centerName: string, room: RoomResult) =>
+    openPrintWindow(
+      room.seats.filter(s => s.student).map(s => buildCard(s, centerName, room.config.name)).join(''),
+      `<style>${PRINT_CARD_CSS}</style>`,
+    );
+
+  const handlePrintAllCards = () =>
+    openPrintWindow(
+      results.flatMap(c => c.rooms.flatMap(r =>
+        r.seats.filter(s => s.student).map(s => buildCard(s, c.centerName, r.config.name))
+      )).join(''),
+      `<style>${PRINT_CARD_CSS}</style>`,
+    );
+
+  const handlePrint = (room: RoomResult, centerName: string) => {
+    const rows = room.seats.map(s => `
+      <tr>
+        <td>${s.seatNumber}</td><td>${s.deskNumber}</td><td>${escapeHtml(s.position)}</td>
+        <td>${s.student ? escapeHtml(`${s.student.firstName} ${s.student.lastName}`) : 'BOŞ'}</td>
+        <td>${escapeHtml(s.student?.grade ?? '-')}</td>
+        <td>${escapeHtml(s.student?.schoolName ?? '-')}</td>
+        <td>${escapeHtml(s.student?.utisCode ?? '-')}</td>
+      </tr>`).join('');
+    openPrintWindow(
+      `<h1>${escapeHtml(centerName)} — ${escapeHtml(room.config.name)}</h1>
+       <table><thead><tr><th>№</th><th>Parta</th><th>Mövqe</th><th>Ad Soyad</th><th>Sinif</th><th>Məktəb</th><th>UTİS</th></tr></thead>
+       <tbody>${rows}</tbody></table>`,
+      `<style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#f2f2f2}</style>`,
+    );
+  };
+
+  const buildProtocol = (centerName: string, room: RoomResult) => {
+    const rows = room.seats.filter(s => s.student).map(s => `
+      <tr>
+        <td style="border:1px solid #000;padding:5px;text-align:center">${s.seatNumber}</td>
+        <td style="border:1px solid #000;padding:5px;text-align:center">${s.deskNumber}-${escapeHtml(s.position)}</td>
+        <td style="border:1px solid #000;padding:5px">${escapeHtml(s.student?.firstName ?? '')} ${escapeHtml(s.student?.lastName ?? '')}</td>
+        <td style="border:1px solid #000;padding:5px"></td>
+        <td style="border:1px solid #000;padding:5px"></td>
+      </tr>`).join('');
+    return `
+      <div style="page-break-after:always;font-family:sans-serif;padding:30px">
+        <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:20px">
+          <h2 style="margin:0">İMTİHAN OTAQ PROTOKOLU</h2>
+        </div>
+        <div style="border:1px solid #000;padding:10px;margin:10px 0">
+          <b>Mərkəz:</b> ${escapeHtml(centerName)} | <b>Otaq:</b> ${escapeHtml(room.config.name)} | <b>Tarix:</b> ${new Date().toLocaleDateString()}
+        </div>
+        <div style="border:1px solid #000;padding:10px;margin:10px 0">
+          <b>Nəzarətçilər:</b> ${escapeHtml(room.config.proctors ?? 'Təyin edilməyib')}
+        </div>
+        <p><b>Şagird Siyahısı:</b></p>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="border:1px solid #000;padding:5px">№</th>
+            <th style="border:1px solid #000;padding:5px">Yer</th>
+            <th style="border:1px solid #000;padding:5px">Ad Soyad</th>
+            <th style="border:1px solid #000;padding:5px">İmza</th>
+            <th style="border:1px solid #000;padding:5px">Qeyd</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="margin-top:50px">
+          <p>Nəzarətçi imzası: ___________________</p>
+          <p>Mərkəz rəhbəri imzası: ___________________</p>
+        </div>
+      </div>`;
+  };
+
+  const handlePrintProtocol = (centerName: string, room: RoomResult) =>
+    openPrintWindow(buildProtocol(centerName, room));
+
+  const handlePrintAllProtocols = () =>
+    openPrintWindow(results.flatMap(c => c.rooms.map(r => buildProtocol(c.centerName, r))).join(''));
+
+  // ── Excel export ───────────────────────────────────────────────────────────
+  const exportToExcel = async () => {
+    const wb = new ExcelJS.Workbook();
+
+    // ── XÜLASƏ sheet ──────────────────────────────────────────────────────────
+    const summary = wb.addWorksheet('XÜLASƏ');
+    summary.columns = [
+      { header: 'Mərkəz',         key: 'center',   width: 25 },
+      { header: 'Otaq',           key: 'room',     width: 20 },
+      { header: 'Şagird sayı',    key: 'students', width: 14 },
+      { header: 'UTİS Pozulması', key: 'utis',     width: 16 },
+      { header: 'Risk',           key: 'risk',     width: 20 },
+    ];
+    const summaryHeader = summary.getRow(1);
+    summaryHeader.font = { bold: true };
+    summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+    summaryHeader.eachCell(c => {
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        summary.addRow({
+          center:   center.centerName,
+          room:     room.config.name,
+          students: room.stats.totalStudents,
+          utis:     room.stats.utisViolations,
+          risk:     `${room.stats.riskScore}% (${room.stats.riskStatus})`,
+        });
+      });
+    });
+
+    // ── Hər mərkəz üçün sheet — rəsmi format ──────────────────────────────────
+    const EXPORT_COLS = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyHeaderStyle = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FF000000' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = {
+          top: { style: 'medium' }, bottom: { style: 'medium' },
+          left: { style: 'medium' }, right: { style: 'medium' },
+        };
+      });
+    };
+
+    const applyDataStyle = (row: ExcelJS.Row) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border    = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' },
+        };
+      });
+    };
+
+    results.forEach(center => {
+      const sheetName = center.centerName.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheet = wb.addWorksheet(sheetName);
+      sheet.columns = EXPORT_COLS.map(c => ({ header: c.header, width: c.width }));
+
+      // Başlıq
+      const headerRow = sheet.getRow(1);
+      headerRow.values = EXPORT_COLS.map(c => c.header);
+      applyHeaderStyle(headerRow);
+
+      // Şagird sətirləri — yalnız şagirdli oturacaqlar, otaq sırası ilə
+      let rowNo = 1;
+      center.rooms.forEach(room => {
+        room.seats
+          .filter(s => s.student)
+          .forEach(s => {
+            const st = s.student!;
+            const dataRow = sheet.addRow([
+              rowNo++,
+              st.lastName,
+              st.firstName,
+              st.patronymic ?? '',
+              st.rayon      ?? '',
+              '',                    // Sual kitabçasının variant — boş
+              st.section,
+              st.grade,
+              st.schoolName,
+              st.utisCode,
+              st.childId    ?? '',
+              s.seatNumber,
+              room.config.name,
+              center.centerName,
+            ]);
+            applyDataStyle(dataRow);
+          });
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), 'Imtahan_Oturma_Plani.xlsx');
+    toast({ title: 'Excel hazırlandı' });
+  };
+
+  // ── Excel export — Rayonlar üzrə ──────────────────────────────────────────
+  const exportByRayon = async () => {
+    const wb = new ExcelJS.Workbook();
+
+    // ── XÜLASƏ sheet ──────────────────────────────────────────────────────────
+    const summary = wb.addWorksheet('XÜLASƏ');
+    summary.columns = [
+      { header: 'Rayon',          key: 'rayon',    width: 20 },
+      { header: 'Şagird sayı',    key: 'students', width: 14 },
+      { header: 'Mərkəzlər',      key: 'centers',  width: 40 },
+    ];
+    const summaryHeaderRow = summary.getRow(1);
+    summaryHeaderRow.font = { bold: true };
+    summaryHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+    summaryHeaderRow.eachCell(c => {
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    const EXPORT_COLS_RAYON = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyRayonHeaderStyle = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = {
+          top: { style: 'medium' }, bottom: { style: 'medium' },
+          left: { style: 'medium' }, right: { style: 'medium' },
+        };
+      });
+    };
+
+    const applyRayonDataStyle = (row: ExcelJS.Row, isEven: boolean) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.fill      = isEven
+          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4FF' } }
+          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        cell.border    = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' },
+        };
+      });
+    };
+
+    // Collect all placed students across all results grouped by rayon
+    const rayonMap = new Map<string, { student: Student; seatNumber: number; roomName: string; centerName: string }[]>();
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        room.seats
+          .filter(s => s.student)
+          .forEach(s => {
+            const st = s.student!;
+            const rayon = st.rayon?.trim() || 'Naməlum';
+            if (!rayonMap.has(rayon)) rayonMap.set(rayon, []);
+            rayonMap.get(rayon)!.push({
+              student: st,
+              seatNumber: s.seatNumber,
+              roomName: room.config.name,
+              centerName: center.centerName,
+            });
+          });
+      });
+    });
+
+    // Sort rayons alphabetically
+    const sortedRayons = Array.from(rayonMap.keys()).sort((a, b) => a.localeCompare(b, 'az'));
+
+    // Summary rows
+    sortedRayons.forEach(rayon => {
+      const entries = rayonMap.get(rayon)!;
+      const centers = Array.from(new Set(entries.map(e => e.centerName))).join(', ');
+      const dataRow = summary.addRow({ rayon, students: entries.length, centers });
+      dataRow.height = 18;
+      dataRow.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    });
+
+    // One sheet per rayon
+    sortedRayons.forEach(rayon => {
+      const entries = rayonMap.get(rayon)!;
+      const sheetName = rayon.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheet = wb.addWorksheet(sheetName);
+      sheet.columns = EXPORT_COLS_RAYON.map(c => ({ header: c.header, width: c.width }));
+
+      const headerRow = sheet.getRow(1);
+      headerRow.values = EXPORT_COLS_RAYON.map(c => c.header);
+      applyRayonHeaderStyle(headerRow);
+
+      // Sort entries by centerName → roomName → seatNumber
+      const sorted = [...entries].sort((a, b) => {
+        const cc = a.centerName.localeCompare(b.centerName, 'az');
+        if (cc !== 0) return cc;
+        const rc = a.roomName.localeCompare(b.roomName, 'az');
+        if (rc !== 0) return rc;
+        return a.seatNumber - b.seatNumber;
+      });
+
+      sorted.forEach(({ student: st, seatNumber, roomName, centerName }, idx) => {
+        const dataRow = sheet.addRow([
+          idx + 1,
+          st.lastName,
+          st.firstName,
+          st.patronymic  ?? '',
+          st.rayon       ?? '',
+          '',                    // Sual kitabçasının variant — boş
+          st.section,
+          st.grade,
+          st.schoolName,
+          st.utisCode,
+          st.childId     ?? '',
+          seatNumber,
+          roomName,
+          centerName,
+        ]);
+        applyRayonDataStyle(dataRow, idx % 2 === 1);
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const date = new Date().toISOString().slice(0, 10);
+    saveAs(new Blob([buf]), `Imtahan_Rayonlar_${date}.xlsx`);
+    toast({ title: 'Rayonlar üzrə Excel hazırlandı', description: `${sortedRayons.length} rayon sheetə ixrac edildi.` });
+  };
+
+  // ── Excel export — Siniflər üzrə ──────────────────────────────────────────
+  const exportByGrade = async () => {
+    const wb = new ExcelJS.Workbook();
+    const summary = wb.addWorksheet('XÜLASƏ');
+    summary.columns = [
+      { header: 'Sinif',          key: 'grade',    width: 14 },
+      { header: 'Şagird sayı',    key: 'students', width: 14 },
+      { header: 'Mərkəzlər',      key: 'centers',  width: 50 },
+    ];
+    const summHdr = summary.getRow(1);
+    summHdr.font = { bold: true };
+    summHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+    summHdr.eachCell(c => {
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    const COLS = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyHdr = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FF000000' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = { top: { style: 'medium' }, bottom: { style: 'medium' }, left: { style: 'medium' }, right: { style: 'medium' } };
+      });
+    };
+
+    const applyData = (row: ExcelJS.Row, _isEven: boolean) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    };
+
+    const gradeMap = new Map<string, { student: Student; seatNumber: number; roomName: string; centerName: string }[]>();
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        room.seats
+          .filter(s => s.student)
+          .forEach(s => {
+            const st = s.student!;
+            const rawGrade = st.grade?.trim() || '';
+            // "6 a", "6b", "6A1" → "6" | "10" → "10" | "Naməlum" if empty
+            const grade = rawGrade.match(/^(\d+)/)?.[1] || rawGrade || 'Naməlum';
+            if (!gradeMap.has(grade)) gradeMap.set(grade, []);
+            gradeMap.get(grade)!.push({
+              student: st,
+              seatNumber: s.seatNumber,
+              roomName: room.config.name,
+              centerName: center.centerName,
+            });
+          });
+      });
+    });
+
+    const sortedGrades = Array.from(gradeMap.keys()).sort((a, b) => {
+      const numA = parseInt(a); const numB = parseInt(b);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return a.localeCompare(b, 'az');
+    });
+
+    sortedGrades.forEach(grade => {
+      const entries = gradeMap.get(grade)!;
+      const centers = Array.from(new Set(entries.map(e => e.centerName))).join(', ');
+      const dataRow = summary.addRow({ grade: `${grade} sinif`, students: entries.length, centers });
+      dataRow.height = 18;
+      dataRow.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    });
+
+    sortedGrades.forEach(grade => {
+      const entries = gradeMap.get(grade)!;
+      const sheetName = `${grade} sinif`.substring(0, 31).replace(/[\\/*?:[\]]/g, '_');
+      const sheet = wb.addWorksheet(sheetName);
+      sheet.columns = COLS.map(c => ({ header: c.header, width: c.width }));
+
+      const headerRow = sheet.getRow(1);
+      headerRow.values = COLS.map(c => c.header);
+      applyHdr(headerRow);
+
+      const sorted = [...entries].sort((a, b) => {
+        const cc = a.centerName.localeCompare(b.centerName, 'az');
+        if (cc !== 0) return cc;
+        const rc = a.roomName.localeCompare(b.roomName, 'az');
+        if (rc !== 0) return rc;
+        return a.seatNumber - b.seatNumber;
+      });
+
+      sorted.forEach(({ student: st, seatNumber, roomName, centerName }, idx) => {
+        const dataRow = sheet.addRow([
+          idx + 1,
+          st.lastName,
+          st.firstName,
+          st.patronymic  ?? '',
+          st.rayon       ?? '',
+          '',
+          st.section,
+          st.grade,
+          st.schoolName,
+          st.utisCode,
+          st.childId     ?? '',
+          seatNumber,
+          roomName,
+          centerName,
+        ]);
+        applyData(dataRow, idx % 2 === 1);
+      });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const date = new Date().toISOString().slice(0, 10);
+    saveAs(new Blob([buf]), `Imtahan_Sinifler_${date}.xlsx`);
+    toast({ title: 'Siniflər üzrə Excel hazırlandı', description: `${sortedGrades.length} sinif sheetə ixrac edildi.` });
+  };
+
+  // ── Məktəblər üzrə ZIP export ─────────────────────────────────────────────
+  // Hər məktəb üçün ayrı Excel → hamısı bir ZIP faylında
+  const exportSchoolsZip = async () => {
+    // jszip ExcelJS-in asılılığı kimi artıq mövcuddur
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+
+    // Bütün oturacaqlı şagirdləri məktəbə görə qruplaşdır
+    type Entry = { student: Student; seatNumber: number; roomName: string; centerName: string };
+    const schoolMap = new Map<string, Entry[]>();
+
+    results.forEach(center => {
+      center.rooms.forEach(room => {
+        room.seats.filter(s => s.student).forEach(s => {
+          const st = s.student!;
+          const key = `${st.utisCode}___${st.schoolName}`;
+          if (!schoolMap.has(key)) schoolMap.set(key, []);
+          schoolMap.get(key)!.push({
+            student: st, seatNumber: s.seatNumber,
+            roomName: room.config.name, centerName: center.centerName,
+          });
+        });
+      });
+    });
+
+    if (schoolMap.size === 0) {
+      toast({ title: 'Xəta', description: 'Heç bir şagird tapılmadı.', variant: 'destructive' });
+      return;
+    }
+
+    const COLS = [
+      { header: 'NO',                        width: 6  },
+      { header: 'Soyadı',                    width: 16 },
+      { header: 'Adı',                       width: 16 },
+      { header: 'Atasının adı',              width: 16 },
+      { header: 'Rayon',                     width: 14 },
+      { header: 'Sual kitabçasının variant', width: 22 },
+      { header: 'Tədris dili',               width: 13 },
+      { header: 'Tədris sinfi',              width: 13 },
+      { header: 'Təhsil müəssisəsi',         width: 28 },
+      { header: 'Müəssisəsinin İD',          width: 16 },
+      { header: 'Uşaq İD',                  width: 14 },
+      { header: 'Yer',                       width: 8  },
+      { header: 'Otaq',                      width: 14 },
+      { header: 'Mərkəz',                    width: 20 },
+    ];
+
+    const applyHeader = (row: ExcelJS.Row) => {
+      row.height = 36;
+      row.eachCell(cell => {
+        cell.font      = { bold: true, color: { argb: 'FF000000' } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border    = {
+          top: { style: 'medium' }, bottom: { style: 'medium' },
+          left: { style: 'medium' }, right: { style: 'medium' },
+        };
+      });
+    };
+
+    const applyData = (row: ExcelJS.Row, even: boolean) => {
+      row.height = 18;
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.fill = even
+          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } }
+          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        cell.border = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' },
+        };
+      });
+    };
+
+    // Hər məktəb üçün ayrı Excel yarat
+    const sortedKeys = Array.from(schoolMap.keys()).sort((a, b) => a.localeCompare(b, 'az'));
+
+    for (const key of sortedKeys) {
+      const entries = schoolMap.get(key)!;
+      const [utisCode, schoolName] = key.split('___');
+
+      const wb   = new ExcelJS.Workbook();
+      const sheet = wb.addWorksheet('Oturma Planı');
+      sheet.columns = COLS.map(c => ({ header: c.header, width: c.width }));
+
+      // Başlıq
+      const headerRow = sheet.getRow(1);
+      headerRow.values = COLS.map(c => c.header);
+      applyHeader(headerRow);
+
+      // Şagird sətirləri — Yer üzrə artan sıra
+      const sorted = [...entries].sort((a, b) => a.seatNumber - b.seatNumber);
+      sorted.forEach(({ student: st, seatNumber, roomName, centerName }, idx) => {
+        const row = sheet.addRow([
+          idx + 1,
+          st.lastName,
+          st.firstName,
+          st.patronymic  ?? '',
+          st.rayon       ?? '',
+          '',                     // Sual kitabçasının variant — boş
+          st.section,
+          st.grade,
+          st.schoolName,
+          st.utisCode,
+          st.childId     ?? '',
+          seatNumber,
+          roomName,
+          centerName,
+        ]);
+        applyData(row, idx % 2 === 1);
+      });
+
+      // Fayl adı: UTİS_MəktəbAdı.xlsx (xüsusi simvollar silinir)
+      const safeName = `${utisCode}_${schoolName}`.replace(/[\\/*?:[\]<>|]/g, '_').substring(0, 60);
+      const buf = await wb.xlsx.writeBuffer();
+      zip.file(`${safeName}.xlsx`, buf);
+    }
+
+    // ZIP yüklə
+    const date    = new Date().toISOString().slice(0, 10);
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    saveAs(zipBlob, `Mekteb_Planlari_${date}.zip`);
+    toast({
+      title: 'ZIP hazırlandı',
+      description: `${schoolMap.size} məktəb üçün Excel faylları ZIP-ə yığıldı.`,
+    });
+  };
+
+  // ── Computed ───────────────────────────────────────────────────────────────
+  const uniqueCenters = useMemo(() => Array.from(new Set(students.map(s => s.center))), [students]);
+
+  const filteredStudents = useMemo(() => {
+    let list = [...students];
+    if (centerFilter !== 'all') list = list.filter(s => s.center === centerFilter);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(s =>
+        s.firstName.toLowerCase().includes(q) ||
+        s.lastName.toLowerCase().includes(q) ||
+        s.schoolName.toLowerCase().includes(q) ||
+        s.utisCode.includes(q),
+      );
+    }
+    if (sortField) {
+      list.sort((a, b) => {
+        const cmp = (a[sortField] ?? '').localeCompare(b[sortField] ?? '', 'az');
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [students, searchQuery, centerFilter, sortField, sortDir]);
+
+  const centerCapacity = useMemo(() => {
+    const res: Record<string, { students: number; capacity: number }> = {};
+    Object.entries(centerConfigs).forEach(([name, rooms]) => {
+      res[name] = {
+        students: students.filter(s => s.center === name).length,
+        capacity: rooms.reduce((sum, r) => sum + (r.totalDesks ?? (r.columns * r.rowsPerColumn)) * 2, 0),
+      };
+    });
+    return res;
+  }, [centerConfigs, students]);
+
+  // Bütün mərkəzlər üzrə yer çatışmazlığı (config xəbərdarlığı)
+  const shortfallCenters = useMemo(() =>
+    Object.entries(centerCapacity)
+      .filter(([, cap]) => cap.capacity < cap.students)
+      .map(([name, cap]) => ({ name, shortfall: cap.students - cap.capacity })),
+  [centerCapacity]);
+
+  // Hər mərkəz üçün utisCode → rəng indeksi xəritəsi (nəticə dəyişdikdə yenilənir)
+  const centerPalettes = useMemo(() => {
+    const palettes = new Map<string, Map<string, number>>();
+    results.forEach(center => {
+      const utisSet = new Set<string>();
+      center.rooms.forEach(room => room.seats.forEach(s => { if (s.student) utisSet.add(s.student.utisCode); }));
+      const palette = new Map<string, number>();
+      Array.from(utisSet).sort().forEach((utis, idx) => palette.set(utis, idx));
+      palettes.set(center.centerName, palette);
+    });
+    return palettes;
+  }, [results]);
+
+  const globalStats = useMemo(() => {
+    if (!results.length) return null;
+    const totalStudents  = results.reduce((s, c) => s + c.rooms.reduce((a, r) => a + r.stats.totalStudents, 0), 0);
+    const totalRooms     = results.reduce((s, c) => s + c.rooms.length, 0);
+    const totalViolations = results.reduce((s, c) => s + c.rooms.reduce((a, r) => a + r.stats.utisViolations, 0), 0);
+    const avgRisk = totalRooms > 0
+      ? Math.round(results.reduce((s, c) => s + c.rooms.reduce((a, r) => a + r.stats.riskScore, 0), 0) / totalRooms)
+      : 0;
+    return { totalStudents, totalRooms, totalViolations, avgRisk };
+  }, [results]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const currentStepIdx = STEP_ORDER.indexOf(currentStep);
+
+  // ── JSX ────────────────────────────────────────────────────────────────────
+  return (
+    <div className="max-w-[1400px] mx-auto space-y-8 pb-20">
+
+      {/* ── Step header ── */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-background/50 backdrop-blur-xl p-4 sm:p-6 rounded-2xl border shadow-sm">
+        <div className="space-y-0.5">
+          <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            Professional Oturma Planı
+          </h1>
+          <div className="flex items-center gap-3">
+            <p className="text-muted-foreground text-sm hidden sm:block">Mükəmməl imtahan təşkili üçün ağıllı alət</p>
+            <Button variant="ghost" size="sm" onClick={() => setShowResetDialog(true)} className="text-red-500 h-7 text-[10px] hover:bg-red-50">
+              <RefreshCw className="w-3 h-3 mr-1" /> Yeni Plan
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 w-full md:w-auto scrollbar-none">
+          {([
+            { id: 'upload',  icon: Upload,       label: 'Yüklə'    },
+            { id: 'mapping', icon: FileSpreadsheet, label: 'Xəritələ' },
+            { id: 'review',  icon: Edit3,         label: 'Redaktə'  },
+            { id: 'config',  icon: Settings2,     label: 'Tənzimlə' },
+            { id: 'results', icon: CheckCircle2,  label: 'Nəticə'   },
+          ] as { id: Step; icon: React.ElementType; label: string }[]).map((s, idx) => {
+            const sIdx       = STEP_ORDER.indexOf(s.id);
+            const isCompleted = sIdx < currentStepIdx;
+            const isCurrent   = currentStep === s.id;
+            return (
+              <React.Fragment key={s.id}>
+                <div
+                  onClick={() => isCompleted && setCurrentStep(s.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 sm:px-4 py-2 rounded-full transition-all duration-300 flex-shrink-0',
+                    isCurrent   ? 'bg-primary text-primary-foreground shadow-lg scale-105' : 'bg-muted text-muted-foreground opacity-70',
+                    isCompleted && 'cursor-pointer hover:opacity-100 hover:bg-muted/80',
+                  )}
+                >
+                  <s.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap hidden xs:inline sm:inline">{s.label}</span>
+                </div>
+                {idx < 4 && <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+
+        {/* ══════════════════ STEP: Upload ══════════════════ */}
+        {currentStep === 'upload' && (
+          <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            <Card
+              className={cn(
+                'border-2 border-dashed flex flex-col items-center justify-center p-6 sm:p-12 text-center space-y-6 transition-all cursor-pointer group relative overflow-hidden',
+                isDragging ? 'border-primary bg-primary/10 scale-[1.01]' : 'hover:border-primary/50 hover:bg-primary/5',
+              )}
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+            >
+              <div className={cn('p-6 bg-blue-100 rounded-full transition-transform', isDragging ? 'scale-125' : 'group-hover:scale-110')}>
+                <Upload className="w-12 h-12 text-blue-600" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold">{isDragging ? 'Faylı buraxın' : 'Faylı bura sürükləyin'}</h2>
+                <p className="text-muted-foreground text-sm">XLSX, XLS və ya CSV formatında şagird siyahısı.</p>
+              </div>
+              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} accept=".xlsx,.xls,.csv" />
+              <Button size="lg" className="px-8 shadow-xl" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                Fayl Seçin
+              </Button>
+            </Card>
+
+            <Card className="p-8 space-y-6 bg-indigo-50/50 border-indigo-100">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-100 rounded-xl"><FileSpreadsheet className="w-8 h-8 text-indigo-600" /></div>
+                <div>
+                  <h3 className="text-xl font-bold">Hazır Şablon</h3>
+                  <p className="text-muted-foreground text-sm">Vaxtınıza qənaət etmək üçün şablondan istifadə edin.</p>
+                </div>
+              </div>
+              <Button variant="outline" size="lg" className="w-full bg-background border-indigo-200" onClick={downloadTemplate}>
+                <Download className="w-4 h-4 mr-2" /> Şablonu Yüklə
+              </Button>
+            </Card>
+
+            {/* ── Re-import card ── */}
+            <Card className="p-6 sm:p-8 space-y-6 bg-emerald-50/50 border-emerald-100">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-100 rounded-xl"><Upload className="w-8 h-8 text-emerald-600" /></div>
+                <div>
+                  <h3 className="text-xl font-bold">Eksport Faylını Yüklə</h3>
+                  <p className="text-muted-foreground text-sm">Əvvəl ixrac edilmiş Excel planını redaktə üçün yenidən aç.</p>
+                </div>
+              </div>
+              <input
+                ref={importFileRef}
+                type="file"
+                className="hidden"
+                accept=".xlsx,.xls"
+                onChange={e => { const f = e.target.files?.[0]; if (f) importExcelResult(f); e.target.value = ''; }}
+              />
+              <Button
+                variant="outline" size="lg"
+                className="w-full bg-background border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => importFileRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" /> Planı Yüklə
+              </Button>
+            </Card>
+
+            {history.length > 0 && (
+              <Card className="col-span-1 md:col-span-3 p-6 bg-slate-50 border-slate-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar className="w-5 h-5 text-slate-500" />
+                  <h3 className="font-bold">Yadda Saxlanılan Planlar</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {history.map(item => (
+                    <div key={item.id} className="bg-white border rounded-xl p-4 flex justify-between items-center group hover:border-primary transition-all">
+                      <div className="cursor-pointer overflow-hidden flex-1" onClick={() => loadFromHistory(item)}>
+                        <p className="font-bold text-sm truncate">{item.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(item.date).toLocaleDateString()} · {item.studentCount} şagird · {item.centerCount} mərkəz
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => deleteFromHistory(item.id)} className="text-red-400 opacity-0 group-hover:opacity-100 ml-2">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </motion.div>
+        )}
+
+        {/* ══════════════════ STEP: Mapping ══════════════════ */}
+        {currentStep === 'mapping' && (
+          <motion.div key="mapping" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sütunların Uyğunlaşdırılması</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  ✅ <strong>{rawRows.length - 1}</strong> şagird sətri ·{' '}
+                  <strong>{rawRows[0]?.length ?? 0}</strong> sütun tapıldı — avtomatik uyğunlaşdırıldı, yoxlayın.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {Object.keys(columnMapping).map(key => (
+                    <div key={key} className="space-y-2">
+                      <Label className="capitalize font-bold text-xs text-muted-foreground">{key}</Label>
+                      <Select
+                        value={columnMapping[key].toString()}
+                        onValueChange={val => setColumnMapping(prev => ({ ...prev, [key]: parseInt(val) }))}
+                      >
+                        <SelectTrigger className="bg-muted/30"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {rawRows[0]?.map((col, idx) => {
+                            const colName = col || `Sütun ${idx + 1}`;
+                            // preview: first 2 data rows — shown in dropdown only
+                            const preview = [rawRows[1]?.[idx], rawRows[2]?.[idx]]
+                              .filter((v): v is string => !!v)
+                              .join(', ');
+                            return (
+                              // textValue → SelectValue trigger-də yalnız sütun adı göstərir
+                              <SelectItem key={idx} value={idx.toString()} textValue={colName}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{colName}</span>
+                                  {preview && (
+                                    <span className="text-[10px] text-muted-foreground">{preview}</span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter className="justify-between border-t p-6">
+                <Button variant="ghost" onClick={() => setCurrentStep('upload')}><ArrowLeft className="w-4 h-4 mr-2" /> Geri</Button>
+                <Button size="lg" onClick={applyMapping} className="px-12 shadow-lg">Davam Et <ArrowRight className="w-4 h-4 ml-2" /></Button>
+              </CardFooter>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* ══════════════════ STEP: Review ══════════════════ */}
+        {currentStep === 'review' && (
+          <motion.div key="review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Users className="w-6 h-6 text-primary" />
+                Şagird Siyahısı ({filteredStudents.length}/{students.length})
+              </h2>
+              <div className="flex gap-2 w-full md:w-auto flex-wrap">
+                <div className="relative flex-1 md:w-[220px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input placeholder="Axtar..." className="pl-10 h-9" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                </div>
+                <Select value={centerFilter} onValueChange={setCenterFilter}>
+                  <SelectTrigger className="h-9 w-[170px]">
+                    <Filter className="w-3 h-3 mr-1" /><SelectValue placeholder="Mərkəz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün mərkəzlər</SelectItem>
+                    {uniqueCenters.map(c => (
+                      <SelectItem key={c} value={c}>{c} ({students.filter(s => s.center === c).length})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={shuffleStudents} className="text-indigo-600 border-indigo-100 hover:bg-indigo-50 h-9">
+                  <Shuffle className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Center chips */}
+            <div className="flex gap-2 flex-wrap max-h-[150px] overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
+              {uniqueCenters.map(c => (
+                <Badge
+                  key={c} variant={centerFilter === c ? 'default' : 'outline'} className="cursor-pointer hover:bg-primary hover:text-white transition-colors"
+                  onClick={() => setCenterFilter(prev => prev === c ? 'all' : c)}
+                >
+                  {c}: {students.filter(s => s.center === c).length}
+                </Badge>
+              ))}
+            </div>
+
+            <Card className="overflow-hidden border-none shadow-xl">
+              <div className="max-h-[600px] overflow-auto">
+                <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-md">
+                    <TableRow>
+                      {([
+                        ['lastName',   'Soyad'],
+                        ['firstName',  'Ad'],
+                        ['grade',      'Sinif'],
+                        ['schoolName', 'Məktəb'],
+                        ['center',     'Mərkəz'],
+                      ] as [SortField, string][]).map(([field, label]) => (
+                        <TableHead key={field} className="cursor-pointer select-none" onClick={() => toggleSort(field)}>
+                          <span className="flex items-center gap-1">
+                            {label}
+                            {sortField === field && (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                          </span>
+                        </TableHead>
+                      ))}
+                      <TableHead>Atasının adı</TableHead>
+                      <TableHead>Rayon</TableHead>
+                      <TableHead>Uşaq İD</TableHead>
+                      <TableHead>UTİS</TableHead>
+                      <TableHead>Bölmə</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.length === 0 ? (
+                      <TableRow><TableCell colSpan={11} className="h-24 text-center text-muted-foreground">Şagird tapılmadı</TableCell></TableRow>
+                    ) : (
+                      <>
+                        {filteredStudents.slice(0, 100).map(s => (
+                          <TableRow key={s.id} className="hover:bg-primary/5 transition-colors group">
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.lastName}    onChange={e => updateStudent(s.id, 'lastName',    e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-medium" value={s.firstName}   onChange={e => updateStudent(s.id, 'firstName',   e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2"             value={s.grade}       onChange={e => updateStudent(s.id, 'grade',       e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.schoolName}  onChange={e => updateStudent(s.id, 'schoolName',  e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.center}      onChange={e => updateStudent(s.id, 'center',      e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.patronymic ?? ''} onChange={e => updateStudent(s.id, 'patronymic', e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 text-xs"     value={s.rayon      ?? ''} onChange={e => updateStudent(s.id, 'rayon',      e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.childId ?? ''} onChange={e => updateStudent(s.id, 'childId',  e.target.value)} /></TableCell>
+                            <TableCell><Input variant="ghost" className="h-8 py-0 px-2 font-mono text-xs" value={s.utisCode}    onChange={e => updateStudent(s.id, 'utisCode',   e.target.value)} /></TableCell>
+                            <TableCell>
+                              <Select value={s.section} onValueChange={val => updateStudent(s.id, 'section', val)}>
+                                <SelectTrigger className="h-8 text-xs border-none bg-transparent hover:bg-muted"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Az">Az</SelectItem>
+                                  <SelectItem value="Rus">Rus</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" onClick={() => deleteStudent(s.id)} className="opacity-0 group-hover:opacity-100 text-red-400">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredStudents.length > 100 && (
+                          <TableRow>
+                            <TableCell colSpan={11} className="h-12 text-center bg-muted/30 text-xs font-bold text-muted-foreground">
+                              Sürət üçün yalnız ilk 100 şagird göstərilir. Digərlərini tapmaq üçün axtarışdan istifadə edin.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
+                </div>
+              </div>
+            </Card>
+
+            <div className="flex justify-between items-center bg-background/50 p-6 rounded-2xl border">
+              <Button variant="ghost" onClick={() => setCurrentStep('mapping')}><ArrowLeft className="w-4 h-4 mr-2" /> Geri</Button>
+              <Button size="lg" onClick={() => setCurrentStep('config')} className="px-12 shadow-lg">Davam Et <ArrowRight className="w-4 h-4 ml-2" /></Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ══════════════════ STEP: Config ══════════════════ */}
+        {currentStep === 'config' && (() => {
+          const filteredCenters = Object.keys(centerConfigs).filter(c =>
+            c.toLowerCase().includes(centerSearch.toLowerCase())
+          );
+          const editRoom = roomEditModal
+            ? centerConfigs[roomEditModal.centerName]?.find(r => r.id === roomEditModal.roomId)
+            : null;
+
+          return (
+          <motion.div key="config" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="space-y-4">
+
+            {/* ── Sticky top nav bar ── */}
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md rounded-2xl border shadow-md px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentStep('review')}>
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Geri
+                </Button>
+                <span className="text-muted-foreground text-sm hidden sm:inline">Otaq konfiqurasiyası</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={autoGenerateRoomsForAll} className="text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                  <RefreshCw className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Avto-Yarat</span>
+                </Button>
+                <Button size="sm" onClick={generatePlan} className="bg-gradient-to-r from-primary to-indigo-600 shadow font-bold px-5">
+                  <Shuffle className="w-3.5 h-3.5 mr-1" /> Planı Tamamla
+                </Button>
+              </div>
+            </div>
+
+            {/* ── 2-column layout ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+              {/* Left: compact center panel */}
+              <div className="lg:col-span-1 space-y-3">
+
+                {/* Seating strategy */}
+                <Card className="border-none shadow-sm bg-slate-50/70">
+                  <CardContent className="p-3 space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Strategiya</Label>
+                    <div className="flex gap-1 flex-wrap">
+                      {SEATING_TYPES.map(({ type, label }) => (
+                        <button
+                          key={type}
+                          onClick={() => setSeatingType(type)}
+                          className={cn(
+                            'flex-1 min-w-[60px] text-[11px] font-bold px-2 py-1.5 rounded-lg border transition-all',
+                            seatingType === type
+                              ? 'bg-primary text-white border-primary shadow'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-primary/40',
+                          )}
+                        >{label}</button>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer select-none">
+                      <input type="checkbox" checked={useGenderBalance} onChange={e => setUseGenderBalance(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                      Cinsiyyət Balan sı
+                    </label>
+                  </CardContent>
+                </Card>
+
+                {/* Center search + list */}
+                <Card className="border-none shadow-sm">
+                  <CardContent className="p-2 space-y-1.5">
+                    <div className="flex items-center gap-1.5 px-1">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mərkəzlər</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{filteredCenters.length}/{Object.keys(centerConfigs).length}</span>
+                    </div>
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <input
+                        value={centerSearch}
+                        onChange={e => setCenterSearch(e.target.value)}
+                        placeholder="Axtar..."
+                        className="w-full pl-6 pr-2 py-1 text-xs rounded-lg border bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    {/* List */}
+                    <div className="space-y-0.5 max-h-[340px] overflow-y-auto pr-0.5">
+                      {filteredCenters.map(cName => {
+                        const cap = centerCapacity[cName];
+                        const diff = (cap?.capacity ?? 0) - (cap?.students ?? 0);
+                        const isActive = activeCenter === cName;
+                        return (
+                          <button
+                            key={cName}
+                            onClick={() => setActiveCenter(cName)}
+                            className={cn(
+                              'w-full text-left px-3 py-2 rounded-xl border-2 transition-all text-sm',
+                              isActive
+                                ? 'bg-white border-primary shadow-sm'
+                                : 'bg-transparent border-transparent hover:bg-white/60',
+                              diff < 0 && 'border-red-200',
+                            )}
+                          >
+                            <p className="font-bold text-xs truncate">{cName}</p>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">
+                                {cap?.students ?? 0} / {cap?.capacity ?? 0} yer
+                              </span>
+                              {cap && cap.capacity > 0 && (
+                                <span className={cn('text-[9px] font-bold',
+                                  diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-500' : 'text-blue-500'
+                                )}>
+                                  {diff > 0 ? `+${diff} boş` : diff < 0 ? `⚠ ${Math.abs(diff)}` : '= Dolu'}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right: room cards */}
+              <div className="lg:col-span-3 space-y-4">
+
+                {/* Bütün mərkəzlər üzrə xəbərdarlıq */}
+                {shortfallCenters.length > 0 && (
+                  <Alert className="border-red-200 bg-red-50 py-2">
+                    <AlertDescription className="text-xs">
+                      ⚠️ <strong>{shortfallCenters.length} mərkəzdə</strong> yer çatışmazlığı:{' '}
+                      {shortfallCenters.map(c => `${c.name} (−${c.shortfall})`).join(' · ')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Center header + capacity alert */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black truncate max-w-[60%]">
+                    {activeCenter} <span className="text-slate-400 font-normal text-base">otaqları</span>
+                  </h3>
+                  <Button size="sm" onClick={() => addRoomConfig(activeCenter)}>
+                    <Plus className="w-4 h-4 mr-1" /> Otaq ƏLAVƎ Et
+                  </Button>
+                </div>
+
+                {activeCenter && centerCapacity[activeCenter] && (() => {
+                  const { students: sc, capacity: cap } = centerCapacity[activeCenter];
+                  const diff = cap - sc;
+                  return (
+                    <Alert className={cn('py-2', diff < 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50')}>
+                      <AlertDescription className="text-xs">
+                        {diff < 0
+                          ? `⚠️ ${sc} şagird üçün yalnız ${cap} yer var — ${Math.abs(diff)} şagird sığmayacaq.`
+                          : `✅ ${sc} şagird üçün ${cap} yer var — ${diff} yer boş qalacaq.`}
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
+
+                {/* Room cards grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {centerConfigs[activeCenter]?.map((config, idx) => {
+                    const seats = (config.totalDesks ?? (config.columns * config.rowsPerColumn)) * 2;
+                    return (
+                      <Card
+                        key={config.id}
+                        onClick={() => setRoomEditModal({ centerName: activeCenter, roomId: config.id })}
+                        className="cursor-pointer border-2 hover:border-primary/50 hover:shadow-md transition-all group"
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="w-6 h-6 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={e => { e.stopPropagation(); removeRoomConfig(activeCenter, config.id); }}
+                              className="w-6 h-6 p-0 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          <p className="font-bold text-sm leading-tight">{config.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {config.columns} cərgə · {config.totalDesks ?? config.columns * config.rowsPerColumn} parta
+                          </p>
+                          <div className="bg-slate-800 text-white text-[10px] font-bold rounded-lg py-1 text-center">
+                            {seats} yer
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Room edit modal ── */}
+            <Dialog open={!!roomEditModal} onOpenChange={open => !open && setRoomEditModal(null)}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Settings2 className="w-4 h-4 text-primary" />
+                    {editRoom?.name ?? 'Otaq'} — Konfiqurasiya
+                  </DialogTitle>
+                </DialogHeader>
+                {editRoom && roomEditModal && (
+                  <div className="space-y-4 py-2">
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold opacity-60">Otaq Adı</Label>
+                      <Input
+                        value={editRoom.name}
+                        onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'name', e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-[10px] uppercase font-bold opacity-60">Sıra Sayı (Cərgə)</Label>
+                        <Input
+                          type="number" min={1}
+                          value={editRoom.columns}
+                          onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'columns', parseInt(e.target.value) || 1)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase font-bold text-indigo-600">Cəmi Parta</Label>
+                        <Input
+                          type="number" min={1}
+                          value={editRoom.totalDesks ?? (editRoom.columns * editRoom.rowsPerColumn)}
+                          onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'totalDesks', parseInt(e.target.value) || 1)}
+                          className="mt-1 border-indigo-200"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold opacity-60">Nəzarətçilər (Virgüllə)</Label>
+                      <Input
+                        placeholder="Ǝli Vəliyev, Həsən Həsənov"
+                        value={editRoom.proctors ?? ''}
+                        onChange={e => updateRoomConfig(roomEditModal.centerName, editRoom.id, 'proctors', e.target.value)}
+                        className="mt-1 text-xs"
+                      />
+                    </div>
+                    <div className="bg-slate-800 text-white text-sm font-bold rounded-xl py-2 text-center">
+                      {(editRoom.totalDesks ?? (editRoom.columns * editRoom.rowsPerColumn)) * 2} Şagird Yeri
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRoomEditModal(null)}>Bağla</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+          </motion.div>
+          );
+        })()}
+
+        {/* ══════════════════ STEP: Results ══════════════════ */}
+        {currentStep === 'results' && (
+          <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+
+            {/* Sticky toolbar */}
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md p-4 sm:p-6 rounded-2xl border shadow-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl sm:text-2xl font-bold">Nəticə</h2>
+                <Tabs value={viewMode} onValueChange={val => setViewMode(val as 'list' | 'grid')}>
+                  <TabsList className="bg-muted/50 p-1 rounded-xl">
+                    <TabsTrigger value="grid"><LayoutGrid className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Plan</span></TabsTrigger>
+                    <TabsTrigger value="list"><List className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Siyahı</span></TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div className="flex gap-1.5 flex-wrap items-center">
+
+                {/* Qrup 1 — Naviqasiya */}
+                <Button variant="outline" size="sm" onClick={() => setCurrentStep('config')}>
+                  <ArrowLeft className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Ayarlara Qayıt</span>
+                </Button>
+                <Button variant="outline" size="sm"
+                  onClick={() => swapStack.length > 0 ? setShowReplanDialog(true) : generatePlan()}
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Yenidən Planla</span>
+                </Button>
+                <Button variant="outline" size="sm"
+                  onClick={() => { setSaveName(`Plan ${new Date().toLocaleDateString()}`); setShowSaveDialog(true); }}
+                  className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Yadda Saxla</span>
+                </Button>
+
+                {/* Separator */}
+                <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+                {/* Qrup 2 — Redaktə (şərti) */}
+                {selectedSeat && (
+                  <Button variant="destructive" size="sm" onClick={() => setSelectedSeat(null)} className="animate-pulse">
+                    <X className="w-3.5 h-3.5 mr-1" />Ləğv Et
+                  </Button>
+                )}
+                {swapStack.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={undoSwap}>
+                    <Undo2 className="w-3 h-3 mr-1" /><span className="hidden sm:inline">Geri Al</span> ({swapStack.length})
+                  </Button>
+                )}
+
+                {/* Separator */}
+                <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+                {/* Qrup 3 — Çap */}
+                <Button variant="secondary" size="sm" onClick={handlePrintAllCards} className="bg-blue-50 text-blue-700 hover:bg-blue-100">
+                  <Printer className="w-3 h-3 mr-1" /><span className="hidden sm:inline">Vərəqlər</span>
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handlePrintAllProtocols} className="bg-amber-50 text-amber-700 hover:bg-amber-100">
+                  <FileSpreadsheet className="w-3 h-3 mr-1" /><span className="hidden sm:inline">Protokollar</span>
+                </Button>
+
+                {/* Separator */}
+                <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+                {/* Qrup 4 — Export */}
+                <Button size="sm" onClick={exportToExcel} className="bg-green-600 hover:bg-green-700">
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Excel</span>
+                </Button>
+                <Button size="sm" onClick={exportByRayon} className="bg-blue-700 hover:bg-blue-800">
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Rayonlar</span>
+                </Button>
+                <Button size="sm" onClick={exportByGrade} className="bg-emerald-700 hover:bg-emerald-800">
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Siniflər</span>
+                </Button>
+                <Button size="sm" onClick={exportSchoolsZip} className="bg-purple-700 hover:bg-purple-800">
+                  <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">Məktəblər (ZIP)</span>
+                </Button>
+              </div>
+            </div>
+
+
+            {/* Global stats */}
+            {globalStats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Cəmi Şagird',    value: globalStats.totalStudents,   color: 'text-blue-600' },
+                  { label: 'Cəmi Otaq',       value: globalStats.totalRooms,      color: 'text-indigo-600' },
+                  { label: 'UTİS Pozulması',  value: globalStats.totalViolations, color: globalStats.totalViolations > 0 ? 'text-red-600' : 'text-green-600' },
+                  { label: 'Ortalama Risk',   value: `${globalStats.avgRisk}%`,   color: globalStats.avgRisk < 15 ? 'text-green-600' : globalStats.avgRisk < 40 ? 'text-amber-600' : 'text-red-600' },
+                ].map(stat => (
+                  <Card key={stat.label} className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <p className={cn('text-2xl font-black mt-1', stat.color)}>{stat.value}</p>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {results.map((center, centerIdx) => {
+              // Bu mərkəz üçün utisCode → rəng xəritəsi
+              const centerPalette = centerPalettes.get(center.centerName) ?? new Map<string, number>();
+              return (
+              <div key={centerIdx} className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-2 bg-primary rounded-full" />
+                  <h3 className="text-2xl font-black">{center.centerName}</h3>
+                </div>
+
+                {/* Risk dashboard */}
+                <Card className="bg-slate-900 text-white p-6 rounded-3xl overflow-hidden relative shadow-2xl">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] rounded-full -mr-32 -mt-32" />
+                  <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
+                    <div className="space-y-2">
+                      <h4 className="text-slate-400 text-xs font-black uppercase tracking-widest">Təhlükəsizlik Monitoru</h4>
+                      <p className="text-2xl font-bold">Mərkəz üzrə Risk Analizi</p>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {center.rooms.map((room, rIdx) => (
+                        <div key={rIdx} className="bg-white/5 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+                          <p className="text-[10px] text-slate-400 truncate">{room.config.name}</p>
+                          <div className="flex items-end gap-2">
+                            <span className={cn('text-xl font-black', room.stats.riskStatus === 'Təhlükəsiz' ? 'text-green-400' : room.stats.riskStatus === 'Orta Risk' ? 'text-amber-400' : 'text-red-500')}>
+                              {room.stats.riskScore}%
+                            </span>
+                            <Badge variant="outline" className="text-[8px] h-4 border-white/20 text-white">{room.stats.riskStatus}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+
+                {center.rooms.map((room, roomIdx) => (
+                  <Card key={roomIdx} className="overflow-hidden border-none shadow-2xl">
+                    <CardHeader className="bg-gradient-to-r from-blue-600/10 to-indigo-600/10 p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CardTitle className="text-lg">{room.config.name}</CardTitle>
+                          <Badge variant="secondary">Şagird: {room.stats.totalStudents}</Badge>
+                          <Badge className={cn('text-white text-xs', room.stats.riskStatus === 'Təhlükəsiz' ? 'bg-green-500' : room.stats.riskStatus === 'Orta Risk' ? 'bg-amber-500' : 'bg-red-600')}>
+                            Risk: {room.stats.riskScore}%
+                          </Badge>
+                          {room.stats.utisViolations > 0 && (
+                            <Badge className="bg-red-100 text-red-700 border border-red-300 text-xs">
+                              ⚠ {room.stats.utisViolations} pozulma
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap">
+                          <Button variant="outline" size="sm" onClick={() => regenerateRoom(centerIdx, roomIdx)}>
+                            <RefreshCw className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Yenilə</span>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handlePrintCards(center.centerName, room)}>
+                            <Printer className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Vərəqlər</span>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handlePrint(room, center.centerName)}>
+                            <Printer className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Çap</span>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handlePrintProtocol(center.centerName, room)}>
+                            <FileSpreadsheet className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Protokol</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="p-3 sm:p-5 bg-slate-50/50">
+                      {viewMode === 'grid' ? (
+                        <div className="space-y-4">
+
+                          {/* ── Müəllim masası ── */}
+                          <div className="flex items-center justify-center">
+                            <div className="bg-slate-700 text-white text-xs font-bold px-8 py-2 rounded-xl shadow-md tracking-widest uppercase">
+                              Müəllim masası
+                            </div>
+                          </div>
+
+                          {/* ── Taxtanın separator xətti ── */}
+                          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+
+                          {/* ── Sinif otağı: sütunlar + partalar ── */}
+                          <div className="overflow-x-auto pb-2">
+                            <div
+                              className="flex gap-6 min-w-fit px-2 py-4"
+                              style={{ justifyContent: room.config.columns <= 3 ? 'center' : 'flex-start' }}
+                            >
+                              {(() => {
+                                const totalDesks  = room.config.totalDesks ?? (room.config.columns * room.config.rowsPerColumn);
+                                const cols        = room.config.columns || 3;
+                                const rowsPerCol  = Math.ceil(totalDesks / cols);
+                                const showDropHint = !!selectedSeat;
+
+                                return Array.from({ length: cols }).map((_, colIdx) => {
+                                  const startDesk = colIdx * rowsPerCol + 1;
+                                  const endDesk   = Math.min(startDesk + rowsPerCol - 1, totalDesks);
+
+                                  return (
+                                    <div key={colIdx} className="flex flex-col gap-3" style={{ minWidth: 180 }}>
+
+                                      {/* Cərgə başlığı */}
+                                      <div className="text-center">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                          {colIdx + 1}. Cərgə
+                                        </span>
+                                      </div>
+
+                                      {/* Partalar */}
+                                      {Array.from({ length: endDesk - startDesk + 1 }).map((_, rowIdx) => {
+                                        const deskNum = startDesk + rowIdx;
+                                        if (deskNum > totalDesks) return null;
+
+                                        const sLIdx = room.seats.findIndex(s => s.deskNumber === deskNum && s.position === 'Sol');
+                                        const sRIdx = room.seats.findIndex(s => s.deskNumber === deskNum && s.position === 'Sağ');
+                                        const sL    = sLIdx >= 0 ? room.seats[sLIdx] : undefined;
+                                        const sR    = sRIdx >= 0 ? room.seats[sRIdx] : undefined;
+
+                                        const isSelected = (idx: number) =>
+                                          idx >= 0 &&
+                                          selectedSeat?.centerIdx === centerIdx &&
+                                          selectedSeat?.roomIdx   === roomIdx &&
+                                          selectedSeat?.seatIdx   === idx;
+
+                                        const sameSchool = sL?.student && sR?.student && sL.student.utisCode === sR.student.utisCode;
+                                        const lIsTek = sL?.student && !sR?.student;
+                                        const rIsTek = sR?.student && !sL?.student;
+
+                                        return (
+                                          <div key={deskNum} className="relative">
+                                            {/* Parta kartı */}
+                                            <div className={cn(
+                                              'bg-white border-2 rounded-xl shadow-sm flex flex-row gap-1.5 p-1.5 h-[108px] transition-shadow hover:shadow-md',
+                                              sameSchool ? 'border-red-400' : 'border-slate-200',
+                                            )}>
+                                              {/* Parta nömrəsi */}
+                                              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 min-w-[22px] h-[18px] bg-slate-700 text-white rounded-md flex items-center justify-center text-[9px] font-black px-1 shadow z-10">
+                                                {deskNum}
+                                              </div>
+
+                                              {([
+                                                { pos: 'Sol' as const, seat: sL, sIdx: sLIdx, isTek: lIsTek },
+                                                { pos: 'Sağ' as const, seat: sR, sIdx: sRIdx, isTek: rIsTek },
+                                              ]).map(({ pos, seat, sIdx, isTek }) => (
+                                                <div
+                                                  key={pos}
+                                                  onClick={() => sIdx >= 0 && handleSeatClick(centerIdx, roomIdx, sIdx)}
+                                                  className={cn(
+                                                    'flex-1 rounded-lg border-t-[3px] p-1.5 flex flex-col gap-0.5 transition-all relative overflow-hidden',
+                                                    seat?.student
+                                                      ? cn(getSchoolColor(seat.student.utisCode, centerPalette), 'cursor-pointer hover:brightness-95 active:scale-95')
+                                                      : cn(
+                                                          'bg-slate-50 border-slate-200',
+                                                          showDropHint && sIdx >= 0
+                                                            ? 'cursor-pointer hover:bg-amber-50 hover:border-amber-300 border-dashed border-t-[3px]'
+                                                            : 'opacity-35',
+                                                        ),
+                                                    isSelected(sIdx) && 'ring-2 ring-primary ring-offset-1 scale-95 z-10',
+                                                  )}
+                                                >
+                                                  {/* Mövqe etiketi */}
+                                                  <span className="text-[7px] font-bold opacity-50 uppercase leading-none">{pos}</span>
+
+                                                  {seat?.student ? (
+                                                    <>
+                                                      <p className="text-[9px] font-black leading-tight line-clamp-2 mt-0.5">
+                                                        {seat.student.lastName} {seat.student.firstName}
+                                                      </p>
+                                                      <p className="text-[7px] text-slate-500 leading-tight line-clamp-1 mt-auto">
+                                                        {seat.student.grade} · {seat.student.section}
+                                                      </p>
+                                                      {isTek && (
+                                                        <span className="absolute top-0.5 right-0.5 text-[6px] bg-amber-400 text-white font-bold px-0.5 rounded leading-tight">TƏK</span>
+                                                      )}
+                                                    </>
+                                                  ) : (
+                                                    <p className={cn(
+                                                      'text-[8px] font-bold uppercase mt-auto',
+                                                      showDropHint && sIdx >= 0 ? 'text-amber-500' : 'text-slate-300',
+                                                    )}>
+                                                      {showDropHint && sIdx >= 0 ? '⬇ buraya' : 'Boş'}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+
+                                            {/* Parta altındakı ayırıcı cığır (corridor effect) */}
+                                            {rowIdx < endDesk - startDesk && (
+                                              <div className="h-1.5" />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* ── Arxa divar ── */}
+                          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+                          <div className="text-center">
+                            <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Qapı</span>
+                          </div>
+
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>№</TableHead><TableHead>Şagird</TableHead>
+                              <TableHead>Sinif</TableHead><TableHead>UTİS</TableHead>
+                              <TableHead>Parta</TableHead><TableHead>Mövqe</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {room.seats.map((s, idx) => (
+                              <TableRow key={idx} className={s.student ? '' : 'opacity-40'}>
+                                <TableCell>{s.seatNumber}</TableCell>
+                                <TableCell>{s.student ? `${s.student.firstName} ${s.student.lastName}` : 'BOŞ'}</TableCell>
+                                <TableCell>{s.student?.grade      ?? '-'}</TableCell>
+                                <TableCell className="font-mono text-xs">{s.student?.utisCode ?? '-'}</TableCell>
+                                <TableCell>{s.deskNumber}</TableCell>
+                                <TableCell>{s.position}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              );
+            })}
+          </motion.div>
+        )}
+
+      </AnimatePresence>
+
+      {/* Floating bar — review step */}
+      {currentStep === 'review' && students.length > 0 && (
+        <motion.div initial={{ y: 100 }} animate={{ y: 0 }}
+          className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 w-[90vw] max-w-sm bg-background/90 backdrop-blur-xl border shadow-2xl px-5 py-3 rounded-2xl flex items-center justify-between gap-4 z-50">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-sm font-bold">{students.length} Şagird</span>
+          </div>
+          <Button size="sm" onClick={() => setCurrentStep('config')}>Davam Et <ArrowRight className="w-3 h-3 ml-1" /></Button>
+        </motion.div>
+      )}
+
+      {/* ── Dialogs ── */}
+
+      <AlertDialog open={showReplanDialog} onOpenChange={setShowReplanDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Yenidən Planla</AlertDialogTitle>
+            <AlertDialogDescription>
+              Manual dəyişikliklər ({swapStack.length} əməliyyat) silinəcək. Plan sıfırdan yenidən qurulacaq.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv Et</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={() => { setShowReplanDialog(false); generatePlan(); }}
+            >
+              Yenidən Planla
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Planı Sıfırla</AlertDialogTitle>
+            <AlertDialogDescription>Bütün məlumatlar silinəcək. Bu əməliyyat geri alına bilməz.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv Et</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={resetAll}>Sil</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Planı Yadda Saxla</DialogTitle></DialogHeader>
+          <Input
+            placeholder="Plan adı..."
+            value={saveName}
+            onChange={e => setSaveName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && commitSaveToHistory()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>Ləğv Et</Button>
+            <Button onClick={commitSaveToHistory}>Saxla</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+    </div>
+  );
+};
+
+export default ExamSeatingPlan;

@@ -37,23 +37,30 @@ const SCOPE_LEVELS = [
   { value: 'school' as ScopeFilter, label: 'Məktəblər', icon: GraduationCap },
 ] as const;
 
-// Hədəf institutların minimum level-inə görə tab müəyyən edilir:
-// level 2 = region, level 3 = sector, level 4 = school
-function getResourceTab(r: AssignedResource): ScopeFilter {
-  const level = r.target_institution_level;
-  if (level === 2) return 'region';
-  if (level === 3) return 'sector';
-  if (level === 4) return 'school';
+const SCHOOL_ROLES = ['schooladmin', 'məktəbadmin', 'müəllim', 'teacher', 'muavin', 'ubr', 'tesarrufat', 'psixoloq'];
+const SECTOR_ROLES = ['sektoradmin'];
 
-  // Fallback: share_scope / access_level (ictimai və ya köhnə resurslar üçün)
+// Hədəf scope-a görə tab müəyyən edilir (kim üçün yaradıldı):
+//   - məktəb seçimi varsa          → Məktəb tab
+//   - sektoradmin seçilibsə        → Sektor tab
+//   - regionadmin/operator seçilibsə → Region tab
+function getResourceTab(r: AssignedResource): ScopeFilter {
   const scope = r.share_scope ?? r.access_level;
-  switch (scope) {
-    case 'regional':    return 'region';
-    case 'sectoral':    return 'sector';
-    case 'institutional':
-    case 'institution': return 'school';
-    default:            return 'all';
+
+  // share_scope açıq şəkildə müəyyəndirsə — birbaşa istifadə et
+  if (scope === 'institutional' || scope === 'institution') return 'school';
+  if (scope === 'sectoral') return 'sector';
+  if (scope === 'regional' || scope === 'public') return 'region';
+
+  // specific_users: target_roles əsasında tab müəyyən et
+  if (scope === 'specific_users') {
+    const roles = (r.target_roles ?? []).map((role: string) => role.toLowerCase().trim());
+    if (roles.some(role => SCHOOL_ROLES.includes(role))) return 'school';
+    if (roles.some(role => SECTOR_ROLES.includes(role))) return 'sector';
+    return 'region'; // regionadmin / regionoperator və ya məlumatsız
   }
+
+  return 'region';
 }
 
 function storageKey(resourceType: 'link' | 'document') {
@@ -157,22 +164,22 @@ export function ResourceTabContent({
   return (
     <div className="space-y-4 pt-3">
       {/* Toolbar — 1 sətir */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 w-full">
 
         {/* Sol: Axtarış */}
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 w-full lg:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
           <Input
             type="text"
             placeholder={isLink ? 'Link axtarın...' : 'Sənəd axtarın...'}
-            className="pl-9 h-8 text-sm"
+            className="pl-9 h-8 text-sm w-full"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
 
         {/* Sağ: ViewMode + Scope chips + Create */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 lg:pb-0 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 lg:pb-0 scrollbar-none w-full lg:w-auto">
 
           {/* View mode toggle */}
           <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-md shrink-0">

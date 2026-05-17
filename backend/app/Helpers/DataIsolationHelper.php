@@ -16,8 +16,8 @@ class DataIsolationHelper
      */
     public static function applyRegionalScope(Builder $query, User $user, string $resourceType = 'default'): Builder
     {
-        // SuperAdmin has access to everything
-        if ($user->hasRole('superadmin')) {
+        // SuperAdmin and RegionAdmin have access to everything (cross-region oversight)
+        if ($user->hasAnyRole(['superadmin', 'regionadmin'])) {
             return $query;
         }
 
@@ -332,13 +332,9 @@ class DataIsolationHelper
 
         // IMPORTANT: Do not rely on roles->first() ordering.
         // Users may have multiple roles; choose by priority.
+        // RegionAdmin sees all regions (cross-region access for oversight)
         if ($user->hasRole('regionadmin')) {
-            $userRegion = $user->institution;
-            if (! $userRegion || (int) $userRegion->level !== 2) {
-                return collect([]);
-            }
-
-            return collect($userRegion->getAllChildrenIds());
+            return Institution::withoutGlobalScopes()->pluck('id');
         }
 
         if ($user->hasRole('regionoperator')) {

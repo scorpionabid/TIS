@@ -41,24 +41,27 @@ const getDailyQuote = () => {
 
 // ─── Weather ─────────────────────────────────────────────────────────────────
 
-// Open-Meteo WMO weather code → Azerbaijani label + icon
-const WMO_MAP: Record<number, { label: string; Icon: typeof Sun }> = {
-  0: { label: 'Günəşli', Icon: Sun },
-  1: { label: 'Açıq', Icon: Sun },
-  2: { label: 'Az buludlu', Icon: Cloud },
-  3: { label: 'Buludlu', Icon: Cloud },
-  45: { label: 'Dumanlı', Icon: Cloud },
-  48: { label: 'Dumanlı', Icon: Cloud },
-  51: { label: 'Çiskin', Icon: CloudRain },
-  53: { label: 'Çiskin', Icon: CloudRain },
-  55: { label: 'Çiskin', Icon: CloudRain },
-  61: { label: 'Yağışlı', Icon: CloudRain },
-  63: { label: 'Yağışlı', Icon: CloudRain },
-  65: { label: 'Güclü yağış', Icon: CloudRain },
-  80: { label: 'Yağış', Icon: CloudRain },
-  81: { label: 'Yağış', Icon: CloudRain },
-  82: { label: 'Güclü yağış', Icon: CloudRain },
-  95: { label: 'Tufan', Icon: CloudRain },
+type WeatherIconName = 'sun' | 'cloud' | 'rain';
+const WEATHER_ICONS: Record<WeatherIconName, typeof Sun> = { sun: Sun, cloud: Cloud, rain: CloudRain };
+
+// Open-Meteo WMO weather code → Azerbaijani label + iconName
+const WMO_MAP: Record<number, { label: string; iconName: WeatherIconName }> = {
+  0: { label: 'Günəşli', iconName: 'sun' },
+  1: { label: 'Açıq', iconName: 'sun' },
+  2: { label: 'Az buludlu', iconName: 'cloud' },
+  3: { label: 'Buludlu', iconName: 'cloud' },
+  45: { label: 'Dumanlı', iconName: 'cloud' },
+  48: { label: 'Dumanlı', iconName: 'cloud' },
+  51: { label: 'Çiskin', iconName: 'rain' },
+  53: { label: 'Çiskin', iconName: 'rain' },
+  55: { label: 'Çiskin', iconName: 'rain' },
+  61: { label: 'Yağışlı', iconName: 'rain' },
+  63: { label: 'Yağışlı', iconName: 'rain' },
+  65: { label: 'Güclü yağış', iconName: 'rain' },
+  80: { label: 'Yağış', iconName: 'rain' },
+  81: { label: 'Yağış', iconName: 'rain' },
+  82: { label: 'Güclü yağış', iconName: 'rain' },
+  95: { label: 'Tufan', iconName: 'rain' },
 };
 
 const CITY_COORDS: Record<string, { lat: number; lon: number }> = {
@@ -71,34 +74,45 @@ const CITY_COORDS: Record<string, { lat: number; lon: number }> = {
   şirvan:      { lat: 39.93, lon: 48.92 },
 };
 
-interface WeatherData { temp: number; label: string; Icon: typeof Sun }
+interface WeatherData { temp: number; label: string; iconName: WeatherIconName }
 
 const fetchWeather = async (location: string): Promise<WeatherData | null> => {
   try {
-    const locKey = Object.keys(CITY_COORDS).find((k) => location.toLowerCase().includes(k));
+    const locLower = (location || 'Bakı').toLowerCase();
+    const locKey = Object.keys(CITY_COORDS).find((k) => locLower.includes(k));
     let lat: number, lon: number;
 
     if (locKey) {
       ({ lat, lon } = CITY_COORDS[locKey]);
     } else {
-      // Geocoding fallback
-      const geoRes = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=az`,
-      );
-      const geoData = await geoRes.json();
-      if (!geoData.results?.[0]) return null;
-      lat = geoData.results[0].latitude;
-      lon = geoData.results[0].longitude;
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locLower)}&count=1&language=az`,
+        );
+        const geoData = await geoRes.json();
+        if (geoData.results?.[0]) {
+          lat = geoData.results[0].latitude;
+          lon = geoData.results[0].longitude;
+        } else {
+          ({ lat, lon } = CITY_COORDS['bakı']);
+        }
+      } catch (geoErr) {
+        console.error('Weather geocoding error:', geoErr);
+        ({ lat, lon } = CITY_COORDS['bakı']);
+      }
     }
 
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
     );
     const data = await res.json();
+    if (!data.current_weather) return null;
+
     const cw = data.current_weather;
-    const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', Icon: Sun };
-    return { temp: Math.round(cw.temperature), label: wmo.label, Icon: wmo.Icon };
-  } catch {
+    const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', iconName: 'sun' as WeatherIconName };
+    return { temp: Math.round(cw.temperature), label: wmo.label, iconName: wmo.iconName };
+  } catch (err) {
+    console.error('Error fetching weather:', err);
     return null;
   }
 };
@@ -131,8 +145,27 @@ export const GreetingHeader = () => {
 
   // Weather — fetch once, cache 1 hour
   useEffect(() => {
-    const location = currentUser?.region?.name ?? currentUser?.institution?.name ?? 'Bakı';
-    const cacheKey = `atis_weather_${location}`;
+    const profileLocation = currentUser?.region?.name ?? currentUser?.institution?.name ?? 'Bakı';
+    const cacheKey = `atis_weather_local`; // Use local cache key
+    
+    const fetchWithCoords = async (lat: number, lon: number) => {
+      try {
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
+        );
+        const data = await res.json();
+        if (data.current_weather) {
+          const cw = data.current_weather;
+          const wmo = WMO_MAP[cw.weathercode] ?? { label: 'Açıq', iconName: 'sun' as WeatherIconName };
+          const weatherData: WeatherData = { temp: Math.round(cw.temperature), label: wmo.label, iconName: wmo.iconName };
+          setWeather(weatherData);
+          localStorage.setItem(cacheKey, JSON.stringify({ data: weatherData, ts: Date.now() }));
+        }
+      } catch (err) {
+        console.error('Error fetching weather with coords:', err);
+      }
+    };
+
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -140,12 +173,31 @@ export const GreetingHeader = () => {
         if (Date.now() - ts < 3_600_000) { setWeather(data); return; }
       } catch { /* ignore */ }
     }
-    fetchWeather(location).then((data) => {
-      if (data) {
-        setWeather(data);
-        localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-      }
-    });
+
+    // Try Browser Geolocation first
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          fetchWithCoords(position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          console.warn('Geolocation denied or failed, falling back to profile location:', error.message);
+          fetchWeather(profileLocation).then((data) => {
+            if (data) {
+              setWeather(data);
+              localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+            }
+          });
+        }
+      );
+    } else {
+      fetchWeather(profileLocation).then((data) => {
+        if (data) {
+          setWeather(data);
+          localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+        }
+      });
+    }
   }, [currentUser]);
 
 
@@ -201,7 +253,7 @@ export const GreetingHeader = () => {
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
   };
 
-  const WeatherIcon = weather?.Icon ?? Sun;
+  const WeatherIcon = WEATHER_ICONS[weather?.iconName ?? 'sun'];
 
   return (
     <div className="relative p-6 md:p-8 rounded-3xl overflow-hidden mb-4 bg-gradient-to-br border border-white/10 shadow-2xl from-slate-500/10 via-slate-500/5 to-transparent">
