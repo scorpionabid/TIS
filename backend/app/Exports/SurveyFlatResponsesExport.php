@@ -168,11 +168,35 @@ class SurveyFlatResponsesExport implements FromCollection, ShouldAutoSize, WithH
             return '';
         }
 
-        if (is_array($answer)) {
-            return implode(', ', array_map('strval', $answer));
+        if (! is_array($answer)) {
+            return (string) $answer;
         }
 
-        return (string) $answer;
+        // file_upload answers are stored as {name, path, size, ...}
+        if ($type === 'file_upload') {
+            return $answer['name'] ?? $answer['original_name'] ?? basename($answer['path'] ?? '') ?: '';
+        }
+
+        // Flatten nested arrays (table_matrix, table_input store rows as sub-arrays).
+        // Each row's values are joined by ", " and rows are separated by "; ".
+        return $this->flattenAnswerArray($answer);
+    }
+
+    private function flattenAnswerArray(array $data): string
+    {
+        $parts = [];
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                $nested = $this->flattenAnswerArray($value);
+                if ($nested !== '') {
+                    $parts[] = $nested;
+                }
+            } elseif ($value !== null && $value !== '') {
+                $parts[] = (string) $value;
+            }
+        }
+
+        return implode(', ', $parts);
     }
 
     public function styles(Worksheet $sheet): array

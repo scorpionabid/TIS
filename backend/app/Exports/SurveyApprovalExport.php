@@ -174,8 +174,11 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
                         ? "[{$rowCount} sətir] — '{$questionTitle}...' vərəqinə baxın"
                         : '—';
                 } else {
-                    // For multiple choice questions, join selected options
-                    $answer = implode(', ', array_map('strval', $answer));
+                    // For multiple choice or table_matrix: flatten and join
+                    $answer = implode(', ', array_map(
+                        fn ($v) => is_array($v) ? implode('/', array_map('strval', array_filter($v, 'is_scalar'))) : (string) $v,
+                        $answer
+                    ));
                 }
             } elseif (is_string($answer)) {
                 $answer = trim($answer);
