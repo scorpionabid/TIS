@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboardService } from '@/services/dashboard';
+import { translateActivityDescription } from '@/lib/activityTranslator';
 
 interface DashboardActivityCardProps {
   title?: string;
@@ -50,7 +51,7 @@ export const DashboardActivityCard: React.FC<DashboardActivityCardProps> = ({
             <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0 shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-black leading-tight text-slate-800 dark:text-slate-100">
-                {activity.description ?? activity.action ?? activity.title ?? '—'}
+                {translateActivityDescription(activity.description ?? activity.action ?? activity.title ?? '—')}
               </p>
               <p className="text-xs text-muted-foreground font-bold mt-2 uppercase tracking-tighter">
                 {activity.time ?? (activity.created_at

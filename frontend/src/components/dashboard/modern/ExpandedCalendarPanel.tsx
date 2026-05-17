@@ -308,7 +308,8 @@ const CalendarDaysView: React.FC<{
                 cell: 'h-8 w-8 xs:h-10 xs:w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 text-center text-xs xs:text-sm sm:text-lg md:text-2xl p-0 relative focus-within:relative focus-within:z-20',
                 head_cell: 'text-primary/40 rounded-md w-8 xs:w-10 sm:w-14 md:w-20 font-black text-[9px] xs:text-[10px] sm:text-[12px] md:text-[14px] uppercase tracking-widest pb-1 xs:pb-2 md:pb-4 text-center',
                 table: 'w-full border-collapse mx-auto',
-                day_selected: 'bg-primary text-white hover:bg-primary hover:text-white shadow-lg shadow-primary/30 scale-110 z-10',
+                day_selected: '!bg-primary !text-white hover:!bg-primary hover:!text-white shadow-lg shadow-primary/30 scale-110 z-10',
+                day_today: 'bg-primary/10 text-primary border border-primary/20 font-black',
                 caption: 'hidden',
               }}
               modifiers={{

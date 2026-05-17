@@ -8,6 +8,7 @@ import {
   LogInIcon
 } from "lucide-react";
 import { memo } from "react";
+import { translateActivityDescription } from "@/lib/activityTranslator";
 
 interface Activity {
   id: number;
@@ -109,7 +110,7 @@ export const RecentActivityWidget = memo(({ activities }: RecentActivityWidgetPr
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {activity.description}
+                    {translateActivityDescription(activity.description)}
                   </p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>{activity.user.name}</span>
