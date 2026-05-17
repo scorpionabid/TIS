@@ -213,8 +213,22 @@ export function ProjectActivityTable({
     }
   };
 
-  const nameWidth = columnWidths['name'] || 350;
+  const nameWidth = isViewExpanded
+    ? Math.max((columnWidths['name'] || 350) * 2, 600)
+    : (columnWidths['name'] || 350);
   const totalVisibleColumns = columns.filter((c) => isVisible(c.id)).length + 1;
+
+  // Mətn sütunları üçün genişlənmiş en — expanded modda 2x
+  const TEXT_COLS = ['description', 'expected_outcome', 'kpi_metrics', 'risks', 'notes', 'monitoring_mechanism', 'location_platform'];
+  // Bütün mümkün sütun açarları (defaults + text sütunları)
+  const ALL_COL_KEYS = [...new Set([...Object.keys(columnWidths), ...TEXT_COLS])];
+  const getColWidth = (colId: string) => {
+    const base = columnWidths[colId] || 150;
+    return isViewExpanded && TEXT_COLS.includes(colId) ? Math.max(base * 2, 320) : base;
+  };
+  const effectiveColumnWidths: Record<string, number> = Object.fromEntries(
+    ALL_COL_KEYS.map((k) => [k, getColWidth(k)])
+  );
 
   return (
     <TooltipProvider>
@@ -282,7 +296,7 @@ export function ProjectActivityTable({
                   <TableHead
                     key={col.id}
                     className="text-center text-[10px] uppercase tracking-wider font-semibold h-10 border-r py-0"
-                    style={{ width: columnWidths[col.id] || 150 }}
+                    style={{ width: getColWidth(col.id) }}
                   >
                     <div className="flex items-center justify-center h-full relative px-2">
                       <span>{col.label}</span>
@@ -434,7 +448,7 @@ export function ProjectActivityTable({
                                   editFormData={editFormData}
                                   isSubmitting={isSubmitting}
                                   availableUsers={availableUsers}
-                                  columnWidths={columnWidths}
+                                  columnWidths={effectiveColumnWidths}
                                   onDelete={(id) => setDeletingId(id)}
                                   canEdit={canEdit}
                                   subActivityCount={subs.length}
@@ -468,7 +482,7 @@ export function ProjectActivityTable({
                                         editFormData={editFormData}
                                         isSubmitting={isSubmitting}
                                         availableUsers={availableUsers}
-                                        columnWidths={columnWidths}
+                                        columnWidths={effectiveColumnWidths}
                                         onDelete={(id) => setDeletingId(id)}
                                         canEdit={canEdit}
                                         isViewExpanded={isViewExpanded}
@@ -492,7 +506,7 @@ export function ProjectActivityTable({
                                     }}
                                     availableUsers={availableUsers}
                                     canEdit
-                                    columnWidths={columnWidths}
+                                    columnWidths={effectiveColumnWidths}
                                     parentId={activity.id}
                                     autoExpand
                                   />

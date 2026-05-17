@@ -195,9 +195,9 @@ function TruncatedTooltip({ text, children }: { text: string; children: React.Re
   if (!text) return <>{children}</>;
   const htmlContent = renderContent(text);
   return (
-    <Tooltip delayDuration={50}>
+    <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="max-w-[500px] max-h-[300px] overflow-y-auto text-xs break-words p-3 bg-popover text-popover-foreground border shadow-xl rounded-lg">
+      <TooltipContent side="top" sideOffset={8} className="max-w-[720px] max-h-[480px] overflow-y-auto text-sm break-words p-4 bg-popover text-popover-foreground border shadow-2xl rounded-xl leading-relaxed">
         <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
       </TooltipContent>
     </Tooltip>
@@ -322,7 +322,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
         {...(!isEditing ? listeners : {})}
       >
         <div
-          className="flex items-center gap-2 px-2 overflow-hidden"
+          className="flex items-start gap-2 px-2"
           onClick={(e) => {
             if (activity.is_editable) {
               e.stopPropagation();
@@ -865,7 +865,7 @@ export function SubActivityRow({
         {...(!isEditing ? listeners : {})}
       >
         <div
-          className="flex items-center gap-1.5 px-2 overflow-hidden pl-8"
+          className="flex items-start gap-1.5 px-2 pl-8"
           onClick={() => { if (sub.is_editable) startEditing(sub); }}
         >
           <CornerDownRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />
