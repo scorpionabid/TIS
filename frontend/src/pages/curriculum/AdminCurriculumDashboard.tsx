@@ -306,7 +306,7 @@ export default function AdminCurriculumDashboard() {
   };
 
   return (
-    <div className="p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 md:space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-700">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/40 backdrop-blur-md p-4 rounded-[28px] border border-slate-100 shadow-sm">
         <div className="flex items-center gap-3">
@@ -319,11 +319,11 @@ export default function AdminCurriculumDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {dashboardSettings?.deadline && (
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-100 rounded-xl shadow-sm">
-              <Clock className="text-indigo-500" size={14} />
-              <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-100 rounded-xl shadow-sm">
+              <Clock className="text-indigo-500 shrink-0" size={14} />
+              <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight truncate max-w-[160px] sm:max-w-none">
                 SON: {format(new Date(dashboardSettings.deadline), 'dd.MM.yyyy HH:mm')}
               </span>
             </div>
@@ -335,7 +335,7 @@ export default function AdminCurriculumDashboard() {
                   <LucideSettingsIcon size={14} /> Tənzimləmə
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-[32px] border-0 shadow-2xl max-w-md p-8">
+              <DialogContent className="rounded-2xl sm:rounded-[32px] border-0 shadow-2xl w-[95vw] sm:max-w-md p-4 sm:p-8">
                 <form onSubmit={handleUpdateSettings}>
                   <DialogHeader className="mb-6">
                     <DialogTitle className="text-2xl font-black text-slate-900 uppercase italic">Parametrlər</DialogTitle>

@@ -45,9 +45,9 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-      <div className="px-4 py-3 flex flex-wrap gap-2 items-center">
+      <div className="px-3 sm:px-4 py-3 flex flex-wrap gap-2 items-center">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[140px] sm:min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="text"
@@ -69,7 +69,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
         {/* Sector Filter - RegionAdmin only */}
         {isRegionAdmin && (
           <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="h-9 w-[180px] rounded-lg border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
+            <SelectTrigger className="h-9 w-full sm:w-[180px] rounded-lg border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
               <div className="flex items-center gap-1.5 overflow-hidden">
                 <Filter size={12} className="text-slate-400 shrink-0" />
                 <SelectValue placeholder="Sektor" />
@@ -88,7 +88,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
 
         {/* Status Filter */}
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-9 w-[170px] rounded-lg border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
+          <SelectTrigger className="h-9 w-full sm:w-[170px] rounded-lg border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 size={12} className="text-slate-400" />
               <SelectValue placeholder="Status" />
@@ -104,7 +104,7 @@ export const DashboardFilters: React.FC<DashboardFiltersProps> = ({
         </Select>
 
         {/* Clear + Count + Export */}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
           {hasActiveFilters && (
             <button
               onClick={clearAll}

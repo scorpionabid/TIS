@@ -140,12 +140,13 @@ export const DashboardTable: React.FC<DashboardTableProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
       {/* Table Header */}
       <div className={cn(
         'grid items-center bg-slate-50 border-b border-slate-200 px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider',
         showSectorCol
-          ? 'grid-cols-[2.5rem_1fr_10rem_8rem_8rem_8rem_7rem]'
-          : 'grid-cols-[2.5rem_1fr_8rem_8rem_8rem_7rem]'
+          ? 'grid-cols-[2.5rem_1fr_10rem_8rem_8rem_8rem_7rem] min-w-[680px]'
+          : 'grid-cols-[2.5rem_1fr_8rem_8rem_8rem_7rem] min-w-[520px]'
       )}>
         <span className="text-center">#</span>
         <span>Müəssisə</span>
@@ -182,8 +183,8 @@ export const DashboardTable: React.FC<DashboardTableProps> = ({
                 status === 'submitted' ? 'border-l-blue-400' :
                 status === 'returned' ? 'border-l-rose-400' : 'border-l-transparent',
                 showSectorCol
-                  ? 'grid-cols-[2.5rem_1fr_10rem_8rem_8rem_8rem_7rem]'
-                  : 'grid-cols-[2.5rem_1fr_8rem_8rem_8rem_7rem]'
+                  ? 'grid-cols-[2.5rem_1fr_10rem_8rem_8rem_8rem_7rem] min-w-[680px]'
+                  : 'grid-cols-[2.5rem_1fr_8rem_8rem_8rem_7rem] min-w-[520px]'
               )}
             >
               {/* Index */}
@@ -259,6 +260,7 @@ export const DashboardTable: React.FC<DashboardTableProps> = ({
           );
         })}
       </div>
+      </div>{/* /overflow-x-auto */}
 
       {/* Footer */}
       <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">

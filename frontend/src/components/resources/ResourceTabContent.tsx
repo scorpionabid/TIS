@@ -163,11 +163,11 @@ export function ResourceTabContent({
 
   return (
     <div className="space-y-4 pt-3">
-      {/* Toolbar — 1 sətir */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 w-full">
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 w-full">
 
         {/* Sol: Axtarış */}
-        <div className="relative flex-1 w-full lg:max-w-xs">
+        <div className="relative w-full md:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
           <Input
             type="text"
@@ -179,7 +179,7 @@ export function ResourceTabContent({
         </div>
 
         {/* Sağ: ViewMode + Scope chips + Create */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 lg:pb-0 scrollbar-none w-full lg:w-auto">
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 md:pb-0 scrollbar-none flex-shrink-0">
 
           {/* View mode toggle */}
           <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-md shrink-0">
@@ -200,7 +200,7 @@ export function ResourceTabContent({
           </div>
 
           {/* Scope chips */}
-          <div className="flex items-center gap-1.5 border-l pl-3 h-6 border-gray-200 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 border-l pl-2 sm:pl-3 border-gray-200 shrink-0">
             {SCOPE_LEVELS.map(({ value, label, icon }) => (
               <ScopeChip
                 key={value}
@@ -223,7 +223,8 @@ export function ResourceTabContent({
               onClick={onCreateNew}
             >
               <Plus className="h-3.5 w-3.5" />
-              {isLink ? 'Yeni Link' : 'Yeni Sənəd'}
+              <span className="hidden sm:inline">{isLink ? 'Yeni Link' : 'Yeni Sənəd'}</span>
+              <span className="sm:hidden">Yeni</span>
             </Button>
           )}
         </div>

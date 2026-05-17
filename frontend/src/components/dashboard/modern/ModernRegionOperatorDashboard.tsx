@@ -36,7 +36,7 @@ export const ModernRegionOperatorDashboard = memo(() => {
   return (
     <ModernDashboardWrapper>
       {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 items-stretch">
         <motion.div className="lg:col-span-2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
           <ExpandedCalendarPanel
             title="Region Operator Təqvimi"
@@ -50,7 +50,7 @@ export const ModernRegionOperatorDashboard = memo(() => {
           />
         </motion.div>
 
-        <motion.div className="flex flex-col gap-8 h-full" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
+        <motion.div className="flex flex-col gap-4 sm:gap-6 lg:gap-8 h-full" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
           <DashboardNotesCard />
           <DashboardActivityCard />
         </motion.div>

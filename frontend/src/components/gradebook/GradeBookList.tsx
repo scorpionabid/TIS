@@ -344,7 +344,7 @@ export function GradeBookList({
                 <Card key={gradeKey} className="border-slate-200 shadow-sm overflow-hidden">
                   {/* Grade header */}
                   <div
-                    className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors"
                     onClick={() => toggleGradeExpansion(gradeKey)}
                   >
                     <div className="flex items-center gap-3">
@@ -408,10 +408,10 @@ export function GradeBookList({
                         return (
                           <div
                             key={gradeBook.id}
-                            className="group flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+                            className="group flex items-center justify-between p-3 sm:p-4 hover:bg-slate-50 cursor-pointer transition-colors"
                             onClick={() => openJournal(gradeBook.id)}
                           >
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                               <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
                                 <BookOpen className="w-5 h-5 text-indigo-600" />
                               </div>
@@ -448,23 +448,23 @@ export function GradeBookList({
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                               {!hasNoTeacher && (
-                                <div className="flex items-center gap-1 text-sm text-slate-500 mr-2">
-                                  <Users className="w-4 h-4" />
+                                <div className="hidden sm:flex items-center gap-1 text-sm text-slate-500">
+                                  <Users className="w-3.5 h-3.5" />
                                   <span>{teachers.length}</span>
                                 </div>
                               )}
                               <Badge
                                 variant="outline"
-                                className={cn('text-xs font-medium', getStatusColor(gradeBook.status))}
+                                className={cn('text-[10px] sm:text-xs font-medium whitespace-nowrap', getStatusColor(gradeBook.status))}
                               >
                                 {getStatusLabel(gradeBook.status)}
                               </Badge>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                 onClick={(e) => { e.stopPropagation(); openJournal(gradeBook.id); }}
                               >
                                 <ArrowRight className="w-4 h-4 text-slate-400" />

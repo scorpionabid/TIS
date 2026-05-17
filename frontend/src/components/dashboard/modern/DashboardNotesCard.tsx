@@ -80,23 +80,22 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
   };
 
   return (
-    <Card className="glass-card border-none modern-shadow rounded-[32px] overflow-hidden flex flex-col h-[350px] sm:h-[400px] md:h-[450px]">
+    <Card className="glass-card border-none modern-shadow rounded-[32px] overflow-hidden flex flex-col min-h-[280px] h-[44vh] sm:h-[400px] md:h-[450px] max-h-[500px]">
       <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-transparent pt-4 sm:pt-6 px-4 sm:px-6">
         {/* Title row */}
-        <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <CardTitle className="text-base sm:text-xl font-black flex items-center gap-2">
-              <StickyNote size={18} className="text-primary sm:hidden" />
-              <StickyNote size={22} className="text-primary hidden sm:block" />
+        <div className="flex items-center justify-between w-full mb-2 sm:mb-3 gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            <StickyNote size={16} className="text-primary flex-shrink-0" />
+            <CardTitle className="text-sm sm:text-base font-black truncate leading-tight">
               {title}
             </CardTitle>
-            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none px-2 sm:px-3 py-1 rounded-full font-black text-[9px] sm:text-[10px] uppercase">
-              {allNotes.length} qeyd
+            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none px-1.5 sm:px-2 py-0.5 rounded-full font-black text-[10px] uppercase flex-shrink-0 whitespace-nowrap">
+              {allNotes.length}
             </Badge>
           </div>
           <Button onClick={handleAdd}
-            className="rounded-xl h-8 sm:h-9 bg-primary/10 text-primary hover:bg-primary/20 font-black text-[10px] uppercase tracking-wider gap-1 sm:gap-1.5 px-2 sm:px-3">
-            <Plus size={12} /> <span className="hidden sm:inline">Əlavə et</span><span className="sm:hidden">+</span>
+            className="rounded-xl h-7 sm:h-8 bg-primary/10 text-primary hover:bg-primary/20 font-black text-[10px] uppercase tracking-wider gap-1 px-2 flex-shrink-0">
+            <Plus size={11} /> <span className="hidden md:inline">Əlavə et</span>
           </Button>
         </div>
 
@@ -104,7 +103,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
         <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterColor('all')}
-            className={cn('text-[8px] sm:text-[9px] font-black px-2 sm:px-2.5 py-1 rounded-full transition-colors uppercase tracking-wider',
+            className={cn('text-[10px] sm:text-xs font-black px-2 sm:px-2.5 py-1 rounded-full transition-colors uppercase tracking-wider',
               filterColor === 'all' ? 'bg-primary text-white' : 'bg-primary/10 text-primary hover:bg-primary/20')}>
             Hamısı
           </button>
@@ -149,7 +148,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
               />
               <div className="flex items-center justify-between border-t border-black/5 pt-2 mt-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase">Rəng:</span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">Rəng:</span>
                   {COLOR_ORDER.map((c) => (
                     <button key={c} type="button" onClick={() => setDraftColor(c)}
                       className={cn('w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-all hover:scale-110', NOTE_COLORS[c].dot,
@@ -204,7 +203,7 @@ export const DashboardNotesCard: React.FC<DashboardNotesCardProps> = ({
                     />
                     {/* Color picker */}
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-black text-muted-foreground uppercase">Rəng:</span>
+                      <span className="text-[10px] font-black text-muted-foreground uppercase">Rəng:</span>
                       {COLOR_ORDER.map((c) => (
                         <button key={c} type="button" onClick={() => setInlineColor(c)}
                           className={cn('w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-all hover:scale-110', NOTE_COLORS[c].dot,

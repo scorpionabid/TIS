@@ -64,13 +64,7 @@ export function ProjectActivityCreateRow({
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(autoExpand);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isExpanded && nameInputRef.current) {
-      nameInputRef.current.focus({ preventScroll: true });
-    }
-  }, [isExpanded]);
+  const nameInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -92,6 +86,23 @@ export function ProjectActivityCreateRow({
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const adjustHeight = useCallback(() => {
+    const textarea = nameInputRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isExpanded) {
+      if (nameInputRef.current) {
+        nameInputRef.current.focus({ preventScroll: true });
+      }
+      adjustHeight();
+    }
+  }, [isExpanded, formData.name, adjustHeight]);
 
   const handleReset = () => {
     setFormData({
@@ -162,7 +173,7 @@ export function ProjectActivityCreateRow({
           <div className={cn("flex items-center gap-2 px-3", parentId && "pl-8")}>
             {parentId && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />}
             <textarea
-              ref={nameInputRef as any}
+              ref={nameInputRef}
               placeholder={parentId ? "Yeni alt fəaliyyət adı..." : "Yeni fəaliyyət adı..."}
               value={formData.name}
               onChange={(e) => handleFieldChange("name", e.target.value)}
@@ -170,6 +181,18 @@ export function ProjectActivityCreateRow({
                 if (e.key === 'Enter') {
                   if (e.altKey || e.shiftKey) {
                     // Alt+Enter və ya Shift+Enter -> yeni sətir keçidi
+                    e.preventDefault();
+                    const textarea = e.currentTarget;
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const value = textarea.value;
+                    const newValue = value.substring(0, start) + "\n" + value.substring(end);
+                    handleFieldChange("name", newValue);
+                    
+                    // Kursorun mövqeyinin yeni sətirdən sonraya sürüşdürülməsi
+                    setTimeout(() => {
+                      textarea.selectionStart = textarea.selectionEnd = start + 1;
+                    }, 0);
                     return;
                   }
                   e.preventDefault();
@@ -178,8 +201,8 @@ export function ProjectActivityCreateRow({
                   }
                 }
               }}
-              className="w-full border-none focus:ring-0 focus:outline-none px-0 font-bold bg-transparent text-[11px] resize-none py-1 h-7 leading-normal"
-              maxLength={500}
+              className="w-full border-none focus:ring-0 focus:outline-none px-0 font-bold bg-transparent text-[11px] resize-none py-1 min-h-[28px] h-auto leading-normal"
+              maxLength={65000}
               rows={1}
             />
           </div>

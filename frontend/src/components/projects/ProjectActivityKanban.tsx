@@ -42,7 +42,14 @@ import {
   Zap,
   MessageSquare,
   MessageCircle,
+  CornerDownRight,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { az } from "date-fns/locale";
@@ -151,7 +158,7 @@ export function ProjectActivityKanban({
   canEdit,
 }: ProjectActivityKanbanProps) {
   const [activeActivity, setActiveActivity] = useState<ProjectActivity | null>(null);
-  
+
   const activitiesByStatus = useMemo(() => {
     const grouped: Record<string, ProjectActivity[]> = {
       pending: [],
@@ -204,29 +211,31 @@ export function ProjectActivityKanban({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[500px]">
-        {COLUMNS.map((column) => (
-          <KanbanColumn
-            key={column.id}
-            column={column}
-            activities={activitiesByStatus[column.id]}
-            onDelete={onDeleteActivity}
-            canEdit={canEdit}
-          />
-        ))}
-      </div>
-      <DragOverlay>
-        {activeActivity ? (
-          <ActivityCard activity={activeActivity} isDragOverlay />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    <TooltipProvider>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[500px]">
+          {COLUMNS.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              column={column}
+              activities={activitiesByStatus[column.id]}
+              onDelete={onDeleteActivity}
+              canEdit={canEdit}
+            />
+          ))}
+        </div>
+        <DragOverlay>
+          {activeActivity ? (
+            <ActivityCard activity={activeActivity} isDragOverlay />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </TooltipProvider>
   );
 }
 
@@ -301,16 +310,35 @@ function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOver
   return (
     <Card className={cn(
       "group relative border-muted/60 hover:shadow-lg transition-all duration-200",
+      activity.parent_id && "bg-[#f5f8fe]/80 dark:bg-[#141b2d]/40 border-l-2 border-l-primary/30",
       isDragOverlay && "shadow-2xl ring-2 ring-primary/20 cursor-grabbing"
     )}>
-      <CardContent className="p-3 bg-card rounded-xl">
+      <CardContent className={cn("p-3 rounded-xl", activity.parent_id ? "bg-[#f5f8fe]/40 dark:bg-[#141b2d]/10" : "bg-card")}>
         <div className="flex items-start gap-2">
           <div {...dragHandleProps} className="mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-primary transition-colors">
             <GripVertical className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0">
+            {activity.parent_id && activity.parentName && (
+              <div className="flex items-center gap-1 text-[9px] text-muted-foreground/75 font-semibold mb-1.5 bg-muted/50 px-1.5 py-0.5 rounded w-fit max-w-full">
+                <CornerDownRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                <span className="truncate">Əsas: <span dangerouslySetInnerHTML={{ __html: renderContent(activity.parentName) }} /></span>
+              </div>
+            )}
             <div className="flex items-start justify-between">
-              <h4 className="font-bold text-xs leading-tight line-clamp-2 pr-4" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h4 className="font-bold text-xs leading-tight line-clamp-2 pr-4 cursor-pointer hover:text-primary transition-colors" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="p-3 max-w-[280px] bg-popover text-popover-foreground border shadow-xl rounded-lg">
+                  <div className="space-y-1">
+                    <div className="text-[9px] font-black uppercase tracking-wider text-primary">
+                      {activity.parent_id ? "Alt fəaliyyət" : "Fəaliyyət"}
+                    </div>
+                    <div className="text-xs font-bold whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
+                  </div>
+                </TooltipContent>
+              </Tooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
@@ -352,7 +380,17 @@ function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOver
             </div>
             
             {activity.description && (
-              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.description) }} />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 cursor-pointer" dangerouslySetInnerHTML={{ __html: renderContent(activity.description) }} />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="p-3 max-w-[280px] bg-popover text-popover-foreground border shadow-xl rounded-lg">
+                  <div className="space-y-1">
+                    <div className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Təsvir</div>
+                    <div className="text-xs whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.description) }} />
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             <div className="flex flex-wrap gap-1.5 mt-3">

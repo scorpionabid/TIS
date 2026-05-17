@@ -328,7 +328,7 @@ export default function MyResources() {
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       <Card>
-        <CardContent className="pt-4 px-4 pb-4">
+        <CardContent className="pt-3 sm:pt-4 px-3 sm:px-4 pb-3 sm:pb-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)} className="w-full">
 
             <TabsList className="flex w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-4 sm:gap-8 overflow-x-auto scrollbar-none flex-nowrap whitespace-nowrap">
