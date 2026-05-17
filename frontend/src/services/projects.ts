@@ -9,6 +9,7 @@ export interface Project extends BaseEntity {
   total_goal?: string;
   created_by: number;
   status: 'active' | 'completed' | 'on_hold' | 'cancelled' | 'archived';
+  can_edit_all?: boolean;
   creator?: {
     id: number;
     name: string;
@@ -60,6 +61,8 @@ export interface ProjectActivity extends BaseEntity {
     name: string;
   }>;
   sub_activities?: ProjectActivity[];
+  is_editable?: boolean;
+  employee_ids?: number[];
   created_at: string;
 }
 
@@ -191,6 +194,10 @@ class ProjectService extends BaseService<Project> {
       },
     });
     return this.unwrapResponseData<ProjectAttachment>(response);
+  }
+
+  async deleteAttachment(attachmentId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/attachments/${attachmentId}`);
   }
 
   async addComment(activityId: number, data: { comment: string, type?: string, attachments?: any[] }): Promise<any> {

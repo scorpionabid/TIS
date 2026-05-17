@@ -69,12 +69,18 @@ export function ProjectOverallStats({ projects }: ProjectOverallStatsProps) {
       { name: "Ləğv edilib", value: projects.filter(p => p.status === 'cancelled').length, color: "#ef4444" },
     ].filter(d => d.value > 0);
 
-    const timeline = [
-      { month: 'Yan', count: 2 },
-      { month: 'Fev', count: 5 },
-      { month: 'Mar', count: 8 },
-      { month: 'Apr', count: active.length + completed.length },
-    ];
+    // Layihə yaranma tarixinə görə son 6 ay kumulyativ sayı
+    const now = new Date();
+    const monthNames = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'İyn', 'İyl', 'Avq', 'Sen', 'Okt', 'Noy', 'Dek'];
+    const timeline = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const count = projects.filter(p => {
+        if (!p.created_at) return false;
+        const cd = new Date(p.created_at);
+        return cd.getFullYear() === d.getFullYear() && cd.getMonth() === d.getMonth();
+      }).length;
+      return { month: monthNames[d.getMonth()], count };
+    });
 
     return {
       activeProjects: active,

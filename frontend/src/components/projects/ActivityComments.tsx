@@ -10,15 +10,82 @@ import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 
+/** Markdown → HTML (XSS-safe) */
+function renderComment(text: string): string {
+  if (!text) return '';
+  const safe = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = safe.split('\n');
+  const out: string[] = [];
+  let listTag: 'ul' | 'ol' | null = null;
+  const closeList = () => { if (listTag) { out.push(`</${listTag}>`); listTag = null; } };
+  for (const line of lines) {
+    const bulletM   = line.match(/^- (.*)$/);
+    const numberedM = line.match(/^\d+\. (.*)$/);
+    if (bulletM) {
+      if (listTag === 'ol') closeList();
+      if (!listTag) { out.push('<ul style="list-style-type:disc;padding-left:1.1rem;margin:2px 0">'); listTag = 'ul'; }
+      out.push(`<li>${bulletM[1]}</li>`);
+    } else if (numberedM) {
+      if (listTag === 'ul') closeList();
+      if (!listTag) { out.push('<ol style="list-style-type:decimal;padding-left:1.1rem;margin:2px 0">'); listTag = 'ol'; }
+      out.push(`<li>${numberedM[1]}</li>`);
+    } else {
+      closeList();
+      out.push(line.length ? `${line}<br>` : '<br>');
+    }
+  }
+  closeList();
+  return out.join('')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n<>]+?)\*/g, '<em>$1</em>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/<br>$/, '');
+}
+
 interface ActivityCommentsProps {
   activityId: number;
 }
 
 export const ActivityComments: React.FC<ActivityCommentsProps> = ({ activityId }) => {
   const { currentUser } = useAuth();
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments]   = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading]  = useState(false);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  // Selection hər dəfə mouseup/keyup-da saxlanılır — mousedown-da itmir
+  const selRef = React.useRef({ s: 0, e: 0 });
+
+  const saveSelection = () => {
+    const el = textareaRef.current;
+    if (el) selRef.current = { s: el.selectionStart ?? 0, e: el.selectionEnd ?? 0 };
+  };
+
+  const applyFmt = (before: string, after = before) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const { s, e } = selRef.current;   // saxlanılmış selection
+    const val = el.value;
+    const sel = val.slice(s, e) || 'mətn';
+    const next = val.slice(0, s) + before + sel + after + val.slice(e);
+    setNewComment(next);
+    const ns = s + before.length;
+    const ne = ns + sel.length;
+    setTimeout(() => { el.focus(); el.setSelectionRange(ns, ne); }, 0);
+  };
+
+  const insertLine = (prefix: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const s   = selRef.current.s;
+    const val = el.value;
+    const pre = val.slice(0, s);
+    const suf = val.slice(s);
+    const ins = (pre === '' || pre.endsWith('\n')) ? prefix : '\n' + prefix;
+    setNewComment(pre + ins + suf);
+    setTimeout(() => { el.focus(); el.setSelectionRange(s + ins.length, s + ins.length); }, 0);
+  };
 
   const fetchComments = async () => {
     try {
@@ -94,9 +161,10 @@ export const ActivityComments: React.FC<ActivityCommentsProps> = ({ activityId }
                       })()}
                     </span>
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-2 text-sm text-foreground/90 leading-relaxed shadow-sm">
-                    {comment.comment}
-                  </div>
+                  <div
+                    className="bg-muted/50 rounded-lg p-2 text-sm text-foreground/90 leading-relaxed shadow-sm"
+                    dangerouslySetInnerHTML={{ __html: renderComment(comment.comment) }}
+                  />
                 </div>
               </motion.div>
             ))}
@@ -110,27 +178,71 @@ export const ActivityComments: React.FC<ActivityCommentsProps> = ({ activityId }
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="relative pt-2 border-t">
-        <Textarea
-          placeholder="Rəyiniz (@mentions dəstəklənir)..."
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          className="min-h-[80px] resize-none pr-12 text-sm bg-muted/30 focus-visible:ring-primary/20"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(e);
-            }
-          }}
-        />
-        <Button 
-          type="submit" 
-          size="icon" 
-          disabled={!newComment.trim() || isLoading}
-          className="absolute bottom-4 right-2 w-8 h-8 rounded-full shadow-lg hover:scale-105 transition-transform"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
+      <form onSubmit={handleSubmit} className="pt-2 border-t space-y-1.5">
+        {/* Format düymələri */}
+        <div className="flex items-center gap-1">
+          {([
+            { label: 'B',        title: 'Qalın (**)',      fn: () => applyFmt('**') },
+            { label: 'I',        title: 'İtalik (*)',       fn: () => applyFmt('*') },
+            { label: 'U',        title: 'Altı xətli (__)', fn: () => applyFmt('__') },
+            { label: 'S',        title: 'Üstü xətli (~~)', fn: () => applyFmt('~~') },
+            { label: '• Siyahı', title: 'Nişanlama (-)',   fn: () => insertLine('- ') },
+            { label: '1. Siyahı',title: 'Nömrəli (1.)',    fn: () => insertLine('1. ') },
+          ] as const).map(({ label, title, fn }) => (
+            <button key={label} type="button" onMouseDown={(e) => { e.preventDefault(); fn(); }}
+              className="h-6 px-1.5 text-[11px] rounded border border-border/40 bg-background hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all"
+              title={title}>
+              {label === 'B' ? <strong>B</strong> : label === 'I' ? <em>I</em> : label === 'U' ? <span className="underline">U</span> : label === 'S' ? <s>S</s> : label}
+            </button>
+          ))}
+          <span className="ml-auto text-[10px] text-muted-foreground/50">Shift+↵ = yeni sətir</span>
+        </div>
+        <div className="relative">
+          <Textarea
+            ref={textareaRef}
+            placeholder="Rəyinizi yazın... (**qalın**, *italik*, - siyahı)"
+            value={newComment}
+            onMouseUp={saveSelection}
+            onKeyUp={saveSelection}
+            onSelect={saveSelection}
+            onChange={(e) => setNewComment(e.target.value)}
+            className="min-h-[72px] resize-none pr-10 text-sm bg-muted/30 focus-visible:ring-primary/20"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+              // Ctrl + B = Qalın (**mətn**)
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                applyFmt('**');
+              }
+              // Ctrl + I = İtalik (*mətn*)
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+                e.preventDefault();
+                applyFmt('*');
+              }
+              // Ctrl + U = Altı xətli (__mətn__)
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+                e.preventDefault();
+                applyFmt('__');
+              }
+              // Ctrl + S = Üstü xətli (~~mətn~~)
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                applyFmt('~~');
+              }
+            }}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!newComment.trim() || isLoading}
+            className="absolute bottom-2 right-2 w-7 h-7 rounded-full shadow"
+          >
+            <Send className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </form>
     </div>
   );

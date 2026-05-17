@@ -996,7 +996,7 @@ class DocumentCollectionService
     /**
      * Clear the cache for user's accessible folders
      */
-    private function clearUserFolderCache(User $user): void
+    public function clearUserFolderCache(User $user): void
     {
         $cacheKey = "user_{$user->id}_accessible_folders_v10";
         \Cache::forget($cacheKey);

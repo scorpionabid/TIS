@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { format, addDays } from 'date-fns';
-import { Plus, Save, X, Loader2, Calendar as CalendarIcon, User, Search } from "lucide-react";
+import { Plus, Save, X, Loader2, Calendar as CalendarIcon, User, Search, CornerDownRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,8 @@ interface ProjectActivityCreateRowProps {
   onMultiSelectorChange?: (vals: number[]) => void;
   canEdit: boolean;
   columnWidths?: Record<string, number>;
+  parentId?: number;
+  autoExpand?: boolean;
 }
 
 export function ProjectActivityCreateRow({
@@ -56,9 +58,11 @@ export function ProjectActivityCreateRow({
   onMultiSelectorChange,
   canEdit,
   columnWidths = {},
+  parentId,
+  autoExpand = false,
 }: ProjectActivityCreateRowProps) {
   const { toast } = useToast();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(autoExpand);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -120,6 +124,7 @@ export function ProjectActivityCreateRow({
       await projectService.addActivity(projectId, {
         ...formData,
         status,
+        ...(parentId !== undefined ? { parent_id: parentId } : {}),
       });
       toast({ title: "Uğurlu", description: "Yeni fəaliyyət əlavə edildi." });
       handleReset();
@@ -146,129 +151,165 @@ export function ProjectActivityCreateRow({
   if (isExpanded) {
     const nameWidth = columnWidths['name'] || 350;
     return (
-      <TableRow className="bg-primary/[0.02] hover:bg-primary/[0.04] transition-colors h-9">
-        <TableCell className="p-0 sticky left-0 z-20 bg-card border-r" style={{ width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth }}>
-          <div className="flex items-center gap-2 px-3">
-            <Input
-              ref={nameInputRef}
-              placeholder="Yeni fəaliyyət adı..."
+      <TableRow className={cn("transition-colors h-9", parentId ? "bg-[#f5f8fe] hover:bg-[#f5f8fe] dark:bg-[#141b2d] dark:hover:bg-[#141b2d]" : "bg-primary/[0.02] hover:bg-primary/[0.04]")}>
+        <TableCell
+          className={cn(
+            "p-0 sticky left-0 z-20 border-r bg-card",
+            parentId && "border-l-2 border-l-primary/20 bg-[#f5f8fe] dark:bg-[#141b2d]"
+          )}
+          style={{ width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth }}
+        >
+          <div className={cn("flex items-center gap-2 px-3", parentId && "pl-8")}>
+            {parentId && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />}
+            <textarea
+              ref={nameInputRef as any}
+              placeholder={parentId ? "Yeni alt fəaliyyət adı..." : "Yeni fəaliyyət adı..."}
               value={formData.name}
               onChange={(e) => handleFieldChange("name", e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !isSubmitting && formData.name.trim()) {
+                if (e.key === 'Enter') {
+                  if (e.altKey || e.shiftKey) {
+                    // Alt+Enter və ya Shift+Enter -> yeni sətir keçidi
+                    return;
+                  }
                   e.preventDefault();
-                  handleSubmit();
+                  if (!isSubmitting && formData.name.trim()) {
+                    handleSubmit();
+                  }
                 }
               }}
-              className="h-8 text-[11px] w-full border-none focus-visible:ring-0 px-0 font-bold bg-transparent"
+              className="w-full border-none focus:ring-0 focus:outline-none px-0 font-bold bg-transparent text-[11px] resize-none py-1 h-7 leading-normal"
               maxLength={500}
+              rows={1}
             />
           </div>
         </TableCell>
 
-        {isVisible("employees") && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['employees'] || 180 }}>
-            <ActivityEmployeeSelector
-              selectedIds={formData.employee_ids}
-              onMultiSelectorChange={(ids) => setFormData({ ...formData, employee_ids: ids })}
-            />
-          </TableCell>
-        )}
+        {availableColumns.filter((c) => isVisible(c.id) && c.id !== 'name').map((col) => {
+          switch (col.id) {
+            case 'employees':
+              return (
+                <TableCell key="employees" className="p-0 border-r" style={{ width: columnWidths['employees'] || 180 }}>
+                  <ActivityEmployeeSelector
+                    selectedIds={formData.employee_ids}
+                    onMultiSelectorChange={(ids) => setFormData({ ...formData, employee_ids: ids })}
+                  />
+                </TableCell>
+              );
 
-        {isVisible("status") && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['status'] || 140 }}>
-             <div className="w-full h-8 flex items-center justify-center text-[10px] font-black uppercase text-muted-foreground/50">
-                {status}
-             </div>
-          </TableCell>
-        )}
+            case 'status':
+              return (
+                <TableCell key="status" className="p-0 border-r" style={{ width: columnWidths['status'] || 140 }}>
+                   <div className="w-full h-8 flex items-center justify-center text-[10px] font-black uppercase text-muted-foreground/50">
+                      {status}
+                   </div>
+                </TableCell>
+              );
 
-        {isVisible("priority") && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['priority'] || 120 }}>
-            <div className="flex justify-center px-1">
-              <select value={formData.priority} onChange={(e) => handleFieldChange("priority", e.target.value)} className="w-full h-8 text-[10px] bg-transparent focus:ring-0 border-none uppercase font-black">
-                <option value="low">Aşağı</option>
-                <option value="medium">Orta</option>
-                <option value="high">Yüksək</option>
-                <option value="critical">Kritik</option>
-              </select>
-            </div>
-          </TableCell>
-        )}
+            case 'priority':
+              return (
+                <TableCell key="priority" className="p-0 border-r" style={{ width: columnWidths['priority'] || 120 }}>
+                  <div className="flex justify-center px-1">
+                    <select value={formData.priority} onChange={(e) => handleFieldChange("priority", e.target.value)} className="w-full h-8 text-[10px] bg-transparent focus:ring-0 border-none uppercase font-black">
+                      <option value="low">Aşağı</option>
+                      <option value="medium">Orta</option>
+                      <option value="high">Yüksək</option>
+                      <option value="critical">Kritik</option>
+                    </select>
+                  </div>
+                </TableCell>
+              );
 
-        {isVisible("start_date") && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['start_date'] || 120 }}>
-            <Input type="date" value={formData.start_date} onChange={(e) => handleFieldChange("start_date", e.target.value)} className="h-8 text-[10px] border-none text-center bg-transparent" />
-          </TableCell>
-        )}
+            case 'start_date':
+              return (
+                <TableCell key="start_date" className="p-0 border-r" style={{ width: columnWidths['start_date'] || 120 }}>
+                  <Input type="date" value={formData.start_date} onChange={(e) => handleFieldChange("start_date", e.target.value)} className="h-8 text-[10px] border-none text-center bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible("end_date") && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['end_date'] || 120 }}>
-            <Input type="date" value={formData.end_date} onChange={(e) => handleFieldChange("end_date", e.target.value)} className="h-8 text-[10px] border-none text-center bg-transparent" />
-          </TableCell>
-        )}
+            case 'end_date':
+              return (
+                <TableCell key="end_date" className="p-0 border-r" style={{ width: columnWidths['end_date'] || 120 }}>
+                  <Input type="date" value={formData.end_date} onChange={(e) => handleFieldChange("end_date", e.target.value)} className="h-8 text-[10px] border-none text-center bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible("duration") && (
-          <TableCell className="p-0 border-r text-center text-[10px] text-muted-foreground" style={{ width: columnWidths['duration'] || 80 }}>
-            -
-          </TableCell>
-        )}
+            case 'duration':
+              return (
+                <TableCell key="duration" className="p-0 border-r text-center text-[10px] text-muted-foreground" style={{ width: columnWidths['duration'] || 80 }}>
+                  -
+                </TableCell>
+              );
 
-        {isVisible("budget") && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['budget'] || 110 }}>
-            <Input type="number" placeholder="0" value={formData.budget} onChange={(e) => handleFieldChange("budget", Number(e.target.value))} className="h-8 text-[10px] border-none text-center bg-transparent" />
-          </TableCell>
-        )}
+            case 'budget':
+              return (
+                <TableCell key="budget" className="p-0 border-r" style={{ width: columnWidths['budget'] || 110 }}>
+                  <Input type="number" placeholder="0" value={formData.budget} onChange={(e) => handleFieldChange("budget", Number(e.target.value))} className="h-8 text-[10px] border-none text-center bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('expected_outcome') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['expected_outcome'] || 180 }}>
-            <Input placeholder="..." value={formData.expected_outcome} onChange={(e) => setFormData({ ...formData, expected_outcome: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'expected_outcome':
+              return (
+                <TableCell key="expected_outcome" className="p-0 border-r" style={{ width: columnWidths['expected_outcome'] || 180 }}>
+                  <Input placeholder="..." value={formData.expected_outcome} onChange={(e) => setFormData({ ...formData, expected_outcome: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('kpi_metrics') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['kpi_metrics'] || 150 }}>
-            <Input placeholder="..." value={formData.kpi_metrics} onChange={(e) => setFormData({ ...formData, kpi_metrics: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'kpi_metrics':
+              return (
+                <TableCell key="kpi_metrics" className="p-0 border-r" style={{ width: columnWidths['kpi_metrics'] || 150 }}>
+                  <Input placeholder="..." value={formData.kpi_metrics} onChange={(e) => setFormData({ ...formData, kpi_metrics: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('risks') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['risks'] || 150 }}>
-            <Input placeholder="..." value={formData.risks} onChange={(e) => setFormData({ ...formData, risks: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'risks':
+              return (
+                <TableCell key="risks" className="p-0 border-r" style={{ width: columnWidths['risks'] || 150 }}>
+                  <Input placeholder="..." value={formData.risks} onChange={(e) => setFormData({ ...formData, risks: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('dependency') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['dependency'] || 100 }}>
-            <Input placeholder="..." value={(formData as any).parent_id || ''} onChange={(e) => handleFieldChange("parent_id", e.target.value)} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'dependency':
+              return (
+                <TableCell key="dependency" className="p-0 border-r" style={{ width: columnWidths['dependency'] || 100 }}>
+                  <Input placeholder="..." value={(formData as any).parent_id || ''} onChange={(e) => handleFieldChange("parent_id", e.target.value)} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('location_platform') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['location_platform'] || 160 }}>
-            <Input placeholder="..." value={formData.location_platform} onChange={(e) => setFormData({ ...formData, location_platform: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'location_platform':
+              return (
+                <TableCell key="location_platform" className="p-0 border-r" style={{ width: columnWidths['location_platform'] || 160 }}>
+                  <Input placeholder="..." value={formData.location_platform} onChange={(e) => setFormData({ ...formData, location_platform: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('monitoring_mechanism') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['monitoring_mechanism'] || 200 }}>
-            <Input placeholder="..." value={formData.monitoring_mechanism} onChange={(e) => setFormData({ ...formData, monitoring_mechanism: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'monitoring_mechanism':
+              return (
+                <TableCell key="monitoring_mechanism" className="p-0 border-r" style={{ width: columnWidths['monitoring_mechanism'] || 200 }}>
+                  <Input placeholder="..." value={formData.monitoring_mechanism} onChange={(e) => setFormData({ ...formData, monitoring_mechanism: e.target.value })} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('description') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['description'] || 300 }}>
-            <Input placeholder="..." value={formData.description} onChange={(e) => handleFieldChange("description", e.target.value)} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'description':
+              return (
+                <TableCell key="description" className="p-0 border-r" style={{ width: columnWidths['description'] || 300 }}>
+                  <Input placeholder="..." value={formData.description} onChange={(e) => handleFieldChange("description", e.target.value)} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        {isVisible('notes') && (
-          <TableCell className="p-0 border-r" style={{ width: columnWidths['notes'] || 300 }}>
-            <Input placeholder="..." value={formData.notes} onChange={(e) => handleFieldChange("notes", e.target.value)} className="h-8 text-[10px] border-none bg-transparent" />
-          </TableCell>
-        )}
+            case 'notes':
+              return (
+                <TableCell key="notes" className="p-0 border-r" style={{ width: columnWidths['notes'] || 300 }}>
+                  <Input placeholder="..." value={formData.notes} onChange={(e) => handleFieldChange("notes", e.target.value)} className="h-8 text-[10px] border-none bg-transparent" />
+                </TableCell>
+              );
 
-        <TableCell className="p-0 sticky right-0 z-20 bg-card border-l shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] w-[80px]">
+            default:
+              return null;
+          }
+        })}
+
+        <TableCell className={cn("p-0 sticky right-0 z-20 border-l shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] w-[80px] bg-card", parentId && "bg-[#f5f8fe] dark:bg-[#141b2d]")}>
           <div className="flex gap-1 justify-center">
             <Button size="icon" variant="ghost" onClick={handleSubmit} disabled={isSubmitting || !formData.name} className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
               {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -283,11 +324,18 @@ export function ProjectActivityCreateRow({
   }
 
   return (
-    <TableRow className="group cursor-pointer bg-blue-50/30 dark:bg-blue-900/10 hover:bg-blue-50/50 transition-colors" onClick={() => setIsExpanded(true)}>
-      <TableCell colSpan={100} className="p-2 h-10">
-        <div className="flex items-center gap-2 pl-2 text-primary/70 font-medium text-xs">
+    <TableRow
+      className={cn(
+        "group cursor-pointer transition-colors",
+        parentId ? "bg-[#f5f8fe]/60 hover:bg-[#f5f8fe] dark:bg-[#141b2d]/40 dark:hover:bg-[#141b2d]" : "bg-blue-50/30 dark:bg-blue-900/10 hover:bg-blue-50/50"
+      )}
+      onClick={() => setIsExpanded(true)}
+    >
+      <TableCell colSpan={100} className={cn("p-2 h-10", parentId && "border-l-2 border-l-primary/20")}>
+        <div className={cn("flex items-center gap-2 pl-2 text-primary/70 font-medium text-xs", parentId && "pl-8")}>
+          {parentId && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />}
           <Plus className="w-4 h-4" />
-          <span>Yeni Fəaliyyət Əlavə Et...</span>
+          <span>{parentId ? "Yeni Alt Fəaliyyət Əlavə Et..." : "Yeni Fəaliyyət Əlavə Et..."}</span>
         </div>
       </TableCell>
     </TableRow>

@@ -109,10 +109,10 @@ export function PersonalLinksView({
   }, [filteredLinks, selectedLinkId]);
 
   return (
-    <div className="flex gap-0 pt-4 min-h-[560px] h-[calc(100vh-260px)]">
+    <div className="flex flex-col lg:flex-row gap-0 pt-4 min-h-[560px] lg:h-[calc(100vh-260px)]">
 
       {/* ─── LEFT: link list ─────────────────────────────────────── */}
-      <div className="w-[300px] flex-shrink-0 flex flex-col border-r border-border/60">
+      <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-border/60 pb-4 lg:pb-0 h-[320px] lg:h-auto">
 
         {/* Toolbar */}
         <div className="flex flex-col gap-1.5 px-3 py-2 border-b border-border/60">
@@ -333,7 +333,7 @@ export function PersonalLinksView({
       </div>
 
       {/* ─── RIGHT: sharing overview ─────────────────────────────── */}
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden pt-4 lg:pt-0">
         {selectedLink ? (
           <ScrollArea className="h-full">
             <div className="p-1">

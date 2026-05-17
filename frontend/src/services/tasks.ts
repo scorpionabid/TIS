@@ -378,6 +378,7 @@ export interface AssignableUsersRequestParams {
   page?: number;
   origin_scope?: 'region' | 'sector';
   context?: 'project';
+  cross_region?: boolean;
 }
 
 class TaskService extends BaseService<Task> {
@@ -445,6 +446,12 @@ class TaskService extends BaseService<Task> {
   async getCreationContext(): Promise<TaskCreationContext> {
     const response = await apiClient.get<TaskCreationContext>(`${this.baseEndpoint}/creation-context`);
     return this.unwrapResponseData<TaskCreationContext>(response);
+  }
+
+  async getRegionsForSelector(): Promise<{ id: number; name: string }[]> {
+    const response = await apiClient.get<{ data: { id: number; name: string }[] }>(`${this.baseEndpoint}/regions`);
+    const payload = (response as any)?.data ?? response;
+    return Array.isArray(payload?.data) ? payload.data : [];
   }
 
   async getAssignableUsers(params?: AssignableUsersRequestParams): Promise<AssignableUsersResponse> {

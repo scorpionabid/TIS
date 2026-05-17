@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection } from '../../types/documentCollection';
-import { Folder, FolderArchive, Plus, Edit, Trash2, Download, History, FileText, Search, Clock, Users, LayoutGrid, Building2, MapPin, GraduationCap, Lock, Unlock, User as UserIcon, Link as LinkIcon, HardDrive } from 'lucide-react';
+import { Folder, FolderArchive, Plus, Edit, Trash2, Download, History, FileText, Search, Clock, Users, LayoutGrid, Building2, MapPin, GraduationCap, Lock, Unlock, User as UserIcon, Link as LinkIcon, HardDrive, Star } from 'lucide-react';
 import { UnifiedFolderModal } from '@/components/modals/UnifiedFolderModal';
 import { Badge } from '@/components/ui/badge';
 import DeleteFolderDialog from './DeleteFolderDialog';
@@ -163,16 +163,24 @@ const RegionalFolderManager: React.FC = () => {
     }
 
     // 2. Search-based filtering
-    if (!folderSearch.trim()) {
-      return baseFolders;
+    let searchResult = baseFolders;
+    if (folderSearch.trim()) {
+      const term = folderSearch.toLowerCase();
+      searchResult = baseFolders.filter((folder) => {
+        const nameMatch = folder.name?.toLowerCase().includes(term);
+        const ownerMatch = folder.ownerInstitution?.name?.toLowerCase().includes(term);
+        return Boolean(nameMatch || ownerMatch);
+      });
     }
 
-    const term = folderSearch.toLowerCase();
-
-    return baseFolders.filter((folder) => {
-      const nameMatch = folder.name?.toLowerCase().includes(term);
-      const ownerMatch = folder.ownerInstitution?.name?.toLowerCase().includes(term);
-      return Boolean(nameMatch || ownerMatch);
+    // 3. Sort: featured (starred) folders first, then by newest
+    return [...searchResult].sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured; // Featured first
+      }
+      return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
     });
   }, [folders, folderSearch, activeTab]);
 
@@ -238,6 +246,33 @@ const RegionalFolderManager: React.FC = () => {
         title: 'Yükləmə alınmadı',
         description: message,
         variant: 'destructive'
+      });
+    }
+  };
+
+  const handleToggleFeatured = async (folder: DocumentCollection) => {
+    const previousFolders = queryClient.getQueryData<DocumentCollection[]>(['document-collections', { filtered: false }]);
+
+    if (previousFolders) {
+      queryClient.setQueryData(['document-collections', { filtered: false }], previousFolders.map(f => 
+        f.id === folder.id ? { ...f, is_featured: !f.is_featured } : f
+      ));
+    }
+
+    try {
+      await documentCollectionService.toggleFeatured(folder.id);
+      toast({
+        title: folder.is_featured ? 'Vurğu silindi' : 'Qovluq vurğulandı',
+      });
+      queryClient.invalidateQueries({ queryKey: ['document-collections'] });
+    } catch (err: any) {
+      if (previousFolders) {
+        queryClient.setQueryData(['document-collections', { filtered: false }], previousFolders);
+      }
+      toast({
+        title: 'Xəta baş verdi',
+        description: err.response?.data?.message || 'Əməliyyat yerinə yetirilə bilmədi',
+        variant: 'destructive',
       });
     }
   };
@@ -494,8 +529,15 @@ const RegionalFolderManager: React.FC = () => {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <h3 className={`font-semibold text-gray-900 truncate ${viewMode === 'comfortable' ? 'text-base' : 'text-sm'}`}>
+                          <h3 className={`font-semibold text-gray-900 truncate flex items-center gap-2 ${viewMode === 'comfortable' ? 'text-base' : 'text-sm'}`}>
                             {folder.name}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleToggleFeatured(folder); }}
+                              className={`focus:outline-none transition-colors ${folder.is_featured ? 'text-amber-400 hover:text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+                              title={folder.is_featured ? 'Vurğunu sil' : 'Vurğula'}
+                            >
+                              <Star size={16} fill={folder.is_featured ? "currentColor" : "none"} />
+                            </button>
                           </h3>
                           {viewMode === 'comfortable' && folder.description && (
                             <p className="text-sm text-gray-500 line-clamp-1">{folder.description}</p>

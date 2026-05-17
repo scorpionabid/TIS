@@ -19,6 +19,7 @@ export interface Document extends BaseEntity {
   is_public: boolean;
   is_downloadable: boolean;
   is_viewable_online: boolean;
+  is_featured?: boolean;
   uploaded_by: number;
   institution_id: number;
   allowed_users?: number[];
@@ -63,6 +64,7 @@ export interface CreateDocumentData {
   is_public?: boolean;
   is_downloadable?: boolean;
   is_viewable_online?: boolean;
+  is_featured?: boolean;
   expires_at?: string;
   file: File;
   // Legacy support
@@ -141,19 +143,41 @@ class DocumentService extends BaseService<Document> {
   }
 
   async updateDocument(id: number, data: Partial<CreateDocumentData>): Promise<Document> {
+    if (!data.file) {
+      // JSON PUT update - extremely robust for empty arrays/clearing selections
+      const payload: Record<string, any> = {};
+      Object.keys(data).forEach(key => {
+        if (key === 'file') return;
+        
+        const value = data[key as keyof CreateDocumentData];
+        // Convert undefined to omit, and empty strings for optional fields to null to avoid DB errors
+        if (value === undefined) return;
+        payload[key] = value === '' ? null : value;
+      });
+
+      logger.debug('JSON Document update payload', { id, payload });
+      const response = await apiClient.put<Document>(`${this.baseEndpoint}/${id}`, payload);
+      if (!response.data) {
+        throw new Error(response.message || 'Sənəd yenilənərkən xəta baş verdi');
+      }
+      return response.data;
+    }
+
+    // For file updates, use FormData with POST method spoofing (PUT)
     const formData = new FormData();
     formData.append('_method', 'PUT');
-
-    if (data.file) {
-      formData.append('file', data.file);
-    }
+    formData.append('file', data.file);
 
     Object.keys(data).forEach(key => {
       const value = data[key as keyof CreateDocumentData];
-      // Skip file, undefined, null, and empty strings (empty string dates cause DB errors)
-      if (key === 'file' || value === undefined || value === null || value === '') {
+      if (key === 'file' || value === undefined || value === null) {
         return;
       }
+      // Note: we can allow empty strings to go as empty strings (or skip them)
+      if (value === '') {
+        return;
+      }
+
       if (Array.isArray(value)) {
         if (value.length > 0) {
           value.forEach(item => formData.append(`${key}[]`, item));
@@ -165,9 +189,8 @@ class DocumentService extends BaseService<Document> {
       }
     });
 
-    logger.debug('Document update data', {
+    logger.debug('Document FormData update data', {
       id,
-      hasFile: !!data.file,
       title: data.title,
       category: data.category,
       accessible_institutions: data.accessible_institutions?.length,
@@ -178,64 +201,20 @@ class DocumentService extends BaseService<Document> {
   }
 
   // Custom FormData submission method that uses apiClient infrastructure
-  private async submitFormData(formData: FormData, endpoint: string, method: 'POST' | 'PUT' = 'POST'): Promise<{ data: Document }> {
-    // Ensure CSRF cookie is initialized (same as apiClient does)
-    const apiClientInternal = apiClient as unknown as { baseURL: string; getHeaders: () => Record<string, string> };
-    const sanctumUrl = `${apiClientInternal.baseURL.replace('/api', '')}/sanctum/csrf-cookie`;
-
-    try {
-      await fetch(sanctumUrl, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Accept': 'application/json' },
-      });
-      logger.debug('CSRF cookie initialized for file upload');
-    } catch (error) {
-      logger.error('Failed to initialize CSRF cookie', error);
-      throw new Error('Unable to initialize secure session for file upload');
-    }
-
-    // Get headers from apiClient but exclude Content-Type for FormData
-    const headers = { ...apiClientInternal.getHeaders() };
-    delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
-
-    logger.debug('FormData upload request', {
-      url: `${apiClientInternal.baseURL}${endpoint}`,
-      method,
+  private async submitFormData(formData: FormData, endpoint: string): Promise<{ data: Document }> {
+    logger.debug('FormData upload request via apiClient', {
+      endpoint,
       formDataEntries: [...formData.entries()].map(([key, value]) => ({
         key,
         value: value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value
       }))
     });
 
-    const response = await fetch(`${apiClientInternal.baseURL}${endpoint}`, {
-      method,
-      headers: headers,
-      credentials: 'include', // Important for Sanctum SPA
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('Document upload failed', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url,
-      });
-
-      try {
-        const errorJson = JSON.parse(errorText) as { errors?: unknown; message?: string };
-        logger.error('Detailed error response', errorJson);
-        const userMessage = errorJson.message || `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(userMessage);
-      } catch (parseError) {
-        logger.error('Raw error response', { errorText, parseError });
-        throw new Error(`Document upload failed: ${response.status} ${response.statusText}`);
-      }
+    const response = await apiClient.post<Document>(endpoint, formData);
+    if (!response.data) {
+      throw new Error(response.message || 'Fayl yüklənərkən xəta baş verdi');
     }
-
-    const result = await response.json();
-    return result;
+    return { data: response.data };
   }
 
   async downloadDocument(id: number): Promise<Blob> {
@@ -283,6 +262,11 @@ class DocumentService extends BaseService<Document> {
   async updatePermissions(id: number, permissions: { is_public?: boolean; shared_with?: string[]; expires_at?: string }) {
     const response = await apiClient.put(`${this.baseEndpoint}/${id}/permissions`, permissions);
     return response.data;
+  }
+
+  async toggleFeatured(id: number): Promise<Document> {
+    const response = await apiClient.post(`${this.baseEndpoint}/${id}/toggle-featured`);
+    return response.data as Document;
   }
 
   async getCategories(): Promise<string[]> {

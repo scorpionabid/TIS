@@ -81,7 +81,7 @@ export function LinkFormTab({
     setTargetingMode(mode);
     if (mode === 'institutions') {
       form.setValue('target_users', []);
-      form.setValue('share_scope', 'institutional');
+      // share_scope is calculated automatically in handleSubmit based on institution levels
       // If we don't have institutions selected, try to default them
       if (form.getValues('target_institutions')?.length === 0) {
         maybeDefaultInstitutions?.(true);

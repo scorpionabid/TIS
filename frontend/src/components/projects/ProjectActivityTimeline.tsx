@@ -23,6 +23,45 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link as LinkIcon, MessageSquare, Clock, Target as TargetIcon } from "lucide-react";
 
+// ── Mətn render köməkçiləri ───────────────────────────────────────────────
+function renderContent(text: string | null | undefined): string {
+  if (!text) return '';
+  if (/<[a-zA-Z]/.test(text)) return text;
+  return legacyMarkdownToHtml(text);
+}
+
+function legacyMarkdownToHtml(text: string): string {
+  if (!text) return '';
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = safe.split('\n');
+  const out: string[] = [];
+  let listTag: 'ul' | 'ol' | null = null;
+  const closeList = () => { if (listTag) { out.push(`</${listTag}>`); listTag = null; } };
+  for (const line of lines) {
+    const bm = line.match(/^- (.*)$/);
+    const nm = line.match(/^\d+\. (.*)$/);
+    if (bm) {
+      if (listTag === 'ol') closeList();
+      if (!listTag) { out.push('<ul style="list-style-type:disc;padding-left:1.1rem;margin:2px 0">'); listTag = 'ul'; }
+      out.push(`<li>${bm[1]}</li>`);
+    } else if (nm) {
+      if (listTag === 'ul') closeList();
+      if (!listTag) { out.push('<ol style="list-style-type:decimal;padding-left:1.1rem;margin:2px 0">'); listTag = 'ol'; }
+      out.push(`<li>${nm[1]}</li>`);
+    } else {
+      closeList();
+      out.push(line.length ? `${line}<br>` : '<br>');
+    }
+  }
+  closeList();
+  return out.join('')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n<>]+?)\*/g, '<em>$1</em>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/<br>$/, '');
+}
+
 interface ProjectActivityTimelineProps {
   activities: ProjectActivity[];
 }
@@ -154,7 +193,7 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
             <div className="sticky top-0 z-40 flex flex-col shadow-md">
               {/* Month Header Row */}
               <div className="flex bg-background/95 backdrop-blur-sm border-b">
-                <div className="sticky left-0 z-50 w-[300px] bg-background border-r p-4 font-black text-[10px] uppercase tracking-widest text-muted-foreground/50 h-10 flex items-center">
+                <div className="sticky left-0 z-50 w-[150px] sm:w-[300px] min-w-[150px] sm:min-w-[300px] bg-background border-r p-4 font-black text-[10px] uppercase tracking-widest text-muted-foreground/50 h-10 flex items-center">
                   Təqvim / Aylar
                 </div>
                 <div className="flex">
@@ -172,7 +211,7 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
 
               {/* Day Header Row */}
               <div className="flex bg-background/90 backdrop-blur-sm border-b">
-                <div className="sticky left-0 z-50 w-[300px] bg-background border-r p-4 font-black text-xs uppercase tracking-widest text-muted-foreground h-14 flex items-start">
+                <div className="sticky left-0 z-50 w-[150px] sm:w-[300px] min-w-[150px] sm:min-w-[300px] bg-background border-r p-4 font-black text-xs uppercase tracking-widest text-muted-foreground h-14 flex items-start">
                   Fəaliyyət / İcraçı
                 </div>
                 <div className="flex">
@@ -213,12 +252,10 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
                   return (
                     <div key={activity.id} className="flex border-b group hover:bg-primary/[0.02] transition-colors h-16">
                       {/* Fixed Left Column */}
-                      <div className="sticky left-0 z-20 w-[300px] bg-background border-r p-3 flex items-center gap-3 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                      <div className="sticky left-0 z-20 w-[150px] sm:w-[300px] min-w-[150px] sm:min-w-[300px] bg-background border-r p-3 flex items-center gap-3 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                         <div className={cn("w-1.5 h-8 rounded-full shrink-0 shadow-sm", STATUS_COLORS[activity.status])} />
                         <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-xs font-bold truncate group-hover:text-primary transition-colors">
-                            {activity.name}
-                          </span>
+                          <span className="text-xs font-bold truncate group-hover:text-primary transition-colors" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
                           <div className="flex items-center justify-between mt-1">
                             <div className="flex items-center gap-2">
                               {activity.employee ? (
@@ -227,14 +264,14 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
                                     <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activity.employee.name}`} />
                                     <AvatarFallback>U</AvatarFallback>
                                   </Avatar>
-                                  <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[100px]">{activity.employee.name}</span>
+                                  <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[60px] sm:max-w-[100px]">{activity.employee.name}</span>
                                 </div>
                               ) : (
                                 <span className="text-[9px] text-muted-foreground/60 italic">Məsul yoxdur</span>
                               )}
                             </div>
                             {!hasDates && (
-                              <Badge variant="outline" className="text-[8px] h-4 px-1 border-amber-200 bg-amber-50 text-amber-700">
+                              <Badge variant="outline" className="text-[8px] h-4 px-1 border-amber-200 bg-amber-50 text-amber-700 shrink-0">
                                 Tarix yoxdur
                               </Badge>
                             )}
@@ -275,22 +312,63 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
                                 <div className="shrink-0 bg-white/20 p-1 rounded-md">
                                   <Clock className="w-3 h-3 text-white" />
                                 </div>
-                                <span className="text-white text-[10px] font-black truncate shadow-sm">
-                                  {activity.name}
-                                </span>
+                                <span className="text-white text-[10px] font-black truncate shadow-sm" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="p-3 max-w-[250px] shadow-2xl border-primary/20">
-                               <div className="space-y-2">
-                                  <p className="font-black text-sm">{activity.name}</p>
-                                  <div className="flex gap-2">
-                                    <Badge variant="secondary" className="text-[9px] uppercase font-bold">
-                                      {format(new Date(activity.start_date!), 'dd.MM')} - {format(new Date(activity.end_date!), 'dd.MM.yyyy')}
-                                    </Badge>
-                                    <Badge className={cn("text-[9px] uppercase font-bold", STATUS_COLORS[activity.status])}>
-                                      {activity.status}
-                                    </Badge>
-                                  </div>
+                            <TooltipContent side="top" className="p-4 w-[350px] max-w-[90vw] shadow-2xl border-primary/20 bg-popover rounded-xl backdrop-blur-md">
+                               <div className="space-y-3">
+                                 <div className="border-b pb-2">
+                                   <h5 className="font-black text-xs uppercase tracking-wider text-primary">Fəaliyyət Təfərrüatları</h5>
+                                 </div>
+                                 <div className="grid grid-cols-3 gap-y-2.5 gap-x-2 text-[11px] leading-relaxed">
+                                   <div className="font-extrabold text-muted-foreground">Fəaliyyət Adı:</div>
+                                   <div className="col-span-2 font-bold text-foreground whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
+
+                                   <div className="font-extrabold text-muted-foreground">Məsul Şəxs:</div>
+                                   <div className="col-span-2 font-bold text-foreground whitespace-normal">
+                                     {activity.employee?.name || <span className="italic font-medium text-muted-foreground/60">Təyin edilməyib</span>}
+                                   </div>
+
+                                   <div className="font-extrabold text-muted-foreground">Status:</div>
+                                   <div className="col-span-2">
+                                     <Badge className={cn("text-[9px] uppercase font-black px-2 py-0.5 rounded shadow-sm", STATUS_COLORS[activity.status])}>
+                                       {activity.status}
+                                     </Badge>
+                                   </div>
+
+                                   <div className="font-extrabold text-muted-foreground">Prioritet:</div>
+                                   <div className="col-span-2">
+                                     <Badge variant="outline" className="text-[9px] uppercase font-black px-2 py-0.5 rounded border-muted-foreground/30 text-muted-foreground shadow-sm">
+                                       {activity.priority?.toUpperCase() || 'MEDIUM'}
+                                     </Badge>
+                                   </div>
+
+                                   <div className="font-extrabold text-muted-foreground">Bitmə Tarixi:</div>
+                                   <div className="col-span-2 font-bold text-foreground">
+                                     {activity.end_date ? format(new Date(activity.end_date), 'dd.MM.yyyy', { locale: az }) : '-'}
+                                   </div>
+
+                                   {activity.expected_outcome && (
+                                     <>
+                                       <div className="font-extrabold text-muted-foreground">Gözlənilən nəticə:</div>
+                                       <div className="col-span-2 font-medium text-foreground/80 whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.expected_outcome) }} />
+                                     </>
+                                   )}
+
+                                   {activity.monitoring_mechanism && (
+                                     <>
+                                       <div className="font-extrabold text-muted-foreground">Mexanizm:</div>
+                                       <div className="col-span-2 font-medium text-foreground/80 whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.monitoring_mechanism) }} />
+                                     </>
+                                   )}
+
+                                   {activity.description && (
+                                     <>
+                                       <div className="font-extrabold text-muted-foreground">Təsvir:</div>
+                                       <div className="col-span-2 font-medium text-foreground/80 whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.description) }} />
+                                     </>
+                                   )}
+                                 </div>
                                </div>
                             </TooltipContent>
                           </Tooltip>

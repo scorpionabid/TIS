@@ -304,9 +304,9 @@ const CalendarDaysView: React.FC<{
               locale={az}
               className="p-0"
               classNames={{
-                day: cn('h-10 w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 p-0 font-bold text-sm sm:text-lg md:text-2xl rounded-xl sm:rounded-2xl transition-all hover:bg-primary/10 hover:text-primary active:scale-95 flex items-center justify-center mx-auto relative'),
-                cell: 'h-10 w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 text-center text-sm sm:text-lg md:text-2xl p-0 relative focus-within:relative focus-within:z-20',
-                head_cell: 'text-primary/40 rounded-md w-10 sm:w-14 md:w-20 font-black text-[10px] sm:text-[12px] md:text-[14px] uppercase tracking-widest pb-2 md:pb-4 text-center',
+                day: cn('h-8 w-8 xs:h-10 xs:w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 p-0 font-bold text-xs xs:text-sm sm:text-lg md:text-2xl rounded-lg xs:rounded-xl sm:rounded-2xl transition-all hover:bg-primary/10 hover:text-primary active:scale-95 flex items-center justify-center mx-auto relative'),
+                cell: 'h-8 w-8 xs:h-10 xs:w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 text-center text-xs xs:text-sm sm:text-lg md:text-2xl p-0 relative focus-within:relative focus-within:z-20',
+                head_cell: 'text-primary/40 rounded-md w-8 xs:w-10 sm:w-14 md:w-20 font-black text-[9px] xs:text-[10px] sm:text-[12px] md:text-[14px] uppercase tracking-widest pb-1 xs:pb-2 md:pb-4 text-center',
                 table: 'w-full border-collapse mx-auto',
                 day_selected: 'bg-primary text-white hover:bg-primary hover:text-white shadow-lg shadow-primary/30 scale-110 z-10',
                 caption: 'hidden',
@@ -535,14 +535,14 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <Card className="glass-card border-none modern-shadow rounded-[32px] h-full overflow-hidden flex flex-col min-h-[600px]">
-        <CardHeader className="border-b border-primary/5 bg-primary/5 flex flex-col md:flex-row md:items-center justify-between gap-4 p-8">
+      <Card className="glass-card border-none modern-shadow rounded-2xl xs:rounded-[32px] h-full overflow-hidden flex flex-col min-h-[600px]">
+        <CardHeader className="border-b border-primary/5 bg-primary/5 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-8">
           <div>
             <CardTitle className="text-xl sm:text-2xl md:text-3xl font-black flex items-center gap-2 sm:gap-3">
               <CalendarIcon className="text-primary" size={24} />
               {title}
             </CardTitle>
-            {description && <CardDescription className="text-base">{description}</CardDescription>}
+            {description && <CardDescription className="text-sm sm:text-base">{description}</CardDescription>}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -563,8 +563,8 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
         <CardContent className="p-0 flex-1">
           <div className="flex flex-col md:flex-row h-full">
             {/* Calendar area */}
-            <div className="p-3 sm:p-6 md:p-10 border-r border-primary/5 flex-1 flex flex-col items-center justify-start bg-white/40 dark:bg-slate-900/40 overflow-auto">
-              <div className="w-full max-w-[900px] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[40px] shadow-2xl border border-white/20 p-6 md:p-8">
+            <div className="p-1 xs:p-3 sm:p-6 md:p-10 border-r border-primary/5 flex-1 flex flex-col items-center justify-start bg-white/40 dark:bg-slate-900/40 overflow-auto">
+              <div className="w-full max-w-[900px] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl xs:rounded-[40px] shadow-2xl border border-white/20 p-2 xs:p-4 md:p-8">
                 {calendarView === 'week' ? (
                   <WeekView
                     baseDate={activeMonth}

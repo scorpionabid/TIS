@@ -222,7 +222,6 @@ export default function MyResources() {
 
   const handleEditResource = useCallback(async (resource: AssignedResource) => {
     setResourceModalType(resource.type);
-    // target_institutions/target_users tam alınana qədər modal açılmır
     try {
       const fresh = await resourceService.getById(resource.id, resource.type);
       setEditingResource(fresh as AssignedResource);
@@ -332,7 +331,7 @@ export default function MyResources() {
         <CardContent className="pt-4 px-4 pb-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)} className="w-full">
 
-            <TabsList className="flex w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-8">
+            <TabsList className="flex w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-4 sm:gap-8 overflow-x-auto scrollbar-none flex-nowrap whitespace-nowrap">
               <TabsTrigger value="links" className={TAB_TRIGGER_CLASS}>
                 <div className="flex items-center gap-2">
                   <Link className="h-3.5 w-3.5" />
@@ -465,6 +464,7 @@ export default function MyResources() {
       />
 
       <UnifiedResourceModal
+        key={editingResource?.id ?? 'create'}
         isOpen={isResourceModalOpen}
         type={resourceModalType}
         resource={editingResource}

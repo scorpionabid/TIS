@@ -51,9 +51,11 @@ class Document extends Model
         'metadata',
         'content_preview',
         'cascade_deletable',
+        'is_featured',
     ];
 
     protected $casts = [
+        'is_featured' => 'boolean',
         'file_size' => 'integer',
         'allowed_users' => 'array',
         'allowed_roles' => 'array',

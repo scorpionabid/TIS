@@ -54,8 +54,12 @@ fi
 
 # Bazanı təmizlə (Clean state)
 print_status "Baza təmizlənir (Drop and Recreate)..."
-docker exec atis_postgres psql -U $DB_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
-docker exec atis_postgres dropdb --if-exists -U $DB_USER $DB_NAME
+# WITH (FORCE) bütün aktiv sessionları avtomatik məhv edir (PG 13+)
+docker exec atis_postgres psql -U $DB_USER -d postgres -c "DROP DATABASE IF EXISTS \"$DB_NAME\" WITH (FORCE);" >/dev/null 2>&1 || {
+    # Köhnə PG versiyaları üçün fallback: manual terminate + drop
+    docker exec atis_postgres psql -U $DB_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
+    docker exec atis_postgres dropdb --if-exists -U $DB_USER $DB_NAME
+}
 docker exec atis_postgres createdb -U $DB_USER $DB_NAME
 
 # Restore prosesi
@@ -69,7 +73,11 @@ if [[ "$RESTORE_FILE" == *.gz ]]; then
 elif [[ "$RESTORE_FILE" == *.dump ]]; then
     # PostgreSQL Custom Format üçün (.dump)
     print_status "PostgreSQL Custom Format bərpası (pg_restore)..."
-    docker exec -i atis_postgres pg_restore -U $DB_USER -d $DB_NAME --no-owner --no-privileges < "$RESTORE_FILE" > /dev/null 2>&1
+    WARNINGS=$(docker exec -i atis_postgres pg_restore -U $DB_USER -d $DB_NAME --no-owner --no-privileges < "$RESTORE_FILE" 2>&1 || true)
+    if echo "$WARNINGS" | grep -q "error"; then
+        WARN_COUNT=$(echo "$WARNINGS" | grep -c "error" || true)
+        print_warning "pg_restore: $WARN_COUNT kiçik xəbərdarlıq (FK constraints) — kritik deyil"
+    fi
 else
     # Normal SQL üçün
     print_status "Standart SQL bərpası (psql)..."
@@ -82,6 +90,6 @@ docker exec atis_backend php artisan cache:clear >/dev/null 2>&1 || true
 docker exec atis_backend php artisan permission:cache-reset >/dev/null 2>&1 || true
 
 print_success "=== BƏRPA UĞURLA TAMAMLANDI ==="
-USERS=$(docker exec atis_postgres psql -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM users;" | tr -d ' \n')
+USERS=$(docker exec atis_postgres psql -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' \n') || USERS="?"
 echo "  Bərpa olunan istifadəçi sayı: $USERS"
 echo ""

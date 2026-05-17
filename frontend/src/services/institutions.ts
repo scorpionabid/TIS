@@ -334,7 +334,7 @@ class InstitutionService extends BaseService<Institution> {
   }
 
   async getRegions() {
-    return this.getByType('regional');
+    return this.getByType('regional_education_department' as Institution['type']);
   }
 
   async getSectors(parentId?: number) {

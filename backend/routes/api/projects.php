@@ -25,6 +25,7 @@ Route::prefix('projects')->group(function () {
     Route::post('/{projectId}/activities/reorder', [ProjectController::class, 'reorderActivities']);
     Route::get('/activities/{activityId}/logs', [ProjectController::class, 'getLogs']);
     Route::post('/activities/{activityId}/attachments', [ProjectController::class, 'uploadAttachment']);
+    Route::delete('/attachments/{attachmentId}', [ProjectController::class, 'deleteAttachment']);
 
     // Comment routes
     Route::get('/activities/{activityId}/comments', [ProjectController::class, 'getComments']);

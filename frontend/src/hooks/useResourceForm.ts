@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { institutionService } from "@/services/institutions";
+import type { Institution } from "@/services/institutions";
 import { resourceService } from "@/services/resources";
 import { Resource, CreateResourceData } from "@/types/resources";
 
@@ -70,6 +71,60 @@ interface UseResourceFormProps {
   onClose: () => void;
 }
 
+function buildDefaultValues(
+  resourceType: 'link' | 'document',
+  resource: Resource | null | undefined,
+  mode: 'create' | 'edit',
+) {
+  const base = {
+    type: resourceType === 'link' ? ('link' as const) : ('document' as const),
+    title: '',
+    description: '',
+    target_institutions: [] as number[],
+    target_roles: [] as string[],
+    target_departments: [] as number[],
+    target_users: [] as number[],
+    url: '',
+    link_type: 'external' as const,
+    share_scope: 'institutional' as const,
+    is_featured: false,
+    expires_at: '',
+    category: null as string | null,
+    is_downloadable: true,
+    is_viewable_online: true,
+  };
+
+  if (resource && mode === 'edit') {
+    return {
+      ...base,
+      type: resource.type as 'link' | 'document',
+      title: resource.title ?? '',
+      description: resource.description ?? '',
+      target_institutions: (resource.target_institutions || [])
+        .map(Number).filter((n: number) => !isNaN(n)),
+      target_roles: resource.target_roles || [],
+      target_departments: (resource.target_departments || [])
+        .map(Number).filter((n: number) => !isNaN(n)),
+      target_users: (resource.target_users || [])
+        .map(Number).filter((n: number) => !isNaN(n)),
+      is_featured: resource.is_featured ?? false,
+      expires_at: resource.expires_at ?? '',
+      ...(resource.type === 'link' && {
+        url: resource.url ?? '',
+        link_type: (resource.link_type ?? 'external') as 'external' | 'video' | 'form' | 'document',
+        share_scope: (resource.share_scope ?? 'institutional') as
+          'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users',
+      }),
+      ...(resource.type === 'document' && {
+        category: resource.category ?? null,
+        is_downloadable: resource.is_downloadable ?? true,
+        is_viewable_online: resource.is_viewable_online ?? true,
+      }),
+    };
+  }
+  return base;
+}
+
 export function useResourceForm({
   isOpen,
   resourceType,
@@ -82,30 +137,11 @@ export function useResourceForm({
   const { currentUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Form setup with dynamic schema based on mode
   const resolver = useMemo(() => zodResolver(getResourceSchema(mode)), [mode]);
 
   const form = useForm<ResourceFormData>({
     resolver,
-    defaultValues: {
-      type: resourceType === 'link' ? 'link' : 'document',
-      title: '',
-      description: '',
-      target_institutions: [],
-      target_roles: [],
-      target_departments: [],
-      target_users: [],
-      // Link defaults
-      url: '',
-      link_type: 'external',
-      share_scope: 'institutional',
-      is_featured: false,
-      expires_at: '',
-      // Document defaults
-      category: 'educational',
-      is_downloadable: true,
-      is_viewable_online: true,
-    },
+    defaultValues: buildDefaultValues(resourceType, resource, mode),
   });
 
   // Determine if user should see superior institutions (for targeting)
@@ -157,44 +193,12 @@ export function useResourceForm({
     }
   }, [resourceType, form]);
 
-  // Populate form when editing, reset when closing — single effect to avoid race conditions
-  const lastResourceId = React.useRef<number | null>(null);
-
+  // Modal bağlananda file-ı sıfırla (form key ilə reset olur)
   useEffect(() => {
     if (!isOpen) {
-      form.reset();
       setSelectedFile(null);
-      lastResourceId.current = null;
-      return;
     }
-
-    if (resource && mode === 'edit') {
-      if (lastResourceId.current === resource.id) return;
-      lastResourceId.current = resource.id;
-
-      form.reset({
-        type: resource.type,
-        title: resource.title,
-        description: resource.description || '',
-        target_institutions: (resource.target_institutions || resource.accessible_institutions || []).map(Number).filter(n => !isNaN(n)),
-        target_roles: resource.target_roles || resource.allowed_roles || [],
-        target_departments: (resource.target_departments || resource.accessible_departments || []).map(Number).filter(n => !isNaN(n)),
-        target_users: (resource.target_users || resource.allowed_users || []).map(Number).filter(n => !isNaN(n)),
-        is_featured: resource.is_featured || false,
-        expires_at: resource.expires_at || '',
-        ...(resource.type === 'link' && {
-          url: resource.url || '',
-          link_type: resource.link_type || 'external',
-          share_scope: resource.share_scope || 'institutional',
-        }),
-        ...(resource.type === 'document' && {
-          category: resource.category || null,
-          is_downloadable: resource.is_downloadable ?? true,
-          is_viewable_online: resource.is_viewable_online ?? true,
-        }),
-      });
-    }
-  }, [isOpen, resource?.id, mode, form]);
+  }, [isOpen]);
 
 
   const handleSubmit = async (data: ResourceFormData) => {
@@ -204,8 +208,23 @@ export function useResourceForm({
 
       if (hasUsers && !hasInstitutions) {
         data.share_scope = 'specific_users';
-      } else if (hasInstitutions && data.share_scope === 'specific_users') {
-        data.share_scope = 'institutional';
+      } else if (hasInstitutions) {
+        // Seçilmiş müəssisələrin minimum səviyyəsindən share_scope hesabla:
+        //   Level 2 (region)  → 'regional'
+        //   Level 3 (sektor)  → 'sectoral'
+        //   Level 4 (məktəb)  → 'institutional'
+        const selectedIds = (data.target_institutions as number[]).map(Number);
+        const selectedInsts = availableInstitutions.filter((inst: Institution) => selectedIds.includes(Number(inst.id)));
+        const levels = selectedInsts
+          .map((inst: Institution) => Number(inst.level))
+          .filter((lvl: number) => !isNaN(lvl) && lvl > 0);
+
+        if (levels.length > 0) {
+          const minLevel = Math.min(...levels);
+          if (minLevel <= 2) data.share_scope = 'regional';
+          else if (minLevel === 3) data.share_scope = 'sectoral';
+          else data.share_scope = 'institutional';
+        }
       }
 
       if (data.share_scope === 'specific_users') {

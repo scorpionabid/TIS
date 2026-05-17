@@ -58,6 +58,45 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// ── Mətn render köməkçiləri ───────────────────────────────────────────────
+function renderContent(text: string | null | undefined): string {
+  if (!text) return '';
+  if (/<[a-zA-Z]/.test(text)) return text;
+  return legacyMarkdownToHtml(text);
+}
+
+function legacyMarkdownToHtml(text: string): string {
+  if (!text) return '';
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = safe.split('\n');
+  const out: string[] = [];
+  let listTag: 'ul' | 'ol' | null = null;
+  const closeList = () => { if (listTag) { out.push(`</${listTag}>`); listTag = null; } };
+  for (const line of lines) {
+    const bm = line.match(/^- (.*)$/);
+    const nm = line.match(/^\d+\. (.*)$/);
+    if (bm) {
+      if (listTag === 'ol') closeList();
+      if (!listTag) { out.push('<ul style="list-style-type:disc;padding-left:1.1rem;margin:2px 0">'); listTag = 'ul'; }
+      out.push(`<li>${bm[1]}</li>`);
+    } else if (nm) {
+      if (listTag === 'ul') closeList();
+      if (!listTag) { out.push('<ol style="list-style-type:decimal;padding-left:1.1rem;margin:2px 0">'); listTag = 'ol'; }
+      out.push(`<li>${nm[1]}</li>`);
+    } else {
+      closeList();
+      out.push(line.length ? `${line}<br>` : '<br>');
+    }
+  }
+  closeList();
+  return out.join('')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n<>]+?)\*/g, '<em>$1</em>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/<br>$/, '');
+}
+
 const COLUMNS = [
   {
     id: "pending",
@@ -200,7 +239,7 @@ function KanbanColumn({ column, activities, onDelete, canEdit }: any) {
   return (
     <div 
       ref={setNodeRef}
-      className={cn("flex flex-col h-full min-w-[280px] max-w-[320px] rounded-xl border border-muted/40 transition-colors", column.bgColor)}
+      className={cn("flex flex-col h-full min-w-[260px] xs:min-w-[280px] max-w-[320px] w-[85vw] sm:w-auto rounded-xl border border-muted/40 transition-colors", column.bgColor)}
     >
       <div className="p-4 flex items-center justify-between border-b border-muted/20">
         <div className="flex items-center gap-2">
@@ -271,7 +310,7 @@ function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOver
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
-              <h4 className="font-bold text-xs leading-tight line-clamp-2 pr-4">{activity.name}</h4>
+              <h4 className="font-bold text-xs leading-tight line-clamp-2 pr-4" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
@@ -293,9 +332,7 @@ function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOver
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Fəaliyyəti silmək?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              "{activity.name}" fəaliyyəti sistemdən silinəcək.
-                            </AlertDialogDescription>
+                            <AlertDialogDescription dangerouslySetInnerHTML={{ __html: `"${renderContent(activity.name)}" fəaliyyəti sistemdən silinəcək.` }} />
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Xeyr</AlertDialogCancel>
@@ -315,7 +352,7 @@ function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOver
             </div>
             
             {activity.description && (
-              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{activity.description}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.description) }} />
             )}
 
             <div className="flex flex-wrap gap-1.5 mt-3">
@@ -330,6 +367,11 @@ function ActivityCard({ activity, onDelete, canEdit, dragHandleProps, isDragOver
               {activity.comments_count > 0 && (
                 <Badge variant="outline" className="text-[8px] font-medium px-1.5 py-0 border-primary/20 text-primary">
                   <MessageSquare className="w-2.5 h-2.5 mr-1" /> {activity.comments_count}
+                </Badge>
+              )}
+              {(activity.sub_activities?.length ?? 0) > 0 && (
+                <Badge variant="outline" className="text-[8px] font-medium px-1.5 py-0 border-muted-foreground/30 text-muted-foreground">
+                  ↳ {activity.sub_activities!.length} alt
                 </Badge>
               )}
             </div>

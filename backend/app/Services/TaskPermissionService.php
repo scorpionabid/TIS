@@ -755,9 +755,13 @@ class TaskPermissionService extends BaseService
             return collect();
         }
 
-        // Project context: superadmin and regionadmin see all regions.
-        // Others (regionoperator, sektoradmin, schooladmin…) are still bound to their own region.
-        $isCrossRegionAllowed = $isProjectContext && $user->hasAnyRole(['superadmin', 'admin', 'regionadmin']);
+        // Project context: only superadmin/admin see all regions by default.
+        // RegionAdmin/RegionOperator must explicitly request cross_region=true (collaboration tab).
+        $crossRegionRequested = filter_var($filters['cross_region'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $isCrossRegionAllowed = $isProjectContext && (
+            $crossRegionRequested ||
+            $user->hasAnyRole(['superadmin', 'admin'])
+        );
         $institutionScope = $isCrossRegionAllowed ? [] : $this->getUserInstitutionScope($user, $originScope);
         $institutionFilter = $filters['institution_id'] ?? null;
 

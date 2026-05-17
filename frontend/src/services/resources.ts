@@ -37,15 +37,17 @@ class ResourceService {
     } as Resource;
   }
 
-  /**
-   * Helper: Transform document result to unified format
-   */
   private transformDocumentResult(result: ServiceDocument): Resource {
     return {
       ...result,
       type: 'document' as const,
       created_by: result.uploaded_by,
       creator: result.uploader,
+      target_institutions: result.accessible_institutions || result.target_institutions || [],
+      target_departments: result.accessible_departments || result.target_departments || [],
+      target_roles: result.allowed_roles || result.target_roles || [],
+      target_users: result.allowed_users || result.target_users || [],
+      is_featured: result.is_featured ?? false,
     } as Resource;
   }
 
@@ -56,7 +58,7 @@ class ResourceService {
     return {
       url: data.url,
       link_type: data.link_type,
-      share_scope: data.share_scope || 'institutional',
+      share_scope: data.share_scope || undefined,
       target_institutions: data.target_institutions,
       target_roles: data.target_roles,
       target_departments: data.target_departments,
@@ -395,6 +397,8 @@ class ResourceService {
           accessible_institutions: data.target_institutions,
           accessible_departments: data.target_departments,
           allowed_roles: data.target_roles,
+          allowed_users: data.target_users,
+          is_featured: data.is_featured,
           is_downloadable: data.is_downloadable,
           is_viewable_online: data.is_viewable_online,
           expires_at: data.expires_at,
@@ -467,6 +471,8 @@ class ResourceService {
           accessible_institutions: data.target_institutions,
           accessible_departments: data.target_departments,
           allowed_roles: data.target_roles,
+          allowed_users: data.target_users,
+          is_featured: data.is_featured,
           is_downloadable: data.is_downloadable,
           is_viewable_online: data.is_viewable_online,
           expires_at: data.expires_at,
@@ -532,7 +538,8 @@ class ResourceService {
         const link = await linkService.getById(id);
         result = this.transformLinkResult(link);
       } else {
-        const doc = await documentService.getById(id);
+        // useCache=false: localStorage cache köhnə accessible_institutions saxlaya bilər
+        const doc = await documentService.getById(id, false);
         result = this.transformDocumentResult(doc);
       }
 
@@ -777,7 +784,7 @@ class ResourceService {
 
     const response = await apiClient.get('/resources/target-users', {
       ...params,
-      per_page: Math.min(params?.per_page ?? 200, 200),
+      per_page: Math.min(params?.per_page ?? 200, 1000),
     });
     const payload = ((response as { data?: unknown })?.data ?? response ?? []) as unknown;
 

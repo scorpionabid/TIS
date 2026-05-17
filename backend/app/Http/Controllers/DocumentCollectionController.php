@@ -294,6 +294,45 @@ class DocumentCollectionController extends Controller
     }
 
     /**
+     * Toggle folder featured status
+     */
+    public function toggleFeatured(Request $request, DocumentCollection $folder): JsonResponse
+    {
+        // Check permission
+        if (! $this->service->canManageFolder($request->user(), $folder)) {
+            \Log::warning('DocumentCollectionController@toggleFeatured unauthorized', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to update this folder',
+            ], 403);
+        }
+
+        try {
+            $folder->is_featured = !$folder->is_featured;
+            $folder->save();
+
+            // Clear folder cache for user to show changes instantly in the UI
+            $this->service->clearUserFolderCache($request->user());
+
+            return response()->json([
+                'success' => true,
+                'message' => $folder->is_featured ? 'Qovluq vurğulandı' : 'Qovluq vurğusu silindi',
+                'data' => $folder,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to toggle folder featured status',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Delete a folder with cascade deletion
      */
     public function destroy(Request $request, DocumentCollection $folder): JsonResponse

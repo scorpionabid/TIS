@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Archive, Edit, ExternalLink, FileText, Trash2, Video } from 'lucide-react';
+import { Archive, Edit, ExternalLink, FileText, Trash2, Video, Star } from 'lucide-react';
 import { Resource } from '@/types/resources';
 import { Button } from '@/components/ui/button';
 import {
@@ -359,10 +359,11 @@ export function ResourceGrid({
                     <td className="p-4">
                       <div>
                         <div
-                          className="font-medium hover:text-primary cursor-pointer hover:underline"
+                          className="font-medium hover:text-primary cursor-pointer hover:underline flex items-center gap-1"
                           onClick={() => handleResourceAccess(resource)}
                         >
                           {resource.title}
+                          {resource.is_featured && <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 flex-shrink-0 inline-block" />}
                         </div>
                         {resource.type === 'document' && resource.original_filename && (
                           <div className="text-sm text-muted-foreground">

@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Check, Settings2, ChevronDown, List, CheckCircle, Clock } from 'lucide-react';
+import { Check, Settings2, ChevronDown, List, CheckCircle, Clock, Copy, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { useColumnSettings } from '@/hooks/projects/useColumnSettings';
@@ -49,7 +49,7 @@ import {
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { ProjectActivityCreateRow } from './ProjectActivityCreateRow';
-import { ProjectActivitySortableRow } from './ProjectActivitySortableRow';
+import { ProjectActivitySortableRow, SubActivityRow } from './ProjectActivitySortableRow';
 import { ACTIVITY_GROUP_CONFIG, type ActivityStatus } from '@/utils/projectStatus';
 
 interface ProjectActivityTableProps {
@@ -59,6 +59,8 @@ interface ProjectActivityTableProps {
   onDeleteActivity: (id: number) => Promise<void>;
   onStatusChange: (id: number, status: ProjectActivity['status']) => void;
   onRefresh?: () => void;
+  onViewDetails?: (activity: ProjectActivity) => void;
+  onCloneActivity?: (activity: ProjectActivity) => void;
   canEdit?: boolean;
   highlightedActivityId?: number;
   isLoading?: boolean;
@@ -79,11 +81,13 @@ export function ProjectActivityTable({
   onDeleteActivity,
   onStatusChange,
   onRefresh,
+  onViewDetails,
+  onCloneActivity,
   canEdit,
   highlightedActivityId,
   availableUsers,
 }: ProjectActivityTableProps) {
-  const { columns, toggleColumn, isVisible } = useColumnSettings(projectId);
+  const { columns, toggleColumn, moveColumn, isVisible } = useColumnSettings(projectId);
 
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem(`project_${projectId}_widths`);
@@ -135,26 +139,75 @@ export function ProjectActivityTable({
   const [editFormData, setEditFormData] = useState<Partial<ProjectActivity>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [expandedParents, setExpandedParents] = useState<Set<number>>(new Set());
+  const [addingSubFor, setAddingSubFor] = useState<number | null>(null);
+
+  const toggleParent = (id: number) =>
+    setExpandedParents(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   useAuth(); // keep auth context alive
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = activities.findIndex((a) => a.id === active.id);
-    const newIndex = activities.findIndex((a) => a.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const activeActivity = activities[oldIndex];
-    const overActivity = activities[newIndex];
-    if (activeActivity.status !== overActivity.status) {
-      await onStatusChange(activeActivity.id, overActivity.status);
+
+    // Helper to find an activity by ID in the hierarchical list
+    const findActivityInHierarchy = (id: string | number) => {
+      for (const a of activities) {
+        if (a.id === Number(id)) return a;
+        if (a.sub_activities) {
+          const found = a.sub_activities.find(sub => sub.id === Number(id));
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+
+    const activeActivity = findActivityInHierarchy(active.id);
+    const overActivity = findActivityInHierarchy(over.id);
+
+    if (!activeActivity || !overActivity) return;
+
+    // ── Case A: Sub-activities of the same parent ──────────────────────────
+    if (activeActivity.parent_id && activeActivity.parent_id === overActivity.parent_id) {
+      const parentActivity = activities.find(a => a.id === activeActivity.parent_id);
+      if (!parentActivity || !parentActivity.sub_activities) return;
+
+      const subs = parentActivity.sub_activities;
+      const oldIndex = subs.findIndex(s => s.id === activeActivity.id);
+      const newIndex = subs.findIndex(s => s.id === overActivity.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        try {
+          const reordered = arrayMove(subs, oldIndex, newIndex);
+          await projectService.reorderActivities(projectId, reordered.map(s => s.id));
+          onRefresh?.();
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      return;
     }
-    try {
-      const reordered = arrayMove(activities, oldIndex, newIndex);
-      await projectService.reorderActivities(projectId, reordered.map((a) => a.id));
-      onRefresh?.();
-    } catch (error) {
-      console.error(error);
+
+    // ── Case B: Top-level activities reordering ────────────────────────────
+    if (!activeActivity.parent_id && !overActivity.parent_id) {
+      const oldIndex = activities.findIndex((a) => a.id === active.id);
+      const newIndex = activities.findIndex((a) => a.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        if (activeActivity.status !== overActivity.status) {
+          await onStatusChange(activeActivity.id, overActivity.status);
+        }
+        try {
+          const reordered = arrayMove(activities, oldIndex, newIndex);
+          await projectService.reorderActivities(projectId, reordered.map((a) => a.id));
+          onRefresh?.();
+        } catch (error) {
+          console.error(error);
+        }
+      }
     }
   };
 
@@ -222,16 +275,28 @@ export function ProjectActivityTable({
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                           Sütunları gizlə/göstər
                         </div>
-                        {columns.map((c) => (
+                        {columns.map((c, idx) => (
                           <DropdownMenuItem
                             key={c.id}
-                            className="gap-2 text-xs"
+                            className="gap-2 text-xs pr-1"
                             onSelect={(e) => { e.preventDefault(); toggleColumn(c.id); }}
                           >
                             {isVisible(c.id)
-                              ? <Check className="w-3 h-3 text-success" />
-                              : <div className="w-3 h-3 border rounded-sm" />}
-                            {c.label}
+                              ? <Check className="w-3 h-3 text-success shrink-0" />
+                              : <div className="w-3 h-3 border rounded-sm shrink-0" />}
+                            <span className="flex-1">{c.label}</span>
+                            <div className="flex gap-0.5" onClick={e => e.stopPropagation()}>
+                              <button
+                                disabled={idx === 0}
+                                onClick={() => moveColumn(c.id, 'left')}
+                                className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-20"
+                              >↑</button>
+                              <button
+                                disabled={idx === columns.length - 1}
+                                onClick={() => moveColumn(c.id, 'right')}
+                                className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-20"
+                              >↓</button>
+                            </div>
                           </DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
@@ -241,11 +306,51 @@ export function ProjectActivityTable({
               </TableRow>
             </TableHeader>
 
+            {/* Boş vəziyyət */}
+            {activities.length === 0 && (
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={totalVisibleColumns} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <FolderOpen className="w-12 h-12 opacity-20" />
+                      <div>
+                        <p className="text-sm font-medium">Hələ heç bir fəaliyyət yoxdur</p>
+                        <p className="text-xs opacity-60 mt-1">Aşağıdakı "+ Yeni Fəaliyyət" düyməsindən əlavə edin</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            )}
+
             {ACTIVITY_GROUP_ORDER.map((groupId) => {
               const groupCfg = ACTIVITY_GROUP_CONFIG[groupId];
-              const groupActivities = activities.filter((a) => a.status === groupId);
+              // Yalnız top-level fəaliyyətlər (parent_id-siz)
+              const groupActivities = activities.filter((a) => a.status === groupId && !a.parent_id);
               const isExpanded = expandedGroups.includes(groupId);
               if (groupActivities.length === 0 && groupId !== 'pending') return null;
+
+              const editCallbacks = {
+                startEditing: (a: ProjectActivity) => {
+                  // Artıq eyni aktivliyi edit edirsənsə — sıfırlama (format itər)
+                  if (editingId === a.id) return;
+                  setEditingId(a.id);
+                  setEditFormData({ ...a, employee_ids: a.assigned_employees?.map((e) => e.id) || [] });
+                },
+                saveEdit: async () => {
+                  if (!editingId || !editFormData.name) return;
+                  setIsSubmitting(true);
+                  try {
+                    await projectService.updateActivity(editingId, editFormData);
+                    setEditingId(null);
+                    onRefresh?.();
+                  } catch (e) { console.error(e); }
+                  finally { setIsSubmitting(false); }
+                },
+                cancelEditing: () => setEditingId(null),
+                handleEditFieldChange: (field: keyof ProjectActivity, val: unknown) =>
+                  setEditFormData((prev) => ({ ...prev, [field]: val })),
+              };
 
               return (
                 <React.Fragment key={groupId}>
@@ -253,17 +358,12 @@ export function ProjectActivityTable({
                     <TableRow
                       className="bg-muted/5 hover:bg-muted/10 transition-colors border-b select-none cursor-pointer"
                       onClick={() => setExpandedGroups((prev) =>
-                        prev.includes(groupId)
-                          ? prev.filter((i) => i !== groupId)
-                          : [...prev, groupId],
+                        prev.includes(groupId) ? prev.filter((i) => i !== groupId) : [...prev, groupId],
                       )}
                     >
                       <TableCell colSpan={totalVisibleColumns} className="py-2.5 px-3">
                         <div className="flex items-center gap-3">
-                          <div className={cn(
-                            'flex items-center justify-center w-5 h-5 rounded-md transition-transform',
-                            isExpanded ? 'rotate-0 text-primary' : '-rotate-90 text-muted-foreground',
-                          )}>
+                          <div className={cn('flex items-center justify-center w-5 h-5 rounded-md transition-transform', isExpanded ? 'rotate-0 text-primary' : '-rotate-90 text-muted-foreground')}>
                             <ChevronDown className="w-4 h-4" />
                           </div>
                           <div className={cn('px-3 py-1 rounded-full text-[12px] font-semibold border', groupCfg.color)}>
@@ -282,64 +382,100 @@ export function ProjectActivityTable({
                         strategy={verticalListSortingStrategy}
                       >
                         <TableBody>
-                          {groupActivities.map((activity) => (
-                            <ProjectActivitySortableRow
-                              key={activity.id}
-                              activity={activity}
-                              projectId={projectId}
-                              columns={columns}
-                              isVisible={isVisible}
-                              editingId={editingId}
-                              isHighlighted={highlightedActivityId === activity.id}
-                              onStatusChange={onStatusChange}
-                              startEditing={(a) => {
-                                setEditingId(a.id);
-                                setEditFormData({
-                                  ...a,
-                                  employee_ids: a.assigned_employees?.map((e) => e.id) || [],
-                                });
-                              }}
-                              saveEdit={async () => {
-                                if (!editingId || !editFormData.name) return;
-                                setIsSubmitting(true);
-                                try {
-                                  await projectService.updateActivity(editingId, editFormData);
-                                  setEditingId(null);
-                                  onRefresh?.();
-                                } catch (e) {
-                                  console.error(e);
-                                } finally {
-                                  setIsSubmitting(false);
-                                }
-                              }}
-                              cancelEditing={() => setEditingId(null)}
-                              editFormData={editFormData}
-                              handleEditFieldChange={(field, val) =>
-                                setEditFormData((prev) => ({ ...prev, [field]: val }))
-                              }
-                              isSubmitting={isSubmitting}
-                              availableUsers={availableUsers}
-                              columnWidths={columnWidths}
-                              onDelete={(id) => setDeletingId(id)}
-                              canEdit={canEdit}
-                            />
-                          ))}
-                          {canEdit && (
-                            <TableRow className="hover:bg-transparent">
-                              <TableCell colSpan={totalVisibleColumns} className="p-0 border-none">
-                                <ProjectActivityCreateRow
+                          {groupActivities.map((activity) => {
+                            const subs = activity.sub_activities ?? [];
+                            const isParentExpanded = expandedParents.has(activity.id);
+                            return (
+                              <React.Fragment key={activity.id}>
+                                <ProjectActivitySortableRow
+                                  activity={activity}
                                   projectId={projectId}
-                                  status={groupId}
-                                  availableColumns={columns}
+                                  columns={columns}
                                   isVisible={isVisible}
-                                  onCreated={() => onRefresh?.()}
+                                  editingId={editingId}
+                                  isHighlighted={highlightedActivityId === activity.id}
+                                  onStatusChange={onStatusChange}
+                                  {...editCallbacks}
+                                  editFormData={editFormData}
+                                  isSubmitting={isSubmitting}
                                   availableUsers={availableUsers}
-                                  canEdit={canEdit}
                                   columnWidths={columnWidths}
+                                  onDelete={(id) => setDeletingId(id)}
+                                  canEdit={canEdit}
+                                  subActivityCount={subs.length}
+                                  isSubExpanded={isParentExpanded}
+                                  onToggleSubExpand={() => toggleParent(activity.id)}
+                                  onAddSubActivity={() => {
+                                    setExpandedParents(prev => new Set([...prev, activity.id]));
+                                    setAddingSubFor(activity.id);
+                                  }}
+                                  onViewDetails={onViewDetails}
+                                  onCloneActivity={onCloneActivity}
                                 />
-                              </TableCell>
-                            </TableRow>
-                          )}
+
+                                {/* Alt fəaliyyətlər */}
+                                {isParentExpanded && (
+                                  <SortableContext
+                                    items={subs.map((sub) => sub.id)}
+                                    strategy={verticalListSortingStrategy}
+                                  >
+                                    {subs.map((sub) => (
+                                      <SubActivityRow
+                                        key={sub.id}
+                                        sub={sub}
+                                        projectId={projectId}
+                                        columns={columns}
+                                        isVisible={isVisible}
+                                        editingId={editingId}
+                                        onStatusChange={onStatusChange}
+                                        {...editCallbacks}
+                                        editFormData={editFormData}
+                                        isSubmitting={isSubmitting}
+                                        availableUsers={availableUsers}
+                                        columnWidths={columnWidths}
+                                        onDelete={(id) => setDeletingId(id)}
+                                        canEdit={canEdit}
+                                      />
+                                    ))}
+                                  </SortableContext>
+                                )}
+
+                                {/* Alt fəaliyyət yaratma sırası */}
+                                {isParentExpanded && addingSubFor === activity.id && (
+                                  <ProjectActivityCreateRow
+                                    projectId={projectId}
+                                    status="pending"
+                                    availableColumns={columns}
+                                    isVisible={isVisible}
+                                    onCreated={() => {
+                                      setAddingSubFor(null);
+                                      // Parent expand vəziyyətini qoru
+                                      setExpandedParents(prev => new Set([...prev, activity.id]));
+                                      onRefresh?.();
+                                    }}
+                                    availableUsers={availableUsers}
+                                    canEdit
+                                    columnWidths={columnWidths}
+                                    parentId={activity.id}
+                                    autoExpand
+                                  />
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+
+                           {canEdit && (
+                             <ProjectActivityCreateRow
+                               projectId={projectId}
+                               status={groupId}
+                               availableColumns={columns}
+                               isVisible={isVisible}
+                               onCreated={() => onRefresh?.()}
+                               availableUsers={availableUsers}
+                               canEdit={canEdit}
+                               columnWidths={columnWidths}
+                             />
+                           )}
                         </TableBody>
                       </SortableContext>
                     )}

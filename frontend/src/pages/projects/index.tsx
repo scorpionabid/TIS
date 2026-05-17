@@ -41,13 +41,11 @@ import { ProjectActivityTimeline } from '@/components/projects/ProjectActivityTi
 import { ProjectDashboard } from '@/components/projects/ProjectDashboard';
 import { ProjectOverallStats } from '@/components/projects/ProjectOverallStats';
 import { ProjectMyActivities } from '@/components/projects/ProjectMyActivities';
-import { ActivityForm } from '@/components/projects/ActivityForm';
 import { ActivityComments } from '@/components/projects/ActivityComments';
 import { ActivityHistory } from '@/components/projects/ActivityHistory';
-import { ProjectUrgentActivities } from '@/components/projects/ProjectUrgentActivities';
-import { ProjectHeader } from '@/components/projects/ProjectHeader';
-import { ProjectDetailsHeader } from '@/components/projects/ProjectDetailsHeader';
 import { useAssignableUsers } from '@/hooks/tasks/useAssignableUsers';
+import { ProjectListPanel } from '@/pages/projects/ProjectListPanel';
+import { ProjectDetailsPanel } from '@/pages/projects/ProjectDetailsPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -120,6 +118,7 @@ export default function Projects() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [archivingProject, setArchivingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [detailActivity, setDetailActivity] = useState<ProjectActivity | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'mine' | 'overdue'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -291,6 +290,35 @@ export default function Projects() {
     }, 3000);
   };
 
+  const handleCloneActivity = async (activity: ProjectActivity) => {
+    if (!selectedProject) return;
+    try {
+      await projectService.addActivity(selectedProject.id, {
+        name:                     activity.name + ' (Kopyа)',
+        description:              activity.description,
+        priority:                 activity.priority,
+        status:                   'pending',
+        start_date:               activity.start_date,
+        end_date:                 activity.end_date,
+        planned_hours:            activity.planned_hours,
+        budget:                   activity.budget,
+        expected_outcome:         activity.expected_outcome,
+        kpi_metrics:              activity.kpi_metrics,
+        risks:                    activity.risks,
+        location_platform:        activity.location_platform,
+        monitoring_mechanism:     activity.monitoring_mechanism,
+        goal_contribution_percentage: activity.goal_contribution_percentage,
+        goal_target:              activity.goal_target,
+        employee_ids:             activity.assigned_employees?.map(e => e.id) ?? [],
+      });
+      await fetchProjectDetails(selectedProject.id);
+      const cleanName = activity.name.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      toast({ title: 'Kopyalandı', description: `"${cleanName}" kopyalandı.` });
+    } catch {
+      toast({ title: 'Xəta', description: 'Kopyalama zamanı xəta.', variant: 'destructive' });
+    }
+  };
+
   const handleDeleteActivity = async (activityId: number) => {
     try {
       await projectService.deleteActivity(activityId);
@@ -381,305 +409,57 @@ export default function Projects() {
     <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-8 space-y-4">
       <AnimatePresence mode="wait">
         {!selectedProject ? (
-          <motion.div
-            key="project-list"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
-          >
-            <ProjectHeader
+          <motion.div key="project-list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <ProjectListPanel
+              projects={projects}
+              filteredProjects={filteredProjects}
+              isLoading={isLoading}
               listLayout={listLayout}
               setListLayout={setListLayout}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
-              isLoading={isLoading}
-              onRefresh={fetchProjects}
+              mainTab={mainTab}
+              setMainTab={setMainTab}
               isAdmin={isAdmin}
+              currentUserId={currentUser?.id}
+              onProjectClick={(p) => fetchProjectDetails(p.id)}
               onNewProject={() => setIsProjectModalOpen(true)}
-              projectCount={projects.length}
+              onEditProject={(p) => { setEditingProject(p); setIsProjectModalOpen(true); }}
+              onArchiveProject={(p) => setArchivingProject(p)}
+              onUnarchiveProject={handleUnarchiveProject}
+              onDeleteProject={(p) => setDeletingProject(p)}
+              onActivityClick={handleActivityClickFromMyActivities}
             />
-
-            <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as any)} className="w-full">
-              <TabsList className="mb-5 h-10 rounded-xl bg-muted/50 p-1 gap-0.5 w-full">
-                <TabsTrigger value="projects" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <Briefcase className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Layihələr</span>
-                  {projects.length > 0 && (
-                    <span className="rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-semibold text-primary tabular-nums">
-                      {projects.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="my_activities" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <ListTodo className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Fəaliyyətlərim</span>
-                </TabsTrigger>
-                <TabsTrigger value="urgent" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Təcili</span>
-                </TabsTrigger>
-                <TabsTrigger value="stats" className="flex-1 gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm">
-                  <Activity className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Statistika</span>
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="my_activities" className="mt-0 ring-offset-0 focus-visible:ring-0">
-                <ProjectMyActivities onActivityClick={handleActivityClickFromMyActivities} />
-              </TabsContent>
-
-              <TabsContent value="projects" className="mt-0 ring-offset-0 focus-visible:ring-0">
-                {listLayout === 'grid' ? (
-                  <ProjectList
-                    projects={filteredProjects}
-                    onProjectClick={(p) => fetchProjectDetails(p.id)}
-                    onEditClick={(p) => { setEditingProject(p); setIsProjectModalOpen(true); }}
-                    onArchiveClick={(p) => setArchivingProject(p)}
-                    onUnarchiveClick={handleUnarchiveProject}
-                    onDeleteClick={(p) => setDeletingProject(p)}
-                    onCreateClick={() => setIsProjectModalOpen(true)}
-                    isAdmin={isAdmin}
-                    currentUserId={currentUser?.id}
-                  />
-                ) : (
-                  <ProjectTable
-                    projects={filteredProjects}
-                    onProjectClick={(p) => fetchProjectDetails(p.id)}
-                    onEditClick={(p) => { setEditingProject(p); setIsProjectModalOpen(true); }}
-                    onArchiveClick={(p) => setArchivingProject(p)}
-                    onUnarchiveClick={handleUnarchiveProject}
-                    onDeleteClick={(p) => setDeletingProject(p)}
-                    isAdmin={isAdmin}
-                    currentUserId={currentUser?.id}
-                  />
-                )}
-              </TabsContent>
-
-              <TabsContent value="stats" className="mt-0 ring-offset-0 focus-visible:ring-0">
-                <ProjectOverallStats projects={projects} />
-              </TabsContent>
-
-              <TabsContent value="urgent" className="mt-0 ring-offset-0 focus-visible:ring-0">
-                <ProjectUrgentActivities
-                  onActivityClick={handleActivityClickFromMyActivities}
-                />
-              </TabsContent>
-            </Tabs>
           </motion.div>
         ) : (
-          <motion.div
-            key="project-details"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <ProjectDetailsHeader 
-              project={selectedProject}
-              onBack={() => { setSelectedProject(null); setStats(null); }}
+          <motion.div key="project-details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+            <ProjectDetailsPanel
+              selectedProject={selectedProject}
+              stats={stats}
+              filteredActivities={filteredActivities}
+              activeView={activeView}
+              setActiveView={setActiveView}
+              activeFilter={activeFilter}
+              setActiveFilter={setActiveFilter}
+              highlightedActivityId={highlightedActivityId}
+              availableUsers={availableUsers}
+              isLoading={isLoading}
               isStatsVisible={isStatsVisible}
-              toggleStats={() => {
-                setIsStatsVisible(!isStatsVisible);
-                setIsStatsManuallyToggled(true);
-              }}
+              toggleStats={() => { setIsStatsVisible(!isStatsVisible); setIsStatsManuallyToggled(true); }}
               isAdmin={isAdmin}
-              onEdit={() => { setEditingProject(selectedProject); setIsProjectModalOpen(true); }}
               formatDate={formatDate}
+              onBack={() => { setSelectedProject(null); setStats(null); }}
+              onEdit={() => { setEditingProject(selectedProject); setIsProjectModalOpen(true); }}
+              onStatusChange={handleStatusChange}
+              onDeleteActivity={handleDeleteActivity}
+              onRefresh={() => fetchProjectDetails(selectedProject.id)}
+              onViewDetails={(activity) => setDetailActivity(activity)}
+              onCloneActivity={handleCloneActivity}
+              onActivityUpdated={(updated) => setSelectedProject({
+                ...selectedProject,
+                activities: (selectedProject.activities || []).map(a => a.id === updated.id ? updated : a),
+              })}
             />
-
-            <AnimatePresence mode="wait">
-              {stats && isStatsVisible && (
-                <motion.div
-                  key="stats-strip"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-                  className="overflow-hidden mb-1"
-                >
-                  <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-                    {/* Progress tile */}
-                    <div className="min-w-[130px] flex-shrink-0 rounded-xl border border-primary/20 bg-primary/5 p-3.5 flex flex-col gap-2">
-                      <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">İcra faizi</span>
-                      <span className="text-3xl font-bold text-primary leading-none tabular-nums">
-                        {stats.progress_percentage}%
-                      </span>
-                      <div className="h-1.5 rounded-full bg-primary/15 overflow-hidden">
-                        <motion.div
-                          className="h-full rounded-full bg-primary"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${stats.progress_percentage}%` }}
-                          transition={{ duration: 1, ease: 'easeOut' }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Status tiles */}
-                    {[
-                      { label: 'Cəmi', value: stats.total_activities, dot: 'bg-foreground/30', num: 'text-foreground', icon: ListTodo },
-                      { label: 'Gözləyir', value: stats.status_breakdown?.pending ?? 0, dot: 'bg-muted-foreground', num: 'text-muted-foreground', icon: Clock },
-                      { label: 'İcrada', value: stats.status_breakdown?.in_progress ?? 0, dot: 'bg-warning', num: 'text-warning', icon: RefreshCw },
-                      { label: 'Yoxlamada', value: stats.status_breakdown?.checking ?? 0, dot: 'bg-primary', num: 'text-primary', icon: Target },
-                      { label: 'Tamamlandı', value: stats.status_breakdown?.completed ?? 0, dot: 'bg-success', num: 'text-success', icon: CheckCircle2 },
-                      { label: 'Problem', value: stats.status_breakdown?.stuck ?? 0, dot: 'bg-destructive', num: 'text-destructive', icon: AlertCircle },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="min-w-[100px] flex-shrink-0 rounded-xl border border-border/50 bg-card p-3.5 flex flex-col gap-1.5 hover:border-border transition-colors"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <div className={cn('h-2 w-2 rounded-full shrink-0', item.dot)} />
-                          <span className="text-[10px] text-muted-foreground font-medium leading-none">
-                            {item.label}
-                          </span>
-                        </div>
-                        <span className={cn('text-2xl font-bold leading-none tabular-nums', item.num)}>
-                          {item.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-2 shadow-sm">
-              {/* View mode segmented control */}
-              <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 self-start sm:self-auto">
-                {([
-                  { value: 'table',     label: 'Cədvəl',   icon: TableIcon },
-                  { value: 'timeline',  label: 'Zaman Oxu',icon: CalendarIcon },
-                  { value: 'kanban',    label: 'Kanban',   icon: KanbanIcon },
-                  { value: 'dashboard', label: 'Analitika',icon: DashboardIcon },
-                ] as const).map((v) => (
-                  <button
-                    key={v.value}
-                    onClick={() => setActiveView(v.value)}
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-md px-2.5 sm:px-3 h-8 text-xs font-medium transition-all',
-                      activeView === v.value
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    <v.icon className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{v.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Right controls */}
-              <div className="flex items-center gap-1.5">
-                <ActivityGlobalFilters
-                  activeFilter={activeFilter}
-                  onFilterChange={setActiveFilter}
-                />
-                <div className="h-4 w-px bg-border/60" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1.5 px-2 sm:px-3 text-xs font-medium hover:text-primary"
-                  onClick={() => projectService.exportProject(selectedProject.id)}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Excel</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg"
-                  onClick={() => fetchProjectDetails(selectedProject.id)}
-                  disabled={isLoading}
-                >
-                  <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
-                </Button>
-              </div>
-            </div>
-
-            {/* View Content */}
-            <div className="pt-1">
-              <AnimatePresence mode="wait">
-                {activeView === 'kanban' && (
-                  <motion.div
-                    key="kanban"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectActivityKanban 
-                      activities={filteredActivities}
-                      onStatusChange={handleStatusChange}
-                      onActivityUpdated={(updatedActivity) => {
-                        setSelectedProject({
-                          ...selectedProject,
-                          activities: (selectedProject.activities || []).map(a => 
-                            a.id === updatedActivity.id ? updatedActivity : a
-                          )
-                        });
-                      }}
-                      onDeleteActivity={handleDeleteActivity}
-                      isLoading={isLoading}
-                      canEdit={true}
-                    />
-                  </motion.div>
-                )}
-
-                {activeView === 'table' && (
-                  <motion.div
-                    key="table"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectActivityTable 
-                      projectId={selectedProject.id}
-                      activities={filteredActivities}
-                      onStatusChange={handleStatusChange}
-                      onEditActivity={(activity) => {
-                         // We can implement an edit modal here later, 
-                         // but for now we pass it to satisfy props
-                      }}
-                      onDeleteActivity={handleDeleteActivity}
-                      availableUsers={availableUsers}
-                      onRefresh={() => fetchProjectDetails(selectedProject.id)}
-                      canEdit={selectedProject.can_edit_all || false}
-                      highlightedActivityId={highlightedActivityId || undefined}
-                      isLoading={isLoading}
-                    />
-                  </motion.div>
-                )}
-
-                {activeView === 'timeline' && (
-                  <motion.div
-                    key="timeline"
-                    initial={{ opacity: 0, scale: 1.05 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.05 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectActivityTimeline 
-                      activities={filteredActivities}
-                    />
-                  </motion.div>
-                )}
-
-                {activeView === 'dashboard' && stats && (
-                  <motion.div
-                    key="dashboard"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectDashboard stats={stats} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -755,6 +535,36 @@ export default function Projects() {
               onCancel={() => { setIsProjectModalOpen(false); setEditingProject(null); }}
               isLoading={isLoading}
             />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Fəaliyyət Detalları — Şərhlər & Tarixçə ── */}
+      <Sheet open={!!detailActivity} onOpenChange={(open) => { if (!open) setDetailActivity(null); }}>
+        <SheetContent className="sm:max-w-[520px] w-full flex flex-col p-0">
+          <SheetHeader className="px-6 py-4 border-b">
+            <SheetTitle className="text-base font-bold leading-tight line-clamp-2">
+              {detailActivity?.name}
+            </SheetTitle>
+            <SheetDescription className="text-xs text-muted-foreground">
+              Fəaliyyət şərhləri və dəyişiklik tarixçəsi
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-hidden">
+            {detailActivity && (
+              <Tabs defaultValue="comments" className="h-full flex flex-col">
+                <TabsList className="mx-6 mt-4 mb-0 w-auto self-start">
+                  <TabsTrigger value="comments" className="text-xs">💬 Şərhlər</TabsTrigger>
+                  <TabsTrigger value="history"  className="text-xs">🕐 Tarixçə</TabsTrigger>
+                </TabsList>
+                <TabsContent value="comments" className="flex-1 overflow-y-auto px-6 py-4 mt-0">
+                  <ActivityComments activityId={detailActivity.id} />
+                </TabsContent>
+                <TabsContent value="history" className="flex-1 overflow-y-auto px-6 py-4 mt-0">
+                  <ActivityHistory activityId={detailActivity.id} />
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         </SheetContent>
       </Sheet>

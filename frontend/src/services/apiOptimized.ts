@@ -593,6 +593,19 @@ class ApiClientOptimized {
       this.clearCache(resourceSpecificPattern);
     }
 
+    // Special case for resources/documents/links/folders: clear all related resource lists
+    const resourceRelated = ['documents', 'links', 'document-collections', 'my-resources', 'personal-links', 'resources'];
+    if (resourceRelated.includes(pattern)) {
+      resourceRelated.forEach(pat => {
+        this.clearCache(pat);
+        try {
+          cacheService.clearByTags([pat]);
+        } catch (e) {
+          log('warn', `Failed to clear CacheService tag ${pat}`, e);
+        }
+      });
+    }
+
     // Special case for report-tables: if any report-table is mutated, clear the approval queue
     if (resourcePath.includes('report-tables')) {
       this.clearCache('report-tables/approval-queue');

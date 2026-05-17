@@ -13,10 +13,12 @@ export interface DocumentCollection {
   allow_school_upload: boolean;
   is_locked: boolean;
   is_active: boolean;
+  is_featured?: boolean;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
   documents_count?: number;
+  total_size?: number;
   participating_institutions_count?: number;
   last_document_uploaded_at?: string;
 

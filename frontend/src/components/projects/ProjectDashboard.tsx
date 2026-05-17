@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -18,20 +18,24 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { ProjectStats } from "@/services/projects";
+import { ProjectActivity, ProjectStats } from "@/services/projects";
 import { Badge } from "@/components/ui/badge";
-import { 
-  TrendingUp, 
-  Clock, 
-  DollarSign, 
-  AlertCircle, 
+import {
+  TrendingUp,
+  Clock,
+  DollarSign,
+  AlertCircle,
   CheckCircle2,
-  Activity
+  Activity,
+  Target,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProjectDashboardProps {
   stats: ProjectStats;
+  activities?: ProjectActivity[];
+  totalGoal?: string;
 }
 
 const STATUS_COLORS = [
@@ -41,7 +45,16 @@ const STATUS_COLORS = [
   { name: "stuck", color: "#ef4444" }, // Red
 ];
 
-export function ProjectDashboard({ stats }: ProjectDashboardProps) {
+export function ProjectDashboard({ stats, activities = [], totalGoal }: ProjectDashboardProps) {
+  // Goal contribution cəmi
+  const { goalSum, goalWarning, budgetWarning } = useMemo(() => {
+    const topLevel = activities.filter(a => !a.parent_id);
+    const sum = topLevel.reduce((acc, a) => acc + (a.goal_contribution_percentage || 0), 0);
+    const gWarn = sum > 0 && Math.round(sum) !== 100;
+    const bWarn = stats.total_budget > 0 && stats.overdue_count > 0;
+    return { goalSum: Math.round(sum), goalWarning: gWarn, budgetWarning: bWarn };
+  }, [activities, stats]);
+
   const pieData = Object.entries(stats.status_breakdown).map(([name, value]) => ({
     name: name === "pending" ? "Gözləyir" : 
           name === "in_progress" ? "İcradadır" :
@@ -54,6 +67,45 @@ export function ProjectDashboard({ stats }: ProjectDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* ── Xəbərdarlıqlar ── */}
+      {(goalWarning || budgetWarning) && (
+        <div className="flex flex-col gap-2">
+          {goalWarning && (
+            <div className={cn(
+              'flex items-start gap-3 px-4 py-3 rounded-xl border text-sm',
+              goalSum > 100
+                ? 'bg-destructive/5 border-destructive/20 text-destructive'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            )}>
+              <Target className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-xs">
+                  Hədəf payı {goalSum > 100 ? '100%-i aşır' : '100%-ə çatmır'}
+                </p>
+                <p className="text-[11px] opacity-80">
+                  Fəaliyyətlərin hədəf payları cəmi <strong>{goalSum}%</strong>-dir.
+                  {goalSum > 100
+                    ? ` ${goalSum - 100}% artıqdır — bölüşdürməni düzəldin.`
+                    : ` ${100 - goalSum}% boş qalır — hədəf tam bölüşdürülməyib.`}
+                </p>
+              </div>
+            </div>
+          )}
+          {budgetWarning && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl border bg-orange-50 border-orange-200 text-orange-800 text-sm">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-xs">Büdcə riski mövcuddur</p>
+                <p className="text-[11px] opacity-80">
+                  <strong>{stats.overdue_count}</strong> gecikmiş fəaliyyət büdcəyə təsir edə bilər.
+                  Ümumi planlaşdırılmış büdcə: <strong>{stats.total_budget.toLocaleString()} ₼</strong>
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Top Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
