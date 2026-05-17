@@ -194,10 +194,27 @@ function InlineTextarea({
 function TruncatedTooltip({ text, children }: { text: string; children: React.ReactNode }) {
   if (!text) return <>{children}</>;
   const htmlContent = renderContent(text);
+
+  // Mətn uzunluğuna görə yalnız hündürlük avtomatik seçilir,
+  // genişlik həmişə maksimum olur ki, mətn tam oxunsun
+  const plainLen = text.replace(/<[^>]*>/g, '').trim().length;
+  const heightClass =
+    plainLen < 150  ? 'max-h-[100px]' :
+    plainLen < 500  ? 'max-h-[220px]' :
+    plainLen < 1200 ? 'max-h-[380px]' :
+                      'max-h-[60vh]';
+
   return (
-    <Tooltip delayDuration={300}>
+    <Tooltip delayDuration={50}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={8} className="max-w-[720px] max-h-[480px] overflow-y-auto text-sm break-words p-4 bg-popover text-popover-foreground border shadow-2xl rounded-xl leading-relaxed">
+      <TooltipContent
+        side="top"
+        sideOffset={8}
+        className={cn(
+          heightClass,
+          'w-[720px] overflow-y-auto text-sm break-words p-4 bg-popover text-popover-foreground border shadow-2xl rounded-xl leading-relaxed'
+        )}
+      >
         <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
       </TooltipContent>
     </Tooltip>
