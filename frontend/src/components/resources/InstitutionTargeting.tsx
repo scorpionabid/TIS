@@ -30,17 +30,12 @@ export function InstitutionTargeting({
 
 
   const normalizedInstitutions = useMemo(() => {
-    const mapped = (availableInstitutions || []).map((inst: any) => ({
+    return (availableInstitutions || []).map((inst: any) => ({
       id: inst.id,
       name: inst.name || '',
       level: inst.level ?? null,
       type: inst.type || inst.institution_type || null,
     }));
-    console.log('[InstitutionTargeting] normalizedInstitutions computed', {
-      count: mapped.length,
-      timestamp: new Date().toISOString(),
-    });
-    return mapped;
   }, [availableInstitutions]);
 
   const filteredInstitutions = useMemo(() => {

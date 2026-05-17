@@ -145,8 +145,15 @@ export default function MyResources() {
 
   const resourcesData = useMemo(() => {
     let data = [...rawResources];
-    // Default sort: ən yeni əvvəl
-    data.sort((a, b) => new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime());
+    // Default sort: featured first, then by date (newest first)
+    data.sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured; // Featured first
+      }
+      return new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime();
+    });
     if (categoryFilter !== 'all') {
       data = data.filter(r => r.type === 'document' ? r.category === categoryFilter : r.link_type === categoryFilter);
     }
@@ -213,9 +220,15 @@ export default function MyResources() {
     }
   }, [queryClient, toast]);
 
-  const handleEditResource = useCallback((resource: AssignedResource) => {
-    setEditingResource(resource);
+  const handleEditResource = useCallback(async (resource: AssignedResource) => {
     setResourceModalType(resource.type);
+    // target_institutions/target_users tam alınana qədər modal açılmır
+    try {
+      const fresh = await resourceService.getById(resource.id, resource.type);
+      setEditingResource(fresh as AssignedResource);
+    } catch {
+      setEditingResource(resource);
+    }
     setIsResourceModalOpen(true);
   }, []);
 

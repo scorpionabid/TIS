@@ -453,11 +453,10 @@ export function UnifiedResourceModal({
             const c = COLOR_MAP[tab.color];
             return (
               <button key={tab.id} type="button" 
-                onClick={(e) => { 
-                  e.preventDefault(); 
-                  e.stopPropagation(); 
-                  console.log('📱 Mobile tab click:', tab.id);
-                  setActiveTab(tab.id); 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveTab(tab.id);
                 }}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all',

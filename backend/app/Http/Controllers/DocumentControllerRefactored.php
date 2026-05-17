@@ -213,12 +213,46 @@ class DocumentControllerRefactored extends Controller
 
             // Log update activity
             $this->activityService->logActivity($document, $user, 'update', $request);
-            $this->sendDocumentLifecycleNotification($updatedDocument, 'updated');
+
+            // Document update notification sinxron göndərilmir — çox istifadəçi olarsa HTTP request donur.
+            // TODO: async queue job ilə düzgün həll et.
 
             return response()->json([
                 'success' => true,
                 'message' => 'Sənəd uğurla yeniləndi.',
                 'data' => $updatedDocument,
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Sənəd yenilənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Toggle document featured status
+     */
+    public function toggleFeatured(Document $document): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Check if user can modify this document
+            if (! $this->permissionService->canUserModifyDocument($user, $document)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu sənədi dəyişdirmək icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $document->is_featured = !$document->is_featured;
+            $document->save();
+
+            // Log update activity
+            $this->activityService->logActivity($document, $user, 'update', request());
+
+            return response()->json([
+                'success' => true,
+                'message' => $document->is_featured ? 'Sənəd vurğulandı.' : 'Sənəd vurğusu silindi.',
+                'data' => $document,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sənəd yenilənərkən xəta baş verdi.');
