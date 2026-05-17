@@ -13,6 +13,7 @@ print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 print_error()   { echo -e "${RED}❌ $1${NC}"; }
 
 BACKUP_DIR="docker/postgres/backups"
+ROOT_DIR="."
 DB_NAME="atis_production"
 DB_USER="atis_prod_user"
 
@@ -28,16 +29,16 @@ echo -e "${BLUE}📥 ATİS DB Restore Service${NC}"
 if [ -n "$1" ]; then
     RESTORE_FILE="$1"
 else
-    # Ən son backup faylını tap (latest prefix-i olan və ya ən yeni)
-    LATEST=$(ls -1t "$BACKUP_DIR"/*.sql* 2>/dev/null | head -1)
+    # Ən son backup faylını tap (Backups qovluğu və ya Kök qovluqda)
+    LATEST=$(ls -1t "$BACKUP_DIR"/*.sql* "$BACKUP_DIR"/*.dump "$ROOT_DIR"/*.sql* "$ROOT_DIR"/*.dump 2>/dev/null | head -1)
     
     if [ -z "$LATEST" ]; then
-        print_error "Backup faylı tapılmadı: $BACKUP_DIR"
+        print_error "Backup faylı tapılmadı (Axtarılan yerlər: $BACKUP_DIR və $ROOT_DIR)"
         exit 1
     fi
 
-    echo "Mövcud backup qovluğu: $BACKUP_DIR"
-    ls -1t "$BACKUP_DIR"/*.sql* 2>/dev/null | head -5 | nl -w2 -s'. '
+    echo "Axtarış edilən qovluqlar: $BACKUP_DIR, $ROOT_DIR"
+    ls -1t "$BACKUP_DIR"/*.sql* "$BACKUP_DIR"/*.dump "$ROOT_DIR"/*.sql* "$ROOT_DIR"/*.dump 2>/dev/null | head -5 | nl -w2 -s'. '
     echo ""
     
     RESTORE_FILE="$LATEST"
