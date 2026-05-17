@@ -57,6 +57,7 @@ class DocumentValidationService extends BaseService
             'is_public' => 'boolean',
             'is_downloadable' => 'boolean',
             'is_viewable_online' => 'boolean',
+            'is_featured' => 'boolean',
             'expires_at' => 'nullable|date|after:now',
         ], $this->getCustomMessages());
     }
@@ -69,8 +70,8 @@ class DocumentValidationService extends BaseService
         return Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'category' => 'sometimes|required|in:' . implode(',', array_keys(Document::CATEGORIES)),
-            'access_level' => 'sometimes|required|in:' . implode(',', array_keys(Document::ACCESS_LEVELS)),
+            'category' => 'nullable|in:' . implode(',', array_keys(Document::CATEGORIES)),
+            'access_level' => 'nullable|in:' . implode(',', array_keys(Document::ACCESS_LEVELS)),
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
             'allowed_users' => 'nullable|array',
@@ -85,6 +86,7 @@ class DocumentValidationService extends BaseService
             'is_public' => 'boolean',
             'is_downloadable' => 'boolean',
             'is_viewable_online' => 'boolean',
+            'is_featured' => 'boolean',
             'expires_at' => 'nullable|date|after:now',
         ], $this->getCustomMessages());
     }
@@ -426,17 +428,17 @@ class DocumentValidationService extends BaseService
         // Copy other safe fields
         $safeFields = [
             'category', 'access_level', 'is_public', 'is_downloadable',
-            'is_viewable_online', 'expires_at', 'allowed_users',
+            'is_viewable_online', 'is_featured', 'expires_at', 'allowed_users',
             'allowed_institutions', 'accessible_institutions',
             'accessible_departments',
         ];
 
         $dateFields = ['expires_at'];
+        $emptyToNullFields = ['category', 'access_level', 'expires_at'];
 
         foreach ($safeFields as $field) {
             if (isset($data[$field])) {
-                // Convert empty string date fields to null to prevent DB timestamp errors
-                if (in_array($field, $dateFields) && $data[$field] === '') {
+                if (in_array($field, $emptyToNullFields) && $data[$field] === '') {
                     $sanitized[$field] = null;
                 } else {
                     $sanitized[$field] = $data[$field];

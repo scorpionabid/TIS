@@ -188,7 +188,7 @@ export function useResourceForm({
           share_scope: resource.share_scope || 'institutional',
         }),
         ...(resource.type === 'document' && {
-          category: resource.category || '',
+          category: resource.category || null,
           is_downloadable: resource.is_downloadable ?? true,
           is_viewable_online: resource.is_viewable_online ?? true,
         }),
@@ -210,6 +210,11 @@ export function useResourceForm({
 
       if (data.share_scope === 'specific_users') {
         data.target_institutions = [];
+      }
+
+      // Boş category backend-ə göndərilməsin (nullable field)
+      if ('category' in data && !data.category) {
+        delete (data as Record<string, unknown>).category;
       }
 
       const resourceData: CreateResourceData = {
