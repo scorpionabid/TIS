@@ -584,7 +584,10 @@ class LinkQueryBuilder
                         })
                         ->orWhere(function ($userTargetQuery) use ($user) {
                             $userTargetQuery->where('share_scope', 'specific_users')
-                                ->whereJsonContains('target_users', $user->id);
+                                ->where(function ($q) use ($user) {
+                                    $q->whereJsonContains('target_users', $user->id)
+                                      ->orWhere('shared_by', $user->id);
+                                });
                         });
                 });
 
