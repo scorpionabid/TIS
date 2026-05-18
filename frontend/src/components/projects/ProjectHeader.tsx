@@ -40,7 +40,7 @@ export function ProjectHeader({
       <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-primary/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-8 left-1/3 w-32 h-32 rounded-full bg-accent/10 blur-2xl" />
 
-      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-5">
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 p-3 sm:p-5">
         {/* Title */}
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/30">
@@ -92,7 +92,7 @@ export function ProjectHeader({
           </div>
 
           {/* Search */}
-          <div className="relative w-56">
+          <div className="relative w-full sm:w-56">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Layihə axtar..."
@@ -117,10 +117,11 @@ export function ProjectHeader({
           {isAdmin && (
             <Button
               onClick={onNewProject}
-              className="h-9 gap-1.5 rounded-lg px-4 font-semibold shadow-sm"
+              className="h-9 gap-1.5 rounded-lg px-3 sm:px-4 font-semibold shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
-              Yeni Layihə
+              <span className="hidden sm:inline">Yeni Layihə</span>
+              <span className="sm:hidden">Yeni</span>
             </Button>
           )}
         </div>

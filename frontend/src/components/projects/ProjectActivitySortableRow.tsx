@@ -194,10 +194,27 @@ function InlineTextarea({
 function TruncatedTooltip({ text, children }: { text: string; children: React.ReactNode }) {
   if (!text) return <>{children}</>;
   const htmlContent = renderContent(text);
+
+  // Mətn uzunluğuna görə yalnız hündürlük avtomatik seçilir,
+  // genişlik həmişə maksimum olur ki, mətn tam oxunsun
+  const plainLen = text.replace(/<[^>]*>/g, '').trim().length;
+  const heightClass =
+    plainLen < 150  ? 'max-h-[100px]' :
+    plainLen < 500  ? 'max-h-[220px]' :
+    plainLen < 1200 ? 'max-h-[380px]' :
+                      'max-h-[60vh]';
+
   return (
-    <Tooltip delayDuration={300}>
+    <Tooltip delayDuration={50}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="max-w-sm text-xs break-words">
+      <TooltipContent
+        side="top"
+        sideOffset={8}
+        className={cn(
+          heightClass,
+          'w-[720px] overflow-y-auto text-sm break-words p-4 bg-popover text-popover-foreground border shadow-2xl rounded-xl leading-relaxed'
+        )}
+      >
         <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
       </TooltipContent>
     </Tooltip>
@@ -229,6 +246,7 @@ export interface SortableRowProps {
   onViewDetails?: (activity: ProjectActivity) => void;
   onCloneActivity?: (activity: ProjectActivity) => void;
   isSubActivity?: boolean;
+  isViewExpanded?: boolean;
 }
 
 export function getDeadlineStatus(
@@ -269,6 +287,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
   onViewDetails,
   onCloneActivity,
   isSubActivity = false,
+  isViewExpanded = false,
 }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: activity.id });
@@ -316,11 +335,11 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
       <TableCell
         className="sticky left-0 z-20 bg-card border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-default py-1.5"
         style={{ width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth }}
-        {...attributes}
-        {...listeners}
+        {...(!isEditing ? attributes : {})}
+        {...(!isEditing ? listeners : {})}
       >
         <div
-          className="flex items-center gap-2 px-2 overflow-hidden"
+          className="flex items-start gap-2 px-2"
           onClick={(e) => {
             if (activity.is_editable) {
               e.stopPropagation();
@@ -345,7 +364,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                 <TruncatedTooltip
                   text={[activity.name, activity.description].filter(Boolean).join('\n─────────────\n')}
                 >
-                  <span className={cn('text-[12px] font-semibold tracking-tight line-clamp-2', !activity.is_editable && 'text-muted-foreground/70')}>
+                  <span className={cn('text-[12px] font-semibold tracking-tight block', !isViewExpanded && 'line-clamp-2', !activity.is_editable && 'text-muted-foreground/70')}>
                     <span dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
                   </span>
                 </TruncatedTooltip>
@@ -593,7 +612,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.expected_outcome || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.expected_outcome) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.expected_outcome) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -612,7 +631,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.kpi_metrics || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.kpi_metrics) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.kpi_metrics) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -632,7 +651,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.risks || ''}>
-                    <div className="line-clamp-2 italic" dangerouslySetInnerHTML={{ __html: renderContent(activity.risks) || '-' }} />
+                    <div className={cn('italic text-destructive/70', !isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.risks) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -658,7 +677,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.location_platform || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.location_platform) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.location_platform) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -677,7 +696,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.monitoring_mechanism || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.monitoring_mechanism) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.monitoring_mechanism) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -696,7 +715,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.description || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.description) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.description) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -715,7 +734,7 @@ export const ProjectActivitySortableRow = React.memo(function ProjectActivitySor
                   />
                 ) : (
                   <TruncatedTooltip text={activity.notes || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(activity.notes) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(activity.notes) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -790,6 +809,7 @@ export interface SubActivityRowProps {
   columnWidths: Record<string, number>;
   onDelete: (id: number) => void;
   canEdit?: boolean;
+  isViewExpanded?: boolean;
 }
 
 export function SubActivityRow({
@@ -809,6 +829,7 @@ export function SubActivityRow({
   columnWidths,
   onDelete,
   canEdit,
+  isViewExpanded = false,
 }: SubActivityRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: sub.id });
@@ -857,11 +878,11 @@ export function SubActivityRow({
       <TableCell
         className="sticky left-0 z-20 border-r border-l-2 border-l-primary/20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-default py-1.5 bg-[#f5f8fe] dark:bg-[#141b2d]"
         style={{ width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth }}
-        {...attributes}
-        {...listeners}
+        {...(!isEditing ? attributes : {})}
+        {...(!isEditing ? listeners : {})}
       >
         <div
-          className="flex items-center gap-1.5 px-2 overflow-hidden pl-8"
+          className="flex items-start gap-1.5 px-2 pl-8"
           onClick={() => { if (sub.is_editable) startEditing(sub); }}
         >
           <CornerDownRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />
@@ -878,7 +899,7 @@ export function SubActivityRow({
           ) : (
             <TruncatedTooltip text={[sub.name, sub.description].filter(Boolean).join('\n─────────────\n')}>
               <span
-                className="text-[11px] font-medium text-muted-foreground line-clamp-2 cursor-pointer"
+                className={cn("text-[11px] font-medium text-muted-foreground cursor-pointer block", !isViewExpanded && "line-clamp-2")}
                 dangerouslySetInnerHTML={{ __html: renderContent(sub.name) || sub.name }}
               />
             </TruncatedTooltip>
@@ -1037,7 +1058,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.expected_outcome || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(sub.expected_outcome) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.expected_outcome) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -1056,7 +1077,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.kpi_metrics || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(sub.kpi_metrics) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.kpi_metrics) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -1076,7 +1097,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.risks || ''}>
-                    <div className="line-clamp-2 italic" dangerouslySetInnerHTML={{ __html: renderContent(sub.risks) || '-' }} />
+                    <div className={cn('italic text-destructive/70', !isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.risks) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -1102,7 +1123,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.location_platform || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(sub.location_platform) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.location_platform) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -1121,7 +1142,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.monitoring_mechanism || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(sub.monitoring_mechanism) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.monitoring_mechanism) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -1140,7 +1161,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.description || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(sub.description) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.description) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>
@@ -1159,7 +1180,7 @@ export function SubActivityRow({
                   />
                 ) : (
                   <TruncatedTooltip text={sub.notes || ''}>
-                    <div className="line-clamp-2" dangerouslySetInnerHTML={{ __html: renderContent(sub.notes) || '-' }} />
+                    <div className={cn(!isViewExpanded && "line-clamp-2")} dangerouslySetInnerHTML={{ __html: renderContent(sub.notes) || '-' }} />
                   </TruncatedTooltip>
                 )}
               </TableCell>

@@ -21,7 +21,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Link as LinkIcon, MessageSquare, Clock, Target as TargetIcon } from "lucide-react";
+import { Link as LinkIcon, MessageSquare, Clock, Target as TargetIcon, CornerDownRight } from "lucide-react";
 
 // ── Mətn render köməkçiləri ───────────────────────────────────────────────
 function renderContent(text: string | null | undefined): string {
@@ -172,7 +172,7 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
 
   return (
     <TooltipProvider>
-      <div className="rounded-xl border bg-card shadow-xl overflow-hidden flex flex-col h-[600px] relative">
+      <div className="rounded-xl border bg-card shadow-xl overflow-hidden flex flex-col h-[320px] sm:h-[450px] md:h-[600px] relative">
         {/* Floating Action Button */}
         <div className="absolute right-6 bottom-16 z-50">
           <Button 
@@ -193,7 +193,7 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
             <div className="sticky top-0 z-40 flex flex-col shadow-md">
               {/* Month Header Row */}
               <div className="flex bg-background/95 backdrop-blur-sm border-b">
-                <div className="sticky left-0 z-50 w-[150px] sm:w-[300px] min-w-[150px] sm:min-w-[300px] bg-background border-r p-4 font-black text-[10px] uppercase tracking-widest text-muted-foreground/50 h-10 flex items-center">
+                <div className="sticky left-0 z-50 w-[120px] sm:w-[200px] md:w-[300px] min-w-[120px] sm:min-w-[200px] md:min-w-[300px] bg-background border-r p-4 font-black text-[10px] uppercase tracking-widest text-muted-foreground/50 h-10 flex items-center">
                   Təqvim / Aylar
                 </div>
                 <div className="flex">
@@ -211,7 +211,7 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
 
               {/* Day Header Row */}
               <div className="flex bg-background/90 backdrop-blur-sm border-b">
-                <div className="sticky left-0 z-50 w-[150px] sm:w-[300px] min-w-[150px] sm:min-w-[300px] bg-background border-r p-4 font-black text-xs uppercase tracking-widest text-muted-foreground h-14 flex items-start">
+                <div className="sticky left-0 z-50 w-[120px] sm:w-[200px] md:w-[300px] min-w-[120px] sm:min-w-[200px] md:min-w-[300px] bg-background border-r p-4 font-black text-xs uppercase tracking-widest text-muted-foreground h-14 flex items-start">
                   Fəaliyyət / İcraçı
                 </div>
                 <div className="flex">
@@ -250,12 +250,42 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
                   const hasDates = !!activity.start_date && !!activity.end_date;
 
                   return (
-                    <div key={activity.id} className="flex border-b group hover:bg-primary/[0.02] transition-colors h-16">
+                    <div 
+                      key={activity.id} 
+                      className={cn(
+                        "flex border-b group hover:bg-primary/[0.02] transition-colors h-16",
+                        activity.parent_id && "bg-[#f5f8fe]/60 dark:bg-[#141b2d]/20"
+                      )}
+                    >
                       {/* Fixed Left Column */}
-                      <div className="sticky left-0 z-20 w-[150px] sm:w-[300px] min-w-[150px] sm:min-w-[300px] bg-background border-r p-3 flex items-center gap-3 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                      <div className={cn(
+                        "sticky left-0 z-20 w-[120px] sm:w-[200px] md:w-[300px] min-w-[120px] sm:min-w-[200px] md:min-w-[300px] border-r p-3 flex items-center gap-3 shadow-[4px_0_10px_rgba(0,0,0,0.02)]",
+                        activity.parent_id ? "bg-[#f5f8fe] dark:bg-[#141b2d] pl-6 sm:pl-9" : "bg-background"
+                      )}>
+                        {activity.parent_id && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />}
                         <div className={cn("w-1.5 h-8 rounded-full shrink-0 shadow-sm", STATUS_COLORS[activity.status])} />
                         <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-xs font-bold truncate group-hover:text-primary transition-colors" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span 
+                                className="text-xs font-bold truncate group-hover:text-primary transition-colors cursor-pointer" 
+                                dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} 
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="p-3 max-w-[300px] bg-popover text-popover-foreground border shadow-xl rounded-lg">
+                              <div className="space-y-1">
+                                <div className="text-[10px] font-black uppercase tracking-wider text-primary">
+                                  {activity.parent_id ? "Alt fəaliyyət" : "Fəaliyyət"}
+                                </div>
+                                <div className="text-xs font-bold whitespace-normal" dangerouslySetInnerHTML={{ __html: renderContent(activity.name) }} />
+                                {activity.parentName && (
+                                  <div className="text-[9px] text-muted-foreground mt-1">
+                                    Əsas: <span className="font-semibold" dangerouslySetInnerHTML={{ __html: renderContent(activity.parentName) }} />
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                           <div className="flex items-center justify-between mt-1">
                             <div className="flex items-center gap-2">
                               {activity.employee ? (
@@ -289,7 +319,8 @@ export function ProjectActivityTimeline({ activities }: ProjectActivityTimelineP
                               "min-w-[40px] w-[40px] h-full border-r transition-colors",
                               isToday(day) && "bg-primary/[0.03]",
                               isWeekend(day) && "bg-muted/5",
-                              day.getDate() === 1 && "border-l-2 border-l-primary/5"
+                              day.getDate() === 1 && "border-l-2 border-l-primary/5",
+                              activity.parent_id && "bg-[#f5f8fe]/40 dark:bg-[#141b2d]/10"
                             )} 
                           />
                         ))}

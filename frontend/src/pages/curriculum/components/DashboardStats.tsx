@@ -29,7 +29,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map(i => (
           <div key={i} className="h-32 bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between">
             <div className="flex justify-between items-start">
@@ -163,7 +163,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
       {stats.map((stat) => {
         const Icon = stat.icon;
         const isActive = activeStat === stat.id;

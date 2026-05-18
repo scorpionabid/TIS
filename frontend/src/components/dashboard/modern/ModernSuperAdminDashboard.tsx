@@ -46,7 +46,7 @@ export const ModernSuperAdminDashboard = memo(() => {
   return (
     <ModernDashboardWrapper>
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Charts Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}

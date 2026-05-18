@@ -135,7 +135,7 @@ const DraggableEventCard: React.FC<{
             <Badge variant="outline" className="text-[9px] px-1 py-0 rounded">Dəvət</Badge>
           )}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           {event.is_invited && onRsvp ? (
             <>
               <button onClick={() => onRsvp(event.id, 'accepted')} className="px-2 py-0.5 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg">✓ Qəbul</button>
@@ -223,18 +223,18 @@ const WeekView: React.FC<{
   return (
     <div>
       <div className="flex items-center justify-between mb-4 px-2">
-        <span className="text-xl font-black">
+        <span className="text-sm sm:text-base md:text-xl font-black truncate mr-2">
           {format(weekStart, 'd MMM', { locale: az })} — {format(weekEnd, 'd MMM yyyy', { locale: az })}
         </span>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-shrink-0">
           <Button variant="ghost" size="icon" onClick={() => onDateChange(subWeeks(baseDate, 1))} className="h-8 w-8 rounded-lg"><ChevronLeft size={16} /></Button>
-          <Button variant="ghost" size="icon" onClick={() => onDateChange(new Date())} className="h-8 w-8 rounded-lg text-xs">Bu həftə</Button>
+          <Button variant="ghost" size="sm" onClick={() => onDateChange(new Date())} className="h-8 rounded-lg text-xs px-2 hidden sm:flex">Bu həftə</Button>
           <Button variant="ghost" size="icon" onClick={() => onDateChange(addWeeks(baseDate, 1))} className="h-8 w-8 rounded-lg"><ChevronRight size={16} /></Button>
         </div>
       </div>
       <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
         {days.map((d) => (
-          <div key={d.toISOString()} className={cn('text-center text-[9px] sm:text-[10px] font-black uppercase tracking-wider pb-1',
+          <div key={d.toISOString()} className={cn('text-center text-[10px] sm:text-xs font-black uppercase tracking-wider pb-1',
             isSaturday(d) || isSunday(d) ? 'text-slate-400' : 'text-primary/50')}>
             {format(d, 'EEE', { locale: az })}
           </div>
@@ -304,10 +304,10 @@ const CalendarDaysView: React.FC<{
               locale={az}
               className="p-0"
               classNames={{
-                day: cn('h-8 w-8 xs:h-10 xs:w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 p-0 font-bold text-xs xs:text-sm sm:text-lg md:text-2xl rounded-lg xs:rounded-xl sm:rounded-2xl transition-all hover:bg-primary/10 hover:text-primary active:scale-95 flex items-center justify-center mx-auto relative'),
-                cell: 'h-8 w-8 xs:h-10 xs:w-10 sm:h-14 sm:w-14 md:h-20 md:w-20 text-center text-xs xs:text-sm sm:text-lg md:text-2xl p-0 relative focus-within:relative focus-within:z-20',
-                head_cell: 'text-primary/40 rounded-md w-8 xs:w-10 sm:w-14 md:w-20 font-black text-[9px] xs:text-[10px] sm:text-[12px] md:text-[14px] uppercase tracking-widest pb-1 xs:pb-2 md:pb-4 text-center',
-                table: 'w-full border-collapse mx-auto',
+                day: cn('h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 lg:h-10 lg:w-10 p-0 font-bold text-xs sm:text-sm md:text-base rounded-lg sm:rounded-xl transition-all hover:bg-primary/10 hover:text-primary active:scale-95 flex items-center justify-center mx-auto relative'),
+                cell: 'text-center p-0.5 sm:p-1 relative focus-within:relative focus-within:z-20',
+                head_cell: 'text-primary/40 font-black text-[10px] sm:text-xs uppercase tracking-wider pb-1 sm:pb-2 text-center p-0.5 sm:p-1',
+                table: 'w-full table-fixed border-collapse',
                 day_selected: '!bg-primary !text-white hover:!bg-primary hover:!text-white shadow-lg shadow-primary/30 scale-110 z-10',
                 day_today: 'bg-primary/10 text-primary border border-primary/20 font-black',
                 caption: 'hidden',
@@ -332,7 +332,7 @@ const CalendarDaysView: React.FC<{
           </motion.div>
         )}
         {subView === 'months' && (
-          <motion.div key="months" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.2 }} className="min-h-[650px]">
+          <motion.div key="months" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.2 }} className="min-h-[320px] sm:min-h-[420px] md:min-h-[500px]">
             <div className="flex items-center justify-between mb-8 px-2">
               <button onClick={() => setSubView('years')} className="text-xl font-black hover:text-primary flex items-center gap-1 group">
                 {format(activeMonth, 'yyyy')}
@@ -351,7 +351,7 @@ const CalendarDaysView: React.FC<{
           </motion.div>
         )}
         {subView === 'years' && (
-          <motion.div key="years" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.2 }} className="min-h-[650px]">
+          <motion.div key="years" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.2 }} className="min-h-[320px] sm:min-h-[420px] md:min-h-[500px]">
             <div className="flex items-center justify-between mb-8 px-2">
               <span className="text-xl font-black">{years[0]} — {years[years.length - 1]}</span>
               <div className="flex gap-1">
@@ -536,7 +536,7 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <Card className="glass-card border-none modern-shadow rounded-2xl xs:rounded-[32px] h-full overflow-hidden flex flex-col min-h-[600px]">
+      <Card className="glass-card border-none modern-shadow rounded-2xl xs:rounded-[32px] h-full overflow-hidden flex flex-col min-h-[420px] sm:min-h-[520px] md:min-h-[600px]">
         <CardHeader className="border-b border-primary/5 bg-primary/5 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-8">
           <div>
             <CardTitle className="text-xl sm:text-2xl md:text-3xl font-black flex items-center gap-2 sm:gap-3">
@@ -564,8 +564,8 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
         <CardContent className="p-0 flex-1">
           <div className="flex flex-col md:flex-row h-full">
             {/* Calendar area */}
-            <div className="p-1 xs:p-3 sm:p-6 md:p-10 border-r border-primary/5 flex-1 flex flex-col items-center justify-start bg-white/40 dark:bg-slate-900/40 overflow-auto">
-              <div className="w-full max-w-[900px] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl xs:rounded-[40px] shadow-2xl border border-white/20 p-2 xs:p-4 md:p-8">
+            <div className="p-1 xs:p-2 sm:p-3 md:p-4 border-r border-primary/5 flex-1 flex flex-col items-center justify-start bg-white/40 dark:bg-slate-900/40 overflow-auto">
+              <div className="w-full max-w-[900px] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl xs:rounded-3xl shadow-2xl border border-white/20 p-2 xs:p-3 md:p-4 lg:p-6">
                 {calendarView === 'week' ? (
                   <WeekView
                     baseDate={activeMonth}
@@ -603,8 +603,8 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
             </div>
 
             {/* Day events panel */}
-            <div className="w-full md:w-80 lg:w-96 p-4 sm:p-6 md:p-8 bg-slate-50/50 dark:bg-slate-900/60 flex flex-col min-h-[200px] md:min-h-0">
-              <div className="flex items-center justify-between mb-6">
+            <div className="w-full md:w-52 lg:w-60 xl:w-72 p-3 sm:p-4 md:p-4 bg-slate-50/50 dark:bg-slate-900/60 flex flex-col min-h-[200px] md:min-h-0 flex-shrink-0">
+              <div className="flex items-center justify-between mb-3 sm:mb-6">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-[0.2em] text-primary">
                     {selectedDate ? format(selectedDate, 'd MMMM yyyy', { locale: az }) : 'Günün Planı'}
@@ -749,7 +749,7 @@ export const ExpandedCalendarPanel: React.FC<ExpandedCalendarPanelProps> = ({
                 </select>
                 {form.recurrence_rule !== 'none' && (
                   <div className="grid gap-1">
-                    <Label className="text-[9px] text-muted-foreground uppercase">Son tarix</Label>
+                    <Label className="text-[10px] text-muted-foreground uppercase">Son tarix</Label>
                     <Input type="date" value={form.recurrence_end_date}
                       onChange={(e) => setForm({ ...form, recurrence_end_date: e.target.value })}
                       className="rounded-2xl h-12 text-sm" />

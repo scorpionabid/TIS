@@ -141,6 +141,23 @@ export function ProjectDetailsPanel({
     return result;
   }, [filteredActivities, search, priorityFilter, assigneeFilter]);
 
+  const flatActivities = useMemo(() => {
+    const list: ProjectActivity[] = [];
+    const topLevel = displayActivities.filter(a => !a.parent_id);
+    topLevel.forEach(parent => {
+      list.push(parent);
+      if (parent.sub_activities && parent.sub_activities.length > 0) {
+        parent.sub_activities.forEach(sub => {
+          list.push({
+            ...sub,
+            parentName: parent.name,
+          });
+        });
+      }
+    });
+    return list;
+  }, [displayActivities]);
+
   const hasActiveFilters = !!searchVal || !!priorityFilter || !!assigneeFilter;
 
   const clearFilters = () => {
@@ -253,7 +270,7 @@ export function ProjectDetailsPanel({
                 value={searchVal}
                 onChange={e => setSearchVal(e.target.value)}
                 placeholder="Axtar..."
-                className="h-8 pl-8 pr-7 w-36 sm:w-48 text-xs"
+                className="h-8 pl-8 pr-7 w-full sm:w-48 text-xs"
               />
               {searchVal && (
                 <button onClick={() => { setSearchVal(''); setSearch(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -372,7 +389,7 @@ export function ProjectDetailsPanel({
           {activeView === 'kanban' && (
             <motion.div key="kanban" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.2 }}>
               <ProjectActivityKanban
-                activities={displayActivities}
+                activities={flatActivities}
                 onStatusChange={onStatusChange}
                 onActivityUpdated={onActivityUpdated}
                 onDeleteActivity={onDeleteActivity}
@@ -401,7 +418,7 @@ export function ProjectDetailsPanel({
           )}
           {activeView === 'timeline' && (
             <motion.div key="timeline" initial={{ opacity: 0, scale: 1.05 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} transition={{ duration: 0.2 }}>
-              <ProjectActivityTimeline activities={displayActivities} />
+              <ProjectActivityTimeline activities={flatActivities} />
             </motion.div>
           )}
           {activeView === 'dashboard' && stats && (

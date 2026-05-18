@@ -509,7 +509,7 @@ const GradeBooksPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
                 {/* Block I: Region / Sektor / Məktəblər */}
                 <div className="md:col-span-4 flex flex-col">
-                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                  <Card className="border-slate-200 flex flex-col min-h-[300px] sm:min-h-[420px] md:min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <Building2 className="w-4 h-4" />
@@ -550,7 +550,7 @@ const GradeBooksPage: React.FC = () => {
 
                 {/* Block II: Siniflər (səviyyə + hərf) */}
                 <div className="md:col-span-4 flex flex-col">
-                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                  <Card className="border-slate-200 flex flex-col min-h-[300px] sm:min-h-[420px] md:min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <GraduationCap className="w-4 h-4" />
@@ -708,7 +708,7 @@ const GradeBooksPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
                 {/* Block I: Sinif Səviyyələri */}
                 <div className="md:col-span-4 flex flex-col">
-                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                  <Card className="border-slate-200 flex flex-col min-h-[300px] sm:min-h-[420px] md:min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <Calculator className="w-4 h-4" />
@@ -766,7 +766,7 @@ const GradeBooksPage: React.FC = () => {
 
                 {/* Block II: Siniflər (A, B...) */}
                 <div className="md:col-span-4 flex flex-col">
-                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                  <Card className="border-slate-200 flex flex-col min-h-[300px] sm:min-h-[420px] md:min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <GraduationCap className="w-4 h-4" />

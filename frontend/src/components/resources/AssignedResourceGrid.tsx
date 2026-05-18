@@ -267,7 +267,7 @@ export function AssignedResourceGrid({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity flex-shrink-0 mt-0.5 focus:outline-none"
+                        className="opacity-60 sm:opacity-0 sm:group-hover:opacity-60 hover:!opacity-100 transition-opacity flex-shrink-0 mt-0.5 focus:outline-none"
                         onClick={(e) => e.stopPropagation()}
                         aria-label="Ətraflı məlumat"
                       >

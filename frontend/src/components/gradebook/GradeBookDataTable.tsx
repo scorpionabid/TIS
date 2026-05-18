@@ -398,7 +398,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
     <div className="space-y-4">
       {/* Selection Control & Bulk Header */}
       {!readOnly && (
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3 rounded-lg border shadow-sm transition-all">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-lg border shadow-sm transition-all">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100">
               <Users className="h-4 w-4" />
@@ -430,7 +430,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
             {teachers.length > 1 && (
               <div className="flex items-center gap-2">
                 <Select onValueChange={handleBulkAssign} disabled={isBulkAssigning}>
-                  <SelectTrigger className="w-[180px] h-9 bg-amber-50 border-amber-200 text-amber-900 focus:ring-amber-500">
+                  <SelectTrigger className="w-full sm:w-[180px] h-9 bg-amber-50 border-amber-200 text-amber-900 focus:ring-amber-500">
                     <SelectValue placeholder="Seçilənlərə müəllim təyin et" />
                   </SelectTrigger>
                   <SelectContent>

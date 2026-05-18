@@ -28,9 +28,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Check, Settings2, ChevronDown, List, CheckCircle, Clock, Copy, FolderOpen } from 'lucide-react';
+import { Check, Settings2, ChevronDown, List, CheckCircle, Clock, Copy, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useColumnSettings } from '@/hooks/projects/useColumnSettings';
 import {
   DndContext,
@@ -141,6 +142,7 @@ export function ProjectActivityTable({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<number>>(new Set());
   const [addingSubFor, setAddingSubFor] = useState<number | null>(null);
+  const [isViewExpanded, setIsViewExpanded] = useState(false);
 
   const toggleParent = (id: number) =>
     setExpandedParents(prev => {
@@ -211,21 +213,68 @@ export function ProjectActivityTable({
     }
   };
 
-  const nameWidth = columnWidths['name'] || 350;
+  const nameWidth = isViewExpanded
+    ? Math.max((columnWidths['name'] || 350) * 2, 600)
+    : (columnWidths['name'] || 350);
   const totalVisibleColumns = columns.filter((c) => isVisible(c.id)).length + 1;
 
+  // Mətn sütunları üçün genişlənmiş en — expanded modda 2x
+  const TEXT_COLS = ['description', 'expected_outcome', 'kpi_metrics', 'risks', 'notes', 'monitoring_mechanism', 'location_platform'];
+  // Bütün mümkün sütun açarları (defaults + text sütunları)
+  const ALL_COL_KEYS = [...new Set([...Object.keys(columnWidths), ...TEXT_COLS])];
+  const getColWidth = (colId: string) => {
+    const base = columnWidths[colId] || 150;
+    return isViewExpanded && TEXT_COLS.includes(colId) ? Math.max(base * 2, 320) : base;
+  };
+  const effectiveColumnWidths: Record<string, number> = Object.fromEntries(
+    ALL_COL_KEYS.map((k) => [k, getColWidth(k)])
+  );
+
   return (
-    <div className="space-y-2">
-      <div
-        ref={tableRef}
-        className="relative overflow-x-auto border border-border/40 rounded-2xl shadow-2xl bg-card/30 backdrop-blur-md scrollbar-thin scrollbar-thumb-muted-foreground/10 mx-1"
-      >
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-          modifiers={[restrictToVerticalAxis]}
+    <TooltipProvider>
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between px-1 bg-card/10 border border-border/10 rounded-xl p-2 backdrop-blur-sm shadow-sm gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-foreground/80 flex items-center gap-1.5 bg-primary/5 px-2.5 py-1 rounded-lg border border-primary/10">
+              <List className="w-3.5 h-3.5 text-primary" />
+              Fəaliyyətlər Siyahısı (Cədvəl)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsViewExpanded(!isViewExpanded)}
+              className={cn(
+                "h-8 text-xs font-bold gap-1.5 shadow-sm border border-primary/20 bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all duration-200 rounded-lg",
+                isViewExpanded && "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15"
+              )}
+            >
+              {isViewExpanded ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 text-primary transition-transform duration-300 animate-in fade-in" />
+                  Yığcam Görünüş
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5 text-primary transition-transform duration-300 animate-in fade-in" />
+                  Sütunları Tam Aç
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div
+          ref={tableRef}
+          className="relative overflow-x-auto border border-border/40 rounded-2xl shadow-2xl bg-card/30 backdrop-blur-md scrollbar-thin scrollbar-thumb-muted-foreground/10 mx-1"
         >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis]}
+          >
           <Table className="border-separate border-spacing-0 min-w-max">
             <TableHeader className="bg-muted/5 sticky top-0 z-[50]">
               <TableRow className="hover:bg-transparent border-b">
@@ -247,7 +296,7 @@ export function ProjectActivityTable({
                   <TableHead
                     key={col.id}
                     className="text-center text-[10px] uppercase tracking-wider font-semibold h-10 border-r py-0"
-                    style={{ width: columnWidths[col.id] || 150 }}
+                    style={{ width: getColWidth(col.id) }}
                   >
                     <div className="flex items-center justify-center h-full relative px-2">
                       <span>{col.label}</span>
@@ -399,7 +448,7 @@ export function ProjectActivityTable({
                                   editFormData={editFormData}
                                   isSubmitting={isSubmitting}
                                   availableUsers={availableUsers}
-                                  columnWidths={columnWidths}
+                                  columnWidths={effectiveColumnWidths}
                                   onDelete={(id) => setDeletingId(id)}
                                   canEdit={canEdit}
                                   subActivityCount={subs.length}
@@ -411,6 +460,7 @@ export function ProjectActivityTable({
                                   }}
                                   onViewDetails={onViewDetails}
                                   onCloneActivity={onCloneActivity}
+                                  isViewExpanded={isViewExpanded}
                                 />
 
                                 {/* Alt fəaliyyətlər */}
@@ -432,9 +482,10 @@ export function ProjectActivityTable({
                                         editFormData={editFormData}
                                         isSubmitting={isSubmitting}
                                         availableUsers={availableUsers}
-                                        columnWidths={columnWidths}
+                                        columnWidths={effectiveColumnWidths}
                                         onDelete={(id) => setDeletingId(id)}
                                         canEdit={canEdit}
+                                        isViewExpanded={isViewExpanded}
                                       />
                                     ))}
                                   </SortableContext>
@@ -455,7 +506,7 @@ export function ProjectActivityTable({
                                     }}
                                     availableUsers={availableUsers}
                                     canEdit
-                                    columnWidths={columnWidths}
+                                    columnWidths={effectiveColumnWidths}
                                     parentId={activity.id}
                                     autoExpand
                                   />
@@ -512,6 +563,7 @@ export function ProjectActivityTable({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
   );
 }
 

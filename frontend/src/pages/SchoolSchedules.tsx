@@ -127,18 +127,18 @@ export default function SchoolSchedules() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dərs Cədvəli</h1>
-          <p className="text-muted-foreground">Sinif və müəllim dərs cədvəlləri</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Dərs Cədvəli</h1>
+          <p className="text-sm text-muted-foreground">Sinif və müəllim dərs cədvəlləri</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExport} className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={handleExport} className="flex items-center gap-2 h-9 text-sm">
             <Download className="h-4 w-4" />
             Export
           </Button>
-          <Button className="flex items-center gap-2">
+          <Button className="flex items-center gap-2 h-9 text-sm">
             <Plus className="h-4 w-4" />
             Yeni Cədvəl
           </Button>
@@ -146,7 +146,7 @@ export default function SchoolSchedules() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -226,7 +226,7 @@ export default function SchoolSchedules() {
           <CardTitle>Filtrləmə</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger>
                 <SelectValue placeholder="Cədvəl növü" />
@@ -252,27 +252,30 @@ export default function SchoolSchedules() {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
+            <div className="flex items-center gap-1.5 flex-wrap sm:col-span-2 md:col-span-1">
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentWeek(addDays(currentWeek, -7))}
+                className="flex-1 sm:flex-none text-xs"
               >
-                ← Əvvəlki həftə
+                ← Əvvəlki
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentWeek(new Date())}
+                className="flex-1 sm:flex-none text-xs"
               >
                 Bu həftə
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
+                className="flex-1 sm:flex-none text-xs"
               >
-                Növbəti həftə →
+                Növbəti →
               </Button>
             </div>
           </div>
@@ -299,7 +302,7 @@ export default function SchoolSchedules() {
             </div>
           ) : weeklyData?.slots?.length ? (
             <div className="overflow-x-auto">
-              <div className="grid grid-cols-8 gap-2 min-w-full">
+              <div className="grid grid-cols-8 gap-1 sm:gap-2 min-w-[560px]">
                 {/* Header row */}
                 <div className="font-medium text-center py-2">Saat</div>
                 {daysOfWeek.map((day) => (
@@ -384,15 +387,15 @@ export default function SchoolSchedules() {
               Seçilmiş kriteriiyalara uyğun cədvəl tapılmadı
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cədvəl Adı</TableHead>
                     <TableHead>Növ</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Tarix Aralığı</TableHead>
-                    <TableHead>Yaradıcı</TableHead>
+                    <TableHead className="hidden sm:table-cell">Tarix Aralığı</TableHead>
+                    <TableHead className="hidden md:table-cell">Yaradıcı</TableHead>
                     <TableHead className="text-center">Əməliyyatlar</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -416,7 +419,7 @@ export default function SchoolSchedules() {
                           </Badge>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="text-sm">
                           <div>{format(new Date(schedule.start_date), 'dd.MM.yyyy')}</div>
                           <div className="text-muted-foreground">
@@ -424,7 +427,7 @@ export default function SchoolSchedules() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {schedule.creator?.first_name} {schedule.creator?.last_name}
                       </TableCell>
                       <TableCell className="text-center">

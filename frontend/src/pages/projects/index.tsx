@@ -78,6 +78,15 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 
+function renderContent(text: string | null | undefined): string {
+  if (!text) return '';
+  const hasHtml = /<[a-z][\s\S]*>/i.test(text);
+  if (!hasHtml) {
+    return text.replace(/\n/g, '<br />');
+  }
+  return text;
+}
+
 const formatDate = (dateString?: string) => {
   if (!dateString) return '-';
   try {
@@ -119,6 +128,12 @@ export default function Projects() {
   const [archivingProject, setArchivingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [detailActivity, setDetailActivity] = useState<ProjectActivity | null>(null);
+  const [cascadeStatusDialog, setCascadeStatusDialog] = useState<{
+    activityId: number;
+    newStatus: ProjectActivity['status'];
+    activityName: string;
+    uncompletedSubs: ProjectActivity[];
+  } | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'mine' | 'overdue'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -262,10 +277,57 @@ export default function Projects() {
   const handleStatusChange = async (activityId: number, newStatus: ProjectActivity['status']) => {
     if (!selectedProject) return;
     try {
+      const activity = selectedProject.activities?.find(a => a.id === activityId);
+      
+      // Cascade/Validation Check:
+      // If it is a top-level activity and being marked as 'completed'
+      if (activity && !activity.parent_id && newStatus === 'completed') {
+        const uncompletedSubs = activity.sub_activities?.filter(sub => sub.status !== 'completed') || [];
+        if (uncompletedSubs.length > 0) {
+          setCascadeStatusDialog({
+            activityId,
+            newStatus,
+            activityName: activity.name,
+            uncompletedSubs,
+          });
+          return;
+        }
+      }
+
       await projectService.updateActivity(activityId, { status: newStatus });
       fetchProjectDetails(selectedProject.id);
     } catch (error: any) {
        toast({
+        title: 'Xəta',
+        description: 'Status yenilənərkən xəta baş verdi.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleConfirmStatusCascade = async () => {
+    if (!selectedProject || !cascadeStatusDialog) return;
+    const { activityId, newStatus, uncompletedSubs } = cascadeStatusDialog;
+    setCascadeStatusDialog(null);
+    try {
+      // 1. Cascade update all uncompleted sub-activities to 'completed'
+      const updatePromises = uncompletedSubs.map(sub => 
+        projectService.updateActivity(sub.id, { status: 'completed' })
+      );
+      await Promise.all(updatePromises);
+
+      // 2. Update the parent activity status to 'completed'
+      await projectService.updateActivity(activityId, { status: newStatus });
+      
+      // 3. Refresh statistics and details
+      fetchProjectDetails(selectedProject.id);
+      
+      toast({
+        title: 'Uğurlu',
+        description: 'Əsas fəaliyyət və bütün alt fəaliyyətlər uğurla tamamlandı.',
+      });
+    } catch (error: any) {
+      toast({
         title: 'Xəta',
         description: 'Status yenilənərkən xəta baş verdi.',
         variant: 'destructive',
@@ -325,8 +387,14 @@ export default function Projects() {
       if (selectedProject) {
         setSelectedProject({
           ...selectedProject,
-          activities: selectedProject.activities?.filter(a => a.id !== activityId)
+          activities: selectedProject.activities
+            ?.filter(a => a.id !== activityId)
+            .map(a => ({
+              ...a,
+              sub_activities: a.sub_activities?.filter(sub => sub.id !== activityId) || []
+            }))
         });
+        fetchProjectDetails(selectedProject.id);
       }
       toast({
         title: 'Uğurlu',
@@ -466,7 +534,7 @@ export default function Projects() {
 
       {/* Archive Confirmation */}
       <AlertDialog open={!!archivingProject} onOpenChange={(open) => { if (!open) setArchivingProject(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Archive className="w-5 h-5 text-purple-600" />
@@ -490,7 +558,7 @@ export default function Projects() {
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deletingProject} onOpenChange={(open) => { if (!open) setDeletingProject(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Trash2 className="w-5 h-5 text-rose-600" />
@@ -515,20 +583,20 @@ export default function Projects() {
       {/* Project Side Panel (Redesigned) */}
       <Sheet open={isProjectModalOpen} onOpenChange={(open) => { setIsProjectModalOpen(open); if(!open) setEditingProject(null); }}>
         <SheetContent className="sm:max-w-[750px] w-full p-0 flex flex-col shadow-2xl">
-          <div className="px-8 py-6 border-b">
+          <div className="px-4 sm:px-8 py-4 sm:py-6 border-b">
             <SheetHeader>
-              <SheetTitle className="text-2xl font-bold">
+              <SheetTitle className="text-xl sm:text-2xl font-bold">
                 {editingProject ? 'Layihəni Redaktə Et' : 'Yeni Layihə Strategiyası'}
               </SheetTitle>
               <SheetDescription className="text-sm text-muted-foreground mt-1">
-                {editingProject 
-                  ? 'Layihənin cari vəziyyətini, komanda tərkibi və hədəflərini buradan yeniləyin.' 
+                {editingProject
+                  ? 'Layihənin cari vəziyyətini, komanda tərkibi və hədəflərini buradan yeniləyin.'
                   : 'Yeni bir strateji hədəf təyin edərək komandanı işə cəlb edin.'}
               </SheetDescription>
             </SheetHeader>
           </div>
-          
-          <div className="flex-1 overflow-hidden p-8">
+
+          <div className="flex-1 overflow-hidden p-3 sm:p-6 md:p-8">
             <ProjectForm 
               initialData={editingProject || undefined}
               onSubmit={handleSaveProject} 
@@ -568,6 +636,36 @@ export default function Projects() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ── Alt Fəaliyyətlər Tamamlanma Təsdiqi (Cascade Dialog) ── */}
+      <AlertDialog open={!!cascadeStatusDialog} onOpenChange={(open) => { if (!open) setCascadeStatusDialog(null); }}>
+        <AlertDialogContent className="w-[95vw] sm:max-w-[420px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-amber-600 animate-pulse" />
+              Alt fəaliyyətlər hələ tamamlanmayıb
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-xs leading-relaxed text-muted-foreground mt-2">
+              <span className="font-semibold text-foreground">
+                "
+                <span dangerouslySetInnerHTML={{ __html: renderContent(cascadeStatusDialog?.activityName) }} />
+                "
+              </span> fəaliyyətinin <span className="font-bold text-amber-600">{cascadeStatusDialog?.uncompletedSubs.length}</span> alt fəaliyyəti hələ tamamlanmayıb.
+              <br /><br />
+              Əsas fəaliyyəti tamamlanmış etmək üçün bütün alt fəaliyyətləri də avtomatik olaraq tamamlamaq istəyirsiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 flex-col sm:flex-row">
+            <AlertDialogCancel className="text-xs">İmtina et</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmStatusCascade}
+              className="bg-amber-600 hover:bg-amber-700 text-white text-xs"
+            >
+              Bəli, hamısını tamamla
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

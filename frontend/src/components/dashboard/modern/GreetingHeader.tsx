@@ -256,25 +256,25 @@ export const GreetingHeader = () => {
   const WeatherIcon = WEATHER_ICONS[weather?.iconName ?? 'sun'];
 
   return (
-    <div className="relative p-6 md:p-8 rounded-3xl overflow-hidden mb-4 bg-gradient-to-br border border-white/10 shadow-2xl from-slate-500/10 via-slate-500/5 to-transparent">
+    <div className="relative p-4 sm:p-6 md:p-8 rounded-3xl overflow-hidden mb-4 bg-gradient-to-br border border-white/10 shadow-2xl from-slate-500/10 via-slate-500/5 to-transparent">
       <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -mr-48 -mt-48 animate-pulse" />
 
       <div className="relative z-10">
         {/* Top row */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 md:gap-6 mb-4 md:mb-5">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 sm:gap-4 md:gap-6 mb-3 sm:mb-4 md:mb-5">
           {/* Left: greeting */}
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-2 sm:space-y-3 flex-1 min-w-0">
-            <div className="flex items-center gap-2 sm:gap-3 text-primary/80 font-bold tracking-widest uppercase text-[9px] sm:text-[10px] md:text-xs flex-wrap">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-1.5 sm:space-y-2 md:space-y-3 flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 text-primary/80 font-bold tracking-widest uppercase text-[10px] sm:text-xs flex-wrap">
               {greeting.icon}
               <span>{greeting.text}</span>
               <span className="hidden sm:block w-6 sm:w-8 h-[1px] bg-primary/30" />
-              <span className="text-muted-foreground flex items-center gap-1"><MapPin size={11} /> <span className="truncate max-w-[120px] sm:max-w-none">{userRegion}</span></span>
+              <span className="text-muted-foreground flex items-center gap-1"><MapPin size={11} /> <span className="truncate max-w-[140px] sm:max-w-none">{userRegion}</span></span>
             </div>
-            <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight leading-tight">
+            <h1 className="text-lg sm:text-2xl md:text-4xl font-black tracking-tight leading-tight">
               Xoş gəldiniz, <span className="text-primary">{userName}</span>!
               <Sparkles className="inline-block ml-1 sm:ml-2 text-amber-400 animate-pulse h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7" />
             </h1>
-            {/* Daily quote — hide on very small screens */}
+            {/* Daily quote */}
             <p className="hidden sm:block text-xs md:text-sm text-muted-foreground italic max-w-lg border-l-2 border-primary/20 pl-3">
               "{getDailyQuote()}"
             </p>
@@ -282,33 +282,35 @@ export const GreetingHeader = () => {
 
           {/* Right: weather + clock */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-4 sm:gap-6 md:gap-10 md:border-l border-primary/10 md:pl-8 flex-shrink-0 self-start md:self-auto">
-            {/* Weather */}
-            <div className="flex flex-col items-end border-r border-primary/10 pr-4 sm:pr-6 hidden sm:flex">
-              <div className="flex items-center gap-1.5 sm:gap-2 text-amber-500 mb-0.5">
-                <WeatherIcon size={22} className={weather?.label === 'Günəşli' ? 'animate-spin-slow' : ''} />
-                <span className="text-xl sm:text-2xl md:text-4xl font-black tracking-tighter tabular-nums">
-                  {weather ? `${weather.temp}°C` : '—°C'}
-                </span>
+            className="flex items-center gap-3 sm:gap-6 md:gap-10 md:border-l border-primary/10 md:pl-8 flex-shrink-0 self-start md:self-auto">
+            {/* Weather — compact on mobile, full on sm+ */}
+            {weather && (
+              <div className="flex sm:flex-col items-center sm:items-end gap-1.5 sm:gap-0 border-r border-primary/10 pr-3 sm:pr-6">
+                <div className="flex items-center gap-1 sm:gap-2 text-amber-500 sm:mb-0.5">
+                  <WeatherIcon size={18} className={cn('sm:w-[22px] sm:h-[22px]', weather.label === 'Günəşli' ? 'animate-spin-slow' : '')} />
+                  <span className="text-lg sm:text-2xl md:text-4xl font-black tracking-tighter tabular-nums">
+                    {weather.temp}°C
+                  </span>
+                </div>
+                <div className="hidden sm:block text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate max-w-[120px]">
+                  {weather.label}
+                </div>
               </div>
-              <div className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate max-w-[120px]">
-                {weather?.label ?? '…'}
-              </div>
-            </div>
+            )}
 
             {/* Clock */}
             <button onClick={() => setIsTimePanelOpen(true)}
               className="group text-center md:text-right transition-all hover:scale-105 active:scale-95 min-w-0">
-              <div className="text-3xl sm:text-4xl md:text-6xl font-black tracking-widest leading-none mb-1 tabular-nums flex items-baseline gap-0.5">
+              <div className="text-2xl sm:text-4xl md:text-6xl font-black tracking-widest leading-none mb-0.5 sm:mb-1 tabular-nums flex items-baseline gap-0.5">
                 {format(currentTime, 'HH:mm')}
-                <span className="text-xs sm:text-sm md:text-lg font-bold text-primary animate-pulse tracking-normal tabular-nums inline-block w-[2ch] text-left">
+                <span className="text-[10px] sm:text-sm md:text-lg font-bold text-primary animate-pulse tracking-normal tabular-nums inline-block w-[2ch] text-left">
                   {format(currentTime, 'ss')}
                 </span>
               </div>
-              <div className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">
+              <div className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest mb-0.5 sm:mb-1">
                 {format(currentTime, 'd MMM yyyy', { locale: az })}
               </div>
-              <div className="hidden sm:block text-[9px] font-black text-primary/40 uppercase tracking-[0.3em] group-hover:text-primary transition-colors">
+              <div className="hidden sm:block text-[10px] font-black text-primary/40 uppercase tracking-[0.3em] group-hover:text-primary transition-colors">
                 Zaman Paneli
               </div>
             </button>
@@ -332,7 +334,7 @@ export const GreetingHeader = () => {
                   className={cn('flex flex-col items-center gap-1 md:gap-2 p-2 md:p-4 rounded-2xl md:rounded-3xl transition-all group',
                     activeTab === tab.id ? 'bg-primary text-white shadow-xl shadow-primary/40 scale-110' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary')}>
                   <tab.icon size={24} />
-                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">{tab.label}</span>
+                  <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -383,12 +385,12 @@ export const GreetingHeader = () => {
                       </div>
                       <div className="flex items-center gap-3 justify-center bg-primary/5 p-5 rounded-3xl border border-primary/10 max-w-sm mx-auto">
                         <div className="flex flex-col gap-1">
-                          <span className="text-[9px] font-black text-primary uppercase">Dəq</span>
+                          <span className="text-[10px] font-black text-primary uppercase">Dəq</span>
                           <Input type="number" value={manualMinutes} onChange={(e) => setManualMinutes(e.target.value)} className="w-20 h-12 text-xl font-black text-center rounded-xl border-primary/20" />
                         </div>
                         <span className="text-2xl font-black mt-4">:</span>
                         <div className="flex flex-col gap-1">
-                          <span className="text-[9px] font-black text-primary uppercase">San</span>
+                          <span className="text-[10px] font-black text-primary uppercase">San</span>
                           <Input type="number" value={manualSeconds} onChange={(e) => setManualSeconds(e.target.value)} className="w-20 h-12 text-xl font-black text-center rounded-xl border-primary/20" />
                         </div>
                         <Button onClick={handleSetManualTimer} className="h-12 px-5 rounded-xl mt-4 font-black text-xs gap-1.5"><Keyboard size={14} /> Tət.</Button>
@@ -422,7 +424,7 @@ export const GreetingHeader = () => {
                 </AnimatePresence>
               </div>
 
-              <div className="mt-auto pt-6 text-center text-[9px] font-black uppercase tracking-[0.4em] opacity-20">
+              <div className="mt-auto pt-6 text-center text-[10px] font-black uppercase tracking-[0.4em] opacity-20">
                 Zaman İdarəetmə Mərkəzi
               </div>
             </div>

@@ -52,6 +52,7 @@ interface ProjectTableProps {
 export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectClick, onEditClick, onArchiveClick, onUnarchiveClick, onDeleteClick, isAdmin, currentUserId }) => {
   return (
     <div className="rounded-lg border border-border bg-background overflow-hidden">
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader className="bg-muted/30">
           <TableRow className="hover:bg-transparent border-muted/60">
@@ -189,6 +190,7 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onProjectC
           })}
         </TableBody>
       </Table>
+      </div>{/* /overflow-x-auto */}
     </div>
   );
 };
