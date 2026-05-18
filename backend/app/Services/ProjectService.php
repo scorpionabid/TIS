@@ -32,12 +32,12 @@ class ProjectService extends BaseService
     {
         $query = Project::query();
 
-        // SuperAdmin, Admin and RegionAdmin see all projects across all regions
-        if ($user->hasAnyRole(['superadmin', 'admin', 'regionadmin'])) {
+        // Only SuperAdmin and Admin see all projects across all regions
+        if ($user->hasAnyRole(['superadmin', 'admin'])) {
             return $query;
         }
 
-        // RegionAdmin, SektorAdmin, and others are restricted by their institution hierarchy
+        // RegionAdmin, RegionOperator, SektorAdmin, and others are restricted by their institution hierarchy
         // They see projects:
         // 1. Created by them or anyone in their institution hierarchy (descendants)
         // 2. Projects where they are explicitly assigned
@@ -502,11 +502,8 @@ class ProjectService extends BaseService
     {
         $activity = ProjectActivity::with(['project', 'subActivities'])->findOrFail($activityId);
 
-        // Authorization: Admin or Project Creator
-        $canDelete = $user->hasAnyRole(['admin', 'superadmin', 'regionadmin']) ||
-                     $activity->project->created_by === $user->id;
-
-        if (! $canDelete) {
+        // Authorization: same hierarchy rules as editing the project
+        if (! $this->canEditProject($activity->project_id, $user)) {
             throw new \Exception('Bu fəaliyyəti silmək üçün icazəniz yoxdur.');
         }
 
