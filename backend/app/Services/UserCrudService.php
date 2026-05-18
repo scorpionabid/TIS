@@ -182,7 +182,7 @@ class UserCrudService
             $oldData = $user->toArray();
 
             $updateData = array_intersect_key($data, array_flip([
-                'username', 'email', 'role_id', 'institution_id', 'department_id',
+                'username', 'email', 'utis_code', 'role_id', 'institution_id', 'department_id',
                 'departments', 'is_active',
             ]));
 

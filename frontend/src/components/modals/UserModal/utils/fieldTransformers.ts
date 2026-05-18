@@ -40,14 +40,14 @@ export function transformFormDataToBackend(
     institution_id: institutionIdFromForm,
     department_id: data.department_id ? parseInt(data.department_id) : null,
     is_active: data.is_active !== false, // default to true
+    // Profile fields sent at top level — backend UpdateUserRequest validates them as flat keys
+    first_name: data.first_name || undefined,
+    last_name: data.last_name || undefined,
+    utis_code: data.utis_code || undefined,
   };
 
-  // Build profile object with all user-specific fields
+  // Build profile object with teacher/student-specific fields
   const profile: any = {
-    // Basic profile fields
-    first_name: data.first_name || "",
-    last_name: data.last_name || "",
-    utis_code: data.utis_code || "",
     // REMOVED: patronymic, birth_date, gender, national_id, contact_phone - database columns do not exist
     // REMOVED: emergency_contact fields - not in database schema
   };
